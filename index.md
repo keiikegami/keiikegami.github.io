@@ -1,0 +1,24 @@
+@def title = "Kei Ikegami's Personal Website"
+@def tags = ["syntax", "code"]
+
+# Kei Ikegami
+
+
+~~~
+<div class="row">
+  <div class="container">
+    <img class="left" src="/assets/ikegami_image.jpg" width="200" height="200">
+    <p>
+    I am a 1st year Ph.D. student in Economics at New York University.
+    </p>
+    <p>
+    My research interests are industrial organization, health economics, game theory.
+    </p>
+    <p>
+    Contact: ikegami[dot]kei[at]gmail[dot]com
+    </p>
+    <div style="clear: both"></div>      
+  </div>
+</div>
+~~~
+
