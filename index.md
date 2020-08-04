@@ -1,7 +1,7 @@
-@def title = "Kei Ikegami's Personal Website"
+@def title = "Kei Ikegami's Website"
 @def tags = ["syntax", "code"]
 
-# Kei Ikegami
+# Kei IKEGAMI
 
 
 ~~~
