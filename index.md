@@ -15,10 +15,15 @@
     My research interests are industrial organization, health economics, game theory.
     </p>
     <p>
-    Contact: ikegami[dot]kei[at]gmail[dot]com
+    Contact: ikegami[dot]kei0120[at]gmail[dot]com
     </p>
     <div style="clear: both"></div>      
   </div>
 </div>
 ~~~
+
+## CV
+The latest version is [here](/assets/ikegami_CV.pdf).
+
+
 
