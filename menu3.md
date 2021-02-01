@@ -5,4 +5,4 @@
 
 # Blogs
 
-- [『君の名は希望』が好きすぎる](https://keiikegami.github.io/pages/blog1.md), 2020/08/25
+- [『君の名は希望』が好きすぎる](/pages/blog1/), 2020/08/25
