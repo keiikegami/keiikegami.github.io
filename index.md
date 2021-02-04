@@ -23,7 +23,7 @@
 ~~~
 
 ## CV
-The latest is [here](/assets/Ikegami_CV.pdf).
+The latest version is [here](/assets/Ikegami_CV.pdf).
 
 
 
