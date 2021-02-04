@@ -7,7 +7,7 @@
 ~~~
 <div class="row">
   <div class="container">
-    <img class="left" src="/assets/ikegami_image.jpg" width="200" height="200">
+    <img class="left" src="/assets/ikegami_image.jpg" width="300" height="300">
     <p>
     I am a 1st year Ph.D. student in Economics at New York University.
     </p>
