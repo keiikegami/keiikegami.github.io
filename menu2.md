@@ -7,7 +7,7 @@
 ~~~
 <div class="row">
   <div class="container">
-    <img class="left" src="/assets/CRAB_logo_sq.svg" width="200" height="200">
+    <img class="left" src="/assets/images/CRAB_logo_sq.svg" width="200" height="200">
     <p>
     <a href="https://crab.jp/">Credible Recommender bsed on Agent-made Billboard (CRAB)</a> is a crowd management technology based on mechanism design theory and algorithmic game theory. Our solution works even when we cannot rely on monetary incentive as in the famous peak-load pricing and paves the way to the real-time web application. We continue to try to implement this rechnology in various situations and test its validity. Please contact me if you are interested in the implementation of the mechanism design theory and/or the crowd management technology. 
     </p> 
