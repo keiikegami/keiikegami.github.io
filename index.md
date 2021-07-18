@@ -12,8 +12,7 @@
     I am a 1st year Ph.D. student in Economics at New York University.
     </p>
     <p>
-    My research interests are Industrial organization, Health conomics, Applied microeconomics.
-    </p>
+    My research interests are Applied Microeconomics. Econometrics, Industrial Organization.
     <p>
     Contact: ikegami[dot]kei0120[at]gmail[dot]com
     </p>
