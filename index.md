@@ -9,10 +9,10 @@
   <div class="container">
     <img class="left" src="/assets/images/ikegami_image.JPG" width="300" height="300">
     <p>
-    I am a 1st year Ph.D. student in Economics at New York University.
+    I am a 3rd year Ph.D. student in Economics at New York University.
     </p>
     <p>
-    My research interests are Applied Microeconomics. Econometrics, Industrial Organization.
+    My research interests are Econometrics and Industrial Organization.
     <p>
     Contact: ikegami[dot]kei0120[at]gmail[dot]com
     </p>
