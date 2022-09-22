@@ -1,6 +1,6 @@
 @def title = "Research"
 @def hascode = true
-@def date = Date(2020, 8, 4)
+@def date = Date(2022, 9, 22)
 @def tags = ["syntax", "code"]
 
 # Papers
@@ -10,7 +10,7 @@
 - Kei Ikegami, [\col{blue}{Ken Onishi}](https://sites.google.com/site/kenonishiecon/), and [\col{blue}{Naoki Wakamori}](https://sites.google.com/site/nwakamori/home), [\col{blue}{Competition-Driven Physician-Induced Demand}](https://www.sciencedirect.com/science/article/pii/S0167629621000734?via%3Dihub), Journal of Health Economics, Vol. 79, September 2021
 
 ## Working Paper
-- Kei Ikegami and [\col{blue}{Hikaru Kawarazaki}](https://sites.google.com/site/hikarukawara/home), ``Somebody Else’s Problem: Which Information Drives (or Does Not Drive) Policy Changes.''
+- Kei Ikegami and [\col{blue}{Hikaru Kawarazaki}](https://sites.google.com/site/hikarukawara/home), Somebody Else’s Problem: Which Information Drives (or Does Not Drive) Policy Changes.
 - Akira Matsushita, Kei Ikegami, [\col{blue}{Kyohei Okumura}](https://sites.google.com/view/kyoheiokumura/), Yoji Tomita, and [\col{blue}{Atsushi Iwasaki}](https://sites.google.com/site/a2ciwasaki/), [\col{blue}{Regulating Matching Markets with Constraints: Data-driven Taxation}](https://arxiv.org/abs/2205.14387).
 
 
