@@ -1,7 +1,7 @@
 @def title = "Kei Ikegami's Website"
 @def tags = ["syntax", "code"]
 
-# Kei IKEGAMI
+# Kei IKEGAMI（池上 慧 in Japanese）
 
 
 ~~~
