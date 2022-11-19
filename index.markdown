@@ -7,41 +7,48 @@ title: Home
 description: Homepage
 ---
 
-<head>
-  <style>
-    span{
-     margin-left: 20px;
-    }
-  </style>
-</head>
-
 <style>
-.flex{
-    display: flex;
-    justify-content: space-between;
+.flex {
+  display: flex; /*横並び*/
 }
-.flex>p{
-    width: 49%;
+.flex .image {
+  width: 160px; /*画像サイズ指定*/
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+.flex .right {
+  margin: 0 0 0 20px;
+  padding: 0;
+}
+.flex .title {
+  margin: 0 0 10px 0;
+  padding: 0;
+  font-weight: bold;
+  font-size: 18px;
+}
+.flex .text {
+  margin: 10px 0 0;
+  padding: 0;
 }
 </style>
-<div class="flex">
-    <p><img src="assets/img/ikegami_image.JPG" width = "20%"></p>
-    <p>I am <strong>Kei Ikegami</strong> (池上 慧 in Japanese), a third-year PhD student in Economics at NYU.</p>
-    <p><strong>Research fields:</strong> Empirical IO, Econometrics</p>
-    <p><strong>CV:</strong> <a href="assets/papers/ikegami_CV.pdf">CV</a></p>
-    <p><strong>Contact:</strong> ki2047@nyu.edu</p>
-</div>
 
-<img align="left" src="assets/img/ikegami_image.JPG" width="20%">
-<p>
-    <span>I am <strong>Kei Ikegami</strong> (池上 慧 in Japanese), a third-year PhD student in Economics at NYU.</span>
-</p>
-<p>
-    <span><strong>Research fields:</strong></span> Empirical IO, Econometrics
-</p>
-<p>
-    <span><strong>CV:</strong> <a href="assets/papers/ikegami_CV.pdf">CV</a></span>
-</p>
-<p>
-    <span><strong>Contact:</strong> ki2047@nyu.edu</span>
-</p>
+
+<div class="flex">
+  <figure class="image"><img src="assets/img/ikegami_image.JPG" alt=""></figure>
+  <div class="right">
+    <p class="title">
+    I am Kei Ikegami (池上 慧 in Japanese), a third-year PhD student in Economics at NYU.
+    </p>
+    <p>
+    <strong>Research fields:</strong> Empirical IO, Econometrics
+    </p>
+    <p>
+    <strong>CV:</strong> <a href="assets/papers/ikegami_CV.pdf">CV</a>
+    </p>
+    <p>
+    <strong>Contact:</strong> ki2047@nyu.edu
+    </p>
+  </div>
+</div>
