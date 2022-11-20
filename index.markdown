@@ -45,7 +45,7 @@ description: Homepage
     <strong>Research fields:</strong> Empirical IO, Econometrics
     </p>
     <p>
-    <strong>CV:</strong> <a href="assets/papers/ikegami_CV.pdf">CV</a>
+    <strong>CV:</strong> <a href="assets/papers/Ikegami_CV.pdf">CV</a>
     </p>
     <p>
     <strong>Contact:</strong> ki2047@nyu.edu
