@@ -39,7 +39,7 @@ description: Homepage
   <figure class="image"><img src="assets/img/ikegami_image.JPG" alt=""></figure>
   <div class="right">
     <p class="title">
-    I am Kei Ikegami (池上 慧 in Japanese), a third-year PhD student in Economics at NYU.
+    I am Kei Ikegami (池上 慧 in Japanese), a fourth-year PhD student in Economics at NYU.
     </p>
     <p>
     <strong>Research fields:</strong> Empirical IO, Econometrics
