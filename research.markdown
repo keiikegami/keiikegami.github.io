@@ -18,6 +18,7 @@ permalink: /research/
 ## Miscellaneous
 - 経済学で挑む新事業“CRAB":混雑緩和メカニズムの社会実装, 経済セミナー, 2020 (19)
 - [<font color="blue">paper memo : Galichon, Kominar, and Weber (2019), JPE</font>](/assets/papers/ITUMatching.pdf)
+  - Link to original paper : [here](https://www.journals.uchicago.edu/doi/10.1086/702020)
 - [<font color="blue">Daycare Market</font>](/assets/papers/daycare.pdf)
 - [<font color="blue">paper memo : Christensen and Connault (2023), ECTA</font>](/assets/papers/CC_memo.pdf)
-  - Link to original paper : [wiley page](https://onlinelibrary.wiley.com/doi/full/10.3982/ECTA17232)
+  - Link to original paper : [here](https://onlinelibrary.wiley.com/doi/full/10.3982/ECTA17232)
