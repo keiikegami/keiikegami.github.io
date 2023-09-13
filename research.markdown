@@ -19,3 +19,5 @@ permalink: /research/
 - 経済学で挑む新事業“CRAB":混雑緩和メカニズムの社会実装, 経済セミナー, 2020 (19)
 - [<font color="blue">ITU Matching model</font>](/assets/papers/ITUMatching.pdf)
 - [<font color="blue">Daycare Market</font>](/assets/papers/daycare.pdf)
+- [<font color="blue">memo : Christensen and Connault (2023), ECTA</font>](/assets/papers/CC_memo.pdf)
+  - Link to original paper : [wiley page](https://onlinelibrary.wiley.com/doi/full/10.3982/ECTA17232)
