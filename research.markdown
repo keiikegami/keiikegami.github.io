@@ -10,7 +10,7 @@ permalink: /research/
 - Kei Ikegami, [<u>Ken Onishi</u>](https://sites.google.com/site/kenonishiecon/), and [<u>Naoki Wakamori</u>](https://sites.google.com/site/nwakamori/home), [<font color="blue">Competition-Driven Physician-Induced Demand</font>](https://www.sciencedirect.com/science/article/pii/S0167629621000734?via%3Dihub), Journal of Health Economics, Vol. 79, September 2021
 
 ## Working Paper
-- Kei Ikegami and [<u>Hikaru Kawarazaki</u>](https://sites.google.com/site/hikarukawara/home), [<font color="blue">Social Learning in Budget Formulation: A Case of Adaptation to Natural Disasters</font>](/assets/papers/budget_formulation.pdf), (updated 9/2/2023)
+- Kei Ikegami and [<u>Hikaru Kawarazaki</u>](https://sites.google.com/site/hikarukawara/home), Social Learning in Budget Formulation: A Case of Adaptation to Natural Disasters, (draft coming soon)
 - Akira Matsushita, Kei Ikegami, [<u>Kyohei Okumura</u>](https://okuchap.github.io/), Yoji Tomita, and [<u>Atsushi Iwasaki</u>](https://sites.google.com/site/a2ciwasaki/), [<font color="blue">Regulating Matching Markets with Constraints: Data-driven Taxation</font>](https://arxiv.org/abs/2205.14387).
 - Kei Ikegami, [<u>Ken Onishi</u>](https://sites.google.com/site/kenonishiecon/), and [<u>Naoki Wakamori</u>](https://sites.google.com/site/nwakamori/home), [<font color="blue">Endogeneous Joint Venture Formation in Procurement Auction</font>](/assets/papers/AuctionJV.pdf), (updated 6/18/2023)
 
