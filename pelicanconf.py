@@ -6,10 +6,6 @@ PATH = "content"
 STATIC_PATHS = ['images', 'pdfs']
 
 TIMEZONE = 'EST'
-
-PLUGIN_PATHS = ['pelican-plugins']
-PLUGINS = ['neighbors']
-
 DEFAULT_LANG = 'en'
 
 # Feed generation is usually not desired when developing
