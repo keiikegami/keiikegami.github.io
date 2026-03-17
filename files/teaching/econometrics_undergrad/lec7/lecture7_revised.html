@@ -1,0 +1,3177 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Lecture 7：Difference-in-Differences</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="lecture7_revised_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture7_revised_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture7_revised_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture7_revised_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture7_revised_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture7_revised_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture7_revised_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture7_revised_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture7_revised_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture7_revised_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture7_revised_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture7_revised_files/libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<style>html{ scroll-behavior: smooth; }</style>
+<style>
+  body {
+    line-height: 1.8;
+  }
+  .lead {
+    font-size: 1.08rem;
+    color: #495057;
+    margin-bottom: 1.2rem;
+  }
+  h1, h2, h3 {
+    margin-top: 1.6rem;
+  }
+  .callout {
+    margin: 1.2rem 0;
+  }
+  table {
+    font-size: 0.96rem;
+  }
+  .small-muted {
+    color: #6c757d;
+    font-size: 0.95rem;
+  }
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+</style>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#導入官僚として就業支援政策の効果を報告する君と不機嫌な経済学者" id="toc-導入官僚として就業支援政策の効果を報告する君と不機嫌な経済学者" class="nav-link active" data-scroll-target="#導入官僚として就業支援政策の効果を報告する君と不機嫌な経済学者">導入：官僚として就業支援政策の効果を報告する君と不機嫌な経済学者</a>
+  <ul class="collapse">
+  <li><a href="#では政策後の処置群と対照群の比較を見せてみる" id="toc-では政策後の処置群と対照群の比較を見せてみる" class="nav-link" data-scroll-target="#では政策後の処置群と対照群の比較を見せてみる">では「政策後の処置群と対照群の比較」を見せてみる</a></li>
+  <li><a href="#そこで-difference-in-differences-である" id="toc-そこで-difference-in-differences-である" class="nav-link" data-scroll-target="#そこで-difference-in-differences-である">そこで Difference-in-Differences である</a></li>
+  </ul></li>
+  <li><a href="#difference-in-differences-をちゃんと理解する" id="toc-difference-in-differences-をちゃんと理解する" class="nav-link" data-scroll-target="#difference-in-differences-をちゃんと理解する">Difference-in-Differences をちゃんと理解する</a>
+  <ul class="collapse">
+  <li><a href="#didが一撃でわかる図" id="toc-didが一撃でわかる図" class="nav-link" data-scroll-target="#didが一撃でわかる図">1. DiDが一撃でわかる図</a></li>
+  <li><a href="#基本設定" id="toc-基本設定" class="nav-link" data-scroll-target="#基本設定">2. 基本設定</a></li>
+  <li><a href="#つの平均を書く" id="toc-つの平均を書く" class="nav-link" data-scroll-target="#つの平均を書く">3. 4つの平均を書く</a></li>
+  <li><a href="#なぜ差の差をとるのか" id="toc-なぜ差の差をとるのか" class="nav-link" data-scroll-target="#なぜ差の差をとるのか">4. なぜ「差の差」をとるのか</a></li>
+  <li><a href="#潜在アウトカムで書く" id="toc-潜在アウトカムで書く" class="nav-link" data-scroll-target="#潜在アウトカムで書く">5. 潜在アウトカムで書く</a></li>
+  <li><a href="#平行トレンド仮定" id="toc-平行トレンド仮定" class="nav-link" data-scroll-target="#平行トレンド仮定">6. 平行トレンド仮定</a></li>
+  <li><a href="#did-推定量が何を識別するか" id="toc-did-推定量が何を識別するか" class="nav-link" data-scroll-target="#did-推定量が何を識別するか">7. DiD 推定量が何を識別するか</a></li>
+  <li><a href="#回帰式で書く" id="toc-回帰式で書く" class="nav-link" data-scroll-target="#回帰式で書く">8. 回帰式で書く</a></li>
+  <li><a href="#回帰式の係数の意味" id="toc-回帰式の係数の意味" class="nav-link" data-scroll-target="#回帰式の係数の意味">9. 回帰式の係数の意味</a></li>
+  </ul></li>
+  <li><a href="#シミュレーション" id="toc-シミュレーション" class="nav-link" data-scroll-target="#シミュレーション">シミュレーション</a>
+  <ul class="collapse">
+  <li><a href="#card-and-krueger-1994-minimum-wages-and-employment-a-case-study-of-the-fast-food-industry-in-new-jersey-and-pennsylvania." id="toc-card-and-krueger-1994-minimum-wages-and-employment-a-case-study-of-the-fast-food-industry-in-new-jersey-and-pennsylvania." class="nav-link" data-scroll-target="#card-and-krueger-1994-minimum-wages-and-employment-a-case-study-of-the-fast-food-industry-in-new-jersey-and-pennsylvania.">Card and Krueger (1994): Minimum Wages and Employment: A Case Study of the Fast-Food Industry in New Jersey and Pennsylvania.</a></li>
+  </ul></li>
+  <li><a href="#処置がいろいろな場所で順々に起こるとき" id="toc-処置がいろいろな場所で順々に起こるとき" class="nav-link" data-scroll-target="#処置がいろいろな場所で順々に起こるとき">処置がいろいろな場所で順々に起こるとき</a>
+  <ul class="collapse">
+  <li><a href="#重要な注意点" id="toc-重要な注意点" class="nav-link" data-scroll-target="#重要な注意点">重要な注意点</a></li>
+  <li><a href="#carpenter-postolek-and-warman-2011-public-place-smoking-laws-and-exposure-to-environmental-tobacco-smoke-ets" id="toc-carpenter-postolek-and-warman-2011-public-place-smoking-laws-and-exposure-to-environmental-tobacco-smoke-ets" class="nav-link" data-scroll-target="#carpenter-postolek-and-warman-2011-public-place-smoking-laws-and-exposure-to-environmental-tobacco-smoke-ets">Carpenter, Postolek, and Warman (2011): Public-Place Smoking Laws and Exposure to Environmental Tobacco Smoke (ETS)</a></li>
+  </ul></li>
+  <li><a href="#event-study-と並行トレンド" id="toc-event-study-と並行トレンド" class="nav-link" data-scroll-target="#event-study-と並行トレンド">Event study と並行トレンド</a>
+  <ul class="collapse">
+  <li><a href="#event-study-の発想" id="toc-event-study-の発想" class="nav-link" data-scroll-target="#event-study-の発想">Event study の発想</a></li>
+  <li><a href="#相対時点を定義する" id="toc-相対時点を定義する" class="nav-link" data-scroll-target="#相対時点を定義する">相対時点を定義する</a></li>
+  <li><a href="#わかりやすいように一回2地域の-basic-な-did-で考える" id="toc-わかりやすいように一回2地域の-basic-な-did-で考える" class="nav-link" data-scroll-target="#わかりやすいように一回2地域の-basic-な-did-で考える">わかりやすいように一回、2地域の basic な DiD で考える</a>
+  <ul class="collapse">
+  <li><a href="#ではコントロール群はどう使うのか" id="toc-ではコントロール群はどう使うのか" class="nav-link" data-scroll-target="#ではコントロール群はどう使うのか">ではコントロール群はどう使うのか</a></li>
+  <li><a href="#ダミー変数はどうなるか" id="toc-ダミー変数はどうなるか" class="nav-link" data-scroll-target="#ダミー変数はどうなるか">ダミー変数はどうなるか</a></li>
+  <li><a href="#これを回帰式に入れる" id="toc-これを回帰式に入れる" class="nav-link" data-scroll-target="#これを回帰式に入れる">これを回帰式に入れる</a></li>
+  </ul></li>
+  <li><a href="#event-study-の回帰式" id="toc-event-study-の回帰式" class="nav-link" data-scroll-target="#event-study-の回帰式">Event study の回帰式</a></li>
+  <li><a href="#処置前の係数は何を意味するか" id="toc-処置前の係数は何を意味するか" class="nav-link" data-scroll-target="#処置前の係数は何を意味するか">処置前の係数は何を意味するか</a></li>
+  <li><a href="#処置後の係数は何を意味するか" id="toc-処置後の係数は何を意味するか" class="nav-link" data-scroll-target="#処置後の係数は何を意味するか">処置後の係数は何を意味するか</a></li>
+  <li><a href="#シミュレーションその１並行トレンドを満たしていてevent-studyでもいい感じになる" id="toc-シミュレーションその１並行トレンドを満たしていてevent-studyでもいい感じになる" class="nav-link" data-scroll-target="#シミュレーションその１並行トレンドを満たしていてevent-studyでもいい感じになる">シミュレーションその１：並行トレンドを満たしていて、event studyでもいい感じになる</a></li>
+  <li><a href="#event-study-のシミュレーション設定" id="toc-event-study-のシミュレーション設定" class="nav-link" data-scroll-target="#event-study-のシミュレーション設定">Event study のシミュレーション設定</a></li>
+  <li><a href="#シミュレーションその２並行トレンドを満たしてるのにevent-studyがダメそう" id="toc-シミュレーションその２並行トレンドを満たしてるのにevent-studyがダメそう" class="nav-link" data-scroll-target="#シミュレーションその２並行トレンドを満たしてるのにevent-studyがダメそう">シミュレーションその２：並行トレンドを満たしてるのに、event studyがダメそう</a></li>
+  </ul></li>
+  <li><a href="#staggered-did" id="toc-staggered-did" class="nav-link" data-scroll-target="#staggered-did">Staggered DiD</a>
+  <ul class="collapse">
+  <li><a href="#staggered-did-の基本設定" id="toc-staggered-did-の基本設定" class="nav-link" data-scroll-target="#staggered-did-の基本設定">staggered DiD の基本設定</a></li>
+  <li><a href="#何を知りたいのか" id="toc-何を知りたいのか" class="nav-link" data-scroll-target="#何を知りたいのか">何を知りたいのか</a></li>
+  <li><a href="#基本となる-parallel-trends-の書き方" id="toc-基本となる-parallel-trends-の書き方" class="nav-link" data-scroll-target="#基本となる-parallel-trends-の書き方">基本となる parallel trends の書き方</a>
+  <ul class="collapse">
+  <li><a href="#わかりにくいので具体例" id="toc-わかりにくいので具体例" class="nav-link" data-scroll-target="#わかりにくいので具体例">わかりにくいので具体例</a></li>
+  </ul></li>
+  <li><a href="#なぜまだ未処置の単位を比較対象にするのか" id="toc-なぜまだ未処置の単位を比較対象にするのか" class="nav-link" data-scroll-target="#なぜまだ未処置の単位を比較対象にするのか">なぜ「まだ未処置の単位」を比較対象にするのか</a></li>
+  <li><a href="#つの-cohort-がある簡単な例" id="toc-つの-cohort-がある簡単な例" class="nav-link" data-scroll-target="#つの-cohort-がある簡単な例">2つの cohort がある簡単な例</a></li>
+  <li><a href="#twfe-回帰は何をしていたのか" id="toc-twfe-回帰は何をしていたのか" class="nav-link" data-scroll-target="#twfe-回帰は何をしていたのか">TWFE 回帰は何をしていたのか</a>
+  <ul class="collapse">
+  <li><a href="#つの-cohort3時点の例で-beta-を書き下してみる" id="toc-つの-cohort3時点の例で-beta-を書き下してみる" class="nav-link" data-scroll-target="#つの-cohort3時点の例で-beta-を書き下してみる">2つの cohort・3時点の例で <span class="math inline">\beta</span> を書き下してみる</a></li>
+  </ul></li>
+  <li><a href="#staggered-did-で自然に考えるべき推定量" id="toc-staggered-did-で自然に考えるべき推定量" class="nav-link" data-scroll-target="#staggered-did-で自然に考えるべき推定量">staggered DiD で自然に考えるべき推定量</a></li>
+  <li><a href="#event-time-で書く" id="toc-event-time-で書く" class="nav-link" data-scroll-target="#event-time-で書く">event time で書く</a></li>
+  <li><a href="#staggered-did-における-event-study-の注意" id="toc-staggered-did-における-event-study-の注意" class="nav-link" data-scroll-target="#staggered-did-における-event-study-の注意">staggered DiD における event study の注意</a></li>
+  <li><a href="#実務的には" id="toc-実務的には" class="nav-link" data-scroll-target="#実務的には">実務的には？</a></li>
+  <li><a href="#staggered-didを使った実証研究-callaway-and-santanna-2021" id="toc-staggered-didを使った実証研究-callaway-and-santanna-2021" class="nav-link" data-scroll-target="#staggered-didを使った実証研究-callaway-and-santanna-2021">Staggered DiDを使った実証研究： Callaway and Sant’Anna (2021)</a>
+  <ul class="collapse">
+  <li><a href="#設定" id="toc-設定" class="nav-link" data-scroll-target="#設定">設定</a></li>
+  <li><a href="#まず知りたい量を定義する" id="toc-まず知りたい量を定義する" class="nav-link" data-scroll-target="#まず知りたい量を定義する">まず知りたい量を定義する</a></li>
+  <li><a href="#識別の考え方" id="toc-識別の考え方" class="nav-link" data-scroll-target="#識別の考え方">識別の考え方</a></li>
+  <li><a href="#メインの-regressionは何か" id="toc-メインの-regressionは何か" class="nav-link" data-scroll-target="#メインの-regressionは何か">「メインの regression」は何か</a></li>
+  <li><a href="#covariates-を入れるとどうなるか" id="toc-covariates-を入れるとどうなるか" class="nav-link" data-scroll-target="#covariates-を入れるとどうなるか">covariates を入れるとどうなるか</a></li>
+  <li><a href="#推定された-attgt-をどうまとめるか" id="toc-推定された-attgt-をどうまとめるか" class="nav-link" data-scroll-target="#推定された-attgt-をどうまとめるか">推定された <span class="math inline">ATT(g,t)</span> をどうまとめるか</a></li>
+  <li><a href="#実証研究の具体例" id="toc-実証研究の具体例" class="nav-link" data-scroll-target="#実証研究の具体例">実証研究の具体例</a></li>
+  <li><a href="#なぜこの方法が大事なのか" id="toc-なぜこの方法が大事なのか" class="nav-link" data-scroll-target="#なぜこの方法が大事なのか">なぜこの方法が大事なのか</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ">まとめ</a></li>
+  <li><a href="#宿題" id="toc-宿題" class="nav-link" data-scroll-target="#宿題">宿題</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Lecture 7：Difference-in-Differences</h1>
+<p class="subtitle lead">2群2期・event study・staggered DiD</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-simple callout-important callout-titled" title="この講義で押さえたいこと">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>この講義で押さえたいこと
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>DiD</strong> は、前後比較と群間比較の弱点を同時に補正するための方法である。</li>
+<li>識別の核心は <strong>平行トレンド仮定</strong> にあり、event study はその妥当性を点検するための重要な道具である。</li>
+<li>処置時期がずれる <strong>staggered DiD</strong> では、比較対象の作り方と係数の解釈が急に難しくなる。</li>
+</ul>
+</div>
+</div>
+<div class="lead">
+<pre><code>今回はまず「なぜ差を二回取るのか」という直感から入り、その後に 2群2期の回帰式、event study、staggered DiD へと進む。前半で直感をつかみ、後半で何が仮定で何が推定量なのかを整理する構成である。</code></pre>
+</div>
+<div class="callout callout-style-simple callout-note callout-titled" title="この lecture の流れ">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この lecture の流れ
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>まず、前後比較と群間比較がそれぞれ何に失敗するのかを具体例で確認する。</li>
+<li>次に、2群2期の DiD を図・潜在アウトカム・回帰式で理解する。</li>
+<li>後半で event study と staggered DiD に進み、現代的な注意点まで押さえる。</li>
+</ol>
+</div>
+</div>
+<p>重回帰があれば大体何でもできる。というか、<strong>やりたいことを重回帰でできるように頭を使うべき。</strong></p>
+<p>今回は重回帰を利用した代表的な識別戦略である<strong>Difference-in-Differences（DiD）</strong>という作戦を取り上げる。</p>
+<section id="導入官僚として就業支援政策の効果を報告する君と不機嫌な経済学者" class="level1">
+<h1>導入：官僚として就業支援政策の効果を報告する君と不機嫌な経済学者</h1>
+<p>君が官僚で、諮問会議でこう報告したとする。</p>
+<blockquote class="blockquote">
+<p>「わが省では、ある地域に新しい就業支援政策を導入しました。 政策導入前の平均就業率は 60 でしたが、導入後は 70 になりました。 つまり、この政策によって就業率は 10 ポイント改善したと考えられます。」</p>
+</blockquote>
+<p>表にするとこうである。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>group</th>
+<th style="text-align: right;"><span class="math inline">t=0</span></th>
+<th style="text-align: right;"><span class="math inline">t=1</span></th>
+<th style="text-align: right;">change</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>treated</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">70</td>
+<td style="text-align: right;">+10</td>
+</tr>
+</tbody>
+</table>
+<p>一見、かなり説得的に見える。 政策の前には 60、後には 70 なのだから、たしかに 10 上がっている。</p>
+<p>しかし、ここで経済学者が手を挙げる。</p>
+<blockquote class="blockquote">
+<p>「いや、それだけでは政策の効果とは言えません。 その時期には景気全体が良くなっていて、何もしなくても就業率が上がっていたかもしれないでしょう。」</p>
+</blockquote>
+<p>政策導入の前後で数字が変わったとしても、その変化には</p>
+<ul>
+<li>政策の効果</li>
+<li>景気変動</li>
+<li>季節要因</li>
+<li>人口構成の変化</li>
+<li>全国共通のマクロショック</li>
+</ul>
+<p>など、いろいろなものが混ざっている。</p>
+<p>つまり、処置群の前後比較</p>
+<p><span class="math display">
+Y_{treated,1} - Y_{treated,0}
+</span></p>
+<p>は、<strong>政策効果そのものではなく、政策効果と時間変化が混ざったもの</strong>である。</p>
+<p>君は</p>
+<blockquote class="blockquote">
+<p>「なるほど。たしかに前後比較だけでは、政策と同時に起きた他の変化を除けませんね」</p>
+</blockquote>
+<p>と認めざるを得ない。</p>
+<section id="では政策後の処置群と対照群の比較を見せてみる" class="level3">
+<h3 class="anchored" data-anchor-id="では政策後の処置群と対照群の比較を見せてみる">では「政策後の処置群と対照群の比較」を見せてみる</h3>
+<p>君は翌週、少し修正版の資料を持ってくる。</p>
+<blockquote class="blockquote">
+<p>「ご指摘を踏まえ、今度は政策後の時点で比較対象も用意しました。 政策を実施した地域の就業率は 70、実施していない地域の就業率は 62 でした。 したがって、政策によって就業率は 8 ポイント高くなったと考えられます。」</p>
+</blockquote>
+<p>表にするとこうである。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>group</th>
+<th style="text-align: right;"><span class="math inline">t=1</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>treated</td>
+<td style="text-align: right;">70</td>
+</tr>
+<tr class="even">
+<td>control</td>
+<td style="text-align: right;">62</td>
+</tr>
+</tbody>
+</table>
+<p>これもまた、一見もっともらしい。 たしかに政策後の処置群の方が高い。</p>
+<p>しかし、経済学者はまた手を挙げる。</p>
+<blockquote class="blockquote">
+<p>「いや、それでもまだだめです。 その2地域は、政策前からそもそも違っていたかもしれません。」</p>
+</blockquote>
+<p>たとえば政策前の時点で、実はこうだったかもしれない。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>group</th>
+<th style="text-align: right;"><span class="math inline">t=0</span></th>
+<th style="text-align: right;"><span class="math inline">t=1</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>treated</td>
+<td style="text-align: right;">68</td>
+<td style="text-align: right;">70</td>
+</tr>
+<tr class="even">
+<td>control</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">62</td>
+</tr>
+</tbody>
+</table>
+<p>この場合、政策後の差はたしかに</p>
+<p><span class="math display">
+70 - 62 = 8
+</span></p>
+<p>である。</p>
+<p>しかし政策前からすでに</p>
+<p><span class="math display">
+68 - 60 = 8
+</span></p>
+<p>の差があった。 すると、政策後に 8 ポイント差があること自体は、政策の効果を意味しない。 単に「もともと処置群の方が高かった」だけかもしれないからである。</p>
+<p>君は困ってしまい</p>
+<blockquote class="blockquote">
+<p>「前後比較をすると“時間変化が混ざる”と言われ、 同時点比較をすると“もともとの差が混ざる”と言われる。 では一体どうすればいいのですか」</p>
+</blockquote>
+<p>と聞くことになる。</p>
+</section>
+<section id="そこで-difference-in-differences-である" class="level3">
+<h3 class="anchored" data-anchor-id="そこで-difference-in-differences-である">そこで Difference-in-Differences である</h3>
+<p>ここで経済学者がこう答える。</p>
+<blockquote class="blockquote">
+<p>「必要なのは、 1つ目の比較で取りきれなかった“時間変化”を除き、 2つ目の比較で取りきれなかった“もともとの差”も除くことです。 そのためには、差を二回とります。」</p>
+</blockquote>
+<p>たとえば次のようなデータを考えよう。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>group</th>
+<th style="text-align: right;"><span class="math inline">t=0</span></th>
+<th style="text-align: right;"><span class="math inline">t=1</span></th>
+<th style="text-align: right;">change</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>treated</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">70</td>
+<td style="text-align: right;">+10</td>
+</tr>
+<tr class="even">
+<td>control</td>
+<td style="text-align: right;">55</td>
+<td style="text-align: right;">61</td>
+<td style="text-align: right;">+6</td>
+</tr>
+</tbody>
+</table>
+<p>ここで、</p>
+<ul>
+<li>処置群は <span class="math inline">+10</span></li>
+<li>対照群は <span class="math inline">+6</span></li>
+</ul>
+<p>だけ伸びている。</p>
+<p>もし対照群の <span class="math inline">+6</span> が、景気改善などによる「政策がなくても起きた共通の伸び」だと考えられるなら、処置群の <span class="math inline">+10</span> のうち政策による追加分は</p>
+<p><span class="math display">
+10 - 6 = 4
+</span></p>
+<p>である。</p>
+<p>これが Difference-in-Differences の考え方である。</p>
+<p>式で書けば、</p>
+<p><span class="math display">
+(70 - 60) - (61 - 55) = 10 - 6 = 4
+</span></p>
+<p>となる。</p>
+<p>この 4 が、「政策によって追加的に生じた変化」として解釈される。</p>
+<p>ここまでの話を整理するとこうなる。</p>
+<section id="前後比較だけではだめ" class="level4">
+<h4 class="anchored" data-anchor-id="前後比較だけではだめ">前後比較だけではだめ</h4>
+<p>官僚：</p>
+<blockquote class="blockquote">
+<p>「処置群は 60 から 70 に増えました。だから効果は 10 です。」</p>
+</blockquote>
+<p>経済学者：</p>
+<blockquote class="blockquote">
+<p>「それは政策効果と時間変化が混ざっています。」</p>
+</blockquote>
+</section>
+<section id="政策後の群間比較だけでもだめ" class="level4">
+<h4 class="anchored" data-anchor-id="政策後の群間比較だけでもだめ">政策後の群間比較だけでもだめ</h4>
+<p>官僚：</p>
+<blockquote class="blockquote">
+<p>「では政策後に treated が 70、control が 62 なので効果は 8 です。」</p>
+</blockquote>
+<p>経済学者：</p>
+<blockquote class="blockquote">
+<p>「それは政策効果ともともとの群間差が混ざっています。」</p>
+</blockquote>
+</section>
+<section id="差の差をとる" class="level4">
+<h4 class="anchored" data-anchor-id="差の差をとる">差の差をとる</h4>
+<p>経済学者：</p>
+<blockquote class="blockquote">
+<p>「treated の前後差が 10、control の前後差が 6 なら、 共通の時間変化 6 を引いた残り 4 を政策効果と考えます。」</p>
+</blockquote>
+<p>つまり DiD は、</p>
+<ul>
+<li><p>前後比較が抱える問題 → <strong>時間変化が混ざる</strong></p></li>
+<li><p>同時点比較が抱える問題 → <strong>もともとの差が混ざる</strong></p></li>
+</ul>
+<p>を同時に修正するための方法なのである。</p>
+<div class="callout callout-style-simple callout-important callout-titled" title="ここからは図と数式で整理する">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>ここからは図と数式で整理する
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>導入のストーリーで見たのは <strong>「なぜ差を二回取るのか」</strong> という直感である。ここからは、その直感を図・潜在アウトカム・回帰式の三つの言葉で言い換えていく。</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="difference-in-differences-をちゃんと理解する" class="level1">
+<h1>Difference-in-Differences をちゃんと理解する</h1>
+<p>Difference-in-Differences（DiD）は、<strong>ある政策や介入の効果を、介入前後の変化と比較対象の変化を組み合わせて測る方法</strong>である。</p>
+<p>典型的には、あるグループだけがある時点で政策を受け、別のグループは受けないという状況を考える。</p>
+<p>たとえば、</p>
+<ul>
+<li>ある地域では政策が導入された</li>
+<li>別の地域では政策が導入されなかった</li>
+<li>政策前後でアウトカムがどう変わったかを見たい</li>
+</ul>
+<p>という状況である。</p>
+<p>このとき、単に「政策を受けたグループの前後差」を見るだけでは不十分である。なぜなら、アウトカムは政策以外の理由でも時間とともに変化するからである。</p>
+<p>逆に、政策後の時点で「処置群と対照群の差」を見るだけでも不十分である。なぜなら、もともと両グループの水準が違っていたかもしれないからである。</p>
+<p>そこで DiD では、</p>
+<ul>
+<li>グループ間の差</li>
+<li>時間による差</li>
+</ul>
+<p>の両方を使って、政策の効果だけを取り出そうとする。</p>
+<section id="didが一撃でわかる図" class="level2">
+<h2 class="anchored" data-anchor-id="didが一撃でわかる図">1. DiDが一撃でわかる図</h2>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture7_revised_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li><span class="math inline">t = 0</span>の時点でグループ間に差がある</li>
+<li>「処置群に処置を施さなかったら<span class="math inline">t = 1</span>でこのくらいになる」という点が想像できる</li>
+<li>この処置の効果は実際の処置群の結果と、「処置しなかったらこんくらい」という結果との差</li>
+</ul>
+</section>
+<section id="基本設定" class="level2">
+<h2 class="anchored" data-anchor-id="基本設定">2. 基本設定</h2>
+<p>もっとも基本的な DiD は、<strong>2群 <span class="math inline">\times</span> 2期</strong> の設定である。</p>
+<ul>
+<li><p>グループは2つ</p>
+<ul>
+<li>処置群：<span class="math inline">D_i = 1</span></li>
+<li>対照群：<span class="math inline">D_i = 0</span></li>
+</ul></li>
+<li><p>時点は2つ</p>
+<ul>
+<li>政策前：<span class="math inline">t=0</span></li>
+<li>政策後：<span class="math inline">t=1</span></li>
+</ul></li>
+</ul>
+<p>個体 <span class="math inline">i</span> の時点 <span class="math inline">t</span> におけるアウトカムを <span class="math inline">Y_{it}</span> とする。</p>
+<p>たとえば、<span class="math inline">Y_{it}</span> は賃金、雇用、売上、テストスコアなどである。</p>
+<p>ここでは、政策後に処置群だけが処置を受けるとする。したがって、実際の処置状態は次のようになる。</p>
+<ul>
+<li>政策前は全員 untreated</li>
+<li>政策後は処置群だけ treated</li>
+</ul>
+<p>このような設定のもとで、政策の因果効果を知りたい。</p>
+</section>
+<section id="つの平均を書く" class="level2">
+<h2 class="anchored" data-anchor-id="つの平均を書く">3. 4つの平均を書く</h2>
+<p>DiD では、まず4つの平均を書くと構造が見えやすい。</p>
+<p><span class="math display">
+E[Y_{it} \mid D_i=1,, t=1]
+</span></p>
+<p><span class="math display">
+E[Y_{it} \mid D_i=1,, t=0]
+</span></p>
+<p><span class="math display">
+E[Y_{it} \mid D_i=0,, t=1]
+</span></p>
+<p><span class="math display">
+E[Y_{it} \mid D_i=0,, t=0]
+</span></p>
+<p>これを表にすると次のようになる。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>政策前 <span class="math inline">t=0</span></th>
+<th>政策後 <span class="math inline">t=1</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>処置群 <span class="math inline">D=1</span></td>
+<td><span class="math inline">E[Y \mid D=1,t=0]</span></td>
+<td><span class="math inline">E[Y \mid D=1,t=1]</span></td>
+</tr>
+<tr class="even">
+<td>対照群 <span class="math inline">D=0</span></td>
+<td><span class="math inline">E[Y \mid D=0,t=0]</span></td>
+<td><span class="math inline">E[Y \mid D=0,t=1]</span></td>
+</tr>
+</tbody>
+</table>
+<p>ここで、</p>
+<p>処置群の前後差は</p>
+<p><span class="math display">
+E[Y \mid D=1,t=1] - E[Y \mid D=1,t=0]
+</span></p>
+<p>対照群の前後差は</p>
+<p><span class="math display">
+E[Y \mid D=0,t=1] - E[Y \mid D=0,t=0]
+</span></p>
+<p>である。</p>
+<p>DiD 推定量は、この2つの差をさらに引いた</p>
+<p><span class="math display">
+\hat\delta_{DiD} = \bigl(E[Y \mid D=1,t=1] - E[Y \mid D=1,t=0]\bigr) - \bigl(E[Y \mid D=0,t=1] - E[Y \mid D=0,t=0]\bigr)
+</span></p>
+<p>で定義される。</p>
+<p>これが <strong>difference in differences</strong> である。</p>
+</section>
+<section id="なぜ差の差をとるのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜ差の差をとるのか">4. なぜ「差の差」をとるのか</h2>
+<p>DiD の直感はかなり単純である。</p>
+<p>処置群の前後差には、</p>
+<ul>
+<li>政策の効果</li>
+<li>政策と無関係な時間変化</li>
+</ul>
+<p>の両方が含まれている。</p>
+<p>たとえば景気の変化、季節性、全国共通のショックなどによって、政策がなくてもアウトカムは変化しうる。</p>
+<p>一方、対照群の前後差には政策効果は入らないが、同じ時期に起きた共通の時間変化は入ると期待される。</p>
+<p>したがって、</p>
+<ul>
+<li>処置群の前後差から</li>
+<li>対照群の前後差を引く</li>
+</ul>
+<p>ことで、共通の時間変化を差し引き、政策に伴う追加的な変化だけを取り出そうとするのである。</p>
+<p>つまり DiD は、</p>
+<blockquote class="blockquote">
+<p>「もし処置群が政策を受けていなかったら、政策後にどれくらい変化したはずか」</p>
+</blockquote>
+<p>を対照群の変化によって近似する方法である。</p>
+</section>
+<section id="潜在アウトカムで書く" class="level2">
+<h2 class="anchored" data-anchor-id="潜在アウトカムで書く">5. 潜在アウトカムで書く</h2>
+<p>このアイデアを因果効果として厳密に書くため、<strong>潜在アウトカム (potential outcome)</strong>という概念を導入する。</p>
+<p>各個体 <span class="math inline">i</span>、時点 <span class="math inline">t</span> について、</p>
+<ul>
+<li><span class="math inline">Y_{it}(1)</span>：その時点で処置を受けたときの潜在アウトカム</li>
+<li><span class="math inline">Y_{it}(0)</span>：その時点で処置を受けなかったときの潜在アウトカム</li>
+</ul>
+<p>を考える。</p>
+<p>このとき、政策後の処置群に対して知りたい因果効果は</p>
+<p><span class="math display">
+E[Y_{i1}(1) - Y_{i1}(0) \mid D_i=1]
+</span></p>
+<p>である。</p>
+<p>これは「政策後における処置群の平均処置効果」である。</p>
+<p>しかし、処置群について政策後に観測できるのは <span class="math inline">Y_{i1}(1)</span> だけであり、<span class="math inline">Y_{i1}(0)</span> は観測できない。つまり、政策がなかった世界の処置群のアウトカムは見えない。</p>
+<p>DiD の中心的な発想は、この見えない反実仮想</p>
+<p><span class="math display">
+E[Y_{i1}(0) \mid D_i=1]
+</span></p>
+<p>を、対照群の時間変化を使って埋めることにある。</p>
+</section>
+<section id="平行トレンド仮定" class="level2">
+<h2 class="anchored" data-anchor-id="平行トレンド仮定">6. 平行トレンド仮定</h2>
+<p>DiD の識別で最も重要な仮定は <strong>平行トレンド仮定</strong> である。</p>
+<p>2期の設定では、これは</p>
+<p><span class="math display">
+E[Y_{i1}(0) - Y_{i0}(0) \mid D_i=1] = E[Y_{i1}(0) - Y_{i0}(0) \mid D_i=0]
+</span></p>
+<p>と書ける。</p>
+<p>意味は明快である。<strong>もし誰も処置を受けなかったなら、処置群と対照群の平均的な変化は同じだった</strong>、という仮定である。</p>
+<p>この仮定のもとでは、対照群の前後変化を使って、処置群の「政策がなかった場合の変化」を推測できる。</p>
+<p>したがって、処置群の政策後の反実仮想平均は</p>
+<p><span class="math display">
+E[Y_{i1}(0) \mid D_i=1] = E[Y_{i0}(0) \mid D_i=1]
++
+\Bigl(
+E[Y_{i1}(0) \mid D_i=0] - E[Y_{i0}(0) \mid D_i=0]
+\Bigr)
+</span></p>
+<p>と表現できる。</p>
+<p>これによって、観測データから政策効果を識別できる。</p>
+<hr>
+</section>
+<section id="did-推定量が何を識別するか" class="level2">
+<h2 class="anchored" data-anchor-id="did-推定量が何を識別するか">7. DiD 推定量が何を識別するか</h2>
+<p>観測されるアウトカムを使った DiD 推定量は</p>
+<p><span class="math display">
+\delta_{DiD} = \bigl(E[Y_1 \mid D=1] - E[Y_0 \mid D=1]\bigr) - \bigl(E[Y_1 \mid D=0] - E[Y_0 \mid D=0]\bigr)
+</span></p>
+<p>である。</p>
+<p>平行トレンド仮定のもとでは、この量は</p>
+<p><span class="math display">
+E[Y_{i1}(1) - Y_{i1}(0) \mid D_i=1]
+</span></p>
+<p>に一致する。</p>
+<p>つまり basic な DiD が識別しているのは、<strong>政策後における処置群の平均処置効果</strong>である。</p>
+<p>ここで重要なのは、DiD は一般に「全個体に対する平均処置効果」を識別しているとは限らず、まずは <strong>処置群に対する効果</strong>を識別している、という点である。</p>
+</section>
+<section id="回帰式で書く" class="level2">
+<h2 class="anchored" data-anchor-id="回帰式で書く">8. 回帰式で書く</h2>
+<p>DiD は重回帰の形で非常に簡単に表せる。</p>
+<p>次の回帰式を考える。</p>
+<p><span class="math display">
+Y_{it} = \alpha + \beta D_i + \gamma Post_t + \delta (D_i \times Post_t) + u_{it}
+</span></p>
+<p>ここで、</p>
+<ul>
+<li><span class="math inline">D_i</span> は処置群ダミーで、処置群なら1、対照群なら0</li>
+<li><span class="math inline">Post_t</span> は政策後ダミーで、政策後なら1、政策前なら0</li>
+<li><span class="math inline">D_i \times Post_t</span> は交差項で、「処置群かつ政策後」のときだけ1になる</li>
+</ul>
+<p>この回帰式の各セルの期待値を計算すると、</p>
+<p>対照群・政策前では</p>
+<p><span class="math display">
+E[Y \mid D=0, Post=0] = \alpha
+</span></p>
+<p>対照群・政策後では</p>
+<p><span class="math display">
+E[Y \mid D=0, Post=1] = \alpha + \gamma
+</span></p>
+<p>処置群・政策前では</p>
+<p><span class="math display">
+E[Y \mid D=1, Post=0] = \alpha + \beta
+</span></p>
+<p>処置群・政策後では</p>
+<p><span class="math display">
+E[Y \mid D=1, Post=1] = \alpha + \beta + \gamma + \delta
+</span></p>
+<p>となる。</p>
+<p>したがって、</p>
+<p>処置群の前後差は</p>
+<p><span class="math display">
+(\alpha + \beta + \gamma + \delta) - (\alpha + \beta) = \gamma + \delta
+</span></p>
+<p>対照群の前後差は</p>
+<p><span class="math display">
+(\alpha + \gamma) - \alpha = \gamma
+</span></p>
+<p>なので、その差は</p>
+<p><span class="math display">
+(\gamma + \delta) - \gamma = \delta
+</span></p>
+<p>となる。</p>
+<p>つまり、<strong>交差項 <span class="math inline">D_i \times Post_t</span> の係数 <span class="math inline">\delta</span> が DiD 推定量そのもの</strong>である。</p>
+</section>
+<section id="回帰式の係数の意味" class="level2">
+<h2 class="anchored" data-anchor-id="回帰式の係数の意味">9. 回帰式の係数の意味</h2>
+<p>この回帰式</p>
+<p><span class="math display">
+Y_{it} = \alpha + \beta D_i + \gamma Post_t + \delta (D_i \times Post_t) + u_{it}
+</span></p>
+<p>において、各係数の意味は次の通りである。</p>
+<ul>
+<li><span class="math inline">\alpha</span>：対照群・政策前の平均水準</li>
+<li><span class="math inline">\beta</span>：政策前における処置群と対照群の平均差</li>
+<li><span class="math inline">\gamma</span>：対照群における前後の平均変化</li>
+<li><span class="math inline">\delta</span>：処置群が政策後に経験した追加的な変化</li>
+</ul>
+<p>この <span class="math inline">\delta</span> を政策効果として解釈するのが DiD である。</p>
+<p>ここで大事なのは、<span class="math inline">\beta = 0</span> である必要はないということである。つまり、<strong>処置群と対照群は、もともとの水準が違っていてもよい。</strong></p>
+<p>DiD が必要としているのは、水準が同じことではなく、<strong>処置がなければ両グループの変化の仕方が同じだった</strong>ということである。これが平行トレンド仮定の中身であり、DiD の核心である。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="一度、回帰で確かめる">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>一度、回帰で確かめる
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>ここでは、今まで説明してきた DiD の考え方が実際の回帰係数としてどう現れるのかをシミュレーションで確認する。式の意味と回帰の出力を対応づけながら読むと理解しやすい。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="シミュレーション" class="level1">
+<h1>シミュレーション</h1>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(broom)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(knitr)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. シミュレーション設定</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>n_each <span class="ot">&lt;-</span> <span class="dv">400</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>mu_control_t0 <span class="ot">&lt;-</span> <span class="dv">60</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>group_effect  <span class="ot">&lt;-</span> <span class="dv">4</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>time_effect   <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>treat_effect  <span class="ot">&lt;-</span> <span class="dv">6</span> <span class="co"># これが知りたいパラメータ</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>sigma         <span class="ot">&lt;-</span> <span class="dv">8</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. データ生成</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">id =</span> <span class="dv">1</span><span class="sc">:</span>(<span class="dv">2</span> <span class="sc">*</span> n_each),</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">t  =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">treated =</span> <span class="fu">ifelse</span>(id <span class="sc">&lt;=</span> n_each, <span class="dv">1</span>, <span class="dv">0</span>),</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">post    =</span> t</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">mu =</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>      mu_control_t0 <span class="sc">+</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>      group_effect <span class="sc">*</span> treated <span class="sc">+</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>      time_effect  <span class="sc">*</span> post <span class="sc">+</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>      treat_effect <span class="sc">*</span> (treated <span class="sc">*</span> post),</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> mu <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">n</span>(), <span class="at">sd =</span> sigma),</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">group =</span> <span class="fu">ifelse</span>(treated <span class="sc">==</span> <span class="dv">1</span>, <span class="st">"Treated"</span>, <span class="st">"Control"</span>),</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">time_label =</span> <span class="fu">ifelse</span>(post <span class="sc">==</span> <span class="dv">0</span>, <span class="st">"t = 0"</span>, <span class="st">"t = 1"</span>)</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. バイオリンプロット</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df, <span class="fu">aes</span>(<span class="at">x =</span> time_label, <span class="at">y =</span> y, <span class="at">fill =</span> group)) <span class="sc">+</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_violin</span>(<span class="at">trim =</span> <span class="cn">FALSE</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>, <span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="at">width =</span> <span class="fl">0.8</span>)) <span class="sc">+</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">fun =</span> mean,</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">geom =</span> <span class="st">"point"</span>,</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="at">width =</span> <span class="fl">0.8</span>),</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>    <span class="at">size =</span> <span class="dv">2</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="cn">NULL</span>,</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Outcome"</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">16</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture7_revised_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. DiD 回帰</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>did_fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> treated <span class="sc">+</span> post <span class="sc">+</span> treated<span class="sc">:</span>post, <span class="at">data =</span> df)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>did_table <span class="ot">&lt;-</span> broom<span class="sc">::</span><span class="fu">tidy</span>(did_fit) <span class="sc">|&gt;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">c</span>(estimate, std.error, statistic, p.value), round, <span class="dv">4</span>))</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(did_table, <span class="at">caption =</span> <span class="st">"DiD regression results"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>DiD regression results</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">term</th>
+<th style="text-align: right;">estimate</th>
+<th style="text-align: right;">std.error</th>
+<th style="text-align: right;">statistic</th>
+<th style="text-align: right;">p.value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">60.0396</td>
+<td style="text-align: right;">0.3945</td>
+<td style="text-align: right;">152.1927</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">treated</td>
+<td style="text-align: right;">4.0946</td>
+<td style="text-align: right;">0.5579</td>
+<td style="text-align: right;">7.3393</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">post</td>
+<td style="text-align: right;">5.0919</td>
+<td style="text-align: right;">0.5579</td>
+<td style="text-align: right;">9.1268</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">treated:post</td>
+<td style="text-align: right;">6.1242</td>
+<td style="text-align: right;">0.7890</td>
+<td style="text-align: right;">7.7621</td>
+<td style="text-align: right;">0</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<section id="card-and-krueger-1994-minimum-wages-and-employment-a-case-study-of-the-fast-food-industry-in-new-jersey-and-pennsylvania." class="level2">
+<h2 class="anchored" data-anchor-id="card-and-krueger-1994-minimum-wages-and-employment-a-case-study-of-the-fast-food-industry-in-new-jersey-and-pennsylvania.">Card and Krueger (1994): Minimum Wages and Employment: A Case Study of the Fast-Food Industry in New Jersey and Pennsylvania.</h2>
+<p>Difference-in-Differences の最も有名な応用例の1つが、Card and Krueger (1994) による最低賃金の研究である。</p>
+<p>この論文は、<strong>1992年4月1日にニュージャージー州の最低賃金が $4.25 から $5.05 に引き上げられた</strong> ことを利用し、その政策がファストフード店の雇用にどのような影響を与えたかを分析した。比較対象として使われたのは、当時最低賃金が据え置かれていた<strong>ペンシルベニア州東部のファストフード店</strong>である。著者たちは、最低賃金引き上げの前後で、ニュージャージー州とペンシルベニア州の店舗の雇用を比較した。</p>
+<p>この研究の基本的な発想は非常にシンプルである。</p>
+<p>もしニュージャージー州だけを見て、政策前後で雇用がどう変わったかだけを比べると、その差には最低賃金引き上げの効果だけでなく、景気変動や地域経済の変化なども混ざってしまう。逆に、政策後にニュージャージー州とペンシルベニア州を比較するだけだと、もともとの州間の違いが混ざってしまう。そこでこの論文は、<strong>ニュージャージー州の前後差から、ペンシルベニア州の前後差を引く</strong>という DiD の考え方を使って、最低賃金引き上げの影響を識別しようとした。</p>
+<p>アウトカムとして中心的に使われるのは、各店舗の雇用量である。論文では、フルタイム労働者とパートタイム労働者を合算した <strong>full-time-equivalent employment</strong> が重要な指標として用いられている。サンプルは、<strong>Burger King, KFC, Wendy’s, Roy Rogers</strong> の4チェーンに属する店舗で、調査対象は合計 <strong>410 店舗</strong>である。調査は最低賃金引き上げの直前と直後に電話調査で実施され、ほぼ全店舗を追跡している。</p>
+<p>推定したい量は</p>
+<p><span class="math display">\begin{align*}
+&amp;\bigl(E[Y \mid NJ=1, Post=1] - E[Y \mid NJ=1, Post=0]\bigr)\\
+&amp;- \bigl(E[Y \mid NJ=0, Post=1] - E[Y \mid NJ=0, Post=0]\bigr)
+\end{align*}</span></p>
+<p>である。ここで <span class="math inline">Y</span> は店舗の雇用、<span class="math inline">NJ=1</span> はニュージャージー州の店舗、<span class="math inline">NJ=0</span> はペンシルベニア州の店舗、<span class="math inline">Post=1</span> は最低賃金引き上げ後、<span class="math inline">Post=0</span> は引き上げ前を表す。この式は、「ニュージャージー州の雇用の変化」から「ペンシルベニア州の雇用の変化」を引いたものであり、DiD estimator そのものである。</p>
+<p>回帰式で書くと、講義で学んだ basic な DiD とまったく同じで、たとえば</p>
+<p><span class="math display">
+Y_{it} = \alpha + \beta NJ_i + \gamma Post_t + \delta (NJ_i \times Post_t) + u_{it}
+</span></p>
+<p>と表せる。ここで <span class="math inline">Y_{it}</span> は店舗 <span class="math inline">i</span> の時点 <span class="math inline">t</span> における雇用、<span class="math inline">NJ_i</span> はニュージャージー州ダミー、<span class="math inline">Post_t</span> は政策後ダミーである。このとき、交差項 <span class="math inline">NJ_i \times Post_t</span> の係数 <span class="math inline">\delta</span> が DiD estimator であり、<strong>ニュージャージー州の最低賃金引き上げが雇用に与えた追加的な変化</strong>として解釈される。</p>
+<p>この論文の有名な点は、結果が当時の素朴な予想とやや異なっていたことである。標準的な競争市場モデルでは、最低賃金の引き上げは低賃金労働者の雇用を減らすと予想されることが多い。しかし Card and Krueger は、<strong>ペンシルベニア州の店舗と比べて、ニュージャージー州のファストフード店の雇用は減らなかったどころか、相対的には増えた</strong> という結果を報告した。</p>
+<p>NBER ワーキングペーパー版の要約では、ニュージャージー州の雇用はペンシルベニア州に比べて <strong>13% 増加した</strong> とまとめられている。</p>
+<p>もちろん、この結果だけで「最低賃金は必ず雇用を増やす」と結論するわけではない。むしろこの論文の重要性は、<strong>政策評価では単純な前後比較ではなく、比較対象を用いた差の差が必要である</strong>ことを鮮やかに示した点にある。また、最低賃金の効果は市場構造や労働需要の状況によって理論的にも一意ではない、というその後の大きな議論の出発点にもなった。実際、この研究は後に再分析や批判も多く呼び、最低賃金研究の巨大な文献を生むきっかけになった。</p>
+</section>
+</section>
+<section id="処置がいろいろな場所で順々に起こるとき" class="level1">
+<h1>処置がいろいろな場所で順々に起こるとき</h1>
+<p>2期間2時点というDiDのもっともシンプルな形はわかりやすいが、設定が単純すぎて若干使いずらい。</p>
+<p>例えば、先ほどの最低賃金の例で、次はニューヨーク州が最低賃金を上げたとしよう。ここまでを含めると、3地域が3時点で、異なるタイミングで「処置」の対象になっている。このような時、DiDの発想はどこまで有効だろうか？</p>
+<p>こういった問題を考えるために、もうちょっと一般的な形でDiDを定式化しておくと使いやすくて便利そうである。</p>
+<p>問題は2群 <span class="math inline">\times</span> 2期の DiD のように「treated」と「control」を一度だけ決めればよいわけではないという点にある。ある時点では未処置だった地域が、別の時点では処置済みになるからである。</p>
+<p>そこで、各単位 <span class="math inline">i</span> が時点 <span class="math inline">t</span> において処置を受けているかどうかを表す変数</p>
+<p><span class="math display">
+D_{it}
+</span></p>
+<p>を導入する。これは</p>
+<ul>
+<li>まだ処置が始まっていなければ <span class="math inline">D_{it}=0</span></li>
+<li>処置が始まった後は <span class="math inline">D_{it}=1</span></li>
+</ul>
+<p>となるような変数である。</p>
+<p>たとえば、地域 <span class="math inline">i</span> における処置開始時点を <span class="math inline">G_i</span> と書くと、</p>
+<p><span class="math display">
+D_{it} = 1{t \geq G_i}
+</span></p>
+<p>と表せる。 ここで <span class="math inline">G_i</span> は地域 <span class="math inline">i</span> が初めて処置を受ける時点であり、もし最後まで処置を受けない地域があれば、その地域については <span class="math inline">G_i = \infty</span> と考えればよい。</p>
+<p>このように書くと、処置が順々に始まる状況でも、「各時点で見たとき、その単位がすでに処置を受けているかどうか」を一つの変数で表現できる。</p>
+<p>このとき、DiD のもっとも自然な回帰式は</p>
+<p><span class="math display">
+Y_{it} = \alpha_i + \lambda_t + \beta D_{it} + u_{it}
+</span></p>
+<p>である。</p>
+<p>ここで</p>
+<ul>
+<li><span class="math inline">\alpha_i</span> は単位固定効果</li>
+<li><span class="math inline">\lambda_t</span> は時点固定効果</li>
+<li><span class="math inline">D_{it}</span> はその時点で処置を受けているかどうか</li>
+<li><span class="math inline">\beta</span> は処置効果</li>
+</ul>
+<p>を表す。</p>
+<p>この式は、basic な DiD の回帰式</p>
+<p><span class="math display">
+Y_{it} = \alpha + \beta_0 D_i + \gamma Post_t + \delta (D_i \times Post_t) + u_{it}
+</span></p>
+<p>を一般化したものとみなせる。 2群 <span class="math inline">\times</span> 2期では、「処置群ダミー」<span class="math inline">D_i</span> と「事後ダミー」<span class="math inline">Post_t</span> を別々に入れ、その交差項 <span class="math inline">D_i \times Post_t</span> が処置状態を表していた。</p>
+<p>しかし複数地域・複数時点の設定では、「いまこの単位は処置状態か」を直接表す <span class="math inline">D_{it}</span> を入れ、さらに単位固定効果 <span class="math inline">\alpha_i</span> と時点固定効果 <span class="math inline">\lambda_t</span> を入れることで、同じ発想をより一般的な形で書ける。</p>
+<p>この式の直感は simple な DiD と同じである。</p>
+<ul>
+<li><span class="math inline">\alpha_i</span> によって、地域ごとに異なる不変の特徴を取り除く。たとえば、もともと健康意識が高い地域、所得水準が高い地域、人口構成が違う地域などの恒常的な差を吸収する。</li>
+<li><span class="math inline">\lambda_t</span> によって、全地域に共通する時間変化を取り除く。たとえば、全国的な禁煙意識の上昇、不況や景気拡大、医療制度改革のような全体ショックを吸収する。</li>
+</ul>
+<p>そのうえで、処置が始まった地域で、処置開始後にアウトカムがどれだけ追加的に変化したかを <span class="math inline">\beta</span> で測ろうとしている。</p>
+<p>潜在アウトカムを使って書くと、各単位 <span class="math inline">i</span> に対して</p>
+<ul>
+<li><span class="math inline">Y_{it}(0)</span>：時点 <span class="math inline">t</span> に処置を受けていないときの潜在アウトカム</li>
+<li><span class="math inline">Y_{it}(1)</span>：時点 <span class="math inline">t</span> に処置を受けているときの潜在アウトカム</li>
+</ul>
+<p>を考える。</p>
+<p>このとき上の回帰で <span class="math inline">\beta</span> を因果効果として解釈するためには、simple な DiD と同じく、処置がなければ処置群と未処置群のトレンドは同じだった、という考え方が必要になる。</p>
+<p>複数タイミングの設定でこの考え方を言い直すと、<strong>まだ処置を受けていない単位を比較対象として使ったとき、処置を受ける単位の反実仮想トレンドはそれらと平行である</strong>、という仮定になる。</p>
+<p>つまり、ある地域が時点 <span class="math inline">t</span> に処置を受け始めたとき、その地域がもし処置を受けていなかったなら、アウトカムは「同じ時点でまだ未処置である他の地域」と同じようなトレンドで動いていたはずだ、ということである。</p>
+<p>このように書くと、DiD は</p>
+<ul>
+<li>2群 <span class="math inline">\times</span> 2期の特別なテクニック</li>
+</ul>
+<p>ではなく、</p>
+<ul>
+<li><strong>単位固定効果</strong></li>
+<li><strong>時点固定効果</strong></li>
+<li><strong>時変の処置変数</strong></li>
+</ul>
+<p>を使って、順々に導入される政策の効果を測る一般的な方法</p>
+<p>として理解できる。</p>
+<div class="callout callout-style-simple callout-warning callout-titled" title="2群2期の直感をそのまま一般化しない">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">警告</span>2群2期の直感をそのまま一般化しない
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>2群 $ imes$ 2期ではきれいに見えた DiD も、複数地域・複数時点になると <strong>どの単位が比較対象になっているのか</strong> が重要になる。ここから先は、その点を意識して読む必要がある。</p>
+</div>
+</div>
+<section id="重要な注意点" class="level2">
+<h2 class="anchored" data-anchor-id="重要な注意点">重要な注意点</h2>
+<p>ただし、ここで一つ重要な注意がある。 上の回帰式</p>
+<p><span class="math display">
+Y_{it} = \alpha_i + \lambda_t + \beta D_{it} + u_{it}
+</span></p>
+<p>は見た目には非常に自然だが、<strong>処置効果が地域や時点によって異なる場合には、<span class="math inline">\beta</span> の解釈が単純ではなくなる</strong>。この問題は近年の DiD 文献で非常に重要な論点になっており、特に決定版の解決策は出ていない。<strong>Staggered DiD</strong>という研究分野であり、これについては後述する。</p>
+<p>何はともあれひとまずは、複数タイミングの DiD を書くときは、まずは上の fixed-effects 型の式を基本形として理解しつつ、そのあとで</p>
+<ul>
+<li>どの群が比較対象になっているのか</li>
+<li>処置効果が異質なとき何が起こるのか</li>
+<li>event study でどう書くのか</li>
+</ul>
+<p>を丁寧に見ていく必要がある。という理解をしておこう。</p>
+</section>
+<section id="carpenter-postolek-and-warman-2011-public-place-smoking-laws-and-exposure-to-environmental-tobacco-smoke-ets" class="level2">
+<h2 class="anchored" data-anchor-id="carpenter-postolek-and-warman-2011-public-place-smoking-laws-and-exposure-to-environmental-tobacco-smoke-ets">Carpenter, Postolek, and Warman (2011): Public-Place Smoking Laws and Exposure to Environmental Tobacco Smoke (ETS)</h2>
+<p>Difference-in-Differences のもう1つのわかりやすい応用例が、Carpenter, Postolek, and Warman (2011) による禁煙法の研究である。 この論文は、カナダで地域ごとに時期をずらして導入された公共の場所での禁煙法を利用し、それが人々の environmental tobacco smoke（ETS, 受動喫煙）への曝露をどの程度減らしたかを分析している。</p>
+<p>この研究が興味深いのは、禁煙法の効果として多くの人がまず思い浮かべる「喫煙者が本当にタバコをやめるのか」だけでなく、公共空間で他人の煙を吸わされる機会そのものが減るのかを直接見ている点である。データには、回答者がバー、レストラン、その他の公共の場所や私的空間でどれだけ ETS にさらされたかについての情報が含まれており、著者たちはこの情報を使って、禁煙法導入前後の変化を比較している。</p>
+<p>研究デザインの発想は、DiD の基本そのものである。 ある地域で禁煙法が導入されたとき、その地域だけの前後比較をすると、健康意識の高まりや全国的な禁煙トレンドなど、法律以外の要因も混ざってしまう。逆に、ある時点で禁煙法のある地域とない地域を比べるだけだと、もともとの地域差が混ざってしまう。そこでこの論文は、同じ地域の前後変化と同じ時期の他地域の変化を同時に使うことで、禁煙法の追加的な効果を取り出そうとする。</p>
+<p>この論文でのアウトカム <span class="math inline">Y_{it}</span> は、個人 <span class="math inline">i</span> が時点 <span class="math inline">t</span> においてどれだけ ETS にさらされたか、あるいは公共の場所で ETS にさらされたかどうか、といった指標だと考えればよい。処置変数は、その個人が住む地域でその時点に公共の場所での禁煙法が施行されているかどうかである。したがって、もっとも基本的な回帰式は</p>
+<p><span class="math display">
+Y_{it} = \alpha + \beta \, \text{SmokingLaw}_{it} + X_{it}'\gamma + \mu_i + \lambda_t + u_{it}
+</span></p>
+<p>のような形で書ける。</p>
+<p>ここで <span class="math inline">\text{SmokingLaw}_{it}</span> は、その個人が禁煙法のある地域にいるかどうかを表す変数、<span class="math inline">X_{it}</span> は年齢やその他のコントロール、<span class="math inline">\mu_i</span> は地域固定効果、<span class="math inline">\lambda_t</span> は時点固定効果である。 この回帰のポイントは、禁煙法の導入の有無が変化した地域の変化を、まだ導入していない地域や別時点の変化と比べることで、<span class="math inline">\beta</span> を因果効果として解釈しようとしている点にある。</p>
+<p>これを basic な 2群 <span class="math inline">\times</span> 2期 の DiD と対応づけて考えるなら、頭の中では次のような回帰式に読み替えてよい。</p>
+<p><span class="math display">
+Y_{it} = \alpha + \delta \, \text{TreatedArea}_i + \eta \, \text{Post}_t + \theta (\text{TreatedArea}_i \times \text{Post}_t) + u_{it}
+</span></p>
+<p>ここで <span class="math inline">\text{TreatedArea}_i</span> は禁煙法が導入される地域の住民かどうか、<span class="math inline">\text{Post}_t</span> は導入後かどうかを表す。このとき交差項の係数 <span class="math inline">\theta</span> が DiD estimator であり、禁煙法によって ETS 曝露がどれだけ追加的に減ったかを表す。実際の論文は複数地域・複数時点のデータを使った固定効果型の仕様だが、考え方のコアはまさにこれである。</p>
+<p>結果は非常に直感的である。著者たちは、禁煙法は喫煙そのものには有意な影響をほとんど与えなかった一方で、バーやレストランでの ETS 曝露を大きく、しかも統計的に有意に減少させたと報告している。さらに重要なのは、公共空間で吸えなくなった分だけ喫煙が家に移ってしまい、家庭内の受動喫煙が増えるという displacement の明確な証拠は見つからなかった、という点である。つまりこの論文は、禁煙法は「喫煙者をすぐ禁煙させる政策」というより、少なくとも受動喫煙を減らす政策としては非常に効果的だったことを示している。</p>
+<p>この論文は、カナダにおける公共の場所での禁煙法の導入を自然実験として利用し、地域と時点の比較を組み合わせた fixed-effects / DiD 型の回帰によって、受動喫煙曝露への効果を推定した研究である。メインメッセージは、禁煙法は喫煙率自体を大きくは変えなくても、バーやレストランでの受動喫煙を大幅に減らした、ということである。</p>
+<div class="callout callout-style-simple callout-important callout-titled" title="event study の役割">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>event study の役割
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>event study は、処置効果の動学を描くためだけでなく、<strong>処置前の係数が不自然に動いていないか</strong> を確認するためにも使われる。したがって、処置後だけでなく処置前の係数も同じくらい重要である。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="event-study-と並行トレンド" class="level1">
+<h1>Event study と並行トレンド</h1>
+<p>DiDが有効な推定量になる重要な仮定は<strong>並行トレンド</strong>であった。つまり、処置群は、もし仮に処置されなかったら、平均的にはコントロール群と同じ動き方をしたはずだ、という仮定である。</p>
+<p>まず、この仮定は直接チェックできないことに注意しよう。</p>
+<p>なぜなら「もし仮に処置されなかった世界」を我々は見れないからである。</p>
+<p>では、実際に目の前にあるデータに対して、どのようにすれば、この並行トレンドの仮定を満たしているっぽいと主張できるであろうか？</p>
+<p>このとき重要なのは、並行トレンド仮定そのものは直接には検証できなくても、<strong>その仮定と整合的かどうかをデータからある程度点検することはできる</strong>、ということである。</p>
+<p>そのためにもっともよく使われるのが <strong>event study</strong> である。</p>
+<section id="event-study-の発想" class="level2">
+<h2 class="anchored" data-anchor-id="event-study-の発想">Event study の発想</h2>
+<p>event study の考え方は単純である。 ある地域や個人が処置を受ける時点を基準にして、「処置の何期前か」「処置の何期後か」を表すダミー変数を作り、それぞれの時点でアウトカムがどう動いているかを見る。</p>
+<p>もし並行トレンド仮定がもっともらしいなら、<strong>処置が始まる前の時点では、処置群と比較群の間に系統的な差の広がりは見られないはず</strong>である。 逆に、処置前からすでに処置群だけアウトカムが上がり始めていたり下がり始めていたりするなら、「処置がなかったとしても同じ動きをしたはずだ」という仮定は怪しくなる。</p>
+<p>つまり event study では、処置後の効果を見るだけでなく、<strong>処置前の係数がゼロに近いかどうか</strong>を確認することが非常に大事である。</p>
+</section>
+<section id="相対時点を定義する" class="level2">
+<h2 class="anchored" data-anchor-id="相対時点を定義する">相対時点を定義する</h2>
+<p>各単位 <span class="math inline">i</span> が最初に処置を受ける時点を <span class="math inline">G_i</span> とする。 すると、時点 <span class="math inline">t</span> がその単位にとって処置の何期前・何期後にあたるかは</p>
+<p><span class="math display">
+k = t - G_i
+</span></p>
+<p>で表せる。</p>
+<ul>
+<li><span class="math inline">k=-3</span> なら「処置の3期前」</li>
+<li><span class="math inline">k=-1</span> なら「処置の1期前」</li>
+<li><span class="math inline">k=0</span> なら「処置が始まった期」</li>
+<li><span class="math inline">k=2</span> なら「処置の2期後」</li>
+</ul>
+<p>という意味である。</p>
+<p>このように、カレンダー上の時点そのものではなく、<strong>処置開始時点から見た相対時点</strong>でデータを並べ直すのが event study の基本である。</p>
+</section>
+<section id="わかりやすいように一回2地域の-basic-な-did-で考える" class="level2">
+<h2 class="anchored" data-anchor-id="わかりやすいように一回2地域の-basic-な-did-で考える">わかりやすいように一回、2地域の basic な DiD で考える</h2>
+<p>まず、もっとも単純に、地域 <span class="math inline">A</span> と地域 <span class="math inline">B</span> の2地域を考えよう。 地域 <span class="math inline">A</span> は時点 <span class="math inline">t=3</span> で処置を受け、地域 <span class="math inline">B</span> は最後まで処置を受けないコントロール群だとする。</p>
+<p>このとき、</p>
+<ul>
+<li>地域 <span class="math inline">A</span> については <span class="math inline">G_A = 3</span></li>
+<li>地域 <span class="math inline">B</span> については処置開始時点が存在しない</li>
+</ul>
+<p>ことになる。</p>
+<p>したがって、地域 <span class="math inline">A</span> については relative time がきれいに定義できる。たとえば</p>
+<ul>
+<li><span class="math inline">t=1</span> なら <span class="math inline">k = 1-3 = -2</span></li>
+<li><span class="math inline">t=2</span> なら <span class="math inline">k = 2-3 = -1</span></li>
+<li><span class="math inline">t=3</span> なら <span class="math inline">k = 3-3 = 0</span></li>
+<li><span class="math inline">t=4</span> なら <span class="math inline">k = 4-3 = 1</span></li>
+</ul>
+<p>となる。</p>
+<p>一方で、地域 <span class="math inline">B</span> には処置開始時点 <span class="math inline">G_B</span> がないので、<span class="math inline">t-G_B</span> という relative time は定義できない。 つまり、<strong>ずっと未処置のコントロール群には、文字通りの意味では relative time は存在しない</strong>。</p>
+<section id="ではコントロール群はどう使うのか" class="level3">
+<h3 class="anchored" data-anchor-id="ではコントロール群はどう使うのか">ではコントロール群はどう使うのか</h3>
+<p>event study では、「ある relative time にいる処置群」と「その時点でまだ処置を受けていない単位」あるいは「そもそも処置されない単位」を比較する。</p>
+<p>たとえば地域 <span class="math inline">A</span> が <span class="math inline">t=4</span> にいて <span class="math inline">k=1</span>、つまり「処置の1期後」にあるとする。 このとき比較対象になるのは、同じカレンダー時点 <span class="math inline">t=4</span> において、まだ処置されていない単位である。2地域の例ではそれは地域 <span class="math inline">B</span> である。</p>
+<p>したがって、relative time のダミー変数は、<strong>処置される単位が、いま処置の何期前・何期後にいるか</strong>を表すためのものとして作られる。コントロール群自身に relative time が割り当てられるわけではない。</p>
+</section>
+<section id="ダミー変数はどうなるか" class="level3">
+<h3 class="anchored" data-anchor-id="ダミー変数はどうなるか">ダミー変数はどうなるか</h3>
+<p>たとえば relative time が <span class="math inline">k=-2,-1,0,1</span> の4つだけあるとしよう。 このとき、各 <span class="math inline">k</span> に対応して</p>
+<p><span class="math display">
+1\{t - G_i = -2\}, \quad
+1\{t - G_i = -1\}, \quad
+1\{t - G_i = 0\}, \quad
+1\{t - G_i = 1\}
+</span></p>
+<p>というダミー変数を作る。</p>
+<p>地域 <span class="math inline">A</span> が <span class="math inline">G_A=3</span> で処置されるとすると、これらのダミーは次のようになる。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>地域</th>
+<th style="text-align: right;"><span class="math inline">t</span></th>
+<th style="text-align: right;"><span class="math inline">k=t-G_i</span></th>
+<th style="text-align: right;"><span class="math inline">1{k=-2}</span></th>
+<th style="text-align: right;"><span class="math inline">1{k=-1}</span></th>
+<th style="text-align: right;"><span class="math inline">1{k=0}</span></th>
+<th style="text-align: right;"><span class="math inline">1{k=1}</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">-2</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td>A</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">-1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="odd">
+<td>A</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td>A</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+</tr>
+</tbody>
+</table>
+<p>一方で、地域 <span class="math inline">B</span> はずっと未処置なので、これらのダミーはすべて 0 になると考える。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>地域</th>
+<th style="text-align: right;"><span class="math inline">t</span></th>
+<th style="text-align: right;"><span class="math inline">1{k=-2}</span></th>
+<th style="text-align: right;"><span class="math inline">1{k=-1}</span></th>
+<th style="text-align: right;"><span class="math inline">1{k=0}</span></th>
+<th style="text-align: right;"><span class="math inline">1{k=1}</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>B</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td>B</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="odd">
+<td>B</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td>B</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+</tbody>
+</table>
+<p>つまり、event study の relative-time ダミーは、<strong>処置群の各観測が「処置の何期前・何期後」にあるかを示す変数</strong>であり、コントロール群については全部 0 になる。</p>
+</section>
+<section id="これを回帰式に入れる" class="level3">
+<h3 class="anchored" data-anchor-id="これを回帰式に入れる">これを回帰式に入れる</h3>
+<p>このとき、たとえば <span class="math inline">k=-1</span> を基準時点として落とすと、回帰式は</p>
+<p><span class="math display">
+Y_{it} = \alpha_i + \lambda_t
++
+\beta_{-2} 1\{t-G_i=-2\}
++
+\beta_0 1\{t-G_i=0\}
++
+\beta_1 1\{t-G_i=1\}
++
+u_{it}
+</span></p>
+<p>のように書ける。</p>
+<p>ここで</p>
+<ul>
+<li><span class="math inline">\beta_{-2}</span> は「処置の1期前」と比べた「処置の2期前」の差</li>
+<li><span class="math inline">\beta_0</span> は「処置開始期」の差</li>
+<li><span class="math inline">\beta_1</span> は「処置の1期後」の差</li>
+</ul>
+<p>を表す。</p>
+<p>そしてこれらの係数は、同じカレンダー時点におけるコントロール群との比較を通じて識別される。</p>
+</section>
+</section>
+<section id="event-study-の回帰式" class="level2">
+<h2 class="anchored" data-anchor-id="event-study-の回帰式">Event study の回帰式</h2>
+<p>上の2地域の話をgeneralに書く</p>
+<p>各 relative time ごとにダミーを作って、次のような回帰を考える。</p>
+<p><span class="math display">
+Y_{it} = \alpha_i + \lambda_t
++
+\sum_{k \neq -1} \beta_k  1\{t - G_i = k\}
++
+u_{it}
+</span></p>
+<p>ここで</p>
+<ul>
+<li><span class="math inline">\alpha_i</span> は単位固定効果</li>
+<li><span class="math inline">\lambda_t</span> は時点固定効果</li>
+<li><span class="math inline">1{t - G_i = k}</span> は「単位 <span class="math inline">i</span> が時点 <span class="math inline">t</span> において処置の <span class="math inline">k</span> 期前または <span class="math inline">k</span> 期後にいる」ことを表すダミー</li>
+<li><span class="math inline">\beta_k</span> は relative time <span class="math inline">k</span> における効果</li>
+</ul>
+<p>である。</p>
+<p>このとき、通常は <span class="math inline">k=-1</span>、つまり<strong>処置の1期前</strong>を基準時点として落とす。 したがって、<span class="math inline">\beta_k</span> は「処置の1期前と比べて、その時点でアウトカムがどれだけ高いか低いか」を表す。</p>
+</section>
+<section id="処置前の係数は何を意味するか" class="level2">
+<h2 class="anchored" data-anchor-id="処置前の係数は何を意味するか">処置前の係数は何を意味するか</h2>
+<p>この回帰で特に注目するのは、<span class="math inline">k&lt;0</span>、つまり処置前の係数である。</p>
+<p>もし並行トレンド仮定がもっともらしいなら、処置前にはまだ処置の効果は出ていないはずなので、これらの係数は平均的にはゼロに近いはずである。</p>
+<p>つまり</p>
+<p><span class="math display">
+\beta_{-3}, \beta_{-2}, \beta_{-4}, \dots
+</span></p>
+<p>がどれも 0 に近いなら、「処置前には目立った差のトレンドは見えていない」と言える。</p>
+<p>逆に、たとえば</p>
+<ul>
+<li><span class="math inline">\beta_{-3} &lt; 0</span></li>
+<li><span class="math inline">\beta_{-2} &lt; 0</span></li>
+<li><span class="math inline">\beta_{-1}</span> を基準にしても明らかな上昇トレンドが見える</li>
+</ul>
+<p>といった状況なら、処置前からすでに処置群と比較群の間にズレが生じていたことになる。 その場合、処置後の差をそのまま政策効果と解釈するのは危うい。</p>
+</section>
+<section id="処置後の係数は何を意味するか" class="level2">
+<h2 class="anchored" data-anchor-id="処置後の係数は何を意味するか">処置後の係数は何を意味するか</h2>
+<p>一方で、<span class="math inline">k \geq 0</span> の係数は、処置開始後に効果がどう推移していくかを表す。</p>
+<p>たとえば</p>
+<ul>
+<li><span class="math inline">\beta_0</span> は処置が始まった期の効果</li>
+<li><span class="math inline">\beta_1</span> は1期後の効果</li>
+<li><span class="math inline">\beta_2</span> は2期後の効果</li>
+</ul>
+<p>である。</p>
+<p>これを見ることで、</p>
+<ul>
+<li>効果がすぐ出るのか</li>
+<li>徐々に大きくなるのか</li>
+<li>一時的で消えていくのか</li>
+</ul>
+<p>といった<strong>動学的な効果</strong>も見ることができる。</p>
+<p>event study は、単に「DiD の仮定を点検する道具」であるだけでなく、<strong>効果の時間パターンを記述する道具</strong>でもある。</p>
+</section>
+<section id="シミュレーションその１並行トレンドを満たしていてevent-studyでもいい感じになる" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションその１並行トレンドを満たしていてevent-studyでもいい感じになる">シミュレーションその１：並行トレンドを満たしていて、event studyでもいい感じになる</h2>
+<p>いい。まずは <strong>処置群が同じ時点に一斉に処置される</strong> という、いちばん素直な DGP に戻すと event study の図もまっすぐ理解しやすい。</p>
+<p>以下、まず講義ノート用の markdown、そのあとに Quarto に貼れる R コードを続けて出します。</p>
+</section>
+<section id="event-study-のシミュレーション設定" class="level2">
+<h2 class="anchored" data-anchor-id="event-study-のシミュレーション設定">Event study のシミュレーション設定</h2>
+<p>ここでは、もっとも基本的な event study の図がどのようなときに現れるかを見るために、人工的なパネルデータをシミュレーションする。</p>
+<p>設定は次の通りである。</p>
+<ul>
+<li>単位の数は <span class="math inline">N=400</span></li>
+<li>各単位を <span class="math inline">T=10</span> 期間観測する</li>
+<li>各単位には固定効果 <span class="math inline">\alpha_i</span> がある</li>
+<li>各時点には全単位に共通の時点固定効果 <span class="math inline">\lambda_t</span> がある</li>
+<li>全単位のうち半分は処置群、残り半分はコントロール群である</li>
+<li>処置群はある1つの時点で<strong>一斉に処置</strong>される</li>
+<li>コントロール群は最後まで処置を受けない</li>
+</ul>
+<p>具体的には、処置群は <span class="math inline">t=6</span> で処置を受け始めるとする。 したがって、処置群については処置開始時点が</p>
+<p><span class="math display">
+G_i = 6
+</span></p>
+<p>であり、コントロール群は最後まで未処置である。</p>
+<p>処置群については relative time を</p>
+<p><span class="math display">
+k = t - G_i
+</span></p>
+<p>で定義する。 このとき</p>
+<ul>
+<li><span class="math inline">k=-3</span> なら処置の3期前</li>
+<li><span class="math inline">k=-1</span> なら処置の1期前</li>
+<li><span class="math inline">k=0</span> なら処置開始期</li>
+<li><span class="math inline">k=2</span> なら処置の2期後</li>
+</ul>
+<p>を意味する。</p>
+<p>アウトカムは次のように生成する。</p>
+<p><span class="math display">
+Y_{it} = 10 + \alpha_i + \lambda_t + \tau_{it} + \varepsilon_{it}
+</span></p>
+<p>ここで</p>
+<ul>
+<li><span class="math inline">\alpha_i</span> は単位固定効果</li>
+<li><span class="math inline">\lambda_t</span> は時点固定効果</li>
+<li><span class="math inline">\varepsilon_{it}</span> は平均 0 の誤差項</li>
+<li><span class="math inline">\tau_{it}</span> は処置効果</li>
+</ul>
+<p>である。</p>
+<p>このシミュレーションでは、処置効果 <span class="math inline">\tau_{it}</span> は relative time の関数として与える。具体的には、</p>
+<p><span class="math display">
+\tau_{it} =
+\begin{cases}
+0 &amp; \text{if } i \text{ is in control group} \\
+0 &amp; \text{if } i \text{ is in treated group and } k&lt;0 \\
+1.0 &amp; \text{if } i \text{ is in treated group and } k=0 \\
+2.0 &amp; \text{if } i \text{ is in treated group and } k=1 \\
+3.0 &amp; \text{if } i \text{ is in treated group and } k=2 \\
+3.5 &amp; \text{if } i \text{ is in treated group and } k\geq 3
+\end{cases}
+</span></p>
+<p>とする。</p>
+<p>つまり、この設定では</p>
+<ul>
+<li>処置前には処置群とコントロール群の間に追加的なトレンド差はない</li>
+<li>処置開始後に効果が徐々に大きくなる</li>
+</ul>
+<p>ようにデータを作っている。</p>
+<p>この DGP のもとでは、並行トレンド仮定が成り立つようにデータを作っているので、event study の図では、<strong>処置前の係数はおおむね 0 の近くに並び、処置後の係数が徐々に上昇する</strong>ことが期待される。</p>
+<p>この設定のもとで、次のような event study 回帰を推定する。</p>
+<p><span class="math display">
+Y_{it} =
+\alpha_i + \lambda_t
++
+\sum_{k \neq -1} \beta_k , 1{t-G_i = k}
++
+u_{it}
+</span></p>
+<p>ここで <span class="math inline">k=-1</span>、すなわち処置の1期前を基準時点として落としている。 したがって、各係数 <span class="math inline">\beta_k</span> は「処置の1期前」と比べたときの relative time <span class="math inline">k</span> における差を表す。</p>
+<p>特に、処置前の係数 <span class="math inline">\beta_k</span> が 0 の近くにあるかどうかを見ることで、並行トレンド仮定と整合的かどうかを視覚的に点検することができる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(fixest)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(broom)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. パラメータ設定</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>n_units <span class="ot">&lt;-</span> <span class="dv">400</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>T_periods <span class="ot">&lt;-</span> <span class="dv">10</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>treat_start <span class="ot">&lt;-</span> <span class="dv">6</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. パネルデータ作成</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">id =</span> <span class="dv">1</span><span class="sc">:</span>n_units,</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">t  =</span> <span class="dv">1</span><span class="sc">:</span>T_periods</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">treated =</span> <span class="fu">ifelse</span>(id <span class="sc">&lt;=</span> n_units <span class="sc">/</span> <span class="dv">2</span>, <span class="dv">1</span>, <span class="dv">0</span>),</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">G =</span> <span class="fu">ifelse</span>(treated <span class="sc">==</span> <span class="dv">1</span>, treat_start, <span class="cn">NA</span>),</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">rel_time =</span> <span class="fu">ifelse</span>(treated <span class="sc">==</span> <span class="dv">1</span>, t <span class="sc">-</span> G, <span class="cn">NA</span>)</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. 単位固定効果と時点固定効果</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>unit_fe <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_units, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">2</span>)</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>time_fe <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="fl">1.5</span>, <span class="fl">1.5</span>, <span class="at">length.out =</span> T_periods)</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">alpha_i =</span> unit_fe[id],</span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">lambda_t =</span> time_fe[t]</span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. 真の処置効果</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>true_tau <span class="ot">&lt;-</span> <span class="cf">function</span>(treated, k) {</span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (treated <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="dv">0</span>)</span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (k <span class="sc">&lt;</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="dv">0</span>)</span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (k <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="fl">1.0</span>)</span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (k <span class="sc">==</span> <span class="dv">1</span>) <span class="fu">return</span>(<span class="fl">2.0</span>)</span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (k <span class="sc">==</span> <span class="dv">2</span>) <span class="fu">return</span>(<span class="fl">3.0</span>)</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fl">3.5</span>)</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rowwise</span>() <span class="sc">|&gt;</span></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>    <span class="at">tau =</span> <span class="fu">true_tau</span>(treated, rel_time)</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. アウトカム生成</span></span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="dv">10</span> <span class="sc">+</span> alpha_i <span class="sc">+</span> lambda_t <span class="sc">+</span> tau <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">n</span>(), <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">2</span>)</span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a><span class="co"># 6. Event-study 用の relative-time ダミー</span></span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a><span class="co">#    コントロール群はすべて0</span></span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>event_times <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">4</span>, <span class="sc">-</span><span class="dv">3</span>, <span class="sc">-</span><span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>)</span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (k <span class="cf">in</span> event_times) {</span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a>  varname <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"event_"</span>, <span class="fu">ifelse</span>(k <span class="sc">&lt;</span> <span class="dv">0</span>, <span class="fu">paste0</span>(<span class="st">"m"</span>, <span class="fu">abs</span>(k)), <span class="fu">paste0</span>(<span class="st">"p"</span>, k)))</span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a>  df[[varname]] <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(df<span class="sc">$</span>treated <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> df<span class="sc">$</span>rel_time <span class="sc">==</span> k, <span class="dv">1</span>, <span class="dv">0</span>)</span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a><span class="co"># 7. Event-study 回帰</span></span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a><span class="co">#    基準時点は k = -1</span></span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a>es_fit <span class="ot">&lt;-</span> <span class="fu">feols</span>(</span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a>  y <span class="sc">~</span> event_m4 <span class="sc">+</span> event_m3 <span class="sc">+</span> event_m2 <span class="sc">+</span> event_p0 <span class="sc">+</span> event_p1 <span class="sc">+</span> event_p2 <span class="sc">+</span> event_p3 <span class="sc">+</span> event_p4 <span class="sc">|</span> id <span class="sc">+</span> t,</span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> df,</span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a>  <span class="at">cluster =</span> <span class="sc">~</span>id</span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a><span class="co"># 8. 結果整形</span></span>
+<span id="cb4-91"><a href="#cb4-91" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-92"><a href="#cb4-92" aria-hidden="true" tabindex="-1"></a>tidy_es <span class="ot">&lt;-</span> broom<span class="sc">::</span><span class="fu">tidy</span>(es_fit, <span class="at">conf.int =</span> <span class="cn">TRUE</span>) <span class="sc">|&gt;</span></span>
+<span id="cb4-93"><a href="#cb4-93" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb4-94"><a href="#cb4-94" aria-hidden="true" tabindex="-1"></a>    <span class="at">rel_time =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">4</span>, <span class="sc">-</span><span class="dv">3</span>, <span class="sc">-</span><span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>)</span>
+<span id="cb4-95"><a href="#cb4-95" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb4-96"><a href="#cb4-96" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(rel_time, estimate, conf.low, conf.high)</span>
+<span id="cb4-97"><a href="#cb4-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-98"><a href="#cb4-98" aria-hidden="true" tabindex="-1"></a>plot_df <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(</span>
+<span id="cb4-99"><a href="#cb4-99" aria-hidden="true" tabindex="-1"></a>  tidy_es,</span>
+<span id="cb4-100"><a href="#cb4-100" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb4-101"><a href="#cb4-101" aria-hidden="true" tabindex="-1"></a>    <span class="at">rel_time =</span> <span class="sc">-</span><span class="dv">1</span>,</span>
+<span id="cb4-102"><a href="#cb4-102" aria-hidden="true" tabindex="-1"></a>    <span class="at">estimate =</span> <span class="dv">0</span>,</span>
+<span id="cb4-103"><a href="#cb4-103" aria-hidden="true" tabindex="-1"></a>    <span class="at">conf.low =</span> <span class="dv">0</span>,</span>
+<span id="cb4-104"><a href="#cb4-104" aria-hidden="true" tabindex="-1"></a>    <span class="at">conf.high =</span> <span class="dv">0</span></span>
+<span id="cb4-105"><a href="#cb4-105" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb4-106"><a href="#cb4-106" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb4-107"><a href="#cb4-107" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(rel_time)</span>
+<span id="cb4-108"><a href="#cb4-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-109"><a href="#cb4-109" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-110"><a href="#cb4-110" aria-hidden="true" tabindex="-1"></a><span class="co"># 9. Event-study plot</span></span>
+<span id="cb4-111"><a href="#cb4-111" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb4-112"><a href="#cb4-112" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(plot_df, <span class="fu">aes</span>(<span class="at">x =</span> rel_time, <span class="at">y =</span> estimate)) <span class="sc">+</span></span>
+<span id="cb4-113"><a href="#cb4-113" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb4-114"><a href="#cb4-114" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="sc">-</span><span class="fl">0.5</span>, <span class="at">linetype =</span> <span class="st">"dotted"</span>) <span class="sc">+</span></span>
+<span id="cb4-115"><a href="#cb4-115" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">ymin =</span> conf.low, <span class="at">ymax =</span> conf.high), <span class="at">width =</span> <span class="fl">0.15</span>) <span class="sc">+</span></span>
+<span id="cb4-116"><a href="#cb4-116" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="fl">2.5</span>) <span class="sc">+</span></span>
+<span id="cb4-117"><a href="#cb4-117" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb4-118"><a href="#cb4-118" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(<span class="fu">min</span>(plot_df<span class="sc">$</span>rel_time), <span class="fu">max</span>(plot_df<span class="sc">$</span>rel_time), <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb4-119"><a href="#cb4-119" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb4-120"><a href="#cb4-120" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Event time"</span>,</span>
+<span id="cb4-121"><a href="#cb4-121" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Estimated effect"</span></span>
+<span id="cb4-122"><a href="#cb4-122" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb4-123"><a href="#cb4-123" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">16</span>) <span class="sc">+</span></span>
+<span id="cb4-124"><a href="#cb4-124" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb4-125"><a href="#cb4-125" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb4-126"><a href="#cb4-126" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture7_revised_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li>横軸は event time、つまり処置の何期前・何期後か</li>
+<li>縦軸はその relative time の係数</li>
+<li>点線の縦線の左側が 処置前</li>
+<li>右側が 処置後</li>
+<li>横の破線は 0</li>
+<li>各点の縦棒は 95% 信頼区間</li>
+</ul>
+<p>明らかに、処置前は0付近に張り付いていて、処置群とコントロール群に差がない。しかし、処置後は両者に差が出てきている。</p>
+<p>よって、処置前から両者が異なる動きをする兆候が観測されないので、並行トレンドっぽいとしても良さそうである。</p>
+</section>
+<section id="シミュレーションその２並行トレンドを満たしてるのにevent-studyがダメそう" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションその２並行トレンドを満たしてるのにevent-studyがダメそう">シミュレーションその２：並行トレンドを満たしてるのに、event studyがダメそう</h2>
+<p>設定は次の通りである。</p>
+<ul>
+<li>単位（individual, region, firm など）の数は <span class="math inline">N=400</span></li>
+<li>各単位を <span class="math inline">T=10</span> 期間観測する</li>
+<li>各単位には固定効果 <span class="math inline">\alpha_i</span> がある</li>
+<li>各時点には全単位に共通の時点固定効果 <span class="math inline">\lambda_t</span> がある</li>
+<li>一部の単位はある時点で順々に処置を受ける</li>
+<li>残りの単位は最後まで処置を受けない</li>
+</ul>
+<p>各単位 <span class="math inline">i</span> の処置開始時点を <span class="math inline">G_i</span> とする。 処置開始時点は <span class="math inline">5,6,7,8</span> のいずれかである単位と、最後まで未処置である単位が混在している。 したがって、このシミュレーションは <strong>staggered adoption</strong> の状況を表している。</p>
+<p>各観測について、relative time を</p>
+<p><span class="math display">
+k = t - G_i
+</span></p>
+<p>で定義する。 このとき</p>
+<ul>
+<li><span class="math inline">k&lt;0</span> なら処置前</li>
+<li><span class="math inline">k=0</span> なら処置開始期</li>
+<li><span class="math inline">k&gt;0</span> なら処置後</li>
+</ul>
+<p>を意味する。</p>
+<p>アウトカムは次のように生成する。</p>
+<p><span class="math display">
+Y_{it} = 10 + \alpha_i + \lambda_t + \tau_{it} + \varepsilon_{it}
+</span></p>
+<p>ここで</p>
+<ul>
+<li><span class="math inline">\alpha_i</span> は単位固定効果</li>
+<li><span class="math inline">\lambda_t</span> は時点固定効果</li>
+<li><span class="math inline">\tau_{it}</span> は処置効果</li>
+<li><span class="math inline">\varepsilon_{it}</span> は平均 0 の誤差項</li>
+</ul>
+<p>である。</p>
+<p>このシミュレーションでは、処置効果 <span class="math inline">\tau_{it}</span> は relative time の関数として与える。具体的には、</p>
+<p><span class="math display">
+\tau_{it} =
+\begin{cases}
+0 &amp; \text{if } k&lt;0 \\
+1.0 &amp; \text{if } k=0 \\
+2.0 &amp; \text{if } k=1 \\
+3.0 &amp; \text{if } k=2 \\
+3.5 &amp; \text{if } k\geq 3
+\end{cases}
+</span></p>
+<p>とする。</p>
+<p>つまり、この設定では</p>
+<ul>
+<li>処置前には効果は存在しない</li>
+<li>処置開始後に効果が徐々に大きくなる</li>
+</ul>
+<p>ようにデータを作っている。</p>
+<p>つまり、処置タイミングがバラバラばなこと以外は前のシミュレーションと同じである。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(fixest)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(broom)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. パネルデータをシミュレーション</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>n_units <span class="ot">&lt;-</span> <span class="dv">400</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>T_periods <span class="ot">&lt;-</span> <span class="dv">10</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>time_vals <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">:</span>T_periods</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">id =</span> <span class="dv">1</span><span class="sc">:</span>n_units,</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">t  =</span> time_vals</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>()</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="co"># 一部はずっと未処置、他は staggered adoption</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>possible_g <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">6</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="cn">Inf</span>)</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>probs <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.18</span>, <span class="fl">0.18</span>, <span class="fl">0.18</span>, <span class="fl">0.18</span>, <span class="fl">0.28</span>)</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>g_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">id =</span> <span class="dv">1</span><span class="sc">:</span>n_units,</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">G  =</span> <span class="fu">sample</span>(possible_g, <span class="at">size =</span> n_units, <span class="at">replace =</span> <span class="cn">TRUE</span>, <span class="at">prob =</span> probs)</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(g_df, <span class="at">by =</span> <span class="st">"id"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">treated =</span> <span class="fu">ifelse</span>(<span class="fu">is.finite</span>(G) <span class="sc">&amp;</span> t <span class="sc">&gt;=</span> G, <span class="dv">1</span>, <span class="dv">0</span>),</span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">rel_time =</span> <span class="fu">ifelse</span>(<span class="fu">is.finite</span>(G), t <span class="sc">-</span> G, <span class="cn">NA_real_</span>)</span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a><span class="co"># 単位固定効果と時点固定効果</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>unit_fe <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_units, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">2</span>)</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>time_fe <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="fl">1.5</span>, <span class="fl">1.5</span>, <span class="at">length.out =</span> T_periods)</span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">alpha_i =</span> unit_fe[id],</span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>    <span class="at">lambda_t =</span> time_fe[t]</span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の動学的処置効果</span></span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a><span class="co"># 処置前はゼロ、処置後は徐々に効く</span></span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>true_tau <span class="ot">&lt;-</span> <span class="cf">function</span>(k) {</span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.na</span>(k) <span class="sc">||</span> k <span class="sc">&lt;</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="dv">0</span>)</span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (k <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="fl">1.0</span>)</span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (k <span class="sc">==</span> <span class="dv">1</span>) <span class="fu">return</span>(<span class="fl">2.0</span>)</span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (k <span class="sc">==</span> <span class="dv">2</span>) <span class="fu">return</span>(<span class="fl">3.0</span>)</span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fl">3.5</span>)</span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rowwise</span>() <span class="sc">|&gt;</span></span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>    <span class="at">tau =</span> <span class="fu">true_tau</span>(rel_time)</span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a><span class="co"># アウトカム生成</span></span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="dv">10</span> <span class="sc">+</span> alpha_i <span class="sc">+</span> lambda_t <span class="sc">+</span> tau <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">n</span>(), <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">2</span>)</span>
+<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Event study 回帰</span></span>
+<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a><span class="co">#    基準時点は k = -1</span></span>
+<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a>es_fit <span class="ot">&lt;-</span> <span class="fu">feols</span>(</span>
+<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a>  y <span class="sc">~</span> <span class="fu">i</span>(rel_time, <span class="at">ref =</span> <span class="sc">-</span><span class="dv">1</span>) <span class="sc">|</span> id <span class="sc">+</span> t,</span>
+<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> df,</span>
+<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a>  <span class="at">cluster =</span> <span class="sc">~</span>id</span>
+<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. 推定結果を整形</span></span>
+<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a>tidy_es <span class="ot">&lt;-</span> broom<span class="sc">::</span><span class="fu">tidy</span>(es_fit, <span class="at">conf.int =</span> <span class="cn">TRUE</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">grepl</span>(<span class="st">"rel_time::"</span>, term)) <span class="sc">|&gt;</span></span>
+<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a>    <span class="at">rel_time =</span> <span class="fu">as.numeric</span>(<span class="fu">sub</span>(<span class="st">".*::"</span>, <span class="st">""</span>, term))</span>
+<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(rel_time)</span>
+<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a><span class="co"># 基準時点 k=-1 を図に入れたいので手で追加</span></span>
+<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a>plot_df <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(</span>
+<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a>  tidy_es <span class="sc">|&gt;</span></span>
+<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(rel_time, estimate, conf.low, conf.high),</span>
+<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a>    <span class="at">rel_time =</span> <span class="sc">-</span><span class="dv">1</span>,</span>
+<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a>    <span class="at">estimate =</span> <span class="dv">0</span>,</span>
+<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a>    <span class="at">conf.low =</span> <span class="dv">0</span>,</span>
+<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a>    <span class="at">conf.high =</span> <span class="dv">0</span></span>
+<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb5-101"><a href="#cb5-101" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(rel_time)</span>
+<span id="cb5-102"><a href="#cb5-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-103"><a href="#cb5-103" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の効果（参考）</span></span>
+<span id="cb5-104"><a href="#cb5-104" aria-hidden="true" tabindex="-1"></a>true_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb5-105"><a href="#cb5-105" aria-hidden="true" tabindex="-1"></a>  <span class="at">rel_time =</span> <span class="fu">min</span>(plot_df<span class="sc">$</span>rel_time)<span class="sc">:</span><span class="fu">max</span>(plot_df<span class="sc">$</span>rel_time)</span>
+<span id="cb5-106"><a href="#cb5-106" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb5-107"><a href="#cb5-107" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-108"><a href="#cb5-108" aria-hidden="true" tabindex="-1"></a>    <span class="at">true_effect =</span> <span class="fu">sapply</span>(rel_time, true_tau)</span>
+<span id="cb5-109"><a href="#cb5-109" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-110"><a href="#cb5-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-111"><a href="#cb5-111" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb5-112"><a href="#cb5-112" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Event study plot</span></span>
+<span id="cb5-113"><a href="#cb5-113" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb5-114"><a href="#cb5-114" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(plot_df, <span class="fu">aes</span>(<span class="at">x =</span> rel_time, <span class="at">y =</span> estimate)) <span class="sc">+</span></span>
+<span id="cb5-115"><a href="#cb5-115" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb5-116"><a href="#cb5-116" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="sc">-</span><span class="fl">0.5</span>, <span class="at">linetype =</span> <span class="st">"dotted"</span>) <span class="sc">+</span></span>
+<span id="cb5-117"><a href="#cb5-117" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">ymin =</span> conf.low, <span class="at">ymax =</span> conf.high), <span class="at">width =</span> <span class="fl">0.15</span>) <span class="sc">+</span></span>
+<span id="cb5-118"><a href="#cb5-118" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="fl">2.5</span>) <span class="sc">+</span></span>
+<span id="cb5-119"><a href="#cb5-119" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb5-120"><a href="#cb5-120" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(<span class="fu">min</span>(plot_df<span class="sc">$</span>rel_time), <span class="fu">max</span>(plot_df<span class="sc">$</span>rel_time), <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb5-121"><a href="#cb5-121" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb5-122"><a href="#cb5-122" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Event time"</span>,</span>
+<span id="cb5-123"><a href="#cb5-123" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Estimated effect"</span></span>
+<span id="cb5-124"><a href="#cb5-124" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb5-125"><a href="#cb5-125" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">16</span>) <span class="sc">+</span></span>
+<span id="cb5-126"><a href="#cb5-126" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb5-127"><a href="#cb5-127" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb5-128"><a href="#cb5-128" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture7_revised_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>先ほど比べて</p>
+<ul>
+<li>処置前が全然0じゃない</li>
+<li>処置がは似たような感じ</li>
+</ul>
+<p>処置前がpositiveなので、処置群の方が処置される前から上昇トレンドが強かったことになり、並行トレンドの仮定を課してはいけないと判断できる図である。</p>
+<p>しかし、<strong>実際には並行トレンドは満たされている。</strong></p>
+<p>ただ処置のタイミングが異なるだけで、このような結果になってしまう。</p>
+<p>DiDで処置タイミングずれている時の分析は最新の注意を払って行う必要がある。</p>
+<div class="callout callout-style-simple callout-warning callout-titled" title="ここから先は一段階むずかしい">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">警告</span>ここから先は一段階むずかしい
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>処置時期が単位ごとにずれると、TWFE 回帰の係数は単純な平均処置効果としては読めないことがある。特に <strong>異質な処置効果</strong> があるときに何が混ざるのかを丁寧に追うのがこの節の目的である。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="staggered-did" class="level1">
+<h1>Staggered DiD</h1>
+<p>さて、先に述べた複数タイミングで処置が発生するStaggered DiDの話に戻る。</p>
+<p>回帰式は以下のように書かれていたことを思い出そう。</p>
+<p><span class="math display">
+Y_{it} = \alpha_i + \lambda_t + \beta D_{it} + u_{it}
+</span></p>
+<p>これは見た目には非常に自然であり、長い間、これが staggered DiD の標準的な推定式として広く使われてきた。<br>
+この回帰は <strong>two-way fixed effects</strong> （つまり、unit <span class="math inline">i</span>の固定効果と時間の固定効果 <span class="math inline">t</span>）を入れた DiD なので、しばしば <strong>TWFE DiD</strong> と呼ばれる。</p>
+<p>しかし、処置効果がすべての単位とすべての時点でまったく同じであるとは限らない。<br>
+実際には、先のシミュレーションのように、</p>
+<ul>
+<li>早く処置を受けた地域と遅く処置を受けた地域で効果が違う</li>
+<li>処置直後の効果と、処置からしばらく経った後の効果が違う</li>
+<li>地域の属性によって効果の大きさが違う</li>
+</ul>
+<p>ということは普通に起こりうる。</p>
+<p>このとき、上の TWFE 回帰の係数 <span class="math inline">\beta</span> は、単純な意味での「平均処置効果」とは限らない。<br>
+なぜならこの回帰は、実はたくさんの 2群 <span class="math inline">\times</span> 2期 の比較を自動的に混ぜ合わせて作られているからである。</p>
+<p>その中には、</p>
+<ul>
+<li>まだ処置を受けていない単位を比較対象にする、自然な比較</li>
+<li>すでに処置を受けてしまった単位を、別の単位の比較対象として使ってしまう、不自然な比較</li>
+</ul>
+<p>の両方が混ざる。</p>
+<p>staggered DiD を正しく理解するためには、まず<strong>TWFE DiDは何を比較しているのか</strong>をはっきりさせる必要がある。</p>
+<section id="staggered-did-の基本設定" class="level2">
+<h2 class="anchored" data-anchor-id="staggered-did-の基本設定">staggered DiD の基本設定</h2>
+<p>単位 <span class="math inline">i</span> が最初に処置を受ける時点を</p>
+<p><span class="math display">
+G_i
+</span></p>
+<p>と書く。<br>
+もし単位 <span class="math inline">i</span> が最後まで処置を受けないなら、</p>
+<p><span class="math display">
+G_i = \infty
+</span></p>
+<p>とする。</p>
+<p>このとき、時点 <span class="math inline">t</span> における処置状態は</p>
+<p><span class="math display">
+D_{it} = 1\{t \geq G_i\}
+</span></p>
+<p>で表される。<br>
+ここで <span class="math inline">1\{\cdot\}</span> は、かっこの中が真なら 1、偽なら 0 を返す指示関数である。</p>
+<p>また、各単位・各時点について潜在アウトカムを</p>
+<p><span class="math display">
+Y_{it}(0), \qquad Y_{it}(1)
+</span></p>
+<p>と書く。<br>
+ここで</p>
+<ul>
+<li><span class="math inline">Y_{it}(0)</span> は時点 <span class="math inline">t</span> に未処置であったときの潜在アウトカム</li>
+<li><span class="math inline">Y_{it}(1)</span> は時点 <span class="math inline">t</span> に処置済みであったときの潜在アウトカム</li>
+</ul>
+<p>である。</p>
+<p>実際に観測されるアウトカムは</p>
+<p><span class="math display">
+Y_{it} = D_{it} Y_{it}(1) + (1-D_{it})Y_{it}(0)
+</span></p>
+<p>である。</p>
+</section>
+<section id="何を知りたいのか" class="level2">
+<h2 class="anchored" data-anchor-id="何を知りたいのか">何を知りたいのか</h2>
+<p>2期の basic な DiD では、知りたい量は</p>
+<p><span class="math display">
+E[Y_{i1}(1) - Y_{i1}(0) \mid D_i=1]
+</span></p>
+<p>だった。</p>
+<p>staggered DiD では、「誰がいつ処置を受けたか」が人によって違うので、処置効果も <strong>どの cohort が</strong>、<strong>どの時点で</strong> 受けた効果かを区別して書く必要がある。</p>
+<p>そこで、処置開始時点が <span class="math inline">g</span> である単位たちの集合を考え、時点 <span class="math inline">t</span> における平均処置効果を</p>
+<p><span class="math display">
+ATT(g,t) \equiv E\bigl[Y_{it}(1) - Y_{it}(0) \mid G_i=g\bigr]
+\qquad \text{for } t \geq g
+</span></p>
+<p>と定義する。</p>
+<p>これは</p>
+<ul>
+<li><span class="math inline">G_i = g</span> である単位、つまり <strong>時点 <span class="math inline">g</span> に初めて処置を受けた cohort</strong></li>
+<li>その cohort の <strong>時点 <span class="math inline">t</span> における平均処置効果</strong></li>
+</ul>
+<p>を表している。</p>
+<p>たとえば、</p>
+<p><span class="math display">
+ATT(5,5)
+</span></p>
+<p>は「時点 5 で初めて処置を受けた cohort に対する、処置直後の効果」であり、</p>
+<p><span class="math display">
+ATT(5,7)
+</span></p>
+<p>は「時点 5 で初めて処置を受けた cohort に対する、処置から 2期後の効果」である。</p>
+<p>つまり staggered DiD では、まず一つの <span class="math inline">\beta</span> をいきなり考えるのではなく、</p>
+<p><span class="math display">
+ATT(g,t)
+</span></p>
+<p>という <strong>cohort <span class="math inline">\times</span> 時点</strong> の効果を基本単位として考えるのが自然である。</p>
+</section>
+<section id="基本となる-parallel-trends-の書き方" class="level2">
+<h2 class="anchored" data-anchor-id="基本となる-parallel-trends-の書き方">基本となる parallel trends の書き方</h2>
+<p>2期の DiD では parallel trends は</p>
+<p><span class="math display">
+E[Y_{i1}(0) - Y_{i0}(0) \mid D_i=1]
+=
+E[Y_{i1}(0) - Y_{i0}(0) \mid D_i=0]
+</span></p>
+<p>だった。</p>
+<p>staggered DiD では、「どの cohort を」「どの時点で」比較するかが重要なので、parallel trends も少し一般的な形で書く必要がある。</p>
+<p>処置開始時点が <span class="math inline">g</span> である cohort を、時点 <span class="math inline">t</span> ではまだ処置を受けていないunitと比べることを考える。<br>
+このとき、<span class="math inline">t&lt;g</span> では cohort <span class="math inline">g</span> はまだ未処置なので、未処置状態での平均変化が他のまだ未処置のunitと平行であることを仮定する。</p>
+<p>書き方はいろいろあるが、もっとも基本的な考え方は、ある時点 <span class="math inline">t</span> を見た時に、<span class="math inline">t&lt;g</span> なる <span class="math inline">g</span> について、</p>
+<p><span class="math display">
+E\bigl[Y_{it}(0)-Y_{i,t-1}(0)\mid G_i=g\bigr] = E\bigl[Y_{it}(0)-Y_{i,t-1}(0)\mid G_i&gt;t\bigr]
+</span></p>
+<p>が成り立つ、というのが並行トレンドの拡張になる。</p>
+<p>右辺の</p>
+<p><span class="math display">
+G_i &gt; t
+</span></p>
+<p>という条件は、「時点 <span class="math inline">t</span> になってもまだ処置を受けていない単位」を意味していることに注意。</p>
+<p>したがってこの式の意味は、</p>
+<blockquote class="blockquote">
+<p>「将来 <span class="math inline">g</span> 期に処置される cohort」は、処置される前の時点 <span class="math inline">t</span> では、その時点でまだ未処置の人たちみんなと平均的には同じトレンドで動いていた</p>
+</blockquote>
+<p>ということである。</p>
+<p>これが staggered DiD における parallel trends の基本形である。</p>
+<section id="わかりにくいので具体例" class="level3">
+<h3 class="anchored" data-anchor-id="わかりにくいので具体例">わかりにくいので具体例</h3>
+<p>たとえば時点が <span class="math inline">1,2,3,4,5</span> あって、ある cohort が <span class="math inline">g=4</span> に処置開始だとする。</p>
+<p>このときその cohort は</p>
+<ul>
+<li><span class="math inline">t=1</span>: 未処置</li>
+<li><span class="math inline">t=2</span>: 未処置</li>
+<li><span class="math inline">t=3</span>: 未処置</li>
+<li><span class="math inline">t=4</span>: 処置開始</li>
+<li><span class="math inline">t=5</span>: 処置済み</li>
+</ul>
+<p>である。</p>
+<section id="いま-t2-を見ているとする" class="level4">
+<h4 class="anchored" data-anchor-id="いま-t2-を見ているとする">いま <span class="math inline">t=2</span> を見ているとする</h4>
+<p>このとき <span class="math inline">2 = t&lt;g = 4</span> なので、<span class="math inline">g=4</span> の cohort はまだ未処置である。</p>
+<p>左辺は</p>
+<p><span class="math display">
+E\bigl[Y_{i2}(0)-Y_{i1}(0)\mid G_i=4\bigr]
+</span></p>
+<p>であり、これは「時点 <span class="math inline">4</span> に初めて処置を受ける cohort が、時点 <span class="math inline">1</span> から時点 <span class="math inline">2</span> にかけて、未処置状態でどれだけ変化したか」を表している。</p>
+<p>右辺は</p>
+<p><span class="math display">
+E\bigl[Y_{i2}(0)-Y_{i1}(0)\mid G_i&gt;2\bigr]
+</span></p>
+<p>であり、これは「時点 <span class="math inline">2</span> の時点でまだ処置を受けていない unit たちが、時点 <span class="math inline">1</span> から時点 <span class="math inline">2</span> にかけて、未処置状態でどれだけ変化したか」を表している。</p>
+<p>ここで</p>
+<p><span class="math display">
+G_i&gt;2
+</span></p>
+<p>に含まれるのは、たとえば</p>
+<ul>
+<li><span class="math inline">G_i=3</span></li>
+<li><span class="math inline">G_i=4</span></li>
+<li><span class="math inline">G_i=5</span></li>
+<li><span class="math inline">G_i=\infty</span></li>
+</ul>
+<p>である。</p>
+<p>これらの unit はすべて、時点 <span class="math inline">2</span> ではまだ未処置である。</p>
+</section>
+<section id="いま-t3-を見ているとする" class="level4">
+<h4 class="anchored" data-anchor-id="いま-t3-を見ているとする">いま <span class="math inline">t=3</span> を見ているとする</h4>
+<p>このときも <span class="math inline">t&lt;g</span> なので、<span class="math inline">g=4</span> の cohort はまだ未処置である。</p>
+<p>左辺は</p>
+<p><span class="math display">
+E\bigl[Y_{i3}(0)-Y_{i2}(0)\mid G_i=4\bigr]
+</span></p>
+<p>であり、これは「時点 <span class="math inline">4</span> に初めて処置を受ける cohort が、時点 <span class="math inline">2</span> から時点 <span class="math inline">3</span> にかけて、未処置状態でどれだけ変化したか」を表している。</p>
+<p>右辺は</p>
+<p><span class="math display">
+E\bigl[Y_{i3}(0)-Y_{i2}(0)\mid G_i&gt;3\bigr]
+</span></p>
+<p>であり、これは「時点 <span class="math inline">3</span> の時点でまだ処置を受けていない unit たちが、時点 <span class="math inline">2</span> から時点 <span class="math inline">3</span> にかけて、未処置状態でどれだけ変化したか」を表している。</p>
+<p>ここで</p>
+<p><span class="math display">
+G_i&gt;3
+</span></p>
+<p>に含まれるのは、たとえば</p>
+<ul>
+<li><span class="math inline">G_i=4</span></li>
+<li><span class="math inline">G_i=5</span></li>
+<li><span class="math inline">G_i=\infty</span></li>
+</ul>
+<p>である。</p>
+<p>一方で <strong><span class="math inline">G_i=3</span> の unit は、時点 <span class="math inline">3</span> にはすでに処置を受け始めているので、比較対象には入らない。</strong></p>
+</section>
+<section id="この例が示していること" class="level4">
+<h4 class="anchored" data-anchor-id="この例が示していること">この例が示していること</h4>
+<p>この例からわかるように、staggered DiD では「比較対象になる control」は時点ごとに変わる。</p>
+<ul>
+<li>時点 <span class="math inline">2</span> では、<span class="math inline">G_i&gt;2</span> の unit が control になる</li>
+<li>時点 <span class="math inline">3</span> では、<span class="math inline">G_i&gt;3</span> の unit が control になる</li>
+</ul>
+<p>つまり、比較対象として自然なのは常に</p>
+<p><span class="math display">
+G_i&gt;t
+</span></p>
+<p>すなわち「その時点 <span class="math inline">t</span> ではまだ処置を受けていない unit」である。</p>
+</section>
+</section>
+</section>
+<section id="なぜまだ未処置の単位を比較対象にするのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜまだ未処置の単位を比較対象にするのか">なぜ「まだ未処置の単位」を比較対象にするのか</h2>
+<p>2期 DiD では、比較対象は単純に control 群だった。<br>
+しかし staggered adoption では、ある時点では control だった単位が、別の時点では treated になる。</p>
+<p>上の具体例で見たように、時点 <span class="math inline">t</span> に cohort <span class="math inline">g</span> の効果を考えるとき、比較対象として自然なのは</p>
+<p><span class="math display">
+G_i &gt; t
+</span></p>
+<p>すなわち <strong>その時点ではまだ処置を受けていない単位</strong>である。</p>
+<p>逆に、</p>
+<p><span class="math display">
+G_i &lt; t
+</span></p>
+<p>つまり <strong>その時点ではすでに処置済みの単位</strong>を比較対象に使うと問題が起こる。</p>
+<p>なぜなら、その単位たちはもう処置の影響を受けているかもしれず、もはや「未処置の反実仮想」を表していないからである。</p>
+<p>これを無視してしまうと、</p>
+<ul>
+<li>treated と untreated の比較</li>
+</ul>
+<p>ではなく、</p>
+<ul>
+<li>treated と already-treated の比較</li>
+</ul>
+<p>が混ざってしまう。</p>
+<p>これが TWFE の問題の出発点である。</p>
+</section>
+<section id="つの-cohort-がある簡単な例" class="level2">
+<h2 class="anchored" data-anchor-id="つの-cohort-がある簡単な例">2つの cohort がある簡単な例</h2>
+<p>話を具体的にするために、3時点 <span class="math inline">t=1,2,3</span> と 2つの cohort を考える。</p>
+<ul>
+<li>cohort A は時点 2 で処置開始</li>
+<li>cohort B は時点 3 で処置開始</li>
+</ul>
+<p>とする。<br>
+つまり</p>
+<p><span class="math display">
+G_i =\begin{cases}
+2 &amp; \text{if } i \in A \\
+3 &amp; \text{if } i \in B
+\end{cases}
+</span></p>
+<p>である。</p>
+<p>このとき、時点ごとの処置状態は次のようになる。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>group</th>
+<th style="text-align: right;"><span class="math inline">t=1</span></th>
+<th style="text-align: right;"><span class="math inline">t=2</span></th>
+<th style="text-align: right;"><span class="math inline">t=3</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>cohort A</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr class="even">
+<td>cohort B</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+</tr>
+</tbody>
+</table>
+<p>ここで、時点 2 における cohort A の効果を考えるとき、cohort B はまだ未処置なので、比較対象として自然である。<br>
+このときの 2群 <span class="math inline">\times</span> 2期 DiD は</p>
+<p><span class="math display">
+\Bigl(
+E[Y_{i2}\mid G_i=2] - E[Y_{i1}\mid G_i=2]
+\Bigr)
+-
+\Bigl(
+E[Y_{i2}\mid G_i=3] - E[Y_{i1}\mid G_i=3]
+\Bigr)
+</span></p>
+<p>である。</p>
+<p>これは parallel trends のもとで</p>
+<p><span class="math display">
+ATT(2,2)
+</span></p>
+<p>を識別する。これは普通の2$$2のDiDをより一般的な記法で書いただけである。</p>
+<p>しかし時点 3 では事情が変わる。</p>
+<ul>
+<li>cohort A はすでに処置済み</li>
+<li>cohort B も時点 3 で処置開始</li>
+</ul>
+<p>である。</p>
+<p>このとき</p>
+<ul>
+<li>cohort B の効果を考えるのに cohort A を比較対象に使うと、cohort A はすでに処置の影響を受けているので、未処置の反実仮想として使えない。</li>
+<li>同様に、cohort A の時点 3 の効果を考えるのに cohort B を比較対象に使うと、今度は cohort B がちょうど処置を受け始めているので、やはりきれいな control ではない。</li>
+</ul>
+<p>つまり、ある時点では自然だった比較が、別の時点では不自然になる。<br>
+これが staggered DiD を難しくしている。</p>
+</section>
+<section id="twfe-回帰は何をしていたのか" class="level2">
+<h2 class="anchored" data-anchor-id="twfe-回帰は何をしていたのか">TWFE 回帰は何をしていたのか</h2>
+<p>もう一度、TWFE DiDを書こう。</p>
+<p><span class="math display">
+Y_{it} = \alpha_i + \lambda_t + \beta D_{it} + u_{it}
+</span></p>
+<p>この回帰の係数 <span class="math inline">\beta</span> は、直感的には「処置されたときに <span class="math inline">Y</span> がどれだけ増えるか」を表しているように見える。<br>
+しかし staggered adoption のもとでは、実際にはこの <span class="math inline">\beta</span> は</p>
+<ul>
+<li>早く処置された cohort と、まだ未処置の cohort の比較</li>
+<li>遅く処置された cohort と、まだ未処置の cohort の比較</li>
+<li>早く処置された cohort と、すでに処置済みの別 cohort の比較</li>
+</ul>
+<p>など、さまざまな 2群 <span class="math inline">\times</span> 2期比較を混ぜ合わせたものになる。</p>
+<p>もし処置効果がすべて同じなら、この混ぜ合わせでも大きな問題は起こりにくい。<br>
+しかし処置効果が cohort や event time によって異なると、</p>
+<ul>
+<li>何をどれだけ重みづけしているのかがわかりにくい</li>
+<li>すでに処置済みの unit を control のように使ってしまう</li>
+<li>推定された <span class="math inline">\beta</span> が、知りたい平均効果と一致しない</li>
+</ul>
+<p>という問題が起こる。</p>
+<section id="つの-cohort3時点の例で-beta-を書き下してみる" class="level3">
+<h3 class="anchored" data-anchor-id="つの-cohort3時点の例で-beta-を書き下してみる">2つの cohort・3時点の例で <span class="math inline">\beta</span> を書き下してみる</h3>
+<p>では、さきほどの簡単な例で、TWFE 回帰の係数 <span class="math inline">\beta</span> が実際に何を比較しているのかを見てみよう。</p>
+<p>時点は</p>
+<p><span class="math display">
+t=1,2,3
+</span></p>
+<p>の 3期とする。<br>
+そして unit は 2つの cohort に分かれていて、</p>
+<ul>
+<li>cohort A は時点 <span class="math inline">2</span> で処置開始</li>
+<li>cohort B は時点 <span class="math inline">3</span> で処置開始</li>
+</ul>
+<p>とする。</p>
+<p>したがって処置ダミー <span class="math inline">D_{it}</span> は次のようになる。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>group</th>
+<th style="text-align: right;"><span class="math inline">t=1</span></th>
+<th style="text-align: right;"><span class="math inline">t=2</span></th>
+<th style="text-align: right;"><span class="math inline">t=3</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr class="even">
+<td>B</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+</tr>
+</tbody>
+</table>
+<p>このデータに対して、次の TWFE 回帰を考える。</p>
+<p><span class="math display">
+Y_{it}=\alpha_i+\lambda_t+\beta D_{it}+u_{it}
+</span></p>
+<p>ここで <span class="math inline">\alpha_i</span> は unit 固定効果、<span class="math inline">\lambda_t</span> は時点固定効果である。</p>
+<section id="固定効果を入れた後に何が残るか" class="level4">
+<h4 class="anchored" data-anchor-id="固定効果を入れた後に何が残るか">固定効果を入れた後に何が残るか</h4>
+<p>TWFE 回帰では、<span class="math inline">Y_{it}</span> と <span class="math inline">D_{it}</span> から</p>
+<ul>
+<li>unit ごとの平均</li>
+<li>時点ごとの平均</li>
+<li>全体平均</li>
+</ul>
+<p>を引いた残差どうしの関係で <span class="math inline">\beta</span> が決まる。</p>
+<p>つまり Frisch–Waugh–Lovell の定理により、</p>
+<p><span class="math display">
+\beta
+=
+\frac{\sum_{i,t}\tilde D_{it}\tilde Y_{it}}
+{\sum_{i,t}\tilde D_{it}^2}
+</span></p>
+<p>である。<br>
+ここで</p>
+<p><span class="math display">
+\tilde D_{it}
+=
+D_{it}
+-\bar D_{i\cdot}
+-\bar D_{\cdot t}
++\bar D
+</span></p>
+<p>であり、<span class="math inline">\tilde Y_{it}</span> も同様である。</p>
+<p>まず <span class="math inline">D_{it}</span> の平均を計算しよう。</p>
+<p>各 cohort についての時間平均は</p>
+<p><span class="math display">
+\bar D_{A\cdot}=\frac{0+1+1}{3}=\frac{2}{3},
+\qquad
+\bar D_{B\cdot}=\frac{0+0+1}{3}=\frac{1}{3}
+</span></p>
+<p>である。</p>
+<p>各時点についての cross-section 平均は</p>
+<p><span class="math display">
+\bar D_{\cdot 1}=\frac{0+0}{2}=0,
+\qquad
+\bar D_{\cdot 2}=\frac{1+0}{2}=\frac{1}{2},
+\qquad
+\bar D_{\cdot 3}=\frac{1+1}{2}=1
+</span></p>
+<p>である。</p>
+<p>全体平均は</p>
+<p><span class="math display">
+\bar D=\frac{0+1+1+0+0+1}{6}=\frac{3}{6}=\frac{1}{2}
+</span></p>
+<p>である。</p>
+<p>したがって、各セルの residualized treatment <span class="math inline">\tilde D_{it}</span> は次のようになる。</p>
+</section>
+<section id="cohort-a" class="level4">
+<h4 class="anchored" data-anchor-id="cohort-a">cohort A</h4>
+<p>時点 <span class="math inline">1</span> では</p>
+<p><span class="math display">
+\tilde D_{A1}
+=
+0-\frac{2}{3}-0+\frac{1}{2}
+=
+-\frac{1}{6}
+</span></p>
+<p>時点 <span class="math inline">2</span> では</p>
+<p><span class="math display">
+\tilde D_{A2}
+=
+1-\frac{2}{3}-\frac{1}{2}+\frac{1}{2}
+=
+\frac{1}{3}
+</span></p>
+<p>時点 <span class="math inline">3</span> では</p>
+<p><span class="math display">
+\tilde D_{A3}
+=
+1-\frac{2}{3}-1+\frac{1}{2}
+=
+-\frac{1}{6}
+</span></p>
+</section>
+<section id="cohort-b" class="level4">
+<h4 class="anchored" data-anchor-id="cohort-b">cohort B</h4>
+<p>時点 <span class="math inline">1</span> では</p>
+<p><span class="math display">
+\tilde D_{B1}
+=
+0-\frac{1}{3}-0+\frac{1}{2}
+=
+\frac{1}{6}
+</span></p>
+<p>時点 <span class="math inline">2</span> では</p>
+<p><span class="math display">
+\tilde D_{B2}
+=
+0-\frac{1}{3}-\frac{1}{2}+\frac{1}{2}
+=
+-\frac{1}{3}
+</span></p>
+<p>時点 <span class="math inline">3</span> では</p>
+<p><span class="math display">
+\tilde D_{B3}
+=
+1-\frac{1}{3}-1+\frac{1}{2}
+=
+\frac{1}{6}
+</span></p>
+<p>よって、</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>group</th>
+<th style="text-align: right;"><span class="math inline">t=1</span></th>
+<th style="text-align: right;"><span class="math inline">t=2</span></th>
+<th style="text-align: right;"><span class="math inline">t=3</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A</td>
+<td style="text-align: right;"><span class="math inline">-\frac{1}{6}</span></td>
+<td style="text-align: right;"><span class="math inline">\frac{1}{3}</span></td>
+<td style="text-align: right;"><span class="math inline">-\frac{1}{6}</span></td>
+</tr>
+<tr class="even">
+<td>B</td>
+<td style="text-align: right;"><span class="math inline">\frac{1}{6}</span></td>
+<td style="text-align: right;"><span class="math inline">-\frac{1}{3}</span></td>
+<td style="text-align: right;"><span class="math inline">\frac{1}{6}</span></td>
+</tr>
+</tbody>
+</table>
+<p>となる。</p>
+</section>
+<section id="この表が意味していること" class="level4">
+<h4 class="anchored" data-anchor-id="この表が意味していること">この表が意味していること</h4>
+<p>この表を見ると、時点 <span class="math inline">2</span> では</p>
+<ul>
+<li>A は <span class="math inline">\frac{1}{3}</span></li>
+<li>B は <span class="math inline">-\frac{1}{3}</span></li>
+</ul>
+<p>となっている。</p>
+<p>これは、時点 <span class="math inline">2</span> では A が treated、B が not-yet-treated なので、ここでの比較は自然な DiD 比較に対応している。</p>
+<p>しかし時点 <span class="math inline">3</span> では</p>
+<ul>
+<li>A は <span class="math inline">-\frac{1}{6}</span></li>
+<li>B は <span class="math inline">\frac{1}{6}</span></li>
+</ul>
+<p>となっている。</p>
+<p>この時点では A も B もどちらも処置済みである。<br>
+それにもかかわらず、TWFE 回帰の中ではこの時点の差も <span class="math inline">\beta</span> の計算に入っている。</p>
+<p>つまり、この回帰は</p>
+<ul>
+<li>時点 <span class="math inline">2</span> の A 対 B の比較</li>
+<li>時点 <span class="math inline">3</span> の A 対 B の比較</li>
+</ul>
+<p>の両方を使っている。</p>
+<p>だが、時点 <span class="math inline">3</span> の比較では、B にとって A はもう untreated control ではない。<br>
+A はすでに時点 <span class="math inline">2</span> から処置を受けているからである。</p>
+<p>ここに「already-treated unit を control として使ってしまう」という問題が現れている。</p>
+</section>
+<section id="さらに具体的に-beta-を書く" class="level4">
+<h4 class="anchored" data-anchor-id="さらに具体的に-beta-を書く">さらに具体的に <span class="math inline">\beta</span> を書く</h4>
+<p>この 2 cohort・3時点の例では、TWFE の係数 <span class="math inline">\beta</span> は、実は cohort A と cohort B の差の変化を使って次のように書ける。</p>
+<p>まず各時点での A と B の平均差を</p>
+<p><span class="math display">
+\Delta_t
+=
+E[Y_{it}\mid i\in A]-E[Y_{it}\mid i\in B]
+</span></p>
+<p>と書く。</p>
+<p>すると、この例では</p>
+<p><span class="math display">
+\beta
+=
+\frac{1}{2}\Bigl[(\Delta_2-\Delta_1)+(\Delta_3-\Delta_2)\Bigr]
+</span></p>
+<p>となる。</p>
+<p>これはさらに展開すると、</p>
+<p><span class="math display">
+\beta
+=
+\frac{1}{2}
+\Bigl[
+\bigl\{
+E[Y_{i2}\mid i\in A]-E[Y_{i1}\mid i\in A]
+\bigr\}
+-
+\bigl\{
+E[Y_{i2}\mid i\in B]-E[Y_{i1}\mid i\in B]
+\bigr\}
+\Bigr]
+</span></p>
+<p><span class="math display">
+\qquad
++
+\frac{1}{2}
+\Bigl[
+\bigl\{
+E[Y_{i3}\mid i\in A]-E[Y_{i2}\mid i\in A]
+\bigr\}
+-
+\bigl\{
+E[Y_{i3}\mid i\in B]-E[Y_{i2}\mid i\in B]
+\bigr\}
+\Bigr]
+</span></p>
+<p>である。</p>
+<p>つまり <span class="math inline">\beta</span> は、この例では 2つの差の差の平均になっている。</p>
+<p>1つ目は</p>
+<p><span class="math display">
+(\Delta_2-\Delta_1)
+</span></p>
+<p>であり、これは</p>
+<ul>
+<li>A が時点 2 で treated</li>
+<li>B が時点 2 ではまだ untreated</li>
+</ul>
+<p>なので、自然な比較である。</p>
+<p>2つ目は</p>
+<p><span class="math display">
+(\Delta_3-\Delta_2)
+</span></p>
+<p>であり、これは</p>
+<ul>
+<li>A は時点 2 でも 3 でも treated</li>
+<li>B は時点 3 で treated に切り替わる</li>
+</ul>
+<p>という比較である。</p>
+<p>ここでは、B の treatment effect を測るために、A があたかも control のように使われている。<br>
+しかし A はすでに時点 2 から treatment を受けているので、これはきれいな untreated counterfactual ではない。</p>
+</section>
+<section id="潜在アウトカムで見ると何が混ざるか" class="level4">
+<h4 class="anchored" data-anchor-id="潜在アウトカムで見ると何が混ざるか">潜在アウトカムで見ると何が混ざるか</h4>
+<p>このことを潜在アウトカムで見てみよう。</p>
+<p>1つ目の比較</p>
+<p><span class="math display">
+(\Delta_2-\Delta_1)
+</span></p>
+<p>は、parallel trends のもとではおおむね</p>
+<p><span class="math display">
+ATT(2,2)
+</span></p>
+<p>すなわち「時点 2 に処置を受けた cohort A の、処置直後の効果」を表す。</p>
+<p>一方で 2つ目の比較</p>
+<p><span class="math display">
+(\Delta_3-\Delta_2)
+</span></p>
+<p>は、B の時点 3 における処置効果を含む一方で、A の時点 3 における継続的な処置効果も差し引いてしまう。</p>
+<p>直感的には</p>
+<p><span class="math display">
+(\Delta_3-\Delta_2)
+\approx
+ATT(3,3)-\bigl\{ATT(2,3)-ATT(2,2)\bigr\}
+</span></p>
+<p>のような形になる。</p>
+<p>つまり B の treatment effect を見たいのに、A の treatment effect の時間変化まで混ざってしまう。</p>
+<p>したがって、もし treatment effect が時間によらず一定ならこの問題は目立ちにくい。<br>
+しかし、</p>
+<ul>
+<li>処置直後は小さいが後から大きくなる</li>
+<li>早く処置された cohort と遅く処置された cohort で効果が違う</li>
+</ul>
+<p>といった異質性があると、<span class="math inline">\beta</span> は単純な平均処置効果とは言えなくなる。</p>
+</section>
+<section id="この例から学ぶべきこと" class="level4">
+<h4 class="anchored" data-anchor-id="この例から学ぶべきこと">この例から学ぶべきこと</h4>
+<p>この 2 cohort・3時点の例は非常に小さいが、TWFE の問題点をよく表している。</p>
+<p>TWFE の係数 <span class="math inline">\beta</span> は、この例ですらすでに</p>
+<ul>
+<li>treated と not-yet-treated の自然な比較</li>
+<li>treated と already-treated の不自然な比較</li>
+</ul>
+<p>を混ぜて作られている。</p>
+<p>したがって staggered adoption のデータでは、</p>
+<p><span class="math display">
+Y_{it}=\alpha_i+\lambda_t+\beta D_{it}+u_{it}
+</span></p>
+<p>の <span class="math inline">\beta</span> をそのまま「平均処置効果」と読むのは危険である。</p>
+</section>
+</section>
+</section>
+<section id="staggered-did-で自然に考えるべき推定量" class="level2">
+<h2 class="anchored" data-anchor-id="staggered-did-で自然に考えるべき推定量">staggered DiD で自然に考えるべき推定量</h2>
+<p>staggered DiD でまず自然に考えるべきなのは、各 cohort・各時点についての</p>
+<p><span class="math display">
+ATT(g,t)
+=
+E\bigl[Y_{it}(1)-Y_{it}(0)\mid G_i=g\bigr]
+\qquad (t \ge g)
+</span></p>
+<p>である。</p>
+<p>これを識別するには、時点 <span class="math inline">t</span> で cohort <span class="math inline">g</span> を、その時点ではまだ未処置である単位</p>
+<p><span class="math display">
+G_i &gt; t
+</span></p>
+<p>と比較する。</p>
+<p>たとえば、時点 <span class="math inline">g-1</span> を直前期とすると、対応する DiD は</p>
+<p><span class="math display">
+\Bigl(
+E[Y_{it}\mid G_i=g] - E[Y_{i,g-1}\mid G_i=g]
+\Bigr)
+-
+\Bigl(
+E[Y_{it}\mid G_i&gt;t] - E[Y_{i,g-1}\mid G_i&gt;t]
+\Bigr)
+</span></p>
+<p>である。</p>
+<p>parallel trends のもとでは、これは</p>
+<p><span class="math display">
+ATT(g,t)
+</span></p>
+<p>を識別する。</p>
+<p>このようにして cohort-time ごとの効果をまず求め、その後で必要に応じて平均すればよい。</p>
+<p>たとえば、時点 <span class="math inline">t</span> に観測される平均効果を作りたければ、適切な重み <span class="math inline">w(g,t)</span> を用いて</p>
+<p><span class="math display">
+ATT_t
+=
+\sum_{g \le t} w(g,t)\, ATT(g,t)
+</span></p>
+<p>とまとめればよい。</p>
+<p>また、全体の平均効果を作りたければ、さらにそれを時点方向にも平均して</p>
+<p><span class="math display">
+ATT^{\mathrm{overall}}
+=
+\sum_t \sum_{g \le t} \omega(g,t)\, ATT(g,t)
+</span></p>
+<p>のように書ける。</p>
+<p>重要なのは、<strong>何を平均しているのかが明示的になる</strong>ことである。TWFE のように、何がどう混ざっているのかわからない平均ではなくなっている。</p>
+</section>
+<section id="event-time-で書く" class="level2">
+<h2 class="anchored" data-anchor-id="event-time-で書く">event time で書く</h2>
+<p>staggered DiD では、処置から何期たったかという <strong>event time</strong> で効果を書くことも多い。</p>
+<p>各単位の relative time を</p>
+<p><span class="math display">
+e = t - G_i
+</span></p>
+<p>と定義する。</p>
+<p>すると</p>
+<ul>
+<li><span class="math inline">e=-2</span> なら「処置の2期前」</li>
+<li><span class="math inline">e=-1</span> なら「処置の1期前」</li>
+<li><span class="math inline">e=0</span> なら「処置を受けた期」</li>
+<li><span class="math inline">e=1</span> なら「処置の1期後」</li>
+</ul>
+<p>を意味する。</p>
+<p>このとき、event time ごとの平均効果を</p>
+<p><span class="math display">
+ATT^{es}(e) = E\bigl[Y_{i,G_i+e}(1)-Y_{i,G_i+e}(0)\mid G_i&lt;\infty\bigr]
+</span></p>
+<p>のように考えることができる。<br>
+ただし実際には cohort ごとに効果が違うかもしれないので、より正確には cohort ごとの</p>
+<p><span class="math display">
+ATT(g,g+e)
+</span></p>
+<p>をまず定義し、それを平均して event-study の図を作ると考える方がよい。</p>
+<p>この発想に従うと、event study のグラフは</p>
+<ul>
+<li>処置前の係数が 0 に近いか</li>
+<li>処置後に効果がどう動くか</li>
+</ul>
+<p>を見るための図になる。</p>
+</section>
+<section id="staggered-did-における-event-study-の注意" class="level2">
+<h2 class="anchored" data-anchor-id="staggered-did-における-event-study-の注意">staggered DiD における event study の注意</h2>
+<p>2期 DiD では event study は比較的素直だった。<br>
+しかし staggered adoption のもとで、相対時点ダミーをそのまま TWFE 回帰に入れると、やはり already-treated の単位が比較対象に混ざる問題が起こる。</p>
+<p>これが先ほどのパラレルトレンドを満たしているはずなのに、満たしていないように見えたevent studyの図が出てしまった理由である。</p>
+</section>
+<section id="実務的には" class="level2">
+<h2 class="anchored" data-anchor-id="実務的には">実務的には？</h2>
+<p>以上を踏まえると、staggered adoption のデータでまず考えるべきことは次の通りである。</p>
+<ol type="1">
+<li><p>いきなり TWFE DiDの係数 <span class="math inline">\beta</span> を「平均処置効果」と読まない<br>
+</p></li>
+<li><p>比較対象として自然なのは、その時点でまだ未処置の単位である<br>
+</p></li>
+<li><p>まずは cohort <span class="math inline">\times</span> time ごとの <span class="math display">
+ATT(g,t)
+</span></p>
+<p>を考える<br>
+</p></li>
+<li><p>event study を描くなら、cohort ごとの効果を event time ごとに平均する発想で考える</p></li>
+</ol>
+<p>このあとに紹介する最近の staggered DiD の手法は、まさにこの考え方をきちんと実装したものだと理解すればよい。</p>
+</section>
+<section id="staggered-didを使った実証研究-callaway-and-santanna-2021" class="level2">
+<h2 class="anchored" data-anchor-id="staggered-didを使った実証研究-callaway-and-santanna-2021">Staggered DiDを使った実証研究： Callaway and Sant’Anna (2021)</h2>
+<p>ここでは、staggered DiD を実際の実証研究でどう使うのかを、Callaway and Sant’Anna (2021) の考え方に沿って説明する。</p>
+<p>この論文の重要な点は、staggered adoption のもとで、いきなり 1本の TWFE 回帰係数を平均処置効果として読むのではなく、</p>
+<p><span class="math display">
+ATT(g,t)
+</span></p>
+<p>という <strong>cohort <span class="math inline">\times</span> 時点</strong> ごとの処置効果を基本単位として考えることである。</p>
+<section id="設定" class="level3">
+<h3 class="anchored" data-anchor-id="設定">設定</h3>
+<p>各 unit <span class="math inline">i</span> について、その unit が最初に処置を受ける時点を</p>
+<p><span class="math display">
+G_i
+</span></p>
+<p>と書く。<br>
+処置を最後まで受けない unit については</p>
+<p><span class="math display">
+G_i = \infty
+</span></p>
+<p>とする。</p>
+<p>時点 <span class="math inline">t</span> における処置状態は</p>
+<p><span class="math display">
+D_{it} = 1\{t \geq G_i\}
+</span></p>
+<p>で表される。</p>
+<p>また、潜在アウトカムを</p>
+<p><span class="math display">
+Y_{it}(0), \qquad Y_{it}(1)
+</span></p>
+<p>と書く。<br>
+ここで</p>
+<ul>
+<li><span class="math inline">Y_{it}(0)</span> は時点 <span class="math inline">t</span> に未処置であったときの潜在アウトカム</li>
+<li><span class="math inline">Y_{it}(1)</span> は時点 <span class="math inline">t</span> に処置済みであったときの潜在アウトカム</li>
+</ul>
+<p>である。</p>
+<p>観測されるアウトカムは</p>
+<p><span class="math display">
+Y_{it} = D_{it}Y_{it}(1) + (1-D_{it})Y_{it}(0)
+</span></p>
+<p>である。</p>
+</section>
+<section id="まず知りたい量を定義する" class="level3">
+<h3 class="anchored" data-anchor-id="まず知りたい量を定義する">まず知りたい量を定義する</h3>
+<p>Callaway and Sant’Anna (2021) では、処置開始時点が <span class="math inline">g</span> である cohort に対する、時点 <span class="math inline">t</span> の平均処置効果を</p>
+<p><span class="math display">
+ATT(g,t)
+=
+E\bigl[Y_{it}(1)-Y_{it}(0)\mid G_i=g\bigr]
+\qquad (t \ge g)
+</span></p>
+<p>と定義する。</p>
+<p>これは</p>
+<ul>
+<li><span class="math inline">G_i=g</span> である cohort</li>
+<li>その cohort が時点 <span class="math inline">t</span> に受けている平均的な処置効果</li>
+</ul>
+<p>を表している。</p>
+<p>たとえば、</p>
+<p><span class="math display">
+ATT(2010,2010)
+</span></p>
+<p>は「2010年に初めて処置を受けた cohort の、処置直後の効果」であり、</p>
+<p><span class="math display">
+ATT(2010,2012)
+</span></p>
+<p>は「2010年に初めて処置を受けた cohort の、2年後の効果」である。</p>
+</section>
+<section id="識別の考え方" class="level3">
+<h3 class="anchored" data-anchor-id="識別の考え方">識別の考え方</h3>
+<p>この枠組みでは、cohort <span class="math inline">g</span> の時点 <span class="math inline">t</span> における効果を知りたいとき、比較対象として自然なのは、その時点 <span class="math inline">t</span> ではまだ処置を受けていない unit である。</p>
+<p>つまり比較対象は</p>
+<p><span class="math display">
+G_i &gt; t
+</span></p>
+<p>である。</p>
+<p>このとき、未処置潜在アウトカムについての parallel trends を仮定する。<br>
+もっとも基本的には、時点 <span class="math inline">t</span> と基準時点 <span class="math inline">g-1</span> の間で</p>
+<p><span class="math display">
+E\bigl[Y_{it}(0)-Y_{i,g-1}(0)\mid G_i=g\bigr]
+=
+E\bigl[Y_{it}(0)-Y_{i,g-1}(0)\mid G_i&gt;t\bigr]
+</span></p>
+<p>を仮定する。</p>
+<p>この仮定の意味は、</p>
+<blockquote class="blockquote">
+<p>「時点 <span class="math inline">g</span> に初めて処置を受ける cohort が、もし処置を受けなかったなら、その平均変化は、その時点 <span class="math inline">t</span> でもまだ未処置である unit たちの平均変化と同じだった」</p>
+</blockquote>
+<p>ということである。</p>
+<p>この仮定のもとで、</p>
+<p><span class="math display">
+ATT(g,t)
+=
+E[Y_{it}-Y_{i,g-1}\mid G_i=g]
+-
+E[Y_{it}-Y_{i,g-1}\mid G_i&gt;t]
+\qquad (t \ge g)
+</span></p>
+<p>と書ける。</p>
+<p>つまり、<strong>cohort <span class="math inline">g</span> の変化</strong> から <strong>その時点でまだ未処置の unit の変化</strong> を引けば、その cohort の時点 <span class="math inline">t</span> における平均処置効果が得られる。</p>
+</section>
+<section id="メインの-regressionは何か" class="level3">
+<h3 class="anchored" data-anchor-id="メインの-regressionは何か">「メインの regression」は何か</h3>
+<p>ここで大事なのは、Callaway and Sant’Anna (2021) では、TWFE のように</p>
+<p><span class="math display">
+Y_{it}=\alpha_i+\lambda_t+\beta D_{it}+u_{it}
+</span></p>
+<p>という 1本の regression を「メイン式」としているわけではない、ということである。</p>
+<p>むしろ発想は逆で、まずそれぞれの <span class="math inline">(g,t)</span> について</p>
+<p><span class="math display">
+ATT(g,t)
+</span></p>
+<p>を識別し、それをあとで集計する。</p>
+<p>ただし、実際の推定では、各 <span class="math inline">(g,t)</span> ごとに <strong>2群 <span class="math inline">\times</span> 2期の DiD</strong> を行うと考えるとわかりやすい。</p>
+<p>たとえば、cohort <span class="math inline">g</span> と、時点 <span class="math inline">t</span> でまだ未処置である group をまとめたサンプルだけを取り出し、次のような回帰を考える。</p>
+<p><span class="math display">
+Y_{is}
+=
+a_{g,t}
++
+b_{g,t}\,1\{G_i=g\}
++
+c_{g,t}\,1\{s=t\}
++
+\delta_{g,t}\Bigl(1\{G_i=g\}\times 1\{s=t\}\Bigr)
++
+u_{is}
+</span></p>
+<p>ここで <span class="math inline">s \in \{g-1,t\}</span> であり、サンプルは</p>
+<ul>
+<li><span class="math inline">G_i=g</span> の unit</li>
+<li><span class="math inline">G_i&gt;t</span> の unit</li>
+</ul>
+<p>だけに制限している。</p>
+<p>このとき、係数</p>
+<p><span class="math display">
+\delta_{g,t}
+</span></p>
+<p>はちょうど</p>
+<p><span class="math display">
+\delta_{g,t}=ATT(g,t)
+</span></p>
+<p>に対応する。<br>
+なぜならこの式は、cohort <span class="math inline">g</span> と not-yet-treated group のあいだの <strong>2群 <span class="math inline">\times</span> 2期 DiD</strong> そのものだからである。</p>
+<p>したがって Callaway and Sant’Anna の方法は、</p>
+<ul>
+<li>1本の大きな回帰を回して全部を押し込む方法</li>
+</ul>
+<p>ではなく、</p>
+<ul>
+<li>各 <span class="math inline">(g,t)</span> ごとに意味のある DiD を作り</li>
+<li>その効果を集めていく方法</li>
+</ul>
+<p>だと理解するとよい。</p>
+</section>
+<section id="covariates-を入れるとどうなるか" class="level3">
+<h3 class="anchored" data-anchor-id="covariates-を入れるとどうなるか">covariates を入れるとどうなるか</h3>
+<p>実証では、州や個人の属性 <span class="math inline">X_i</span> を調整したいことが多い。<br>
+Callaway and Sant’Anna (2021) は、条件付き parallel trends も扱っている。</p>
+<p>その場合の仮定は</p>
+<p><span class="math display">
+E\bigl[Y_{it}(0)-Y_{i,g-1}(0)\mid X_i, G_i=g\bigr]
+=
+E\bigl[Y_{it}(0)-Y_{i,g-1}(0)\mid X_i, G_i&gt;t\bigr]
+</span></p>
+<p>である。</p>
+<p>このとき、<span class="math inline">ATT(g,t)</span> は regression adjustment、inverse probability weighting、あるいは doubly robust な方法で推定できる。<br>
+実際、論文と対応する <code>did</code> パッケージでは、こうした方法で group-time ATT を推定し、それを集計できる。</p>
+</section>
+<section id="推定された-attgt-をどうまとめるか" class="level3">
+<h3 class="anchored" data-anchor-id="推定された-attgt-をどうまとめるか">推定された <span class="math inline">ATT(g,t)</span> をどうまとめるか</h3>
+<p>実証研究では、各 <span class="math inline">(g,t)</span> をそのまま全部並べるだけでは見づらい。<br>
+そこで、推定した group-time ATT を平均して、より見やすい summary を作る。</p>
+<p>たとえば、時点 <span class="math inline">t</span> における平均効果は</p>
+<p><span class="math display">
+ATT_t
+=
+\sum_{g \le t} w(g,t)\,ATT(g,t)
+</span></p>
+<p>のように定義できる。<br>
+ここで <span class="math inline">w(g,t)</span> は、その時点における cohort の構成比に応じた重みである。</p>
+<p>また、全体の平均効果は</p>
+<p><span class="math display">
+ATT^{\mathrm{overall}}
+=
+\sum_t\sum_{g \le t}\omega(g,t)\,ATT(g,t)
+</span></p>
+<p>のように表せる。</p>
+<p>さらに、event time で効果を見たいなら</p>
+<p><span class="math display">
+e=t-g
+</span></p>
+<p>を relative time として、</p>
+<p><span class="math display">
+ATT^{es}(e)
+=
+\sum_g \pi_g(e)\,ATT(g,g+e)
+</span></p>
+<p>のように、同じ event time の効果を cohort をまたいで平均する。<br>
+これによって、処置前後の dynamic effect を event-study 図として描ける。</p>
+</section>
+<section id="実証研究の具体例" class="level3">
+<h3 class="anchored" data-anchor-id="実証研究の具体例">実証研究の具体例</h3>
+<p>Callaway and Sant’Anna (2021) の実証例では、州ごとに導入時期が異なる最低賃金の引き上げが、teen employment に与える影響を分析している。<br>
+この設定では、</p>
+<ul>
+<li>unit は州</li>
+<li>時点は年</li>
+<li>処置は「その州が最低賃金を引き上げたか」</li>
+<li><span class="math inline">G_i</span> は「その州が最初に最低賃金を引き上げた年」</li>
+</ul>
+<p>と考えればよい。</p>
+<p>このとき、たとえば <span class="math inline">g=2004</span> の州について <span class="math inline">t=2006</span> の効果を知りたければ、</p>
+<ul>
+<li>2004年に初めて最低賃金を引き上げた州</li>
+<li>2006年時点でもまだ最低賃金を引き上げていない州</li>
+</ul>
+<p>を比べればよい。</p>
+<p>識別式は</p>
+<p><span class="math display">
+ATT(2004,2006)
+=
+E[Y_{i,2006}-Y_{i,2003}\mid G_i=2004]
+-
+E[Y_{i,2006}-Y_{i,2003}\mid G_i&gt;2006]
+</span></p>
+<p>となる。</p>
+<p>ここで <span class="math inline">Y_{it}</span> は teen employment のようなアウトカムである。</p>
+<p>この式の意味は、</p>
+<blockquote class="blockquote">
+<p>2004年に処置を受けた州の、2003年から2006年までの変化から、2006年時点でもまだ処置を受けていない州の同じ期間の変化を引く</p>
+</blockquote>
+<p>ということである。</p>
+<p>これを各 <span class="math inline">(g,t)</span> について繰り返し、最後に平均すれば、全体として最低賃金政策が teen employment に与えた平均効果や、導入直後・数年後の効果を描ける。</p>
+</section>
+<section id="なぜこの方法が大事なのか" class="level3">
+<h3 class="anchored" data-anchor-id="なぜこの方法が大事なのか">なぜこの方法が大事なのか</h3>
+<p>この方法の大事な点は、比較対象として常に</p>
+<p><span class="math display">
+G_i&gt;t
+</span></p>
+<p>すなわち <strong>その時点ではまだ未処置の unit</strong> を使っていることである。</p>
+<p>そのため、</p>
+<ul>
+<li>treated と not-yet-treated の比較</li>
+</ul>
+<p>だけを使っており、</p>
+<ul>
+<li>treated と already-treated の比較</li>
+</ul>
+<p>が混ざってしまう TWFE の問題を避けやすい。<br>
+これが、最近の staggered DiD で Callaway and Sant’Anna の方法が重要視される理由である。</p>
+</section>
+</section>
+</section>
+<section id="まとめ" class="level1">
+<h1>まとめ</h1>
+<ul>
+<li>DiDは識別戦略としてめちゃくちゃわかりやすくてみんな使いまくっていた</li>
+<li>けどよく考えるとよくわかんないやつだった</li>
+<li>Sant’Annaらによる研究はここ5,6年で発展したもので、現在計量経済学で最も盛んに研究されているトピックのうちの一つ</li>
+</ul>
+</section>
+<section id="宿題" class="level1">
+<h1>宿題</h1>
+<ul>
+<li>DiDっぽい状況を自分で探してみよう
+<ul>
+<li>そしてそれが大体Staggered DiDっぽい状況、つまり複数のタイミングで処置が行われていること、を発見してみよう</li>
+</ul></li>
+</ul>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="lecture7_revised_files/libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

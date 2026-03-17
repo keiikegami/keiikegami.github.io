@@ -1,0 +1,2506 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Lecture 5：重回帰</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="lecture5_revised_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture5_revised_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture5_revised_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture5_revised_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture5_revised_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture5_revised_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture5_revised_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture5_revised_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture5_revised_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture5_revised_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture5_revised_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture5_revised_files/libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<style>html{ scroll-behavior: smooth; }</style>
+<style>
+  body {
+    line-height: 1.8;
+  }
+  .lead {
+    font-size: 1.08rem;
+    color: #495057;
+    margin-bottom: 1.2rem;
+  }
+  h1, h2, h3 {
+    margin-top: 1.6rem;
+  }
+  .callout {
+    margin: 1.2rem 0;
+  }
+  table {
+    font-size: 0.96rem;
+  }
+  .small-muted {
+    color: #6c757d;
+    font-size: 0.95rem;
+  }
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+</style>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#重回帰のモデル" id="toc-重回帰のモデル" class="nav-link active" data-scroll-target="#重回帰のモデル">重回帰のモデル</a>
+  <ul class="collapse">
+  <li><a href="#ols-は何をしているのか" id="toc-ols-は何をしているのか" class="nav-link" data-scroll-target="#ols-は何をしているのか">OLS は何をしているのか</a></li>
+  <li><a href="#つのデータ点で見てみる" id="toc-つのデータ点で見てみる" class="nav-link" data-scroll-target="#つのデータ点で見てみる">4つのデータ点で見てみる</a></li>
+  <li><a href="#この例ではぴったり当てはまる" id="toc-この例ではぴったり当てはまる" class="nav-link" data-scroll-target="#この例ではぴったり当てはまる">この例ではぴったり当てはまる</a></li>
+  <li><a href="#この係数はどう読めるか" id="toc-この係数はどう読めるか" class="nav-link" data-scroll-target="#この係数はどう読めるか">この係数はどう読めるか</a></li>
+  <li><a href="#ただしいつもぴったり当てはまるわけではない" id="toc-ただしいつもぴったり当てはまるわけではない" class="nav-link" data-scroll-target="#ただしいつもぴったり当てはまるわけではない">ただし、いつもぴったり当てはまるわけではない</a></li>
+  <li><a href="#重回帰でも考え方は単回帰と同じ" id="toc-重回帰でも考え方は単回帰と同じ" class="nav-link" data-scroll-target="#重回帰でも考え方は単回帰と同じ">重回帰でも考え方は単回帰と同じ</a></li>
+  </ul></li>
+  <li><a href="#ols-を-foc-から求める" id="toc-ols-を-foc-から求める" class="nav-link" data-scroll-target="#ols-を-foc-から求める">OLS を FOC から求める</a>
+  <ul class="collapse">
+  <li><a href="#一階条件を立てる" id="toc-一階条件を立てる" class="nav-link" data-scroll-target="#一階条件を立てる">一階条件を立てる</a></li>
+  <li><a href="#正規方程式" id="toc-正規方程式" class="nav-link" data-scroll-target="#正規方程式">正規方程式</a></li>
+  <li><a href="#単回帰との違い" id="toc-単回帰との違い" class="nav-link" data-scroll-target="#単回帰との違い">単回帰との違い</a></li>
+  <li><a href="#hatbeta_0-は平均を使って書ける" id="toc-hatbeta_0-は平均を使って書ける" class="nav-link" data-scroll-target="#hatbeta_0-は平均を使って書ける"><span class="math inline">\hat\beta_0</span> は平均を使って書ける</a></li>
+  <li><a href="#ここでは何が大事か" id="toc-ここでは何が大事か" class="nav-link" data-scroll-target="#ここでは何が大事か">ここでは何が大事か</a></li>
+  <li><a href="#傾きの値の公式があるあるけど" id="toc-傾きの値の公式があるあるけど" class="nav-link" data-scroll-target="#傾きの値の公式があるあるけど">傾きの値の公式がある。あるけど…</a></li>
+  </ul></li>
+  <li><a href="#ols-の性質推定量としての性質" id="toc-ols-の性質推定量としての性質" class="nav-link" data-scroll-target="#ols-の性質推定量としての性質">OLS の性質：推定量としての性質</a>
+  <ul class="collapse">
+  <li><a href="#p1-回帰平面は平均点を通る" id="toc-p1-回帰平面は平均点を通る" class="nav-link" data-scroll-target="#p1-回帰平面は平均点を通る">(P1) 回帰平面は平均点を通る</a></li>
+  <li><a href="#p2-残差の和は0" id="toc-p2-残差の和は0" class="nav-link" data-scroll-target="#p2-残差の和は0">(P2) 残差の和は0</a></li>
+  <li><a href="#p3-残差は各説明変数と直交する" id="toc-p3-残差は各説明変数と直交する" class="nav-link" data-scroll-target="#p3-残差は各説明変数と直交する">(P3) 残差は各説明変数と直交する</a></li>
+  <li><a href="#p4-予測値の平均は実際の平均に一致する" id="toc-p4-予測値の平均は実際の平均に一致する" class="nav-link" data-scroll-target="#p4-予測値の平均は実際の平均に一致する">(P4) 予測値の平均は実際の平均に一致する</a></li>
+  <li><a href="#p5-分散分解tss-ess-sseと-r2" id="toc-p5-分散分解tss-ess-sseと-r2" class="nav-link" data-scroll-target="#p5-分散分解tss-ess-sseと-r2">(P5) 分散分解（TSS = ESS + SSE）と <span class="math inline">R^2</span></a></li>
+  <li><a href="#p6-単位変更尺度変換に対するふるまい" id="toc-p6-単位変更尺度変換に対するふるまい" class="nav-link" data-scroll-target="#p6-単位変更尺度変換に対するふるまい">(P6) 単位変更（尺度変換）に対するふるまい</a></li>
+  <li><a href="#p7-平行移動原点の取り方に対するふるまい" id="toc-p7-平行移動原点の取り方に対するふるまい" class="nav-link" data-scroll-target="#p7-平行移動原点の取り方に対するふるまい">(P7) 平行移動（原点の取り方）に対するふるまい</a></li>
+  <li><a href="#不偏性" id="toc-不偏性" class="nav-link" data-scroll-target="#不偏性">1. 不偏性</a></li>
+  <li><a href="#分散と標準誤差の公式がある" id="toc-分散と標準誤差の公式がある" class="nav-link" data-scroll-target="#分散と標準誤差の公式がある">2. 分散と標準誤差の公式がある</a></li>
+  <li><a href="#一致性" id="toc-一致性" class="nav-link" data-scroll-target="#一致性">3. 一致性</a></li>
+  <li><a href="#漸近正規性" id="toc-漸近正規性" class="nav-link" data-scroll-target="#漸近正規性">4. 漸近正規性</a></li>
+  </ul></li>
+  <li><a href="#シミュレーション" id="toc-シミュレーション" class="nav-link" data-scroll-target="#シミュレーション">シミュレーション</a>
+  <ul class="collapse">
+  <li><a href="#人工データを作る" id="toc-人工データを作る" class="nav-link" data-scroll-target="#人工データを作る">1. 人工データを作る</a></li>
+  <li><a href="#重回帰を実行する" id="toc-重回帰を実行する" class="nav-link" data-scroll-target="#重回帰を実行する">2. 重回帰を実行する</a></li>
+  <li><a href="#推定値と真の値を比べる" id="toc-推定値と真の値を比べる" class="nav-link" data-scroll-target="#推定値と真の値を比べる">3. 推定値と真の値を比べる</a></li>
+  <li><a href="#モデルを間違えた時" id="toc-モデルを間違えた時" class="nav-link" data-scroll-target="#モデルを間違えた時">4. モデルを間違えた時</a></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ">6. まとめ</a></li>
+  </ul></li>
+  <li><a href="#バイアス" id="toc-バイアス" class="nav-link" data-scroll-target="#バイアス">バイアス</a>
+  <ul class="collapse">
+  <li><a href="#バイアスとは何か" id="toc-バイアスとは何か" class="nav-link" data-scroll-target="#バイアスとは何か">1. バイアスとは何か</a></li>
+  <li><a href="#単回帰でバイアスのメカニズムを見る" id="toc-単回帰でバイアスのメカニズムを見る" class="nav-link" data-scroll-target="#単回帰でバイアスのメカニズムを見る">2. 単回帰でバイアスのメカニズムを見る</a></li>
+  <li><a href="#外生性が成り立つとき" id="toc-外生性が成り立つとき" class="nav-link" data-scroll-target="#外生性が成り立つとき">3. 外生性が成り立つとき</a></li>
+  <li><a href="#外生性が崩れると何が起こるか" id="toc-外生性が崩れると何が起こるか" class="nav-link" data-scroll-target="#外生性が崩れると何が起こるか">4. 外生性が崩れると何が起こるか</a></li>
+  <li><a href="#バイアスの向きはどう決まるか" id="toc-バイアスの向きはどう決まるか" class="nav-link" data-scroll-target="#バイアスの向きはどう決まるか">5. バイアスの向きはどう決まるか</a></li>
+  <li><a href="#欠落変数バイアスの見方" id="toc-欠落変数バイアスの見方" class="nav-link" data-scroll-target="#欠落変数バイアスの見方">6. 欠落変数バイアスの見方</a></li>
+  <li><a href="#教育と賃金の例" id="toc-教育と賃金の例" class="nav-link" data-scroll-target="#教育と賃金の例">7. 教育と賃金の例</a></li>
+  <li><a href="#意地悪な例誤差項が説明変数と明らかに関係するのにバイアスが出ない" id="toc-意地悪な例誤差項が説明変数と明らかに関係するのにバイアスが出ない" class="nav-link" data-scroll-target="#意地悪な例誤差項が説明変数と明らかに関係するのにバイアスが出ない">意地悪な例：誤差項が説明変数と明らかに関係するのにバイアスが出ない</a>
+  <ul class="collapse">
+  <li><a href="#このシミュレーションからわかること" id="toc-このシミュレーションからわかること" class="nav-link" data-scroll-target="#このシミュレーションからわかること">このシミュレーションからわかること</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#多重共線性" id="toc-多重共線性" class="nav-link" data-scroll-target="#多重共線性">多重共線性</a>
+  <ul class="collapse">
+  <li><a href="#多重共線性とは何か" id="toc-多重共線性とは何か" class="nav-link" data-scroll-target="#多重共線性とは何か">1. 多重共線性とは何か</a></li>
+  <li><a href="#バイアスとの違い" id="toc-バイアスとの違い" class="nav-link" data-scroll-target="#バイアスとの違い">2. バイアスとの違い</a></li>
+  <li><a href="#変数回帰での見方" id="toc-変数回帰での見方" class="nav-link" data-scroll-target="#変数回帰での見方">3. 2変数回帰での見方</a></li>
+  <li><a href="#分散の式" id="toc-分散の式" class="nav-link" data-scroll-target="#分散の式">4. 分散の式</a></li>
+  <li><a href="#シミュレーションの設計" id="toc-シミュレーションの設計" class="nav-link" data-scroll-target="#シミュレーションの設計">5. シミュレーションの設計</a></li>
+  <li><a href="#まずは1回だけ見てみる" id="toc-まずは1回だけ見てみる" class="nav-link" data-scroll-target="#まずは1回だけ見てみる">6. まずは1回だけ見てみる</a></li>
+  <li><a href="#相関の違いを図で見る" id="toc-相関の違いを図で見る" class="nav-link" data-scroll-target="#相関の違いを図で見る">7. 相関の違いを図で見る</a></li>
+  <li><a href="#繰り返しシミュレーションで確認する" id="toc-繰り返しシミュレーションで確認する" class="nav-link" data-scroll-target="#繰り返しシミュレーションで確認する">8. 繰り返しシミュレーションで確認する</a></li>
+  <li><a href="#推定値の分布を比較する" id="toc-推定値の分布を比較する" class="nav-link" data-scroll-target="#推定値の分布を比較する">9. 推定値の分布を比較する</a></li>
+  <li><a href="#標準誤差の分布も比べる" id="toc-標準誤差の分布も比べる" class="nav-link" data-scroll-target="#標準誤差の分布も比べる">10. 標準誤差の分布も比べる</a></li>
+  <li><a href="#係数が不安定になる様子" id="toc-係数が不安定になる様子" class="nav-link" data-scroll-target="#係数が不安定になる様子">11. 係数が不安定になる様子</a></li>
+  <li><a href="#実務的にどう考えるか" id="toc-実務的にどう考えるか" class="nav-link" data-scroll-target="#実務的にどう考えるか">12. 実務的にどう考えるか</a></li>
+  <li><a href="#まとめ-1" id="toc-まとめ-1" class="nav-link" data-scroll-target="#まとめ-1">13. まとめ</a></li>
+  </ul></li>
+  <li><a href="#宿題" id="toc-宿題" class="nav-link" data-scroll-target="#宿題">宿題</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Lecture 5：重回帰</h1>
+<p class="subtitle lead">コントロール変数・バイアス・多重共線性</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-simple callout-important callout-titled" title="この講義で押さえたいこと">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>この講義で押さえたいこと
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>重回帰</strong>は、「他の条件を揃えた上で」の関係をみるための基本的な道具である。</li>
+<li><strong>関心のある変数</strong>と<strong>コントロール変数</strong>を区別して読むことが大事である。</li>
+<li><strong>バイアス</strong>と<strong>多重共線性</strong>は別問題であり、何が崩れているのかを切り分けて考える必要がある。</li>
+</ul>
+</div>
+</div>
+<div class="lead">
+<p>今回は、Lecture 1・2 で見てきた「教育年数と賃金」の話に戻りながら、重回帰を導入する。まずはモデルと OLS の計算を確認し、そのあとで推定量としての性質、バイアス、多重共線性へと進む。</p>
+</div>
+<div class="callout callout-style-simple callout-note callout-titled" title="この lecture の流れ">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この lecture の流れ
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>まず、重回帰が何をしたい道具なのかを整理する。<br>
+</li>
+<li>次に、OLS でどう推定するか、そしてどんな性質があるかを見る。<br>
+</li>
+<li>そのうえで、<strong>バイアス</strong> と <strong>多重共線性</strong> を区別して理解する。</li>
+</ol>
+</div>
+</div>
+<p>もう一度 Angrist and Krueger (1991) の例に戻る。</p>
+<p>以下のようなストーリーであったことを思い出そう。</p>
+<blockquote class="blockquote">
+<p>教育年数が上がった時に、賃金がどれくらい増えるのかを知りたい しかし、教育年数も賃金も「能力」という別の変数によって影響される そして「能力」は直接観測できない だから <span class="math inline">\mathrm{Wage}_i = \beta_0 + \beta_1 \mathrm{Education}_i + u_i</span> の回帰分析では、<span class="math inline">E[u_i\mid \mathrm{Education}_i] \neq 0</span> となりそうで、<span class="math inline">\beta_1</span> が識別できない</p>
+</blockquote>
+<p>さて、ここでは一旦、「能力」が見えてる世界を考える。すなわち、<span class="math inline">\mathrm{Ability}_i</span>という変数が実際に観測できている世界である。</p>
+<p>このとき、以下のような linear model（線形モデル）を考える。</p>
+<p><span class="math display">
+\mathrm{Wage}_i = \beta_0 + \beta_1 \mathrm{Education}_i + \beta_2 \mathrm{Ability}_i + u_i
+</span></p>
+<p>すると今度は</p>
+<p><span class="math display">
+E[u_i \mid \mathrm{Education}_i, \mathrm{Ability}_i] = 0
+</span></p>
+<p>が成り立ちそうである。なぜなら、<strong>教育年数と能力を同じにしたとき、残りの賃金の違いは教育年数と系統的には結びついていない</strong>ように思えるからだ。 （もちろん現実には他にもいろいろな影響があるが、今のシンプルな設定なら、この二つの変数さえ一緒にしたら残りはランダムだと考えてよい。）</p>
+<p>これが重回帰を考えるモチベーションである。</p>
+<p>能力という変数が一緒の二人についてなら、賃金の変動はランダムなはずなので、欲しかった教育年数の賃金への影響を取り出すことができる、という具合である。</p>
+<p>今いちばん知りたいパラメータが教育年数にくっついている係数 <span class="math inline">\beta_1</span> だとすると、単回帰では教育年数のことを <strong>説明変数</strong> と呼んでいた。</p>
+<p>これに対して、「ある変数については値が同じ二人について比べたい」という時の揃えたい変数のことを<strong>コントロール変数</strong>、ないし<strong>共変量</strong>と呼ぶ。つまり今の例では能力がコントロール変数である。</p>
+<p>重回帰では右辺に入る変数は全部 <strong>説明変数</strong> と呼ぶが、その中に二種類いるという理解でよい。 1. 関心のある変数 - それらにくっつく係数が知りたいパラメータ 2. コントロール変数 - これらはあくまでも関心のある変数のパラメータを識別するためにコントロールしたい変数なので、これらにくっつくパラメータの値そのものには関心がない</p>
+<p>以下ではこの重回帰について、その実際の計算方法、すなわち推定と推論の部分を見ていく。</p>
+<section id="重回帰のモデル" class="level1">
+<h1>重回帰のモデル</h1>
+<p>まずは、説明変数が2つある最も基本的な重回帰モデルを考えよう。 個人 (i) について、被説明変数を (Y_i)、2つの説明変数を (X_{1i}, X_{2i}) とすると、モデルは</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + u_i
+</span></p>
+<p>と書かれる。</p>
+<p>ここで</p>
+<ul>
+<li>(Y_i)：結果として観測したい変数</li>
+<li>(X_{1i})：主に注目している説明変数</li>
+<li>(X_{2i})：コントロール変数</li>
+<li>(u_i)：モデルで説明しきれない部分</li>
+</ul>
+<p>である。</p>
+<p>この式の意味は、(X_{1i}) と (X_{2i}) の値が与えられたとき、(Y_i) の平均的な大きさが</p>
+<p><span class="math display">
+\beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i}
+</span></p>
+<p>で表される、ということである。</p>
+<p>単回帰では右辺に説明変数が1つしかなかったが、重回帰では右辺に複数の変数を入れることができる。 そのぶん、「他の条件を揃えた上での関係」を見やすくなる。</p>
+<section id="ols-は何をしているのか" class="level2">
+<h2 class="anchored" data-anchor-id="ols-は何をしているのか">OLS は何をしているのか</h2>
+<p>では、この (_0, _1, _2) は実際にはどうやって決めるのだろうか。</p>
+<p>OLS（最小二乗法）は、各データ点についての<strong>予測誤差</strong>を考え、その二乗和ができるだけ小さくなるように係数を選ぶ方法である。</p>
+<p>個人 (i) についての予測値を</p>
+<p><span class="math display">
+\hat Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i}
+</span></p>
+<p>と書くと、誤差は</p>
+<p><span class="math display">
+Y_i - \hat Y_i
+= Y_i - (\beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i})
+</span></p>
+<p>である。</p>
+<p>OLS は、この誤差の二乗を全部足した</p>
+<p><span class="math display">
+\sum_{i=1}^n
+\left(
+Y_i - \beta_0 - \beta_1 X_{1i} - \beta_2 X_{2i}
+\right)^2
+</span></p>
+<p>を最小にするように (_0, _1, _2) を選ぶ。</p>
+<p>これが重回帰の OLS の定義である。</p>
+</section>
+<section id="つのデータ点で見てみる" class="level2">
+<h2 class="anchored" data-anchor-id="つのデータ点で見てみる">4つのデータ点で見てみる</h2>
+<p>まずは非常に小さい例を考えよう。 次の4人のデータがあるとする。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>個人 (i)</th>
+<th style="text-align: right;">(X_{1i})</th>
+<th style="text-align: right;">(X_{2i})</th>
+<th style="text-align: right;">(Y_i)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">12</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">13</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">15</td>
+</tr>
+</tbody>
+</table>
+<p>ここで考えたいモデルは</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + u_i
+</span></p>
+<p>である。</p>
+<p>このとき、各個人について予測値は次のようになる。</p>
+<ul>
+<li><p>個人1では (X_{11}=0, X_{21}=0) なので <span class="math display">
+\hat Y_1 = \beta_0
+</span></p></li>
+<li><p>個人2では (X_{12}=1, X_{22}=0) なので <span class="math display">
+\hat Y_2 = \beta_0 + \beta_1
+</span></p></li>
+<li><p>個人3では (X_{13}=0, X_{23}=1) なので <span class="math display">
+\hat Y_3 = \beta_0 + \beta_2
+</span></p></li>
+<li><p>個人4では (X_{14}=1, X_{24}=1) なので <span class="math display">
+\hat Y_4 = \beta_0 + \beta_1 + \beta_2
+</span></p></li>
+</ul>
+<p>したがって、二乗誤差和は</p>
+<p><span class="math display">
+\begin{aligned}
+SSR(\beta_0,\beta_1,\beta_2)
+&amp;=
+(10-\beta_0)^2
++(12-\beta_0-\beta_1)^2 \\
+&amp;\quad
++(13-\beta_0-\beta_2)^2
++(15-\beta_0-\beta_1-\beta_2)^2
+\end{aligned}
+</span></p>
+<p>となる。</p>
+<p>OLS は、この式を最小にする (_0,_1,_2) を探している。</p>
+</section>
+<section id="この例ではぴったり当てはまる" class="level2">
+<h2 class="anchored" data-anchor-id="この例ではぴったり当てはまる">この例ではぴったり当てはまる</h2>
+<p>この例では、実は</p>
+<p><span class="math display">
+\beta_0 = 10, \quad \beta_1 = 2, \quad \beta_2 = 3
+</span></p>
+<p>と置くと、4つの点をすべてぴったり通る。</p>
+<p>実際、</p>
+<ul>
+<li>個人1の予測値： <span class="math display">
+\hat Y_1 = 10
+</span></li>
+<li>個人2の予測値： <span class="math display">
+\hat Y_2 = 10+2=12
+</span></li>
+<li>個人3の予測値： <span class="math display">
+\hat Y_3 = 10+3=13
+</span></li>
+<li>個人4の予測値： <span class="math display">
+\hat Y_4 = 10+2+3=15
+</span></li>
+</ul>
+<p>となり、すべて実際の (Y_i) と一致する。</p>
+<p>したがって、このときの誤差は全部 0 であり、二乗誤差和も</p>
+<p><span class="math display">
+SSR(10,2,3)=0
+</span></p>
+<p>である。</p>
+<p>二乗誤差和は負にはならないので、0 が達成できたならそれが最小値である。 よって、この例では OLS は</p>
+<p><span class="math display">
+\hat\beta_0 = 10,\qquad
+\hat\beta_1 = 2,\qquad
+\hat\beta_2 = 3
+</span></p>
+<p>を選ぶ。</p>
+</section>
+<section id="この係数はどう読めるか" class="level2">
+<h2 class="anchored" data-anchor-id="この係数はどう読めるか">この係数はどう読めるか</h2>
+<p>この例では係数の意味もかなりわかりやすい。</p>
+<p>まず (_0=10) は、</p>
+<p><span class="math display">
+X_1=0,\quad X_2=0
+</span></p>
+<p>のときの予測値である。</p>
+<p>次に (_1=2) は、(X_2) を一定にしたまま (X_1) が 1 増えると、予測値が 2 増えることを表している。</p>
+<p>実際、</p>
+<ul>
+<li>(X_2=0) のとき (X_1=0) から (X_1=1) に変わると (Y) は 10 から 12 に増えている</li>
+<li>(X_2=1) のとき (X_1=0) から (X_1=1) に変わると (Y) は 13 から 15 に増えている</li>
+</ul>
+<p>どちらの場合も増加分は 2 である。</p>
+<p>同様に、(_2=3) は、(X_1) を一定にしたまま (X_2) が 1 増えると、予測値が 3 増えることを表している。</p>
+</section>
+<section id="ただしいつもぴったり当てはまるわけではない" class="level2">
+<h2 class="anchored" data-anchor-id="ただしいつもぴったり当てはまるわけではない">ただし、いつもぴったり当てはまるわけではない</h2>
+<p>今の例は都合よく4点がきれいに1つの式</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i}
+</span></p>
+<p>に乗っていた。 しかし、現実のデータではこのようにぴったり当てはまることは普通ない。</p>
+<p>たとえば最後のデータだけ少し変えて、次のようになっていたとしよう。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>個人 (i)</th>
+<th style="text-align: right;">(X_{1i})</th>
+<th style="text-align: right;">(X_{2i})</th>
+<th style="text-align: right;">(Y_i)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">12</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">13</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">14</td>
+</tr>
+</tbody>
+</table>
+<p>このとき、先ほどと同じ</p>
+<p><span class="math display">
+\beta_0 = 10,\quad \beta_1 = 2,\quad \beta_2 = 3
+</span></p>
+<p>を使うと、個人4の予測値は</p>
+<p><span class="math display">
+\hat Y_4 = 10+2+3=15
+</span></p>
+<p>となり、実際の値 14 とずれる。</p>
+<p>つまり、誤差は完全には 0 にならない。</p>
+<p>それでも OLS は、<strong>誤差を完全に消そうとするのではなく、誤差の二乗和ができるだけ小さくなるように係数を選ぶ</strong>。 これが「最小二乗法」という名前の意味である。</p>
+</section>
+<section id="重回帰でも考え方は単回帰と同じ" class="level2">
+<h2 class="anchored" data-anchor-id="重回帰でも考え方は単回帰と同じ">重回帰でも考え方は単回帰と同じ</h2>
+<p>ここで重要なのは、重回帰になっても OLS の考え方そのものは単回帰と変わらない、ということである。</p>
+<p>単回帰では</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_i + u_i
+</span></p>
+<p>として、</p>
+<p><span class="math display">
+\sum_{i=1}^n (Y_i-\beta_0-\beta_1X_i)^2
+</span></p>
+<p>を最小化した。</p>
+<p>重回帰では説明変数が1つ増えて、</p>
+<p><span class="math display">
+\sum_{i=1}^n
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)^2
+</span></p>
+<p>を最小化しているだけである。</p>
+<p>つまり、<strong>やっていることは「予測誤差の二乗和を最小にする」という同じ操作であり、違うのは右辺に入る変数が増えたことだけ</strong>である。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="ここでの狙い">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>ここでの狙い
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>単回帰と同じく、重回帰でも OLS は <strong>二乗誤差和を最小にする係数</strong> を選んでいる。<br>
+ただし、説明変数が増えるぶん、正規方程式は少しだけ複雑になる。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="ols-を-foc-から求める" class="level1">
+<h1>OLS を FOC から求める</h1>
+<p>単回帰のときと同じように、重回帰でも OLS は二乗誤差和を最小にすることで定義される。 いま、2つの説明変数と定数項があるモデル</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + u_i
+</span></p>
+<p>を考えよう。</p>
+<p>OLS は</p>
+<p><span class="math display">
+S(\beta_0,\beta_1,\beta_2) = \sum_{i=1}^n
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)^2
+</span></p>
+<p>を最小にする (_0,_1,_2) を選ぶ方法であった。</p>
+<section id="一階条件を立てる" class="level2">
+<h2 class="anchored" data-anchor-id="一階条件を立てる">一階条件を立てる</h2>
+<p>この (S(_0,_1,_2)) を、それぞれの係数で偏微分して 0 とおく。</p>
+<p>まず (_0) について微分すると、</p>
+<p><span class="math display">
+\frac{\partial S}{\partial \beta_0} = -2
+\sum_{i=1}^n
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)
+=0
+</span></p>
+<p>である。</p>
+<p>両辺を (-2) で割ると、</p>
+<p><span class="math display">
+\sum_{i=1}^n
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)=0
+</span></p>
+<p>を得る。</p>
+<p>次に (_1) について微分すると、</p>
+<p><span class="math display">
+\frac{\partial S}{\partial \beta_1} = -2
+\sum_{i=1}^n
+X_{1i}
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)
+=0
+</span></p>
+<p>したがって、</p>
+<p><span class="math display">
+\sum_{i=1}^n
+X_{1i}
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)=0
+</span></p>
+<p>となる。</p>
+<p>同様に (_2) について微分すると、</p>
+<p><span class="math display">
+\frac{\partial S}{\partial \beta_2} = -2
+\sum_{i=1}^n
+X_{2i}
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)
+=0
+</span></p>
+<p>したがって、</p>
+<p><span class="math display">
+\sum_{i=1}^n
+X_{2i}
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)=0
+</span></p>
+<p>となる。</p>
+</section>
+<section id="正規方程式" class="level2">
+<h2 class="anchored" data-anchor-id="正規方程式">正規方程式</h2>
+<p>この3つが、重回帰 OLS の一階条件である。 これらをまとめると、</p>
+<p><span class="math display">
+\sum_{i=1}^n
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)=0
+</span></p>
+<p><span class="math display">
+\sum_{i=1}^n
+X_{1i}
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)=0
+</span></p>
+<p><span class="math display">
+\sum_{i=1}^n
+X_{2i}
+\left(
+Y_i-\beta_0-\beta_1X_{1i}-\beta_2X_{2i}
+\right)=0
+</span></p>
+<p>である。</p>
+<p>これを展開すると、</p>
+<p><span class="math display">
+\sum_{i=1}^n Y_i =
+n\beta_0
++
+\beta_1\sum_{i=1}^n X_{1i}
++
+\beta_2\sum_{i=1}^n X_{2i}
+</span></p>
+<p><span class="math display">
+\sum_{i=1}^n X_{1i}Y_i =
+\beta_0\sum_{i=1}^n X_{1i}
++
+\beta_1\sum_{i=1}^n X_{1i}^2
++
+\beta_2\sum_{i=1}^n X_{1i}X_{2i}
+</span></p>
+<p><span class="math display">
+\sum_{i=1}^n X_{2i}Y_i = \beta_0\sum_{i=1}^n X_{2i}
++
+\beta_1\sum_{i=1}^n X_{1i}X_{2i}
++
+\beta_2\sum_{i=1}^n X_{2i}^2
+</span></p>
+<p>となる。</p>
+<p>この3本の連立方程式を解けば、OLS 推定量 (_0,_1,_2) が得られる。 これを <strong>正規方程式</strong> と呼ぶ。</p>
+</section>
+<section id="単回帰との違い" class="level2">
+<h2 class="anchored" data-anchor-id="単回帰との違い">単回帰との違い</h2>
+<p>単回帰では、未知数が (_0,_1) の2つだったので、FOC も2本であった。 重回帰では未知数が (_0,_1,_2) の3つになるので、FOC も3本になる。</p>
+<p>考え方自体はまったく同じである。 違うのは、説明変数が1つ増えたことで、解くべき連立方程式が1本増えること、そして交差項</p>
+<p><span class="math display">
+\sum_{i=1}^n X_{1i}X_{2i}
+</span></p>
+<p>が現れることである。</p>
+<p>この交差項が出てくるのは、2つの説明変数が互いに関係している可能性があるからである。 重回帰では、(X_1) の効果を考えるときにも (X_2) との関係を同時に調整しなければならない。</p>
+</section>
+<section id="hatbeta_0-は平均を使って書ける" class="level2">
+<h2 class="anchored" data-anchor-id="hatbeta_0-は平均を使って書ける"><span class="math inline">\hat\beta_0</span> は平均を使って書ける</h2>
+<p>最初の一階条件</p>
+<p><span class="math display">
+\sum_{i=1}^n
+\left(
+Y_i-\hat\beta_0-\hat\beta_1X_{1i}-\hat\beta_2X_{2i}
+\right)=0
+</span></p>
+<p>を (n) で割ると、</p>
+<p><span class="math display">
+\bar Y-\hat\beta_0-\hat\beta_1\bar X_1-\hat\beta_2\bar X_2=0
+</span></p>
+<p>となる。したがって、</p>
+<p><span class="math display">
+\hat\beta_0= \bar Y-\hat\beta_1\bar X_1-\hat\beta_2\bar X_2
+</span></p>
+<p>を得る。</p>
+<p>これは単回帰のときの</p>
+<p><span class="math display">
+\hat\beta_0=\bar Y-\hat\beta_1\bar X
+</span></p>
+<p>の自然な拡張になっている。</p>
+<p>つまり、重回帰でも定数項は <strong>「平均的な (Y) から、説明変数の平均部分を差し引いたもの」</strong> として決まる。</p>
+</section>
+<section id="ここでは何が大事か" class="level2">
+<h2 class="anchored" data-anchor-id="ここでは何が大事か">ここでは何が大事か</h2>
+<p>この段階で大事なのは、まだ (_1,_2) のきれいな閉じた公式を覚えることではない。 重要なのは次の点である。</p>
+<ol type="1">
+<li>OLS は二乗誤差和を最小化している</li>
+<li>その結果として、3本の一階条件が出てくる</li>
+<li>それを解くと OLS 推定量が得られる</li>
+<li>重回帰では、各説明変数の係数が他の説明変数との関係も含めて同時に決まる</li>
+</ol>
+</section>
+<section id="傾きの値の公式があるあるけど" class="level2">
+<h2 class="anchored" data-anchor-id="傾きの値の公式があるあるけど">傾きの値の公式がある。あるけど…</h2>
+<p>まず、各変数の平均を</p>
+<p><span class="math display">
+\bar Y = \frac{1}{n}\sum_{i=1}^n Y_i,
+\qquad
+\bar X_1 = \frac{1}{n}\sum_{i=1}^n X_{1i},
+\qquad
+\bar X_2 = \frac{1}{n}\sum_{i=1}^n X_{2i}
+</span></p>
+<p>とする。</p>
+<p>さらに、平均からのずれを</p>
+<p><span class="math display">
+\tilde Y_i = Y_i - \bar Y,
+\qquad
+\tilde X_{1i} = X_{1i} - \bar X_1,
+\qquad
+\tilde X_{2i} = X_{2i} - \bar X_2
+</span></p>
+<p>と書く。</p>
+<p>このとき、</p>
+<p><span class="math display">
+\hat\beta_1 = \frac{
+\left(\sum_{i=1}^n \tilde X_{2i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde Y_i\right)-
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)
+\left(\sum_{i=1}^n \tilde X_{2i}\tilde Y_i\right)
+}{
+\left(\sum_{i=1}^n \tilde X_{1i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{2i}^2\right) - \left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)^2
+}
+</span></p>
+<p><span class="math display">
+\hat\beta_2 = \frac{
+\left(\sum_{i=1}^n \tilde X_{1i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{2i}\tilde Y_i\right)-
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde Y_i\right)
+}{
+\left(\sum_{i=1}^n \tilde X_{1i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{2i}^2\right) - \left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)^2
+}
+</span></p>
+<p>であり、定数項は</p>
+<p><span class="math display">
+\hat\beta_0 = \bar Y - \hat\beta_1 \bar X_1 - \hat\beta_2 \bar X_2
+</span></p>
+<p>で与えられる。</p>
+<p>これを見て思うべきことは、<strong>じゃあ説明変数が3つあったらどうなってしまうんだ</strong>という点である。計算したことはないが、使い物にならないほど長大なものになるだろう。</p>
+<p>ということで、とにかく重要なのは、先ほども述べた通り、</p>
+<blockquote class="blockquote">
+<p>FOCである3本の式を連立して解くと、OLS 推定量が得られる</p>
+</blockquote>
+<p>という流れである。これは説明変数が何個あっても変わらない。</p>
+<p>そして、パソコンはこういう連立方程式をとくという作業が大得意である。パソコンに任せよう。</p>
+<div class="callout callout-style-simple callout-important callout-titled" title="ここからは推定量としての話">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>ここからは推定量としての話
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>以下の不偏性・一致性・漸近正規性は、<strong><span class="math inline">E[u_i\mid x_{1i},x_{2i}]=0</span></strong> のような外生性条件の下で成り立つ。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="ols-の性質推定量としての性質" class="level1">
+<h1>OLS の性質：推定量としての性質</h1>
+<p>単回帰の時に見た性質は全てこちらでも成立する。基本的にはLecture 3を参照してもらうとして、ざっと書いておく</p>
+<p>重回帰においても <strong>OLSをSSE最小化として定義しただけで必ず成り立つ性質</strong> をまとめる。 つまり、データ ((x_{1i},x_{2i},y_i)) が与えられたら、<strong>必ずそうなる</strong>という話だけをする。</p>
+<p>以下では、OLSで得られた係数を</p>
+<p><span class="math display">
+(\widehat{\beta}_0,\widehat{\beta}_1,\widehat{\beta}_2)
+</span></p>
+<p>とし、予測値と残差を</p>
+<p><span class="math display">
+\widehat{y}_i=\widehat{\beta}_0+\widehat{\beta}_1x_{1i}+\widehat{\beta}_2x_{2i},
+\qquad
+\widehat{e}_i=y_i-\widehat{y}_i
+</span></p>
+<p>と書く。</p>
+<section id="p1-回帰平面は平均点を通る" class="level2">
+<h2 class="anchored" data-anchor-id="p1-回帰平面は平均点を通る">(P1) 回帰平面は平均点を通る</h2>
+<p>各変数の平均を</p>
+<p><span class="math display">
+\bar{x}_1=\frac{1}{n}\sum_{i=1}^n x_{1i},\qquad
+\bar{x}_2=\frac{1}{n}\sum_{i=1}^n x_{2i},\qquad
+\bar{y}=\frac{1}{n}\sum_{i=1}^n y_i
+</span></p>
+<p>とする。</p>
+<p>このとき、OLSで得られた回帰平面は必ず</p>
+<p><span class="math display">
+\bar{y} = \widehat{\beta}_0+\widehat{\beta}_1\bar{x}_1+\widehat{\beta}_2\bar{x}_2
+</span></p>
+<p>を満たす。</p>
+<p>つまり、単回帰で「回帰直線が平均点 (({x},{y})) を通る」と言ったのに対応して、重回帰では **回帰平面が (({x}_1,{x}_2,{y})) を通る** ことになる。</p>
+<p>直感としては、データ全体の「重心」を回帰平面が通る、と思えばよい。</p>
+</section>
+<section id="p2-残差の和は0" class="level2">
+<h2 class="anchored" data-anchor-id="p2-残差の和は0">(P2) 残差の和は0</h2>
+<p>OLSで得られた残差は必ず</p>
+<p><span class="math display">
+\sum_{i=1}^n \widehat{e}_i=0
+</span></p>
+<p>を満たす。</p>
+<p>これは単回帰のときとまったく同じである。 定数項が入っているOLSでは、残差のプラスとマイナスがちょうど打ち消し合う。</p>
+</section>
+<section id="p3-残差は各説明変数と直交する" class="level2">
+<h2 class="anchored" data-anchor-id="p3-残差は各説明変数と直交する">(P3) 残差は各説明変数と直交する</h2>
+<p>重回帰では、残差は各説明変数とも「積の和」が0になる。</p>
+<p>具体的には</p>
+<p><span class="math display">
+\sum_{i=1}^n x_{1i}\widehat{e}_i=0,
+\qquad
+\sum_{i=1}^n x_{2i}\widehat{e}_i=0
+</span></p>
+<p>が成り立つ。</p>
+<p>さらに、残差の和が0であることと合わせると、</p>
+<p><span class="math display">
+\sum_{i=1}^n (x_{1i}-\bar{x}_1)\widehat{e}_i=0,
+\qquad
+\sum_{i=1}^n (x_{2i}-\bar{x}_2)\widehat{e}_i=0
+</span></p>
+<p>とも書ける。</p>
+<p>この性質の直感は単回帰と同じである。</p>
+<ul>
+<li>もし (x_1) が大きいほど残差が系統的にプラスなら、(_1) を少し動かせばSSEがもっと下がるはず</li>
+<li>もし (x_2) が大きいほど残差が系統的にプラスまたはマイナスなら、(_2) を少し動かせばSSEがもっと下がるはず</li>
+</ul>
+<p>OLSはすでにSSEを最小にしているので、そのような「まだ改善できる方向」が残っていてはいけない。 それが、残差と各説明変数の直交性に対応している。</p>
+</section>
+<section id="p4-予測値の平均は実際の平均に一致する" class="level2">
+<h2 class="anchored" data-anchor-id="p4-予測値の平均は実際の平均に一致する">(P4) 予測値の平均は実際の平均に一致する</h2>
+<p>(P1) を見ればすぐわかるように、予測値の平均は実際の (y) の平均に一致する。</p>
+<p>実際、</p>
+<p><span class="math display">
+\frac{1}{n}\sum_{i=1}^n \widehat{y}_i
+=
+\widehat{\beta}_0+\widehat{\beta}_1\bar{x}_1+\widehat{\beta}_2\bar{x}_2
+=
+\bar{y}
+</span></p>
+<p>である。</p>
+<p>したがって、</p>
+<p><span class="math display">
+\overline{\widehat{y}}=\bar{y}
+</span></p>
+<p>が成り立つ。</p>
+<p>これは「OLSは少なくとも平均の水準はきちんと合わせている」という意味で理解できる。</p>
+</section>
+<section id="p5-分散分解tss-ess-sseと-r2" class="level2">
+<h2 class="anchored" data-anchor-id="p5-分散分解tss-ess-sseと-r2">(P5) 分散分解（TSS = ESS + SSE）と <span class="math inline">R^2</span></h2>
+<p>各点で</p>
+<p><span class="math display">
+y_i=\widehat{y}_i+\widehat{e}_i
+</span></p>
+<p>が成り立つのは定義そのものである。</p>
+<p>ここから、(y) の平均からのズレの二乗和</p>
+<p><span class="math display">
+\sum_{i=1}^n (y_i-\bar{y})^2
+</span></p>
+<p>を考える。これを (y) 全体のばらつきとみなす。</p>
+<p>OLSでは、単回帰と同じく次の分散分解が成り立つ：</p>
+<p><span class="math display">
+\sum_{i=1}^n (y_i-\bar{y})^2
+=
+\sum_{i=1}^n (\widehat{y}_i-\bar{y})^2
++
+\sum_{i=1}^n \widehat{e}_i^2
+</span></p>
+<p>左辺を <strong>TSS</strong>、右辺第1項を <strong>ESS</strong>、第2項を <strong>SSE</strong> と呼ぶことが多い。</p>
+<p>この分解が成り立つ理由は、OLSでは</p>
+<p><span class="math display">
+\sum_{i=1}^n \widehat{e}_i(\widehat{y}_i-\bar{y})=0
+</span></p>
+<p>が成り立つからである。 つまり、予測値の変動部分と残差部分が直交している。</p>
+<p>決定係数 (R^2) を</p>
+<p><span class="math display">
+R^2
+\equiv
+\frac{\sum_{i=1}^n (\widehat{y}_i-\bar{y})^2}
+{\sum_{i=1}^n (y_i-\bar{y})^2}
+</span></p>
+<p>と定義すると、分散分解より</p>
+<p><span class="math display">
+R^2
+=
+1-
+\frac{\sum_{i=1}^n \widehat{e}_i^2}
+{\sum_{i=1}^n (y_i-\bar{y})^2}
+</span></p>
+<p>とも書ける。</p>
+<p>したがって (R^2) は、 <strong>(y) の全体のばらつきのうち、回帰式が説明できた割合</strong> として理解できる。</p>
+</section>
+<section id="p6-単位変更尺度変換に対するふるまい" class="level2">
+<h2 class="anchored" data-anchor-id="p6-単位変更尺度変換に対するふるまい">(P6) 単位変更（尺度変換）に対するふるまい</h2>
+<p>たとえば (x_1) の単位を変えて</p>
+<p><span class="math display">
+x_{1i}'=c x_{1i}
+</span></p>
+<p>とする。 このとき、同じ予測値を保つには、新しい回帰式</p>
+<p><span class="math display">
+\widehat{y}_i=\beta_0'+\beta_1'x_{1i}'+\beta_2'x_{2i}
+</span></p>
+<p>の係数は</p>
+<p><span class="math display">
+\beta_0'=\widehat{\beta}_0,\qquad
+\beta_1'=\frac{\widehat{\beta}_1}{c},\qquad
+\beta_2'=\widehat{\beta}_2
+</span></p>
+<p>となる。</p>
+<p>つまり、</p>
+<ul>
+<li>(x_1) を (c) 倍すると、その係数は (1/c) 倍になる</li>
+<li>他の変数の係数と予測値は変わらない</li>
+</ul>
+<p>同様に、(x_2) の単位を変えれば (_2) だけが逆向きに調整される。</p>
+<p>要するに、係数の大きさそのものは変数の単位に依存する。 したがって、係数の数値を読むときは「この変数は何の単位で測られているのか」に注意が必要である。</p>
+</section>
+<section id="p7-平行移動原点の取り方に対するふるまい" class="level2">
+<h2 class="anchored" data-anchor-id="p7-平行移動原点の取り方に対するふるまい">(P7) 平行移動（原点の取り方）に対するふるまい</h2>
+<p>次に、説明変数の原点だけをずらして</p>
+<p><span class="math display">
+x_{1i}'=x_{1i}+c_1,\qquad
+x_{2i}'=x_{2i}+c_2
+</span></p>
+<p>とする。</p>
+<p>このとき同じ予測値を保つには、傾きは変わらず、切片だけが調整される。 実際、</p>
+<p><span class="math display">
+\beta_1'=\widehat{\beta}_1,\qquad
+\beta_2'=\widehat{\beta}_2
+</span></p>
+<p>であり、</p>
+<p><span class="math display">
+\beta_0' = \widehat{\beta}_0-\widehat{\beta}_1 c_1-\widehat{\beta}_2 c_2
+</span></p>
+<p>となる。</p>
+<p>つまり、</p>
+<ul>
+<li>説明変数に定数を足しても、傾きは変わらない</li>
+<li>その代わり切片が調整される</li>
+</ul>
+<p>という性質がある。</p>
+<p>この性質は、説明変数を平均中心化するときに便利である。 たとえば</p>
+<p><span class="math display">
+x_{1i}'=x_{1i}-\bar{x}_1,\qquad
+x_{2i}'=x_{2i}-\bar{x}_2
+</span></p>
+<p>とすると、新しい変数の平均は 0 になるので、(P1) より</p>
+<p><span class="math display">
+\beta_0'=\bar{y}
+</span></p>
+<p>となる。 つまり、<strong>平均中心化した変数で回帰すると、切片は (y) の平均そのものになる。</strong></p>
+<hr>
+<p>ここからは、単なる「SSE最小化の定義から自動的に出てくる性質」ではなく、 <strong>重回帰モデルが正しく指定されていて、誤差項が説明変数と系統的に関係していない</strong> という仮定の下での性質を述べる。</p>
+<p>重回帰モデルを</p>
+<p><span class="math display">
+y_i=\beta_0+\beta_1 x_{1i}+\beta_2 x_{2i}+u_i
+</span></p>
+<p>と書こう。</p>
+<p>そして、外生性の仮定として</p>
+<p><span class="math display">
+E[u_i\mid x_{1i},x_{2i}]=0
+</span></p>
+<p>を置く。</p>
+<p>これは、「(x_1) と (x_2) を与えたとき、誤差項 (u_i) の平均は0」という仮定である。 この仮定が成り立っているとき、OLSは推定量として望ましい性質を持つ。</p>
+<p>メインメッセージは単回帰と同じで、 <strong>重回帰の OLS もとてもよい推定量である</strong> ということである。</p>
+</section>
+<section id="不偏性" class="level2">
+<h2 class="anchored" data-anchor-id="不偏性">1. 不偏性</h2>
+<p>外生性</p>
+<p><span class="math display">
+E[u_i\mid x_{1i},x_{2i}]=0
+</span></p>
+<p>が成り立つとき、OLS推定量は不偏である。</p>
+<p>つまり、</p>
+<p><span class="math display">
+E[\hat\beta_0\mid X]=\beta_0,\qquad
+E[\hat\beta_1\mid X]=\beta_1,\qquad
+E[\hat\beta_2\mid X]=\beta_2
+</span></p>
+<p>が成り立つ。ここで (X) は全ての説明変数のデータをまとめて表していると思えばよい。</p>
+<p>特に重要なのは、(_1) は <strong>(x_2) をコントロールした上での (x_1) の効果</strong> を平均的に正しく当てている、ということである。</p>
+<p>単回帰との違いは、重回帰では (_1) の意味そのものが 「(x_2) を一定にしたときの (x_1) の部分効果」 になっている点である。</p>
+</section>
+<section id="分散と標準誤差の公式がある" class="level2">
+<h2 class="anchored" data-anchor-id="分散と標準誤差の公式がある">2. 分散と標準誤差の公式がある</h2>
+<p>重回帰OLSにも、単回帰と同じく分散の公式がある。</p>
+<p>直感はやはり同じで、</p>
+<ul>
+<li>誤差 (u_i) のばらつきが大きいほど、推定値はぶれやすい</li>
+<li>説明変数に十分なばらつきがあるほど、係数は精密に推定しやすい</li>
+<li>サンプルサイズ (n) が大きいほど、標準誤差は小さくなる</li>
+</ul>
+<p>というものである。</p>
+<p>ただし重回帰では、(_1) の分散は単純に (x_1) の分散だけでは決まらない。 なぜなら (x_1) と (x_2) が強く相関していると、(x_1) の「独自の変動」が少なくなり、(_1) を精密に推定しにくくなるからである。</p>
+<p>つまり、</p>
+<ul>
+<li>(x_1) に十分なばらつきがあること</li>
+<li>しかもそのばらつきの中に、(x_2) では説明できない独自部分があること</li>
+</ul>
+<p>が重要になる。</p>
+<p>重回帰でも標準誤差は、誤差分散の推定値を使って計算される。 そしてその標準誤差を使って、信頼区間や検定ができる。</p>
+</section>
+<section id="一致性" class="level2">
+<h2 class="anchored" data-anchor-id="一致性">3. 一致性</h2>
+<p>外生性が成り立ち、さらに標準的な正則条件が満たされると、OLS推定量は一致する。</p>
+<p>つまり、</p>
+<p><span class="math display">
+\hat\beta_0 \xrightarrow[]{p} \beta_0,\qquad
+\hat\beta_1 \xrightarrow[]{p} \beta_1,\qquad
+\hat\beta_2 \xrightarrow[]{p} \beta_2
+</span></p>
+<p>が成り立つ。</p>
+<p>意味としては、データが十分たくさん集まれば、推定値は真のパラメータに近づいていくということである。</p>
+<p>重回帰で特に重要なのは、(_1) は **(x_2) をコントロールした上での真の部分効果 (_1)** に近づく、という点である。</p>
+</section>
+<section id="漸近正規性" class="level2">
+<h2 class="anchored" data-anchor-id="漸近正規性">4. 漸近正規性</h2>
+<p>サンプルサイズが大きくなると、OLS推定量は正規分布で近似できる。</p>
+<p>たとえば (_1) については、</p>
+<p><span class="math display">
+\sqrt{n}(\hat\beta_1-\beta_1)\Rightarrow N(0,V_1)
+</span></p>
+<p>のような形が成り立つ。</p>
+<p>同様に (_2) や (_0) にも対応する漸近分布がある。</p>
+<p>これにより、重回帰でも</p>
+<ul>
+<li>信頼区間</li>
+<li>t検定</li>
+<li>p値</li>
+</ul>
+<p>といった推論が可能になる。</p>
+<p>したがって、重回帰OLSも単回帰OLSと同じく、 <strong>点推定だけでなく、その不確実性まで評価できる</strong> という意味で非常に便利である。</p>
+</section>
+</section>
+<section id="シミュレーション" class="level1">
+<h1>シミュレーション</h1>
+<p>ここでは、2変数の重回帰モデルを自分で人工的に作り、そのデータに対して実際にOLSを実行してみる。</p>
+<p>目的は次の3つである。</p>
+<ul>
+<li>重回帰で何を推定しているのかを具体的に見る</li>
+<li>真の係数と推定値を比べる</li>
+<li>回帰表に出てくる係数、標準誤差、t値、(R^2) などの意味に慣れる</li>
+</ul>
+<section id="人工データを作る" class="level2">
+<h2 class="anchored" data-anchor-id="人工データを作る">1. 人工データを作る</h2>
+<p>次のような真のモデルからデータを生成する。</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + u_i
+</span></p>
+<p>ここでは真の値を</p>
+<p><span class="math display">
+\beta_0 = 1,\qquad
+\beta_1 = 2,\qquad
+\beta_2 = -1
+</span></p>
+<p>とする。</p>
+<p>つまり、真のデータ生成過程は</p>
+<p><span class="math display">
+Y_i = 1 + 2X_{1i} - X_{2i} + u_i
+</span></p>
+<p>である。</p>
+<p>以下のコードでは、まず <span class="math inline">X_1</span> を正規分布から発生させ、次に <span class="math inline">X_2</span> を <span class="math inline">X_1</span> と少し相関するように作る。 その上で、誤差項 <span class="math inline">u</span> を加えて <span class="math inline">Y</span> を作る。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 説明変数を生成</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>x1 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>x2 <span class="ot">&lt;-</span> <span class="fl">0.5</span> <span class="sc">*</span> x1 <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 誤差項</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># 真のパラメータ</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>beta0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>beta1 <span class="ot">&lt;-</span> <span class="dv">2</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>beta2 <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 被説明変数</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x1 <span class="sc">+</span> beta2 <span class="sc">*</span> x2 <span class="sc">+</span> u</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># データフレームにまとめる</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">y =</span> y, <span class="at">x1 =</span> x1, <span class="at">x2 =</span> x2)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(df)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           y          x1         x2
+1 -0.2346193 -0.56047565 -0.8821307
+2  0.6084773 -0.23017749 -1.1087873
+3  2.2932972  1.55870831  1.8061392
+4  0.2225262  0.07050839  0.7863155
+5  0.1537554  0.12928774 -1.4445227
+6  4.7083184  1.71506499  0.7623850</code></pre>
+</div>
+</div>
+<p>このコードでは、<span class="math inline">x_1</span> と <span class="math inline">x_2</span> が少し相関するようにしてある。 これは現実のデータで説明変数どうしが無関係とは限らないことを意識した設定である。</p>
+</section>
+<section id="重回帰を実行する" class="level2">
+<h2 class="anchored" data-anchor-id="重回帰を実行する">2. 重回帰を実行する</h2>
+<p>このデータに対して、次の重回帰を実行する。</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + u_i
+</span></p>
+<p>R では <code>lm()</code> を使えばよい。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x1 <span class="sc">+</span> x2, <span class="at">data =</span> df)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = y ~ x1 + x2, data = df)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-2.7201 -0.6886  0.0193  0.6573  3.2828 
+
+Coefficients:
+            Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  1.02415    0.04438   23.08   &lt;2e-16 ***
+x1           2.03617    0.04967   40.99   &lt;2e-16 ***
+x2          -0.94686    0.04397  -21.53   &lt;2e-16 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.9917 on 497 degrees of freedom
+Multiple R-squared:  0.7752,    Adjusted R-squared:  0.7743 
+F-statistic: 857.1 on 2 and 497 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+</div>
+<p>この出力が、<strong>回帰表</strong>である。</p>
+</section>
+<section id="推定値と真の値を比べる" class="level2">
+<h2 class="anchored" data-anchor-id="推定値と真の値を比べる">3. 推定値と真の値を比べる</h2>
+<p>実際に、真の値と推定値を並べてみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>true_values <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"(Intercept)"</span> <span class="ot">=</span> beta0, <span class="st">"x1"</span> <span class="ot">=</span> beta1, <span class="st">"x2"</span> <span class="ot">=</span> beta2)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>estimated_values <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>comparison <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">term =</span> <span class="fu">names</span>(estimated_values),</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_value =</span> true_values[<span class="fu">names</span>(estimated_values)],</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">estimate =</span> <span class="fu">as.numeric</span>(estimated_values)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>comparison</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                   term true_value   estimate
+(Intercept) (Intercept)          1  1.0241545
+x1                   x1          2  2.0361708
+x2                   x2         -1 -0.9468557</code></pre>
+</div>
+</div>
+<p>この表を見ると、OLSが真の値にかなり近い係数を返していることが確認できる。</p>
+</section>
+<section id="モデルを間違えた時" class="level2">
+<h2 class="anchored" data-anchor-id="モデルを間違えた時">4. モデルを間違えた時</h2>
+<p>せっかくなので、<span class="math inline">x_2</span> を落として単回帰したときに何が起こるかも見てみよう。</p>
+<p>つまり、本当は</p>
+<p><span class="math display">
+Y_i = 1 + 2X_{1i} - X_{2i} + u_i
+</span></p>
+<p>なのに、誤って</p>
+<p><span class="math display">
+Y_i = a + bX_{1i} + e_i
+</span></p>
+<p>だけを推定してみる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>fit_short <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x1, <span class="at">data =</span> df)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit_short)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = y ~ x1, data = df)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-4.1244 -0.9213 -0.0738  0.9509  4.6064 
+
+Coefficients:
+            Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  1.02460    0.06163   16.62   &lt;2e-16 ***
+x1           1.61385    0.06338   25.46   &lt;2e-16 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 1.377 on 498 degrees of freedom
+Multiple R-squared:  0.5656,    Adjusted R-squared:  0.5647 
+F-statistic: 648.3 on 1 and 498 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+</div>
+<p>もし <span class="math inline">x_1</span> と <span class="math inline">x_2</span> が相関していて、しかも <span class="math inline">x_2</span> が <span class="math inline">y</span> に影響しているなら、<span class="math inline">x_2</span> を落とした単回帰の係数は正しい値を回復できない</p>
+<p>こういう状況では、推定値に <strong>バイアス</strong>（bias）がかかっているという。次に、このバイアスについてより詳しく見る。</p>
+</section>
+<section id="まとめ" class="level2">
+<h2 class="anchored" data-anchor-id="まとめ">6. まとめ</h2>
+<p>このシミュレーションでは、真のモデル</p>
+<p><span class="math display">
+Y_i = 1 + 2X_{1i} - X_{2i} + u_i
+</span></p>
+<p>から人工データを生成し、そのデータに対して重回帰を実行した。</p>
+<p>その結果、</p>
+<ul>
+<li>重回帰OLSは真の係数に近い値を返すこと</li>
+<li>回帰表には係数、標準誤差、t値、p値などが表示されること</li>
+<li>本当は必要な変数を落とすと、係数がずれてしまうこと</li>
+</ul>
+<p>を確認できた。</p>
+<p>このように、重回帰は「他の条件を揃えた上での関係」を推定するための基本的な道具になっている。</p>
+<div class="callout callout-style-simple callout-warning callout-titled" title="ここが計量経済学の核心">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">警告</span>ここが計量経済学の核心
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>重回帰を入れたからといって、自動的に問題が解決するわけではない。<br>
+<strong>説明変数と誤差項が相関してしまうと、OLS にはバイアスが生じる。</strong></p>
+</div>
+</div>
+</section>
+</section>
+<section id="バイアス" class="level1">
+<h1>バイアス</h1>
+<p>計量経済学で最も重要なバイアスは、外生性の仮定</p>
+<p><span class="math display">
+E[u_i \mid X_i] = 0
+</span></p>
+<p>が崩れることで生じるものである。</p>
+<p>教科書には、内生性バイアス、欠落変数バイアス、同時性バイアス、測定誤差バイアスなど、さまざまな名前のついたバイアスが登場する。 しかし、少なくとも回帰分析の基本的な理解としては、それらをバラバラに暗記する必要はない。</p>
+<p>大事なのは、<strong>説明変数 <span class="math inline">X_i</span> が誤差項 <span class="math inline">u_i</span> と相関してしまうと、OLS は本来推定したい係数からずれてしまう</strong>、という一点である。</p>
+<p>ここでは、そのズレがどのように生じるのかを数式で確認する。 具体的な目標は、</p>
+<blockquote class="blockquote">
+<p>この specification だと、推定値は上にずれそうか、下にずれそうか</p>
+</blockquote>
+<p>を予想できるようになることである。</p>
+<section id="バイアスとは何か" class="level2">
+<h2 class="anchored" data-anchor-id="バイアスとは何か">1. バイアスとは何か</h2>
+<p>まず、推定量 <span class="math inline">\hat\beta_1</span> の <strong>バイアス</strong> とは、</p>
+<p><span class="math display">
+E[\hat\beta_1] - \beta_1
+</span></p>
+<p>のことである。</p>
+<p>つまり、何度も標本を取り直してそのたびに推定を繰り返したとき、推定量の平均が真の値 <span class="math inline">\beta_1</span> からどれだけずれているかを表す。</p>
+<ul>
+<li>これが 0 なら <strong>不偏</strong></li>
+<li>0 でなければ <strong>バイアスがある</strong></li>
+</ul>
+<p>という。</p>
+<p>したがって、バイアスとは「たまたま一回の推定でずれた」という話ではなく、 <strong>平均的に見て系統的にずれているかどうか</strong> の話である。</p>
+</section>
+<section id="単回帰でバイアスのメカニズムを見る" class="level2">
+<h2 class="anchored" data-anchor-id="単回帰でバイアスのメカニズムを見る">2. 単回帰でバイアスのメカニズムを見る</h2>
+<p>まず、単回帰モデル</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_i + u_i
+</span></p>
+<p>を考える。</p>
+<p>OLS 推定量は</p>
+<p><span class="math display">
+\hat\beta_1 = \frac{\sum_{i=1}^n (X_i-\bar X)(Y_i-\bar Y)}{\sum_{i=1}^n (X_i-\bar X)^2}
+</span></p>
+<p>である。</p>
+<p>ここに真のモデル</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_i + u_i
+</span></p>
+<p>を代入すると、</p>
+<p><span class="math display">
+\hat\beta_1 = \frac{\sum_{i=1}^n (X_i-\bar X)\bigl(\beta_0+\beta_1X_i+u_i-\bar Y\bigr)}
+{\sum_{i=1}^n (X_i-\bar X)^2}
+</span></p>
+<p>となる。整理すると、</p>
+<p><span class="math display">
+\hat\beta_1 - \beta_1 = \frac{\sum_{i=1}^n (X_i-\bar X)u_i}{\sum_{i=1}^n (X_i-\bar X)^2}
+</span></p>
+<p>が得られる。</p>
+<p>これはとても重要な式である。 この式は、OLS の誤差が <strong><span class="math inline">X_i</span> と<span class="math inline">u_i</span> の共変動</strong> から生まれていることを示している。</p>
+</section>
+<section id="外生性が成り立つとき" class="level2">
+<h2 class="anchored" data-anchor-id="外生性が成り立つとき">3. 外生性が成り立つとき</h2>
+<p>もし</p>
+<p><span class="math display">
+E[u_i \mid X_i] = 0
+</span></p>
+<p>が成り立つなら、ざっくり言えば <span class="math inline">X_i</span> の大きい観測だからといって <span class="math inline">u_i</span> が平均的にプラスになったりマイナスになったりしない。</p>
+<p>このとき、</p>
+<p><span class="math display">
+E[\hat\beta_1 \mid X_1,\dots,X_n] = \beta_1
+</span></p>
+<p>が成り立ち、したがって</p>
+<p><span class="math display">
+E[\hat\beta_1] = \beta_1
+</span></p>
+<p>となる。</p>
+<p>つまり、OLS は不偏である。</p>
+<p>ここでのメッセージは単純で、</p>
+<blockquote class="blockquote">
+<p>説明変数 <span class="math inline">X_i</span> が誤差項 <span class="math inline">u_i</span> と無関係なら、OLS は平均的に正しい</p>
+</blockquote>
+<p>ということである。</p>
+</section>
+<section id="外生性が崩れると何が起こるか" class="level2">
+<h2 class="anchored" data-anchor-id="外生性が崩れると何が起こるか">4. 外生性が崩れると何が起こるか</h2>
+<p>一方で、</p>
+<p><span class="math display">
+E[u_i \mid X_i] \neq 0
+</span></p>
+<p>なら、(X_i) の大きさと (u_i) の大きさに系統的な関係があることになる。</p>
+<p>すると、先ほどの式</p>
+<p><span class="math display">
+\hat\beta_1 - \beta_1 = \frac{\sum_{i=1}^n (X_i-\bar X)u_i}{\sum_{i=1}^n (X_i-\bar X)^2}
+</span></p>
+<p>の分子が平均的に 0 ではなくなる。 その結果、</p>
+<p><span class="math display">
+E[\hat\beta_1] \neq \beta_1
+</span></p>
+<p>となり、OLS にバイアスが生じる。</p>
+<p>つまり、OLS の係数は <strong>真の因果効果 <span class="math inline">\beta_1</span> だけでなく、<span class="math inline">X_i</span> と誤差項 <span class="math inline">u_i</span> の相関も拾ってしまう</strong> のである。</p>
+</section>
+<section id="バイアスの向きはどう決まるか" class="level2">
+<h2 class="anchored" data-anchor-id="バイアスの向きはどう決まるか">5. バイアスの向きはどう決まるか</h2>
+<p>重要なのは、<strong>バイアスがあるかどうか</strong> だけでなく、 <strong>どちら向きにバイアスがかかるか</strong> を考えられるようになることである。</p>
+<p>上の式を見ると、</p>
+<p><span class="math display">
+\hat\beta_1 - \beta_1 = \frac{\sum_{i=1}^n (X_i-\bar X)u_i}{\sum_{i=1}^n (X_i-\bar X)^2}
+</span></p>
+<p>であり、分母は常に正である。 したがって、バイアスの向きは分子</p>
+<p><span class="math display">
+\sum_{i=1}^n (X_i-\bar X)u_i
+</span></p>
+<p>の符号で決まる。</p>
+<p>つまり、</p>
+<ul>
+<li><span class="math inline">X_i</span> が大きい観測ほど <span class="math inline">u_i</span> もプラスになりやすいなら、<span class="math inline">\hat\beta_1</span> は <strong>上方バイアス</strong></li>
+<li><span class="math inline">X_i</span> が大きい観測ほど <span class="math inline">u_i</span> がマイナスになりやすいなら、<span class="math inline">\hat\beta_1</span> は <strong>下方バイアス</strong></li>
+</ul>
+<p>になる。</p>
+</section>
+<section id="欠落変数バイアスの見方" class="level2">
+<h2 class="anchored" data-anchor-id="欠落変数バイアスの見方">6. 欠落変数バイアスの見方</h2>
+<p>このメカニズムが最もわかりやすく現れるのが、コントロール変数を落としてしまった時に出てくるバイアスである。これを欠落変数バイアスと呼んだりする。</p>
+<p>たとえば真のモデルが</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_i + \beta_2 Z_i + u_i
+</span></p>
+<p>だったとする。 ここで <span class="math inline">Z_i</span> は本当は入れるべき変数だが、観測できないので回帰から落としてしまったとする。</p>
+<p>すると、実際に推定する式は</p>
+<p><span class="math display">
+Y_i = a + bX_i + e_i
+</span></p>
+<p>となる。</p>
+<p>このとき誤差項 <span class="math inline">e_i</span> の中には、本来入れるべきだった</p>
+<p><span class="math display">
+\beta_2 Z_i
+</span></p>
+<p>が入ってしまう。つまり、</p>
+<p><span class="math display">
+e_i = \beta_2 Z_i + u_i
+</span></p>
+<p>である。</p>
+<p>この時、</p>
+<p><span class="math display">
+E[e_i \mid X_i]  = \beta_2 E[Z_i \mid X_i] + E[u_i\mid X_i] = \beta_2 E[Z_i \mid X_i]
+</span></p>
+<p>となる。</p>
+<p>ここで、何らかの定数<span class="math inline">\mu_z</span>について</p>
+<p><span class="math display">
+E[Z_i \mid X_i] = \mu_z
+</span></p>
+<p>だったら、<span class="math inline">e_i</span>を定数<span class="math inline">\mu_z</span>分ずらして定数項<span class="math inline">a</span>に<span class="math inline">\mu_z</span>押し付けることで、</p>
+<p><span class="math display">
+E[e_i \mid X_i] = 0
+</span></p>
+<p>とできる。（これは回帰の性質で見た話である）</p>
+<p>しかし、</p>
+<p><span class="math display">
+E[Z_i \mid X_i] = \mu_z(X_i)
+</span></p>
+<p>のように、これが定数ではなく <span class="math inline">X_i</span> の関数であったとしよう。</p>
+<p>すなわち、<span class="math inline">Z_i</span> は平均的に <span class="math inline">X_i</span> と一緒に動いており、<span class="math inline">Z_i</span> と <span class="math inline">X_i</span> の間に相関関係があることを意味している。</p>
+<p>この時、</p>
+<p><span class="math display">
+E[e_i \mid X_i] = \beta_2 \mu_z(X_i)
+</span></p>
+<p>となって、定数項だけのずらしでは外生性の仮定を満たせなくなってしまう。</p>
+<p>これによって OLS にバイアスが生じる。</p>
+<p>具体的には、単回帰の OLS 推定量は</p>
+<p><span class="math display">
+\hat{\beta}_1 = \frac{\sum_{i=1}^n (X_i-\bar X)Y_i}{\sum_{i=1}^n (X_i-\bar X)^2}
+</span></p>
+<p>である。ここで真のモデル</p>
+<p><span class="math display">
+Y_i=\beta_0+\beta_1 X_i+\beta_2 Z_i+u_i
+</span></p>
+<p>を代入すると、</p>
+<p><span class="math display">
+\hat{\beta}_1 = \beta_1
++
+\beta_2
+\frac{\sum_{i=1}^n (X_i-\bar X)Z_i}{\sum_{i=1}^n (X_i-\bar X)^2}
++
+\frac{\sum_{i=1}^n (X_i-\bar X)u_i}{\sum_{i=1}^n (X_i-\bar X)^2}
+</span></p>
+<p>となる。</p>
+<p>したがって、<span class="math inline">E[u_i\mid X_i]=0</span> を仮定すると、最後の項の期待値は 0 なので、</p>
+<p><span class="math display">
+E[\hat{\beta}_1\mid X_1,\dots,X_n] =  \beta_1
++
+\beta_2
+\frac{\sum_{i=1}^n (X_i-\bar X)E[Z_i\mid X_i]}{\sum_{i=1}^n (X_i-\bar X)^2}
+</span></p>
+<p>となる。すなわち、</p>
+<p><span class="math display">
+E[\hat{\beta}_1\mid X_1,\dots,X_n]-\beta_1 =  \beta_2
+\frac{\sum_{i=1}^n (X_i-\bar X)\mu_z(X_i)}{\sum_{i=1}^n (X_i-\bar X)^2}
+</span></p>
+<p>である。</p>
+<p>これが、欠落変数 <span class="math inline">Z_i</span> によるバイアスの一般的な形である。</p>
+<p>特に、<span class="math inline">Z_i</span> の条件付き平均が <span class="math inline">X_i</span> に対してほぼ線形に</p>
+<p><span class="math display">
+E[Z_i\mid X_i]=\pi_0+\pi_1 X_i
+</span></p>
+<p>と書けるなら、</p>
+<p><span class="math display">
+E[\hat{\beta}_1\mid X_1,\dots,X_n]-\beta_1 = \beta_2 \pi_1
+</span></p>
+<p>となる。</p>
+<p>したがって、バイアスの向きは</p>
+<ul>
+<li><span class="math inline">Z_i</span> が <span class="math inline">Y_i</span> に与える影響の符号（<span class="math inline">\beta_2</span> の符号）</li>
+<li><span class="math inline">X_i</span> と <span class="math inline">Z_i</span> の相関の符号（<span class="math inline">\mathrm{Cov}(X_i,Z_i)</span> の符号, linear modelなら<span class="math inline">\pi_1</span>）</li>
+</ul>
+<p>の 2 つで決まる。</p>
+<p>たとえば、</p>
+<ul>
+<li><span class="math inline">\beta_2&gt;0</span> で</li>
+<li><span class="math inline">\mathrm{Cov}(X_i,Z_i)&gt;0</span></li>
+</ul>
+<p>なら、<span class="math inline">\hat{\beta}_1</span> には <strong>上方バイアス</strong> がかかる。</p>
+<p>逆に、</p>
+<ul>
+<li><span class="math inline">\beta_2&gt;0</span> で</li>
+<li><span class="math inline">\mathrm{Cov}(X_i,Z_i)&lt;0</span></li>
+</ul>
+<p>なら、<span class="math inline">\hat{\beta}_1</span> には <strong>下方バイアス</strong> がかかる。</p>
+<p>つまり、欠落変数バイアスとは、<strong><span class="math inline">X_i</span> と相関した別の要因 <span class="math inline">Z_i</span> の効果を、OLS が <span class="math inline">X_i</span> の効果として誤って拾ってしまうこと</strong>なのである。</p>
+</section>
+<section id="教育と賃金の例" class="level2">
+<h2 class="anchored" data-anchor-id="教育と賃金の例">7. 教育と賃金の例</h2>
+<p>教育年数 <span class="math inline">X_i</span> が賃金 <span class="math inline">Y_i</span> に与える効果を知りたいとしよう。 しかし、本当は能力 <span class="math inline">Z_i</span> も賃金に影響している。</p>
+<p>真のモデルは</p>
+<p><span class="math display">
+\mathrm{Wage}_i = \beta_0 + \beta_1 \mathrm{Education}_i + \beta_2 \mathrm{Ability}_i + u_i
+</span></p>
+<p>だとする。</p>
+<p>ところが能力が観測できないので、実際には</p>
+<p><span class="math display">
+\mathrm{Wage}_i = a + b\,\mathrm{Education}_i + e_i
+</span></p>
+<p>だけを推定してしまう。</p>
+<p>このとき、</p>
+<ul>
+<li>能力が高いほど賃金は高い (<span class="math inline">\beta_2&gt;0</span>)</li>
+<li>能力が高い人ほど教育年数も長い</li>
+</ul>
+<p>なら、教育年数の係数 (b) には <strong>上方バイアス</strong> がかかる。</p>
+<p>つまり、OLS は教育の真の効果だけでなく、能力の効果の一部まで教育年数の係数に押しつけてしまう。</p>
+</section>
+<section id="意地悪な例誤差項が説明変数と明らかに関係するのにバイアスが出ない" class="level2">
+<h2 class="anchored" data-anchor-id="意地悪な例誤差項が説明変数と明らかに関係するのにバイアスが出ない">意地悪な例：誤差項が説明変数と明らかに関係するのにバイアスが出ない</h2>
+<p><span class="math display">
+X_i \sim N(0,1)
+</span></p>
+<p>として、</p>
+<p><span class="math display">
+E[Z_i\mid X_i]=\mu_z(X_i)=X_i^2-1
+</span></p>
+<p>とする。</p>
+<p>これは明らかに <span class="math inline">X_i</span> の関数なので、<span class="math inline">X_i</span> は <span class="math inline">Z_i</span> に影響していて、しかも <span class="math inline">\mu_z(X_i)</span> は 0 定数ではない。</p>
+<p>しかし、</p>
+<p><span class="math display">
+E[X_i(X_i^2-1)] = E[X_i^3]-E[X_i]=0-0=0
+</span></p>
+<p>なので、<span class="math inline">X_i</span> と <span class="math inline">\mu_z(X_i)</span> は共分散 0 。したがって、線形回帰での傾きバイアスは出ない。</p>
+<p>真のモデルを</p>
+<p><span class="math display">
+Y_i=\beta_0+\beta_1 X_i+\beta_2 Z_i+u_i
+</span></p>
+<p>とし、さらに</p>
+<p><span class="math display">
+Z_i=(X_i^2-1)+v_i
+</span></p>
+<p>と置けば、</p>
+<p><span class="math display">
+Y_i=\beta_0+\beta_1 X_i+\beta_2(X_i^2-1)+(\beta_2 v_i+u_i)
+</span></p>
+<p>ここで <span class="math inline">Y_i</span> を <span class="math inline">X_i</span> だけに回帰すると、<strong><span class="math inline">X_i^2-1</span> を落としているのでモデルは misspecified</strong> だが、<span class="math inline">X_i</span> との共分散が 0 なので、<strong><span class="math inline">\beta_1</span> の推定値は平均的にはずれない</strong>。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>R <span class="ot">&lt;-</span> <span class="dv">2000</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">1000</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>beta0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>beta1 <span class="ot">&lt;-</span> <span class="dv">2</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>beta2 <span class="ot">&lt;-</span> <span class="dv">3</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>b1_hat_simple <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>b1_hat_quad   <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R) {</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>  v <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>  z <span class="ot">&lt;-</span> (x<span class="sc">^</span><span class="dv">2</span> <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">+</span> v</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>  y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> beta2 <span class="sc">*</span> z <span class="sc">+</span> u</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>  fit1 <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>  fit2 <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x <span class="sc">+</span> <span class="fu">I</span>(x<span class="sc">^</span><span class="dv">2</span> <span class="sc">-</span> <span class="dv">1</span>))</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>  b1_hat_simple[r] <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit1)[<span class="st">"x"</span>]</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>  b1_hat_quad[r]   <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit2)[<span class="st">"x"</span>]</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(b1_hat_simple)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2.000432</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(b1_hat_quad)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 1.99753</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sd</span>(b1_hat_simple)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.3203404</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sd</span>(b1_hat_quad)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.1044253</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(b1_hat_simple, <span class="at">breaks =</span> <span class="dv">40</span>,</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Distribution of slope estimates from lm(y ~ x)"</span>,</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="fu">expression</span>(<span class="fu">hat</span>(beta)[<span class="dv">1</span>]))</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(b1_hat_quad, <span class="at">breaks =</span> <span class="dv">40</span>,</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Distribution of slope estimates from lm(y ~ x + I(x^2 - 1))"</span>,</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="fu">expression</span>(<span class="fu">hat</span>(beta)[<span class="dv">1</span>]))</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-5-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<section id="このシミュレーションからわかること" class="level3">
+<h3 class="anchored" data-anchor-id="このシミュレーションからわかること">このシミュレーションからわかること</h3>
+<p>この例では、欠落変数 <span class="math inline">Z_i</span> はたしかに <span class="math inline">X_i</span> によって平均的に決まっている。 実際、</p>
+<p><span class="math display">
+E[Z_i\mid X_i]=X_i^2-1
+</span></p>
+<p>なので、<span class="math inline">X_i</span> と <span class="math inline">Z_i</span> の間には明確な関係がある。</p>
+<p>しかしその関係は <strong>二次的</strong> であり、<span class="math inline">X_i</span> の一次式とは直交している。したがって、</p>
+<p><span class="math display">
+\mathrm{Cov}(X_i,Z_i)=0
+</span></p>
+<p>となり、単回帰での傾き <span class="math inline">\hat\beta_1</span> には平均的なバイアスが生じない。</p>
+<p>ただし、これは「問題がない」という意味ではない。 真の条件付き平均は</p>
+<p><span class="math display">
+E[Y_i\mid X_i] = \beta_0+\beta_1 X_i+\beta_2(X_i^2-1)
+</span></p>
+<p>であり、<span class="math inline">X_i</span> の二次項を含む。したがって <span class="math inline">Y_i</span> を <span class="math inline">X_i</span> だけで回帰したモデルは平均関数を正しく表していない。 つまりこのケースでは、<strong>欠落変数はあるが、単回帰の傾きにはバイアスが出ない</strong> という、少し意地悪な例になっている。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="バイアスとは別の問題">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>バイアスとは別の問題
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>多重共線性は、<strong>平均的に間違う</strong>という問題ではなく、<strong>推定が不安定になる</strong>という問題である。</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="多重共線性" class="level1">
+<h1>多重共線性</h1>
+<p>ここまでは、外生性が崩れると OLS に<strong>バイアス</strong>が生じる、という話をしてきた。</p>
+<p>次は別の問題として、<strong>多重共線性</strong>を考える。<br>
+多重共線性は、説明変数どうしが強く相関しているときに起きる問題である。</p>
+<p>大事なのは、これは<strong>バイアスの問題ではない</strong>ということだ。<br>
+外生性が成り立っていれば、OLS は依然として平均的には正しい値を狙っている。<br>
+しかし、説明変数どうしが似すぎていると、それぞれの変数の「独立した効果」を切り分けることが難しくなり、推定値が不安定になったり、標準誤差が大きくなったりする。</p>
+<p>このセクションでは、まず数式で何が起きているかを確認し、その後シミュレーションで実際に見ていく。</p>
+<section id="多重共線性とは何か" class="level2">
+<h2 class="anchored" data-anchor-id="多重共線性とは何か">1. 多重共線性とは何か</h2>
+<p>次のモデルを考える。</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + u_i
+</span></p>
+<p>ここで、<span class="math inline">X_{1i}</span> と <span class="math inline">X_{2i}</span> の間に強い相関があるとする。<br>
+たとえば、学歴とテストスコア、広告費と販促費、面積と部屋数のように、現実のデータでは説明変数どうしがかなり似た動きをすることが多い。</p>
+<p>このとき回帰は、<span class="math inline">X_1</span> を固定したまま <span class="math inline">X_2</span> を変化させたときの効果、あるいは <span class="math inline">X_2</span> を固定したまま <span class="math inline">X_1</span> を変化させたときの効果を推定しようとする。<br>
+しかし <span class="math inline">X_1</span> と <span class="math inline">X_2</span> がほとんど同じように動いてしまうと、「片方だけを動かす」という状況がデータの中でほとんど観察されない。</p>
+<p>その結果、</p>
+<ul>
+<li>係数推定値が不安定になる</li>
+<li>標準誤差が大きくなる</li>
+<li>t値が小さくなり、有意でなくなりやすい</li>
+<li>サンプルを少し変えただけで係数が大きく動く</li>
+</ul>
+<p>といったことが起こる。</p>
+</section>
+<section id="バイアスとの違い" class="level2">
+<h2 class="anchored" data-anchor-id="バイアスとの違い">2. バイアスとの違い</h2>
+<p>多重共線性は、しばしば「回帰がダメになる」と説明されるが、正確にはそうではない。</p>
+<p>外生性が成り立っていれば、</p>
+<p><span class="math display">
+E[u_i \mid X_{1i}, X_{2i}] = 0
+</span></p>
+<p>なので、OLS は平均的には <span class="math inline">\beta_1, \beta_2</span> を正しく狙う。<br>
+つまり、<strong>多重共線性それ自体はバイアスを生まない</strong>。</p>
+<p>問題は、推定量の<strong>分散</strong>が大きくなることにある。</p>
+</section>
+<section id="変数回帰での見方" class="level2">
+<h2 class="anchored" data-anchor-id="変数回帰での見方">3. 2変数回帰での見方</h2>
+<p>先ほどの <span class="math inline">\hat{\beta}_1</span> と <span class="math inline">\hat{\beta}_2</span> の「公式」を再掲する。</p>
+<p><span class="math display">
+\hat\beta_1 = \frac{
+\left(\sum_{i=1}^n \tilde X_{2i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde Y_i\right)-
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)
+\left(\sum_{i=1}^n \tilde X_{2i}\tilde Y_i\right)
+}{
+\left(\sum_{i=1}^n \tilde X_{1i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{2i}^2\right) - \left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)^2
+}
+</span></p>
+<p><span class="math display">
+\hat\beta_2 = \frac{
+\left(\sum_{i=1}^n \tilde X_{1i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{2i}\tilde Y_i\right)-
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde Y_i\right)
+}{
+\left(\sum_{i=1}^n \tilde X_{1i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{2i}^2\right) - \left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)^2
+}
+</span></p>
+<p>ここで、<span class="math inline">X_{1i}</span>と<span class="math inline">X_{2i}</span>が全てのサンプルで似たような値を取っている状況を考えよう。この時、</p>
+<ul>
+<li>両方の推定量の分母は0に近くなる。</li>
+<li>さらに、分子も<span class="math inline">0</span>に近くなる。</li>
+</ul>
+<p>ことがわかる。</p>
+<p>特に分母が<span class="math inline">0</span>に近いことに起因して、ちょっとしたサンプルのズレですごい大きな推定値のズレを生んだりするということがわかるであろう。</p>
+</section>
+<section id="分散の式" class="level2">
+<h2 class="anchored" data-anchor-id="分散の式">4. 分散の式</h2>
+<p>単純化して書くと、<span class="math inline">\hat\beta_1</span> の分散は</p>
+<p><span class="math display">
+\mathrm{Var}(\hat\beta_1 \mid X)
+=
+\frac{\sigma_u^2}{\sum_{i=1}^n (X_{1i} - \bar X_1)^2 (1-R_1^2)}
+</span></p>
+<p>の形になる。（詳細な導出はここでは省略する。）</p>
+<p>ここで <span class="math inline">R_1^2</span> は、<span class="math inline">X_1</span> を他の説明変数に回帰したときの決定係数である。</p>
+<p>2変数の場合には、これはほぼ <span class="math inline">X_1</span> と <span class="math inline">X_2</span> の相関の強さを表している。</p>
+<p><span class="math inline">X_1</span> と <span class="math inline">X_2</span> の相関が強いほど <span class="math inline">R_1^2</span> は 1 に近づき、</p>
+<p><span class="math display">
+1 - R_1^2
+</span></p>
+<p>が小さくなる。<br>
+すると分母が小さくなるので、<span class="math inline">\hat\beta_1</span> の分散は大きくなる。</p>
+<p>これが多重共線性の中心的なメカニズムである。</p>
+</section>
+<section id="シミュレーションの設計" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションの設計">5. シミュレーションの設計</h2>
+<p>ここからはシミュレーションで確認する。</p>
+<p>真のモデルを</p>
+<p><span class="math display">
+Y_i = 1 + 2X_{1i} + 2X_{2i} + u_i
+</span></p>
+<p>とする。<br>
+誤差項 <span class="math inline">u_i</span> は平均 0 のノイズとする。</p>
+<p>そして、<span class="math inline">X_1</span> と <span class="math inline">X_2</span> の相関だけを変えてみる。<br>
+相関が弱いケースでは、それぞれの係数は比較的安定して推定されるはずである。<br>
+一方、相関が非常に強いケースでは、係数推定値のばらつきが大きくなり、標準誤差も大きくなるはずである。</p>
+</section>
+<section id="まずは1回だけ見てみる" class="level2">
+<h2 class="anchored" data-anchor-id="まずは1回だけ見てみる">6. まずは1回だけ見てみる</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>x1 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>x2 <span class="ot">&lt;-</span> <span class="fl">0.2</span> <span class="sc">*</span> x1 <span class="sc">+</span> <span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">-</span> <span class="fl">0.2</span><span class="sc">^</span><span class="dv">2</span>) <span class="sc">*</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>u  <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x1 <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x2 <span class="sc">+</span> u</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x1 <span class="sc">+</span> x2)</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = y ~ x1 + x2)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-2.7201 -0.6886  0.0193  0.6573  3.2828 
+
+Coefficients:
+            Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  1.02415    0.04438   23.08   &lt;2e-16 ***
+x1           2.05189    0.04611   44.50   &lt;2e-16 ***
+x2           2.05424    0.04488   45.77   &lt;2e-16 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.9917 on 497 degrees of freedom
+Multiple R-squared:  0.9054,    Adjusted R-squared:  0.905 
+F-statistic:  2378 on 2 and 497 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cor</span>(x1, x2)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.1431915</code></pre>
+</div>
+</div>
+<p>この例では、<span class="math inline">X_1</span> と <span class="math inline">X_2</span> の相関はそれほど強くないので、両方の係数は比較的きれいに推定されるはずである。</p>
+<p>次に、ほぼ同じ変数になってしまうケースを見てみる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>x1 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>x2 <span class="ot">&lt;-</span> <span class="fl">0.98</span> <span class="sc">*</span> x1 <span class="sc">+</span> <span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">-</span> <span class="fl">0.98</span><span class="sc">^</span><span class="dv">2</span>) <span class="sc">*</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>u  <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x1 <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x2 <span class="sc">+</span> u</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x1 <span class="sc">+</span> x2)</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = y ~ x1 + x2)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-2.7201 -0.6886  0.0193  0.6573  3.2828 
+
+Coefficients:
+            Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  1.02415    0.04438  23.078  &lt; 2e-16 ***
+x1           1.80102    0.21899   8.224 1.73e-15 ***
+x2           2.26706    0.22098  10.259  &lt; 2e-16 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.9917 on 497 degrees of freedom
+Multiple R-squared:   0.94, Adjusted R-squared:  0.9397 
+F-statistic:  3891 on 2 and 497 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cor</span>(x1, x2)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.9780455</code></pre>
+</div>
+</div>
+<p>この場合、真の係数は同じなのに、推定結果はかなり不安定になりやすい。 係数そのものは大きくぶれたり、標準誤差が大きくなったりする。</p>
+</section>
+<section id="相関の違いを図で見る" class="level2">
+<h2 class="anchored" data-anchor-id="相関の違いを図で見る">7. 相関の違いを図で見る</h2>
+<p>まず、相関が弱いときと強いときで、説明変数どうしの散布図がどう違うかを見てみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>x1_low  <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>x2_low  <span class="ot">&lt;-</span> <span class="fl">0.2</span> <span class="sc">*</span> x1_low <span class="sc">+</span> <span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">-</span> <span class="fl">0.2</span><span class="sc">^</span><span class="dv">2</span>) <span class="sc">*</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>x1_high <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>x2_high <span class="ot">&lt;-</span> <span class="fl">0.98</span> <span class="sc">*</span> x1_high <span class="sc">+</span> <span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">-</span> <span class="fl">0.98</span><span class="sc">^</span><span class="dv">2</span>) <span class="sc">*</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>))</span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(x1_low, x2_low,</span>
+<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Low correlation"</span>,</span>
+<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"x1"</span>, <span class="at">ylab =</span> <span class="st">"x2"</span>)</span>
+<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(x1_high, x2_high,</span>
+<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"High correlation"</span>,</span>
+<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"x1"</span>, <span class="at">ylab =</span> <span class="st">"x2"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>相関が低いときには、<span class="math inline">X_1</span> と <span class="math inline">X_2</span> はかなり独立に動いている。 一方、相関が高いときには、ほとんど一直線の上に点が並ぶ。 この場合、データは「<span class="math inline">X_1</span> だけが変わる」「<span class="math inline">X_2</span> だけが変わる」という variation をほとんど持たない。</p>
+</section>
+<section id="繰り返しシミュレーションで確認する" class="level2">
+<h2 class="anchored" data-anchor-id="繰り返しシミュレーションで確認する">8. 繰り返しシミュレーションで確認する</h2>
+<p>次に、相関が低いケースと高いケースで回帰を何度も繰り返し、<span class="math inline">\hat\beta_1</span> の分布を比べる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>simulate_b1 <span class="ot">&lt;-</span> <span class="cf">function</span>(R, n, rho) {</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  b1hat <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  se1   <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R) {</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>    x1 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>    x2 <span class="ot">&lt;-</span> rho <span class="sc">*</span> x1 <span class="sc">+</span> <span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">-</span> rho<span class="sc">^</span><span class="dv">2</span>) <span class="sc">*</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>    u  <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>    y <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x1 <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x2 <span class="sc">+</span> u</span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>    fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x1 <span class="sc">+</span> x2)</span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a>    summ <span class="ot">&lt;-</span> <span class="fu">summary</span>(fit)<span class="sc">$</span>coefficients</span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a>    b1hat[r] <span class="ot">&lt;-</span> summ[<span class="st">"x1"</span>, <span class="st">"Estimate"</span>]</span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a>    se1[r]   <span class="ot">&lt;-</span> summ[<span class="st">"x1"</span>, <span class="st">"Std. Error"</span>]</span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">b1hat =</span> b1hat, <span class="at">se1 =</span> se1)</span>
+<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb28-22"><a href="#cb28-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-23"><a href="#cb28-23" aria-hidden="true" tabindex="-1"></a>res_low  <span class="ot">&lt;-</span> <span class="fu">simulate_b1</span>(<span class="at">R =</span> <span class="dv">2000</span>, <span class="at">n =</span> <span class="dv">200</span>, <span class="at">rho =</span> <span class="fl">0.2</span>)</span>
+<span id="cb28-24"><a href="#cb28-24" aria-hidden="true" tabindex="-1"></a>res_high <span class="ot">&lt;-</span> <span class="fu">simulate_b1</span>(<span class="at">R =</span> <span class="dv">2000</span>, <span class="at">n =</span> <span class="dv">200</span>, <span class="at">rho =</span> <span class="fl">0.98</span>)</span>
+<span id="cb28-25"><a href="#cb28-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-26"><a href="#cb28-26" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(res_low<span class="sc">$</span>b1hat)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 1.999173</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(res_high<span class="sc">$</span>b1hat)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2.015213</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(res_low<span class="sc">$</span>se1)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.07255275</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(res_high<span class="sc">$</span>se1)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.3581181</code></pre>
+</div>
+</div>
+<p>ここで注目したいのは 2 点ある。</p>
+<ol type="1">
+<li><span class="math inline">\hat\beta_1</span> の平均は、どちらのケースでもだいたい真の値 2 に近い</li>
+<li>しかし、標準誤差の平均は高相関のケースでかなり大きくなる</li>
+</ol>
+<p>つまり、多重共線性は<strong>平均的な正しさを壊すのではなく、精度を壊す</strong>のである。</p>
+</section>
+<section id="推定値の分布を比較する" class="level2">
+<h2 class="anchored" data-anchor-id="推定値の分布を比較する">9. 推定値の分布を比較する</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 共通のbreaksを作る</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>all_b1 <span class="ot">&lt;-</span> <span class="fu">c</span>(res_low<span class="sc">$</span>b1hat, res_high<span class="sc">$</span>b1hat)</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>breaks_b1 <span class="ot">&lt;-</span> <span class="fu">pretty</span>(<span class="fu">range</span>(all_b1), <span class="at">n =</span> <span class="dv">40</span>)</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>h_low  <span class="ot">&lt;-</span> <span class="fu">hist</span>(res_low<span class="sc">$</span>b1hat,  <span class="at">breaks =</span> breaks_b1, <span class="at">plot =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>h_high <span class="ot">&lt;-</span> <span class="fu">hist</span>(res_high<span class="sc">$</span>b1hat, <span class="at">breaks =</span> breaks_b1, <span class="at">plot =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 先に low correlation を描く</span></span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(h_low,</span>
+<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>),</span>
+<span id="cb36-11"><a href="#cb36-11" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb36-12"><a href="#cb36-12" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="fu">expression</span>(<span class="st">"Distribution of estimates of "</span> <span class="sc">*</span> <span class="fu">hat</span>(beta)[<span class="dv">1</span>]),</span>
+<span id="cb36-13"><a href="#cb36-13" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="fu">expression</span>(<span class="fu">hat</span>(beta)[<span class="dv">1</span>]),</span>
+<span id="cb36-14"><a href="#cb36-14" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlim =</span> <span class="fu">range</span>(breaks_b1),</span>
+<span id="cb36-15"><a href="#cb36-15" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fu">max</span>(h_low<span class="sc">$</span>counts, h_high<span class="sc">$</span>counts)))</span>
+<span id="cb36-16"><a href="#cb36-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-17"><a href="#cb36-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 上から high correlation を重ねる</span></span>
+<span id="cb36-18"><a href="#cb36-18" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(h_high,</span>
+<span id="cb36-19"><a href="#cb36-19" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>),</span>
+<span id="cb36-20"><a href="#cb36-20" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb36-21"><a href="#cb36-21" aria-hidden="true" tabindex="-1"></a>     <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb36-22"><a href="#cb36-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-23"><a href="#cb36-23" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の値</span></span>
+<span id="cb36-24"><a href="#cb36-24" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb36-25"><a href="#cb36-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-26"><a href="#cb36-26" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topright"</span>,</span>
+<span id="cb36-27"><a href="#cb36-27" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"Low correlation"</span>, <span class="st">"High correlation"</span>, <span class="st">"True value"</span>),</span>
+<span id="cb36-28"><a href="#cb36-28" aria-hidden="true" tabindex="-1"></a>       <span class="at">fill =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>), <span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>), <span class="cn">NA</span>),</span>
+<span id="cb36-29"><a href="#cb36-29" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="fu">c</span>(<span class="st">"white"</span>, <span class="st">"white"</span>, <span class="cn">NA</span>),</span>
+<span id="cb36-30"><a href="#cb36-30" aria-hidden="true" tabindex="-1"></a>       <span class="at">lty =</span> <span class="fu">c</span>(<span class="cn">NA</span>, <span class="cn">NA</span>, <span class="dv">2</span>),</span>
+<span id="cb36-31"><a href="#cb36-31" aria-hidden="true" tabindex="-1"></a>       <span class="at">lwd =</span> <span class="fu">c</span>(<span class="cn">NA</span>, <span class="cn">NA</span>, <span class="dv">2</span>),</span>
+<span id="cb36-32"><a href="#cb36-32" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>高相関のケースでは、<span class="math inline">\hat\beta_1</span> の分布がかなり広がるはずである。 真の値のまわりに中心はあるが、推定値のばらつきが大きい。</p>
+</section>
+<section id="標準誤差の分布も比べる" class="level2">
+<h2 class="anchored" data-anchor-id="標準誤差の分布も比べる">10. 標準誤差の分布も比べる</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 共通のbreaksを作る</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>all_se <span class="ot">&lt;-</span> <span class="fu">c</span>(res_low<span class="sc">$</span>se1, res_high<span class="sc">$</span>se1)</span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>breaks_se <span class="ot">&lt;-</span> <span class="fu">pretty</span>(<span class="fu">range</span>(all_se), <span class="at">n =</span> <span class="dv">40</span>)</span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>h_low_se  <span class="ot">&lt;-</span> <span class="fu">hist</span>(res_low<span class="sc">$</span>se1,  <span class="at">breaks =</span> breaks_se, <span class="at">plot =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>h_high_se <span class="ot">&lt;-</span> <span class="fu">hist</span>(res_high<span class="sc">$</span>se1, <span class="at">breaks =</span> breaks_se, <span class="at">plot =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 先に low correlation を描く</span></span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(h_low_se,</span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>),</span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb37-12"><a href="#cb37-12" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="fu">expression</span>(<span class="st">"Distribution of standard errors of "</span> <span class="sc">*</span> <span class="fu">hat</span>(beta)[<span class="dv">1</span>]),</span>
+<span id="cb37-13"><a href="#cb37-13" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Standard Error"</span>,</span>
+<span id="cb37-14"><a href="#cb37-14" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlim =</span> <span class="fu">range</span>(breaks_se),</span>
+<span id="cb37-15"><a href="#cb37-15" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fu">max</span>(h_low_se<span class="sc">$</span>counts, h_high_se<span class="sc">$</span>counts)))</span>
+<span id="cb37-16"><a href="#cb37-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-17"><a href="#cb37-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 上から high correlation を重ねる</span></span>
+<span id="cb37-18"><a href="#cb37-18" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(h_high_se,</span>
+<span id="cb37-19"><a href="#cb37-19" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>),</span>
+<span id="cb37-20"><a href="#cb37-20" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb37-21"><a href="#cb37-21" aria-hidden="true" tabindex="-1"></a>     <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb37-22"><a href="#cb37-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-23"><a href="#cb37-23" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topright"</span>,</span>
+<span id="cb37-24"><a href="#cb37-24" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"Low correlation"</span>, <span class="st">"High correlation"</span>),</span>
+<span id="cb37-25"><a href="#cb37-25" aria-hidden="true" tabindex="-1"></a>       <span class="at">fill =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>), <span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>)),</span>
+<span id="cb37-26"><a href="#cb37-26" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb37-27"><a href="#cb37-27" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>ここでは、高相関のケースで標準誤差が明らかに大きくなっていることが確認できるはずである。</p>
+</section>
+<section id="係数が不安定になる様子" class="level2">
+<h2 class="anchored" data-anchor-id="係数が不安定になる様子">11. 係数が不安定になる様子</h2>
+<p>多重共線性があると、<span class="math inline">X_1</span> と <span class="math inline">X_2</span> の係数は互いに押し合うような形でぶれやすい。 片方の係数が大きく出ると、もう片方が小さく出る、といったことが起きやすい。</p>
+<p>それを見てみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>simulate_both <span class="ot">&lt;-</span> <span class="cf">function</span>(R, n, rho) {</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>  b1hat <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>  b2hat <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R) {</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a>    x1 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a>    x2 <span class="ot">&lt;-</span> rho <span class="sc">*</span> x1 <span class="sc">+</span> <span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">-</span> rho<span class="sc">^</span><span class="dv">2</span>) <span class="sc">*</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a>    u  <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a>    y <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x1 <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x2 <span class="sc">+</span> u</span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a>    fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x1 <span class="sc">+</span> x2)</span>
+<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a>    b1hat[r] <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit)[<span class="st">"x1"</span>]</span>
+<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a>    b2hat[r] <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit)[<span class="st">"x2"</span>]</span>
+<span id="cb38-15"><a href="#cb38-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb38-16"><a href="#cb38-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-17"><a href="#cb38-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">b1hat =</span> b1hat, <span class="at">b2hat =</span> b2hat)</span>
+<span id="cb38-18"><a href="#cb38-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb38-19"><a href="#cb38-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-20"><a href="#cb38-20" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb38-21"><a href="#cb38-21" aria-hidden="true" tabindex="-1"></a>res_both <span class="ot">&lt;-</span> <span class="fu">simulate_both</span>(<span class="at">R =</span> <span class="dv">2000</span>, <span class="at">n =</span> <span class="dv">200</span>, <span class="at">rho =</span> <span class="fl">0.98</span>)</span>
+<span id="cb38-22"><a href="#cb38-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-23"><a href="#cb38-23" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(res_both<span class="sc">$</span>b1hat, res_both<span class="sc">$</span>b2hat,</span>
+<span id="cb38-24"><a href="#cb38-24" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Estimated beta1"</span>,</span>
+<span id="cb38-25"><a href="#cb38-25" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="st">"Estimated beta2"</span>,</span>
+<span id="cb38-26"><a href="#cb38-26" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"High correlation case"</span>)</span>
+<span id="cb38-27"><a href="#cb38-27" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb38-28"><a href="#cb38-28" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>この図では、<span class="math inline">\hat\beta_1</span> と <span class="math inline">\hat\beta_2</span> が強く負の方向に動くことが多い。 これは、2つの説明変数が似すぎているため、「どちらに効果を割り振るか」が不安定になっていることを表している。</p>
+</section>
+<section id="実務的にどう考えるか" class="level2">
+<h2 class="anchored" data-anchor-id="実務的にどう考えるか">12. 実務的にどう考えるか</h2>
+<p>多重共線性が見つかったとき、考えるべきことは次のようなものである。</p>
+<ul>
+<li>本当に別々の変数として入れる必要があるのか</li>
+<li>片方を落としても解釈上問題ないか</li>
+<li>合成指標を作ったほうが自然ではないか</li>
+<li>個別係数ではなく、線形結合や予測そのものに関心があるのか</li>
+</ul>
+<p>大事なのは、<strong>「有意でない = 効果がない」ではない</strong>ということだ。 多重共線性のもとでは、推定の精度が落ちるので、真の効果があっても有意に出にくくなる。</p>
+</section>
+<section id="まとめ-1" class="level2">
+<h2 class="anchored" data-anchor-id="まとめ-1">13. まとめ</h2>
+<p>多重共線性とは、説明変数どうしが強く相関しているために、それぞれの独立した効果を切り分けにくくなる問題である。</p>
+<p>この問題の本質は、バイアスではなく<strong>分散の増大</strong>にある。 外生性が成り立っていれば、OLS は平均的には正しい係数を狙っている。 しかし、説明変数どうしが似すぎていると、係数推定値は不安定になり、標準誤差が大きくなる。</p>
+<p>したがって、多重共線性を見たときには、</p>
+<ul>
+<li>係数の平均的な正しさ</li>
+<li>推定の不安定さ</li>
+<li>個別効果を識別したいのか、それとも全体の予測がしたいのか</li>
+</ul>
+<p>を分けて考える必要がある。</p>
+</section>
+</section>
+<section id="宿題" class="level1">
+<h1>宿題</h1>
+<ul>
+<li>次回は一旦ここまでの話でよくわからない部分についての質問に答える会とする
+<ul>
+<li>次回までに質問、疑問、不満などをまとめておくとよい</li>
+<li>githubでissueとして出してみよう</li>
+</ul></li>
+<li><strong>（詳細な導出は省略）</strong> と書いたところの式展開を自分でしてみよう</li>
+<li>再び、関数の最大化、最小化問題が出てきた。一階条件について忘れてた人は今回も復習しよう
+<ul>
+<li>重回帰のケースで二階条件をチェックしてみよう</li>
+</ul></li>
+<li>連立方程式はパソコンに任せるわけだが、実際パソコンはどうやって連立方程式を解くのか、気になる人はchat gptに聞いてみよう</li>
+</ul>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="lecture5_revised_files/libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

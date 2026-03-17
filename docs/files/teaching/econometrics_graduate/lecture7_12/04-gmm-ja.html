@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>GMM</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="04-gmm-ja_files/libs/clipboard/clipboard.min.js"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/popper.min.js"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/anchor.min.js"></script>
+<link href="04-gmm-ja_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="04-gmm-ja_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="04-gmm-ja_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="04-gmm-ja_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="04-gmm-ja_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a></li>
+  <li><a href="#漸近正規性の詳細" id="toc-漸近正規性の詳細" class="nav-link" data-scroll-target="#漸近正規性の詳細"><span class="header-section-number">2</span> 漸近正規性の詳細</a>
+  <ul class="collapse">
+  <li><a href="#基本定理" id="toc-基本定理" class="nav-link" data-scroll-target="#基本定理"><span class="header-section-number">2.1</span> 基本定理</a></li>
+  <li><a href="#漸近分散の分解" id="toc-漸近分散の分解" class="nav-link" data-scroll-target="#漸近分散の分解"><span class="header-section-number">2.2</span> 漸近分散の分解</a></li>
+  <li><a href="#just-identified-と-over-identified" id="toc-just-identified-と-over-identified" class="nav-link" data-scroll-target="#just-identified-と-over-identified"><span class="header-section-number">2.3</span> just identified と over identified</a>
+  <ul class="collapse">
+  <li><a href="#just-identified-の場合" id="toc-just-identified-の場合" class="nav-link" data-scroll-target="#just-identified-の場合"><span class="header-section-number">2.3.1</span> just identified の場合</a></li>
+  <li><a href="#over-identified-の場合" id="toc-over-identified-の場合" class="nav-link" data-scroll-target="#over-identified-の場合"><span class="header-section-number">2.3.2</span> over identified の場合</a></li>
+  </ul></li>
+  <li><a href="#最適重み付けと効率性" id="toc-最適重み付けと効率性" class="nav-link" data-scroll-target="#最適重み付けと効率性"><span class="header-section-number">2.4</span> 最適重み付けと効率性</a>
+  <ul class="collapse">
+  <li><a href="#two-step-efficient-gmm" id="toc-two-step-efficient-gmm" class="nav-link" data-scroll-target="#two-step-efficient-gmm"><span class="header-section-number">2.4.1</span> two-step efficient GMM</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#標準誤差の推定" id="toc-標準誤差の推定" class="nav-link" data-scroll-target="#標準誤差の推定"><span class="header-section-number">3</span> 標準誤差の推定</a>
+  <ul class="collapse">
+  <li><a href="#基本的な-plug-in-推定" id="toc-基本的な-plug-in-推定" class="nav-link" data-scroll-target="#基本的な-plug-in-推定"><span class="header-section-number">3.1</span> 基本的な plug-in 推定</a></li>
+  <li><a href="#i.i.d.-または-m.d.s.-の場合" id="toc-i.i.d.-または-m.d.s.-の場合" class="nav-link" data-scroll-target="#i.i.d.-または-m.d.s.-の場合"><span class="header-section-number">3.2</span> i.i.d. または m.d.s. の場合</a></li>
+  <li><a href="#依存データと-hac-推定" id="toc-依存データと-hac-推定" class="nav-link" data-scroll-target="#依存データと-hac-推定"><span class="header-section-number">3.3</span> 依存データと HAC 推定</a></li>
+  <li><a href="#効率的-gmm-の標準誤差" id="toc-効率的-gmm-の標準誤差" class="nav-link" data-scroll-target="#効率的-gmm-の標準誤差"><span class="header-section-number">3.4</span> 効率的 GMM の標準誤差</a></li>
+  </ul></li>
+  <li><a href="#one-step-correction" id="toc-one-step-correction" class="nav-link" data-scroll-target="#one-step-correction"><span class="header-section-number">4</span> one-step correction</a></li>
+  <li><a href="#過剰識別制約の検定" id="toc-過剰識別制約の検定" class="nav-link" data-scroll-target="#過剰識別制約の検定"><span class="header-section-number">5</span> 過剰識別制約の検定</a>
+  <ul class="collapse">
+  <li><a href="#j-統計量" id="toc-j-統計量" class="nav-link" data-scroll-target="#j-統計量"><span class="header-section-number">5.1</span> <span class="math inline">\(J\)</span> 統計量</a></li>
+  </ul></li>
+  <li><a href="#continuously-updated-gmm" id="toc-continuously-updated-gmm" class="nav-link" data-scroll-target="#continuously-updated-gmm"><span class="header-section-number">6</span> Continuously-updated GMM</a>
+  <ul class="collapse">
+  <li><a href="#定義" id="toc-定義" class="nav-link" data-scroll-target="#定義"><span class="header-section-number">6.1</span> 定義</a></li>
+  <li><a href="#cu-gmm-の意味" id="toc-cu-gmm-の意味" class="nav-link" data-scroll-target="#cu-gmm-の意味"><span class="header-section-number">6.2</span> CU-GMM の意味</a></li>
+  </ul></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ"><span class="header-section-number">7</span> まとめ</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>その他のフォーマット</h2><ul><li><a href="../../../../../../東京大学マーケットデザインセンター Dropbox/ikegami kei/横市/授業/大学院計量/04-gmm-ja.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">GMM</h1>
+<p class="subtitle lead">計量経済学大学院講義ノート</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<blockquote class="blockquote">
+<p><strong>原ノートとの対応</strong><br>
+この講義ノートは Tim Christensen, <em>Econometrics II</em> の Chapter 4 “GMM” をもとに、日本語の大学院向けノートとして再構成したものである。前章の M 推定に続き、ここでは <strong>GMM 推定量の漸近正規性・標準誤差・効率性・J 検定</strong> を統一的に整理する。</p>
+</blockquote>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この章の到達目標
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>この章の目的は次の 5 点である。</p>
+<ol type="1">
+<li>GMM 推定量の漸近正規性を <span class="math display">\[
+\sqrt{n}(\hat\theta-\theta_0)\overset{d}{\to}
+N\!\left(0,(G'WG)^{-1}G'WSWG(G'WG)^{-1}\right)
+\]</span> の形で理解する。</li>
+<li><strong>just identified</strong> と <strong>over identified</strong> の違い、および重み行列 <span class="math inline">\(W\)</span> が効率性に与える影響を理解する。</li>
+<li>i.i.d.、m.d.s.、一般の依存データで、<span class="math inline">\(S\)</span> の推定法がどう変わるかを整理する。</li>
+<li>実務上重要な <strong>two-step efficient GMM</strong>、<strong>one-step correction</strong>、<strong>CU-GMM</strong> の位置づけを理解する。</li>
+<li>過剰識別制約の検定、すなわち <strong>Hansen-Sargan の <span class="math inline">\(J\)</span> 検定</strong> を理解する。</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>記法の確認
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>この章では、モーメント条件 <span class="math display">\[
+E[g(X_t;\theta_0)]=0
+\]</span> を出発点とする。標本モーメントを <span class="math display">\[
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+\]</span> と書き、GMM の目的関数を <span class="math display">\[
+Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n g_n(\theta)
+\]</span> とする。</p>
+<p>さらに、<span class="math inline">\(\theta\)</span> に関する導関数として <span class="math display">\[
+d(X_t;\theta)=\frac{\partial g(X_t;\theta)}{\partial\theta'},
+\qquad
+G_n(\theta)=\frac1n\sum_{t=1}^n d(X_t;\theta),
+\qquad
+G=E[d(X_t;\theta_0)]
+\]</span> を用いる。ここで</p>
+<ul>
+<li><span class="math inline">\(g(X_t;\theta)\in\mathbb R^K\)</span></li>
+<li><span class="math inline">\(\theta\in\mathbb R^p\)</span></li>
+<li><span class="math inline">\(d(X_t;\theta),G_n(\theta),G\in\mathbb R^{K\times p}\)</span></li>
+</ul>
+<p>である。通常、識別のためには <span class="math inline">\(K\ge p\)</span> が必要である。</p>
+</div>
+</div>
+<section id="導入" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 導入</h1>
+<p>GMM（generalized method of moments）は、モデルが与えるモーメント条件 <span class="math display">\[
+E[g(X_t;\theta_0)]=0
+\]</span> を使って <span class="math inline">\(\theta_0\)</span> を推定する方法である。M 推定と比べると、尤度全体を使うのではなく、モデルから得られる特定のモーメント条件だけを使うので、しばしば <strong>limited information</strong> 推定と呼ばれる。</p>
+<p>GMM の基本的な考え方は次の通りである。</p>
+<ol type="1">
+<li>もし <span class="math inline">\(\theta=\theta_0\)</span> なら、標本モーメント <span class="math inline">\(g_n(\theta)\)</span> は 0 に近いはずである。</li>
+<li>したがって、<span class="math inline">\(g_n(\theta)\)</span> の大きさを測る二次形式 <span class="math display">\[
+g_n(\theta)'\widehat W_n g_n(\theta)
+\]</span> を小さくする <span class="math inline">\(\theta\)</span> を選べばよい。</li>
+<li>その「大きさ」の測り方を決めるのが重み行列 <span class="math inline">\(\widehat W_n\)</span> であり、これが効率性を左右する。</li>
+</ol>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>直観
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>GMM の推定誤差は、M 推定と同じく</p>
+<ul>
+<li>モーメントの標本誤差</li>
+<li>目的関数の局所曲率</li>
+</ul>
+<p>の 2 つの要素から決まる。ただし GMM では、score の代わりに標本モーメント <span class="math inline">\(g_n(\theta_0)\)</span> がノイズの源になり、曲率は <span class="math inline">\(G'WG\)</span> という形で現れる。</p>
+</div>
+</div>
+</section>
+<section id="漸近正規性の詳細" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 漸近正規性の詳細</h1>
+<section id="基本定理" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="基本定理"><span class="header-section-number">2.1</span> 基本定理</h2>
+<p>まず、<span class="math inline">\(g(X_t;\theta)\)</span> が <span class="math inline">\(\theta\)</span> に関して滑らかな場合の標準的な漸近理論を述べる。</p>
+<div id="thm-gmm-asymp-normal" class="theorem">
+<p><span class="theorem-title"><strong>定理 1 (GMM 推定量の漸近正規性)</strong></span> <span class="math inline">\(\hat\theta\)</span> が <span id="eq-gmm-approx-foc"><span class="math display">\[
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
+\tag{1}\]</span></span> を満たすとする。さらに次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(X_1,\ldots,X_n\)</span> は厳密定常かつエルゴード的である。</li>
+<li><span class="math inline">\(\hat\theta\overset{p}{\to}\theta_0\)</span>.</li>
+<li><span class="math inline">\(\widehat W_n\overset{p}{\to} W\)</span>，ただし <span class="math inline">\(W\)</span> は正定値対称行列である。</li>
+<li><span class="math inline">\(\theta_0\)</span> は <span class="math inline">\(\Theta\)</span> の内部点である。</li>
+<li>任意の <span class="math inline">\(X_t\)</span> に対して <span class="math inline">\(g(X_t;\theta)\)</span> は <span class="math inline">\(\theta\)</span> について連続微分可能である。</li>
+<li><span class="math display">\[
+\sqrt n\,g_n(\theta_0)\overset{d}{\to} N(0,S),
+\]</span> ただし <span class="math inline">\(S\)</span> は正定値である。</li>
+<li><span class="math inline">\(\theta_0\)</span> のある凸・コンパクト近傍 <span class="math inline">\(N\)</span> が存在して <span class="math display">\[
+E\!\left[\sup_{\theta\in N}\|d(X_t;\theta)\|\right]&lt;\infty.
+\]</span></li>
+<li><span class="math inline">\(G=E[d(X_t;\theta_0)]\)</span> は full column rank <span class="math inline">\(p\)</span> をもつ。</li>
+</ol>
+<p>このとき <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)
+\overset{d}{\to}
+N\!\left(0,
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\right).
+\]</span></p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>近似的一階条件 <a href="#eq-gmm-approx-foc" class="quarto-xref">式&nbsp;1</a> を用いると <span class="math display">\[
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}
+=
+-G_n(\hat\theta)'\widehat W_n g_n(\hat\theta)
+=o_p(n^{-1/2})
+\]</span> である。ここで <span class="math inline">\(g_n(\hat\theta)\)</span> を <span class="math inline">\(\theta_0\)</span> のまわりで平均値展開すると、ある <span class="math inline">\(\tilde\theta\)</span> を用いて <span class="math display">\[
+g_n(\hat\theta)=g_n(\theta_0)+G_n(\tilde\theta)(\hat\theta-\theta_0)
+\]</span> だから、 <span class="math display">\[
+o_p(1)
+=
+\bigl(G_n(\hat\theta)'\widehat W_n G_n(\tilde\theta)\bigr)\sqrt n(\hat\theta-\theta_0)
++
+G_n(\hat\theta)'\widehat W_n \sqrt n\,g_n(\theta_0)
+\]</span> を得る。</p>
+<p>一様大数法則と一致性により <span class="math display">\[
+G_n(\hat\theta)\overset{p}{\to} G,
+\qquad
+G_n(\tilde\theta)\overset{p}{\to} G
+\]</span> が成り立つので、 <span class="math display">\[
+G_n(\hat\theta)'\widehat W_n G_n(\tilde\theta)\overset{p}{\to} G'WG
+\]</span> である。したがって <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)
+=
+-(G'WG)^{-1}G'W\sqrt n\,g_n(\theta_0)+o_p(1),
+\]</span> となり、最後は連続写像定理と Slutsky の定理で従う。</p>
+</div>
+</section>
+<section id="漸近分散の分解" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="漸近分散の分解"><span class="header-section-number">2.2</span> 漸近分散の分解</h2>
+<p>上の定理では <span class="math display">\[
+H=G'WG,
+\qquad
+\Sigma=G'WSWG
+\]</span> と書けば、 <span class="math display">\[
+\Omega=H^{-1}\Sigma H^{-1}
+\]</span> という、前章までと全く同じ <strong>曲率とノイズの分解</strong> になる。</p>
+<ul>
+<li><span class="math inline">\(G\)</span> はモーメント条件がパラメータにどれだけ敏感かを表す。</li>
+<li><span class="math inline">\(W\)</span> は研究者が選ぶ重みである。</li>
+<li><span class="math inline">\(S\)</span> は標本モーメント <span class="math inline">\(\sqrt n\,g_n(\theta_0)\)</span> の漸近分散である。</li>
+</ul>
+<p>この形を見ると、GMM の推定精度は</p>
+<ol type="1">
+<li>モーメントの情報量（<span class="math inline">\(G\)</span>）</li>
+<li>モーメントのノイズ（<span class="math inline">\(S\)</span>）</li>
+<li>ノイズをどう重みづけるか（<span class="math inline">\(W\)</span>）</li>
+</ol>
+<p>の 3 つに依存することが分かる。</p>
+</section>
+<section id="just-identified-と-over-identified" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="just-identified-と-over-identified"><span class="header-section-number">2.3</span> just identified と over identified</h2>
+<section id="just-identified-の場合" class="level3" data-number="2.3.1">
+<h3 data-number="2.3.1" class="anchored" data-anchor-id="just-identified-の場合"><span class="header-section-number">2.3.1</span> just identified の場合</h3>
+<p><span class="math inline">\(K=p\)</span> で <span class="math inline">\(G\)</span> が可逆なら、 <span class="math display">\[
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}=G^{-1}SG^{-1'}
+\]</span> となり、重み行列 <span class="math inline">\(W\)</span> は打ち消し合う。したがって <strong>just identified モデルでは <span class="math inline">\(W\)</span> の選び方は漸近分散に影響しない</strong>。</p>
+</section>
+<section id="over-identified-の場合" class="level3" data-number="2.3.2">
+<h3 data-number="2.3.2" class="anchored" data-anchor-id="over-identified-の場合"><span class="header-section-number">2.3.2</span> over identified の場合</h3>
+<p><span class="math inline">\(K&gt;p\)</span> では <span class="math inline">\(G\)</span> は正方行列でないため、この打ち消しは起きない。したがって <strong>over identified モデルでは <span class="math inline">\(W\)</span> の選び方が効率性を左右する</strong>。</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>重要な含意
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>over identified GMM では、同じモーメント条件でも重み行列の選び方が悪いと標準誤差が大きくなり、信頼区間も広くなる。GMM の実務では「モーメント条件をどう作るか」だけでなく、「どの重みで評価するか」も本質的である。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="最適重み付けと効率性" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="最適重み付けと効率性"><span class="header-section-number">2.4</span> 最適重み付けと効率性</h2>
+<p>効率的な重みは <span class="math display">\[
+W=S^{-1}
+\]</span> である。このとき漸近分散は <span class="math display">\[
+\Omega_{\mathrm{eff}}=(G'S^{-1}G)^{-1}
+\]</span> に簡約される。</p>
+<p>なぜこれが最適かというと、任意の正定値行列 <span class="math inline">\(W\)</span> に対して <span class="math display">\[
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\succeq
+(G'S^{-1}G)^{-1}
+\]</span> が成り立つからである。ここで <span class="math inline">\(\succeq\)</span> は半正定値行列の意味での大小である。</p>
+<p>この不等式は、GMM における効率性の中心結果であり、実務的には <strong>two-step efficient GMM</strong> の理論的根拠になる。</p>
+<section id="two-step-efficient-gmm" class="level3" data-number="2.4.1">
+<h3 data-number="2.4.1" class="anchored" data-anchor-id="two-step-efficient-gmm"><span class="header-section-number">2.4.1</span> two-step efficient GMM</h3>
+<p>実装は通常 2 段階で行う。</p>
+<ol type="1">
+<li>まず <span class="math inline">\(\widehat W_n=I_K\)</span> など単純な重みで一段階推定量 <span class="math inline">\(\tilde\theta\)</span> を得る。</li>
+<li>次に <span class="math inline">\(\tilde\theta\)</span> を使って <span class="math inline">\(S\)</span> を推定し、その逆行列を重みとしてもう一度 GMM を解く。</li>
+</ol>
+<p>こうして得られる二段階推定量 <span class="math inline">\(\hat\theta\)</span> は、適当な条件の下で効率的漸近分散 <span class="math display">\[
+(G'S^{-1}G)^{-1}
+\]</span> をもつ。</p>
+</section>
+</section>
+</section>
+<section id="標準誤差の推定" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 標準誤差の推定</h1>
+<section id="基本的な-plug-in-推定" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="基本的な-plug-in-推定"><span class="header-section-number">3.1</span> 基本的な plug-in 推定</h2>
+<p>一般形の漸近分散 <span class="math display">\[
+\Omega=(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\]</span> を推定するには、<span class="math inline">\(G\)</span> と <span class="math inline">\(S\)</span> をそれぞれ推定すればよい。</p>
+<p><span class="math inline">\(G\)</span> の自然な推定量は <span class="math display">\[
+\widehat G=\frac1n\sum_{t=1}^n d(X_t;\hat\theta)
+\]</span> である。したがって、一般形の sandwich 推定量は <span id="eq-gmm-sandwich"><span class="math display">\[
+\widehat\Omega
+=
+(\widehat G'\widehat W_n\widehat G)^{-1}
+\widehat G'\widehat W_n\widehat S \widehat W_n\widehat G
+(\widehat G'\widehat W_n\widehat G)^{-1}
+\tag{2}\]</span></span> である。</p>
+</section>
+<section id="i.i.d.-または-m.d.s.-の場合" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="i.i.d.-または-m.d.s.-の場合"><span class="header-section-number">3.2</span> i.i.d. または m.d.s. の場合</h2>
+<p>データが i.i.d. か、あるいは <span class="math inline">\((g(X_t;\theta_0),\mathcal F_t)\)</span> が m.d.s. であれば、 <span class="math display">\[
+S=E[g(X_t;\theta_0)g(X_t;\theta_0)']
+\]</span> である。したがって <span class="math display">\[
+\widehat S
+=
+\frac1n\sum_{t=1}^n g(X_t;\hat\theta)g(X_t;\hat\theta)'
+\]</span> あるいは <span class="math display">\[
+\widehat S
+=
+\frac1n\sum_{t=1}^n
+\bigl(g(X_t;\hat\theta)-g_n(\hat\theta)\bigr)
+\bigl(g(X_t;\hat\theta)-g_n(\hat\theta)\bigr)'
+\]</span> を用いればよい。</p>
+<p>一致性が成り立てば、<a href="#eq-gmm-sandwich" class="quarto-xref">式&nbsp;2</a> は <span class="math inline">\(\Omega\)</span> の一貫推定量になる。</p>
+</section>
+<section id="依存データと-hac-推定" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="依存データと-hac-推定"><span class="header-section-number">3.3</span> 依存データと HAC 推定</h2>
+<p>一般の依存データでは、<span class="math inline">\(S\)</span> は長期分散 <span class="math display">\[
+S=\sum_{j=-\infty}^{\infty} C_j,
+\qquad
+C_j=E[g(X_t;\theta_0)g(X_{t-j};\theta_0)']
+\]</span> である。したがって単純な標本分散では不十分であり、<strong>Newey-West 型の HAC 推定量</strong>を使う。</p>
+<p>代表的には <span class="math display">\[
+\widehat S
+=
+\widehat C_0+\sum_{j=1}^{J_n}\left(1-\frac{j}{J_n+1}\right)
+(\widehat C_j+\widehat C_j')
+\]</span> であり、 <span class="math display">\[
+\widehat C_j
+=
+\frac1n\sum_{t=j+1}^n
+g(X_t;\hat\theta)g(X_{t-j};\hat\theta)'.
+\]</span> ここで <span class="math inline">\(J_n\)</span> はバンド幅であり、理論上は <span class="math inline">\(J_n\to\infty\)</span> かつ <span class="math inline">\(J_n/n\to 0\)</span> が必要である。</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>実務上の注意
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>HAC 標準誤差はバンド幅 <span class="math inline">\(J_n\)</span> に敏感である。四半期データなら 8、12、16 ラグなどがよく使われるが、推論結果がどの程度ロバストかを確認するのが望ましい。</p>
+</div>
+</div>
+</section>
+<section id="効率的-gmm-の標準誤差" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="効率的-gmm-の標準誤差"><span class="header-section-number">3.4</span> 効率的 GMM の標準誤差</h2>
+<p>もし <span class="math inline">\(\widehat W_n=\widehat S^{-1}\)</span> を使っていれば、漸近分散は <span class="math display">\[
+\Omega_{\mathrm{eff}}=(G'S^{-1}G)^{-1}
+\]</span> だから、推定量は簡約されて <span class="math display">\[
+\widehat\Omega_{\mathrm{eff}}
+=
+(\widehat G'\widehat S^{-1}\widehat G)^{-1}
+\]</span> となる。実務ではこの形が最もよく使われる。</p>
+</section>
+</section>
+<section id="one-step-correction" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> one-step correction</h1>
+<p>二段階 GMM の第 2 段階を毎回完全に最適化するのが計算上重い場合、<strong>one-step correction</strong> が有用である。</p>
+<p><span class="math inline">\(\tilde\theta\)</span> を <span class="math inline">\(\sqrt n\)</span>-一致な初期推定量とし、<span class="math inline">\(\widehat W_n\)</span> を効率的重みとする。このとき Newton-Raphson を 1 回だけ適用して <span class="math display">\[
+\hat\theta_{\mathrm{1step}}
+=
+\tilde\theta
+-
+(\widetilde G'\widehat W_n\widetilde G)^{-1}
+\widetilde G'\widehat W_n
+\left(\frac1n\sum_{t=1}^n g(X_t;\tilde\theta)\right),
+\]</span> ただし <span class="math display">\[
+\widetilde G=G_n(\tilde\theta)
+\]</span> と定める。</p>
+<p>すると適当な条件の下で <span class="math display">\[
+\sqrt n(\hat\theta_{\mathrm{1step}}-\theta_0)
+\overset{d}{\to}
+N\!\left(0,(G'S^{-1}G)^{-1}\right)
+\]</span> が成り立つ。つまり、<strong>一回の Newton ステップだけで漸近的には効率的</strong> になる。</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>いつ有利か
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>目的関数の完全最適化が重い</li>
+<li>しかし勾配やヤコビアンは比較的計算しやすい</li>
+</ul>
+<p>というとき、one-step correction は有力である。逆に、勾配の計算が難しいモデルでは、ふつうの二段階最適化の方が扱いやすいこともある。</p>
+</div>
+</div>
+</section>
+<section id="過剰識別制約の検定" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> 過剰識別制約の検定</h1>
+<p>over identified モデルでは <span class="math inline">\(K-p\)</span> 個の余剰モーメント条件があり、それらを使ってモデルの適合度を検定できる。</p>
+<section id="j-統計量" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="j-統計量"><span class="header-section-number">5.1</span> <span class="math inline">\(J\)</span> 統計量</h2>
+<p>帰無仮説は <span class="math display">\[
+H_0:\quad E[g(X_t;\theta_0)]=0 \text{ を満たす }\theta_0\in\Theta \text{ が存在する}
+\]</span> である。検定統計量は <span id="eq-j-stat"><span class="math display">\[
+J=-2nQ_n(\hat\theta)
+=
+n\,g_n(\hat\theta)'\widehat W_n g_n(\hat\theta)
+\tag{3}\]</span></span> である。</p>
+<div id="thm-jtest" class="theorem">
+<p><span class="theorem-title"><strong>定理 2 (Hansen-Sargan の <span class="math inline">\(J\)</span> 検定)</strong></span> <a href="#thm-gmm-asymp-normal" class="quarto-xref">定理&nbsp;1</a> の仮定に加え、さらに <span class="math display">\[
+\widehat W_n\overset{p}{\to} S^{-1}
+\]</span> を仮定する。このとき、帰無仮説の下で <span class="math display">\[
+J\overset{d}{\to}\chi^2_{K-p}
+\]</span> が成り立つ。</p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>平均値展開により <span class="math display">\[
+\sqrt n\,g_n(\hat\theta)
+=
+\sqrt n\,g_n(\theta_0)+G\sqrt n(\hat\theta-\theta_0)+o_p(1)
+\]</span> である。さらに効率的 GMM の線形表示 <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)
+=
+-(G'S^{-1}G)^{-1}G'S^{-1}\sqrt n\,g_n(\theta_0)+o_p(1)
+\]</span> を代入すると、<span class="math inline">\(J\)</span> は <span class="math display">\[
+Z'PZ+o_p(1)
+\]</span> という形になる。ここで <span class="math inline">\(Z\sim N(0,I_K)\)</span>、<span class="math inline">\(P\)</span> は rank <span class="math inline">\(K-p\)</span> の直交射影行列である。したがって極限分布は <span class="math inline">\(\chi^2_{K-p}\)</span> になる。</p>
+</div>
+<p>この検定は</p>
+<ul>
+<li><strong>test of over-identifying restrictions</strong></li>
+<li><strong>Hansen-Sargan test</strong></li>
+<li><strong>J test</strong></li>
+</ul>
+<p>などと呼ばれる。</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>何が分かり、何は分からないか
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(J\)</span> 検定で棄却されると、「少なくともいくつかのモーメント条件が誤指定されている」ことは分かる。しかし、<strong>どのモーメント条件が悪いのかまでは教えてくれない</strong>。したがって、棄却後はモーメント条件の個別診断が必要である。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="continuously-updated-gmm" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> Continuously-updated GMM</h1>
+<section id="定義" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="定義"><span class="header-section-number">6.1</span> 定義</h2>
+<p>効率的 GMM を 2 段階で実装する代わりに、重み行列自体を <span class="math inline">\(\theta\)</span> の関数にして 1 回の最適化で済ませる方法が <strong>continuously-updated GMM（CU-GMM）</strong> である。目的関数は <span class="math display">\[
+Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n(\theta)g_n(\theta)
+\]</span> である。</p>
+<p>典型的には <span class="math display">\[
+\widehat W_n(\theta)
+=
+\left(
+\frac1n\sum_{t=1}^n g(X_t;\theta)g(X_t;\theta)'
+\right)^{-1}
+\]</span> あるいは <span class="math display">\[
+\widehat W_n(\theta)
+=
+\left(
+\frac1n\sum_{t=1}^n g(X_t;\theta)g(X_t;\theta)'
+-g_n(\theta)g_n(\theta)'
+\right)^{-1}
+\]</span> のようにとる。</p>
+<p>依存データでは、ここでも Newey-West 型の長期分散推定量の逆行列を使える。</p>
+</section>
+<section id="cu-gmm-の意味" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="cu-gmm-の意味"><span class="header-section-number">6.2</span> CU-GMM の意味</h2>
+<p>CU-GMM は形式上は GMM だが、より広くは generalized empirical likelihood の一部として理解できる。理論的には、高次のバイアス項が小さくなるなど、通常の二段階 GMM より望ましい有限標本特性をもつことがある。</p>
+<p>一方で、重み行列も同時に最適化対象になるため、数値計算は重くなりやすい。したがって、</p>
+<ul>
+<li>二段階 GMM</li>
+<li>one-step correction</li>
+<li>CU-GMM</li>
+</ul>
+<p>のどれが最も実用的かは、モデルの複雑さと数値最適化の難しさによって決まる。</p>
+</section>
+</section>
+<section id="まとめ" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> まとめ</h1>
+<p>この章の要点は次の通りである。</p>
+<ol type="1">
+<li>GMM 推定量の漸近分散は <span class="math display">\[
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\]</span> で与えられる。</li>
+<li>just identified モデルでは重み行列は漸近分散に影響しないが、over identified モデルでは影響する。</li>
+<li>効率的重みは <span class="math inline">\(W=S^{-1}\)</span> であり、そのとき漸近分散は <span class="math display">\[
+(G'S^{-1}G)^{-1}
+\]</span> に簡約される。</li>
+<li>標準誤差の推定では、i.i.d./m.d.s. なら標本共分散、依存データなら HAC 推定を使う。</li>
+<li>over identified モデルでは <span class="math inline">\(J\)</span> 検定により過剰識別制約を検定できる。</li>
+<li>効率的推定の実装法として、二段階 GMM、one-step correction、CU-GMM がある。</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>次章への接続
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>次の SMM 章では、GMM のモーメント条件 <span class="math display">\[
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+\]</span> のうち、モデル側のモーメントが閉形式で書けない場合を扱う。GMM の骨格はそのまま残るが、<strong>シミュレーション誤差</strong> が新たなノイズ源として加わる。</p>
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

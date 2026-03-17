@@ -1,0 +1,2575 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Lecture 3：OLS</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="lecture3_revised_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture3_revised_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture3_revised_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture3_revised_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture3_revised_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture3_revised_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture3_revised_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture3_revised_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture3_revised_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture3_revised_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture3_revised_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture3_revised_files/libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<style>html{ scroll-behavior: smooth; }</style>
+<style>
+  body {
+    line-height: 1.8;
+  }
+  .lead {
+    font-size: 1.08rem;
+    color: #495057;
+    margin-bottom: 1.2rem;
+  }
+  h1, h2, h3 {
+    margin-top: 1.6rem;
+  }
+  .callout {
+    margin: 1.2rem 0;
+  }
+  table {
+    font-size: 0.96rem;
+  }
+  .small-muted {
+    color: #6c757d;
+    font-size: 0.95rem;
+  }
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+</style>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#olsの導入まずはいちばん合う直線から" id="toc-olsの導入まずはいちばん合う直線から" class="nav-link active" data-scroll-target="#olsの導入まずはいちばん合う直線から">OLSの導入：まずは「いちばん合う直線」から</a>
+  <ul class="collapse">
+  <li><a href="#直線をいちばんそれっぽく当てはめる" id="toc-直線をいちばんそれっぽく当てはめる" class="nav-link" data-scroll-target="#直線をいちばんそれっぽく当てはめる">1. 直線を「いちばんそれっぽく」当てはめる</a></li>
+  <li><a href="#予測が外れた分残差" id="toc-予測が外れた分残差" class="nav-link" data-scroll-target="#予測が外れた分残差">2. 予測が外れた分：残差</a></li>
+  <li><a href="#どんな直線がよい直線か" id="toc-どんな直線がよい直線か" class="nav-link" data-scroll-target="#どんな直線がよい直線か">3. どんな直線が「よい」直線か？</a></li>
+  <li><a href="#olsの定義sseを最小にする-ab-を選ぶ" id="toc-olsの定義sseを最小にする-ab-を選ぶ" class="nav-link" data-scroll-target="#olsの定義sseを最小にする-ab-を選ぶ">4. OLSの定義：SSEを最小にする <span class="math inline">a,b</span> を選ぶ</a></li>
+  <li><a href="#具体例3点だけのデータで考える" id="toc-具体例3点だけのデータで考える" class="nav-link" data-scroll-target="#具体例3点だけのデータで考える">5. 具体例：3点だけのデータで考える</a></li>
+  <li><a href="#この3点の例でolsを手計算する" id="toc-この3点の例でolsを手計算する" class="nav-link" data-scroll-target="#この3点の例でolsを手計算する">6. この3点の例でOLSを手計算する</a>
+  <ul class="collapse">
+  <li><a href="#微分して最小の条件を書く" id="toc-微分して最小の条件を書く" class="nav-link" data-scroll-target="#微分して最小の条件を書く">6.1 微分して「最小」の条件を書く</a></li>
+  <li><a href="#連立方程式を解く" id="toc-連立方程式を解く" class="nav-link" data-scroll-target="#連立方程式を解く">6.2 連立方程式を解く</a></li>
+  <li><a href="#当てはまり残差とsseを確認する" id="toc-当てはまり残差とsseを確認する" class="nav-link" data-scroll-target="#当てはまり残差とsseを確認する">6.3 当てはまり（残差とSSE）を確認する</a></li>
+  </ul></li>
+  <li><a href="#n個の点でols" id="toc-n個の点でols" class="nav-link" data-scroll-target="#n個の点でols">7. <span class="math inline">n</span>個の点でOLS</a>
+  <ul class="collapse">
+  <li><a href="#a-で微分して-0-とおく1本目の条件" id="toc-a-で微分して-0-とおく1本目の条件" class="nav-link" data-scroll-target="#a-で微分して-0-とおく1本目の条件">7.1 <span class="math inline">a</span> で微分して <span class="math inline">0</span> とおく（1本目の条件）</a></li>
+  <li><a href="#b-で微分して-0-とおく2本目の条件" id="toc-b-で微分して-0-とおく2本目の条件" class="nav-link" data-scroll-target="#b-で微分して-0-とおく2本目の条件">7.2 <span class="math inline">b</span> で微分して <span class="math inline">0</span> とおく（2本目の条件）</a></li>
+  <li><a href="#本の条件から-ab-を解く" id="toc-本の条件から-ab-を解く" class="nav-link" data-scroll-target="#本の条件から-ab-を解く">7.3 2本の条件から <span class="math inline">a,b</span> を解く</a></li>
+  <li><a href="#平均との差に書き直してわかりやすくする" id="toc-平均との差に書き直してわかりやすくする" class="nav-link" data-scroll-target="#平均との差に書き直してわかりやすくする">7.4 「平均との差」に書き直してわかりやすくする</a></li>
+  <li><a href="#点の例に戻って確認" id="toc-点の例に戻って確認" class="nav-link" data-scroll-target="#点の例に戻って確認">7.5 3点の例に戻って確認</a></li>
+  </ul></li>
+  <li><a href="#図で確認n個の点とolsrで実行" id="toc-図で確認n個の点とolsrで実行" class="nav-link" data-scroll-target="#図で確認n個の点とolsrで実行">7.6 図で確認：<span class="math inline">n</span>個の点とOLS（Rで実行）</a>
+  <ul class="collapse">
+  <li><a href="#rコードデータを作ってolsを実行する" id="toc-rコードデータを作ってolsを実行する" class="nav-link" data-scroll-target="#rコードデータを作ってolsを実行する">7.6.1 Rコード：データを作ってOLSを実行する</a></li>
+  <li><a href="#rコード散布図とols直線を描く" id="toc-rコード散布図とols直線を描く" class="nav-link" data-scroll-target="#rコード散布図とols直線を描く">7.6.2 Rコード：散布図とOLS直線を描く</a></li>
+  <li><a href="#sse最小を実感する残差とsseを計算する" id="toc-sse最小を実感する残差とsseを計算する" class="nav-link" data-scroll-target="#sse最小を実感する残差とsseを計算する">7.6.3 「SSE最小」を実感する：残差とSSEを計算する</a></li>
+  <li><a href="#直線をわざとズラしてsseを比べる" id="toc-直線をわざとズラしてsseを比べる" class="nav-link" data-scroll-target="#直線をわざとズラしてsseを比べる">7.6.4 直線をわざとズラしてSSEを比べる</a></li>
+  <li><a href="#図にズレた直線も重ねて比較する" id="toc-図にズレた直線も重ねて比較する" class="nav-link" data-scroll-target="#図にズレた直線も重ねて比較する">7.6.5 図に「ズレた直線」も重ねて比較する</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#ols-の性質定義から自動的に出てくること" id="toc-ols-の性質定義から自動的に出てくること" class="nav-link" data-scroll-target="#ols-の性質定義から自動的に出てくること">OLS の性質：定義から自動的に出てくること</a>
+  <ul class="collapse">
+  <li><a href="#p1-回帰直線は平均点-barxbary-を通る" id="toc-p1-回帰直線は平均点-barxbary-を通る" class="nav-link" data-scroll-target="#p1-回帰直線は平均点-barxbary-を通る">(P1) 回帰直線は平均点 <span class="math inline">(\bar{x},\bar{y})</span> を通る</a></li>
+  <li><a href="#p2-残差の和は0" id="toc-p2-残差の和は0" class="nav-link" data-scroll-target="#p2-残差の和は0">(P2) 残差の和は0</a></li>
+  <li><a href="#p3-残差と-x-は積の和が0直交性" id="toc-p3-残差と-x-は積の和が0直交性" class="nav-link" data-scroll-target="#p3-残差と-x-は積の和が0直交性">(P3) 残差と <span class="math inline">x</span> は「積の和」が0（直交性）</a></li>
+  <li><a href="#p4-分散分解tss-ess-sseと-r2" id="toc-p4-分散分解tss-ess-sseと-r2" class="nav-link" data-scroll-target="#p4-分散分解tss-ess-sseと-r2">(P4) 分散分解（TSS = ESS + SSE）と <span class="math inline">R^2</span></a></li>
+  <li><a href="#p5-単位変更尺度変換に対するふるまい" id="toc-p5-単位変更尺度変換に対するふるまい" class="nav-link" data-scroll-target="#p5-単位変更尺度変換に対するふるまい">(P5) 単位変更（尺度変換）に対するふるまい</a></li>
+  <li><a href="#p6-平行移動原点の取り方に対するふるまい" id="toc-p6-平行移動原点の取り方に対するふるまい" class="nav-link" data-scroll-target="#p6-平行移動原点の取り方に対するふるまい">(P6) 平行移動（原点の取り方）に対するふるまい</a></li>
+  </ul></li>
+  <li><a href="#ols-はいつパターンではなくモデルのパラメータになるのか" id="toc-ols-はいつパターンではなくモデルのパラメータになるのか" class="nav-link" data-scroll-target="#ols-はいつパターンではなくモデルのパラメータになるのか">OLS はいつパターンではなくモデルのパラメータになるのか</a>
+  <ul class="collapse">
+  <li><a href="#olsはどんな時に何を識別できるか" id="toc-olsはどんな時に何を識別できるか" class="nav-link" data-scroll-target="#olsはどんな時に何を識別できるか">OLSはどんな時に何を識別できるか</a>
+  <ul class="collapse">
+  <li><a href="#識別できるとは" id="toc-識別できるとは" class="nav-link" data-scroll-target="#識別できるとは">「識別できる」とは？</a></li>
+  <li><a href="#なんの仮定もないと識別できない" id="toc-なんの仮定もないと識別できない" class="nav-link" data-scroll-target="#なんの仮定もないと識別できない">なんの仮定もないと識別できない</a></li>
+  </ul></li>
+  <li><a href="#識別するためにはモデルに追加の仮定が必要" id="toc-識別するためにはモデルに追加の仮定が必要" class="nav-link" data-scroll-target="#識別するためにはモデルに追加の仮定が必要">識別するためにはモデルに追加の「仮定」が必要</a>
+  <ul class="collapse">
+  <li><a href="#識別の中心条件eu_imid-x_i0" id="toc-識別の中心条件eu_imid-x_i0" class="nav-link" data-scroll-target="#識別の中心条件eu_imid-x_i0">識別の中心条件：<span class="math inline">E[u_i\mid x_i]=0</span></a></li>
+  </ul></li>
+  <li><a href="#説明変数がランダムの正体" id="toc-説明変数がランダムの正体" class="nav-link" data-scroll-target="#説明変数がランダムの正体">「説明変数がランダム」の正体</a></li>
+  <li><a href="#シミュレーションの共通設定" id="toc-シミュレーションの共通設定" class="nav-link" data-scroll-target="#シミュレーションの共通設定">シミュレーションの共通設定</a>
+  <ul class="collapse">
+  <li><a href="#共通のrコード関数と設定" id="toc-共通のrコード関数と設定" class="nav-link" data-scroll-target="#共通のrコード関数と設定">共通のRコード（関数と設定）</a></li>
+  <li><a href="#例1ノイズの分布が正規分布じゃない時しかも-bimodal" id="toc-例1ノイズの分布が正規分布じゃない時しかも-bimodal" class="nav-link" data-scroll-target="#例1ノイズの分布が正規分布じゃない時しかも-bimodal">例1：ノイズの分布が正規分布じゃない時（しかも bimodal）</a></li>
+  <li><a href="#例2ノイズの分布の平均が-0-じゃない時" id="toc-例2ノイズの分布の平均が-0-じゃない時" class="nav-link" data-scroll-target="#例2ノイズの分布の平均が-0-じゃない時">例2：ノイズの分布の平均が <span class="math inline">0</span> じゃない時</a></li>
+  <li><a href="#例3ノイズの分布が説明変数に依存する時" id="toc-例3ノイズの分布が説明変数に依存する時" class="nav-link" data-scroll-target="#例3ノイズの分布が説明変数に依存する時">例3：ノイズの分布が説明変数に依存する時</a></li>
+  <li><a href="#例4ノイズがサンプル間で相関するとき時系列っぽい誤差" id="toc-例4ノイズがサンプル間で相関するとき時系列っぽい誤差" class="nav-link" data-scroll-target="#例4ノイズがサンプル間で相関するとき時系列っぽい誤差">例4：ノイズがサンプル間で相関するとき（時系列っぽい誤差）</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#ols-の性質推定量としての性質" id="toc-ols-の性質推定量としての性質" class="nav-link" data-scroll-target="#ols-の性質推定量としての性質">OLS の性質：推定量としての性質</a>
+  <ul class="collapse">
+  <li><a href="#分散と標準誤差の公式がある" id="toc-分散と標準誤差の公式がある" class="nav-link" data-scroll-target="#分散と標準誤差の公式がある">2. 分散と標準誤差の公式がある</a>
+  <ul class="collapse">
+  <li><a href="#olsの推定量を誤差の重み付き平均として書く" id="toc-olsの推定量を誤差の重み付き平均として書く" class="nav-link" data-scroll-target="#olsの推定量を誤差の重み付き平均として書く">2.1 OLSの推定量を「誤差の重み付き平均」として書く</a></li>
+  <li><a href="#条件付き分散x-を固定して見た分散" id="toc-条件付き分散x-を固定して見た分散" class="nav-link" data-scroll-target="#条件付き分散x-を固定して見た分散">2.2 条件付き分散（<span class="math inline">x</span> を固定して見た分散）</a></li>
+  <li><a href="#直感の確認x-が散らばるほど小さくなるn-が増えるほど小さくなる" id="toc-直感の確認x-が散らばるほど小さくなるn-が増えるほど小さくなる" class="nav-link" data-scroll-target="#直感の確認x-が散らばるほど小さくなるn-が増えるほど小さくなる">2.3 直感の確認：「<span class="math inline">x</span> が散らばるほど小さくなる」「<span class="math inline">n</span> が増えるほど小さくなる」</a></li>
+  <li><a href="#標準誤差sigma2-は未知なので推定して代入する" id="toc-標準誤差sigma2-は未知なので推定して代入する" class="nav-link" data-scroll-target="#標準誤差sigma2-は未知なので推定して代入する">2.4 標準誤差：<span class="math inline">\sigma^2</span> は未知なので推定して代入する</a></li>
+  <li><a href="#なぜ分母が-n-2-なのか" id="toc-なぜ分母が-n-2-なのか" class="nav-link" data-scroll-target="#なぜ分母が-n-2-なのか">なぜ分母が <span class="math inline">n-2</span> なのか</a></li>
+  </ul></li>
+  <li><a href="#一致性サンプルが増えると真値に近づく" id="toc-一致性サンプルが増えると真値に近づく" class="nav-link" data-scroll-target="#一致性サンプルが増えると真値に近づく">3. 一致性（サンプルが増えると真値に近づく）</a></li>
+  <li><a href="#漸近正規性大標本で正規分布っぽくなる" id="toc-漸近正規性大標本で正規分布っぽくなる" class="nav-link" data-scroll-target="#漸近正規性大標本で正規分布っぽくなる">4. 漸近正規性（大標本で正規分布っぽくなる）</a></li>
+  </ul></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ">まとめ</a></li>
+  <li><a href="#宿題" id="toc-宿題" class="nav-link" data-scroll-target="#宿題">宿題</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Lecture 3：OLS</h1>
+<p class="subtitle lead">最小二乗法の導入・識別・推定量としての性質</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-simple callout-important callout-titled" title="この講義で押さえたいこと">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>この講義で押さえたいこと
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>OLS は「データにいちばん合う直線」を選ぶ方法</strong>である。</li>
+<li>ただし、OLS がいつでも因果効果を教えてくれるわけではない。</li>
+<li><strong>定義から出る性質</strong>と、<strong>仮定を置いたときの推定量としての性質</strong>は分けて理解する。</li>
+</ul>
+</div>
+</div>
+<div class="lead">
+<p>今回は、まず説明変数が1つのケースにしぼって OLS を導入する。前半では「どうやって直線を決めるのか」を丁寧に追い、後半では「その直線をいつパラメータとして読めるのか」を考える。</p>
+</div>
+<div class="callout callout-style-simple callout-note callout-titled" title="この lecture の流れ">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この lecture の流れ
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>OLS を <strong>残差平方和を最小にする方法</strong>として定義する。<br>
+</li>
+<li>そこから、平均点を通る・残差和が 0 になるなどの <strong>機械的な性質</strong> を見る。<br>
+</li>
+<li>最後に、<span class="math inline">E[u_i\mid x_i]=0</span> の意味を通じて、OLS がいつ <strong>推定量</strong> として意味を持つかを整理する。</li>
+</ol>
+</div>
+</div>
+<p>今回は、まず説明変数が1つのケースにしぼって OLS の話をする。</p>
+<section id="olsの導入まずはいちばん合う直線から" class="level1">
+<h1>OLSの導入：まずは「いちばん合う直線」から</h1>
+<p>まずはOLSをその発想から導入していく。</p>
+<section id="直線をいちばんそれっぽく当てはめる" class="level2">
+<h2 class="anchored" data-anchor-id="直線をいちばんそれっぽく当てはめる">1. 直線を「いちばんそれっぽく」当てはめる</h2>
+<p>データが <span class="math inline">n</span> 人（あるいは <span class="math inline">n</span> 個体）ぶんあるとする。<br>
+各個体 <span class="math inline">i=1,\dots,n</span> について、次の2つを観測する。</p>
+<ul>
+<li>説明変数（原因っぽいもの）：<span class="math inline">x_i</span></li>
+<li>被説明変数（結果っぽいもの）：<span class="math inline">y_i</span></li>
+</ul>
+<p>例として、</p>
+<ul>
+<li><span class="math inline">x_i</span>：勉強時間（時間）</li>
+<li><span class="math inline">y_i</span>：テストの点数（点）</li>
+</ul>
+<p>のような状況を想像すればよい。</p>
+<p>ここで目標は単純で、</p>
+<blockquote class="blockquote">
+<p><span class="math inline">x</span> が増えると <span class="math inline">y</span> はどれくらい増えるのか？</p>
+</blockquote>
+<p>を知ることになる。</p>
+<p>そのために、<span class="math inline">x</span> から <span class="math inline">y</span> を予測する「直線」を考える。</p>
+<p><span class="math display">
+\widehat{y}_i = a + b x_i
+</span></p>
+<p>ここで</p>
+<ul>
+<li><span class="math inline">a</span>：切片（<span class="math inline">x=0</span> のときの予測値）</li>
+<li><span class="math inline">b</span>：傾き（<span class="math inline">x</span> が 1 増えると予測値がどれだけ変わるか）</li>
+</ul>
+<p>という意味を持つ。<br>
+この <span class="math inline">a</span> と <span class="math inline">b</span> をデータから決めるのがOLSだ。</p>
+</section>
+<section id="予測が外れた分残差" class="level2">
+<h2 class="anchored" data-anchor-id="予測が外れた分残差">2. 予測が外れた分：残差</h2>
+<p>直線で予測した値 <span class="math inline">\widehat{y}_i</span> と実際の値 <span class="math inline">y_i</span> は一般には一致しない。<br>
+その「ズレ」を</p>
+<p><span class="math display">
+e_i = y_i - \widehat{y}_i
+</span></p>
+<p>と定義する。これが <strong>残差</strong> だ。</p>
+<p>直線の式を代入すると、</p>
+<p><span class="math display">
+e_i = y_i - (a + b x_i)
+</span></p>
+<p>となる。</p>
+</section>
+<section id="どんな直線がよい直線か" class="level2">
+<h2 class="anchored" data-anchor-id="どんな直線がよい直線か">3. どんな直線が「よい」直線か？</h2>
+<p>直線がよい、というのは「ズレ（残差）が小さい」ことを意味する。<br>
+ではズレの大きさをどう測るか。</p>
+<p>単純に <span class="math inline">e_i</span> を足す（<span class="math inline">\sum e_i</span>）だけだと、プラスとマイナスが打ち消し合ってしまう。<br>
+たとえば <span class="math inline">e_1=10</span> と <span class="math inline">e_2=-10</span> なら合計は 0 だが、ズレが大きい事実は消えない。</p>
+<p>そこでズレを <strong>二乗</strong> して足し合わせる。</p>
+<p><span class="math display">
+\text{残差平方和} \equiv \sum_{i=1}^n e_i^2
+</span></p>
+<p>これを英語で <strong>Sum of Squared Errors</strong> と呼び、略して <strong>SSE</strong> と言う。</p>
+<p><span class="math inline">e_i = y_i - (a + b x_i)</span> なので、SSEは</p>
+<p><span class="math display">
+S(a,b) = \sum_{i=1}^n \left( y_i - (a + b x_i) \right)^2
+</span></p>
+<p>という、<span class="math inline">a</span> と <span class="math inline">b</span> の関数になる。</p>
+</section>
+<section id="olsの定義sseを最小にする-ab-を選ぶ" class="level2">
+<h2 class="anchored" data-anchor-id="olsの定義sseを最小にする-ab-を選ぶ">4. OLSの定義：SSEを最小にする <span class="math inline">a,b</span> を選ぶ</h2>
+<p>ここまで来たら、OLSの定義は一言で済む。</p>
+<blockquote class="blockquote">
+<p><strong>OLS（最小二乗法）</strong>とは、残差平方和 <span class="math inline">S(a,b)</span> が最小になるように <span class="math inline">(a,b)</span> を選ぶ方法。</p>
+</blockquote>
+<p>つまり</p>
+<p><span class="math display">
+(\widehat{a},\widehat{b})
+= \arg\min_{a,b}\ \sum_{i=1}^n \left( y_i - (a + b x_i) \right)^2
+</span></p>
+<p>これがOLSの <strong>定義</strong> だ。</p>
+<p>この <span class="math inline">(\widehat{a},\widehat{b})</span> を</p>
+<ul>
+<li><span class="math inline">\widehat{a}</span>：OLS切片（推定された切片）</li>
+<li><span class="math inline">\widehat{b}</span>：OLS傾き（推定された傾き）</li>
+</ul>
+<p>と呼ぶ。</p>
+</section>
+<section id="具体例3点だけのデータで考える" class="level2">
+<h2 class="anchored" data-anchor-id="具体例3点だけのデータで考える">5. 具体例：3点だけのデータで考える</h2>
+<p>たとえば次の3点があったとする。</p>
+<ul>
+<li><span class="math inline">(x_1,y_1)=(1,2)</span></li>
+<li><span class="math inline">(x_2,y_2)=(2,2)</span></li>
+<li><span class="math inline">(x_3,y_3)=(3,4)</span></li>
+</ul>
+<p>ある直線 <span class="math inline">\widehat{y}=a+bx</span> を考え、仮に <span class="math inline">a=0</span>、<span class="math inline">b=1</span> とすると</p>
+<ul>
+<li><span class="math inline">x=1</span> の予測：<span class="math inline">\widehat{y}_1=1</span>（実際は2）</li>
+<li><span class="math inline">x=2</span> の予測：<span class="math inline">\widehat{y}_2=2</span>（実際は2）</li>
+<li><span class="math inline">x=3</span> の予測：<span class="math inline">\widehat{y}_3=3</span>（実際は4）</li>
+</ul>
+<p>残差は</p>
+<ul>
+<li><span class="math inline">e_1=2-1=1</span></li>
+<li><span class="math inline">e_2=2-2=0</span></li>
+<li><span class="math inline">e_3=4-3=1</span></li>
+</ul>
+<p>SSEは</p>
+<p><span class="math display">
+S(0,1)=1^2+0^2+1^2=2
+</span></p>
+<p>となる。</p>
+<p>別の直線 <span class="math inline">a=1</span>、<span class="math inline">b=1</span> なら</p>
+<ul>
+<li>予測：<span class="math inline">\widehat{y}_1=2,\widehat{y}_2=3,\widehat{y}_3=4</span></li>
+<li>残差：<span class="math inline">e_1=0,e_2=-1,e_3=0</span></li>
+<li>SSE：</li>
+</ul>
+<p><span class="math display">
+S(1,1)=0^2+(-1)^2+0^2=1
+</span></p>
+<p>この方がSSEが小さいので、「よりよい直線」だと言える。</p>
+<p>OLSは、このように <strong>SSEが最小になる直線を探す</strong> 方法だ。</p>
+</section>
+<section id="この3点の例でolsを手計算する" class="level2">
+<h2 class="anchored" data-anchor-id="この3点の例でolsを手計算する">6. この3点の例でOLSを手計算する</h2>
+<p>やることは「<span class="math inline">S(a,b)</span> を最小にする <span class="math inline">a,b</span> を探す」だけだ。<br>
+この例では <span class="math inline">n=3</span> で、データは</p>
+<ul>
+<li><span class="math inline">(x_1,y_1)=(1,2)</span></li>
+<li><span class="math inline">(x_2,y_2)=(2,2)</span></li>
+<li><span class="math inline">(x_3,y_3)=(3,4)</span></li>
+</ul>
+<p>だった。</p>
+<p>まず残差平方和は</p>
+<p><span class="math display">
+S(a,b)=\sum_{i=1}^3 \left(y_i-(a+bx_i)\right)^2
+</span></p>
+<p>なので、具体的に代入して</p>
+<p><span class="math display">
+S(a,b)=(2-(a+b\cdot 1))^2+(2-(a+b\cdot 2))^2+(4-(a+b\cdot 3))^2
+</span></p>
+<p>つまり</p>
+<p><span class="math display">
+S(a,b)=(2-a-b)^2+(2-a-2b)^2+(4-a-3b)^2
+</span></p>
+<p>となる。これを <span class="math inline">a</span> と <span class="math inline">b</span> について最小化する。</p>
+<section id="微分して最小の条件を書く" class="level3">
+<h3 class="anchored" data-anchor-id="微分して最小の条件を書く">6.1 微分して「最小」の条件を書く</h3>
+<p><span class="math inline">S(a,b)</span> は <span class="math inline">a,b</span> の二次式なので、微分して <span class="math inline">0</span> とおけば最小点が出る。</p>
+<p>まず <span class="math inline">a</span> で偏微分する。<br>
+各項は「中身が <span class="math inline">-a</span>」なので、微分すると <span class="math inline">-2(\text{中身})</span> が出る。</p>
+<p><span class="math display">
+\frac{\partial S}{\partial a}
+= -2(2-a-b)-2(2-a-2b)-2(4-a-3b)
+</span></p>
+<p>これを <span class="math inline">0</span> にする：</p>
+<p><span class="math display">
+-2\{(2-a-b)+(2-a-2b)+(4-a-3b)\}=0
+</span></p>
+<p>両辺を <span class="math inline">-2</span> で割って</p>
+<p><span class="math display">
+(2-a-b)+(2-a-2b)+(4-a-3b)=0
+</span></p>
+<p>左辺を整理すると</p>
+<ul>
+<li>定数：<span class="math inline">2+2+4=8</span></li>
+<li><span class="math inline">a</span>：<span class="math inline">-a-a-a=-3a</span></li>
+<li><span class="math inline">b</span>：<span class="math inline">-b-2b-3b=-6b</span></li>
+</ul>
+<p>なので</p>
+<p><span class="math display">
+8-3a-6b=0
+</span></p>
+<p>つまり</p>
+<p><span class="math display">
+3a+6b=8
+</span></p>
+<p>これが1本目の条件だ。</p>
+<p>次に<span class="math inline">b</span>で偏微分する。<span class="math inline">(2-a-b)</span>の <span class="math inline">b</span> による微分は <span class="math inline">-1</span>、<span class="math inline">(2-a-2b)</span> は <span class="math inline">-2</span>、<span class="math inline">(4-a-3b)</span> は <span class="math inline">-3</span> なので</p>
+<p><span class="math display">
+\frac{\partial S}{\partial b}
+= -2\cdot 1\cdot(2-a-b)-2\cdot 2\cdot(2-a-2b)-2\cdot 3\cdot(4-a-3b)
+</span></p>
+<p>これを <span class="math inline">0</span> にする：</p>
+<p><span class="math display">
+-2(2-a-b)-4(2-a-2b)-6(4-a-3b)=0
+</span></p>
+<p>両辺を <span class="math inline">-2</span> で割ると</p>
+<p><span class="math display">
+(2-a-b)+2(2-a-2b)+3(4-a-3b)=0
+</span></p>
+<p>それぞれ展開する。</p>
+<ul>
+<li><span class="math inline">(2-a-b)</span></li>
+<li><span class="math inline">2(2-a-2b)=4-2a-4b</span></li>
+<li><span class="math inline">3(4-a-3b)=12-3a-9b</span></li>
+</ul>
+<p>足し合わせると</p>
+<ul>
+<li>定数：<span class="math inline">2+4+12=18</span></li>
+<li><span class="math inline">a</span>：<span class="math inline">-a-2a-3a=-6a</span></li>
+<li><span class="math inline">b</span>：<span class="math inline">-b-4b-9b=-14b</span></li>
+</ul>
+<p>よって</p>
+<p><span class="math display">
+18-6a-14b=0
+</span></p>
+<p>つまり</p>
+<p><span class="math display">
+6a+14b=18
+</span></p>
+<p>これが2本目の条件だ。</p>
+</section>
+<section id="連立方程式を解く" class="level3">
+<h3 class="anchored" data-anchor-id="連立方程式を解く">6.2 連立方程式を解く</h3>
+<p>今得た2本を並べる：</p>
+<p><span class="math display">
+3a+6b=8
+</span></p>
+<p><span class="math display">
+6a+14b=18
+</span></p>
+<p>1本目を2倍すると</p>
+<p><span class="math display">
+6a+12b=16
+</span></p>
+<p>これを2本目から引く：</p>
+<p><span class="math display">
+(6a+14b)-(6a+12b)=18-16
+</span></p>
+<p><span class="math display">
+2b=2
+</span></p>
+<p>よって</p>
+<p><span class="math display">
+b=1
+</span></p>
+<p>これを1本目に代入する：</p>
+<p><span class="math display">
+3a+6\cdot 1=8
+</span></p>
+<p><span class="math display">
+3a=2
+</span></p>
+<p>したがって</p>
+<p><span class="math display">
+a=\frac{2}{3}
+</span></p>
+<p>結論として、この3点のOLSは</p>
+<p><span class="math display">
+\widehat{y}=\widehat{a}+\widehat{b}x=\frac{2}{3}+1\cdot x
+</span></p>
+<p>つまり</p>
+<p><span class="math display">
+\widehat{y}=\frac{2}{3}+x
+</span></p>
+<p>となる。</p>
+</section>
+<section id="当てはまり残差とsseを確認する" class="level3">
+<h3 class="anchored" data-anchor-id="当てはまり残差とsseを確認する">6.3 当てはまり（残差とSSE）を確認する</h3>
+<p>この直線での予測値は</p>
+<ul>
+<li><span class="math inline">x=1</span>：<span class="math inline">\widehat{y}_1=\frac{2}{3}+1=\frac{5}{3}</span></li>
+<li><span class="math inline">x=2</span>：<span class="math inline">\widehat{y}_2=\frac{2}{3}+2=\frac{8}{3}</span></li>
+<li><span class="math inline">x=3</span>：<span class="math inline">\widehat{y}_3=\frac{2}{3}+3=\frac{11}{3}</span></li>
+</ul>
+<p>残差は <span class="math inline">e_i=y_i-\widehat{y}_i</span> だから</p>
+<ul>
+<li><span class="math inline">e_1=2-\frac{5}{3}=\frac{1}{3}</span></li>
+<li><span class="math inline">e_2=2-\frac{8}{3}=-\frac{2}{3}</span></li>
+<li><span class="math inline">e_3=4-\frac{11}{3}=\frac{1}{3}</span></li>
+</ul>
+<p>SSEは</p>
+<p><span class="math display">
+S(\widehat{a},\widehat{b})
+=\left(\frac{1}{3}\right)^2+\left(-\frac{2}{3}\right)^2+\left(\frac{1}{3}\right)^2
+=\frac{1}{9}+\frac{4}{9}+\frac{1}{9}
+=\frac{6}{9}
+=\frac{2}{3}
+</span></p>
+<p>となる。</p>
+<p>この手計算は、手順としては</p>
+<ol type="1">
+<li><span class="math inline">S(a,b)</span> を具体的に書く<br>
+</li>
+<li><span class="math inline">a</span> と <span class="math inline">b</span> で微分して <span class="math inline">0</span> とおく<br>
+</li>
+<li>連立方程式を解く</li>
+</ol>
+<p>という流れだった。</p>
+<p>以下にこの3点の例を図示しておく。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- data ----</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>),</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">y =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">2</span>, <span class="dv">4</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- OLS fit (y = a + b x) ----</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x, <span class="at">data =</span> df)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>a_hat <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit)[<span class="dv">1</span>]</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>b_hat <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit)[<span class="dv">2</span>]</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- plot range ----</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>x_min <span class="ot">&lt;-</span> <span class="fu">min</span>(df<span class="sc">$</span>x) <span class="sc">-</span> <span class="fl">0.5</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>x_max <span class="ot">&lt;-</span> <span class="fu">max</span>(df<span class="sc">$</span>x) <span class="sc">+</span> <span class="fl">0.5</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- base plot ----</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(df<span class="sc">$</span>x, df<span class="sc">$</span>y,</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"x"</span>, <span class="at">ylab =</span> <span class="st">"y"</span>,</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlim =</span> <span class="fu">c</span>(x_min, x_max),</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylim =</span> <span class="fu">range</span>(df<span class="sc">$</span>y) <span class="sc">+</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>),</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- OLS line ----</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">a =</span> a_hat, <span class="at">b =</span> b_hat, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- optional: candidate lines from the text ----</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">a =</span> <span class="dv">0</span>, <span class="at">b =</span> <span class="dv">1</span>, <span class="at">lty =</span> <span class="dv">2</span>)  <span class="co"># a=0, b=1</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">a =</span> <span class="dv">1</span>, <span class="at">b =</span> <span class="dv">1</span>, <span class="at">lty =</span> <span class="dv">3</span>)  <span class="co"># a=1, b=1</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- legend ----</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topleft"</span>,</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>         <span class="fu">paste0</span>(<span class="st">"OLS: y = "</span>, <span class="fu">round</span>(a_hat, <span class="dv">3</span>), <span class="st">" + "</span>, <span class="fu">round</span>(b_hat, <span class="dv">3</span>), <span class="st">" x"</span>),</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>         <span class="st">"candidate: y = 0 + 1 x"</span>,</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>         <span class="st">"candidate: y = 1 + 1 x"</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>       ),</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>       <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>),</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>       <span class="at">lwd =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">1</span>, <span class="dv">1</span>),</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="n個の点でols" class="level2">
+<h2 class="anchored" data-anchor-id="n個の点でols">7. <span class="math inline">n</span>個の点でOLS</h2>
+<p>いま、データが <span class="math inline">n</span> 個あるとする。</p>
+<ul>
+<li>観測：<span class="math inline">(x_1,y_1),(x_2,y_2),\dots,(x_n,y_n)</span></li>
+</ul>
+<p>直線は</p>
+<p><span class="math display">
+\widehat{y}_i = a + b x_i
+</span></p>
+<p>残差は</p>
+<p><span class="math display">
+e_i = y_i - \widehat{y}_i = y_i - (a+bx_i)
+</span></p>
+<p>残差平方和（SSE）は</p>
+<p><span class="math display">
+S(a,b)=\sum_{i=1}^n \left(y_i-(a+bx_i)\right)^2
+</span></p>
+<p>OLSは、この <span class="math inline">S(a,b)</span> を最小にする <span class="math inline">(a,b)</span> を選ぶ方法だった。</p>
+<p><span class="math display">
+(\widehat{a},\widehat{b})=\arg\min_{a,b}\ \sum_{i=1}^n \left(y_i-(a+bx_i)\right)^2
+</span></p>
+<p>ここから先は、さっきの3点の例と全く同じで、<span class="math inline">a</span> と <span class="math inline">b</span> で微分して <span class="math inline">0</span> とおき、連立方程式を解く。</p>
+<section id="a-で微分して-0-とおく1本目の条件" class="level3">
+<h3 class="anchored" data-anchor-id="a-で微分して-0-とおく1本目の条件">7.1 <span class="math inline">a</span> で微分して <span class="math inline">0</span> とおく（1本目の条件）</h3>
+<p>まず <span class="math inline">a</span> で偏微分する。</p>
+<p><span class="math display">
+\frac{\partial S}{\partial a}
+=\sum_{i=1}^n 2\left(y_i-(a+bx_i)\right)\cdot(-1)
+= -2\sum_{i=1}^n \left(y_i-a-bx_i\right)
+</span></p>
+<p>最小点ではこれが <span class="math inline">0</span> になるので</p>
+<p><span class="math display">
+-2\sum_{i=1}^n \left(y_i-a-bx_i\right)=0
+</span></p>
+<p><span class="math inline">-2</span> を消して</p>
+<p><span class="math display">
+\sum_{i=1}^n \left(y_i-a-bx_i\right)=0
+</span></p>
+<p>和をバラすと</p>
+<p><span class="math display">
+\sum_{i=1}^n y_i - \sum_{i=1}^n a - \sum_{i=1}^n b x_i = 0
+</span></p>
+<p>ここで <span class="math inline">a</span> は <span class="math inline">i</span> によらず一定なので <span class="math inline">\sum_{i=1}^n a = na</span>。同様に <span class="math inline">b</span> も一定なので <span class="math inline">\sum_{i=1}^n b x_i = b\sum_{i=1}^n x_i</span>。</p>
+<p>したがって</p>
+<p><span class="math display">
+\sum_{i=1}^n y_i - na - b\sum_{i=1}^n x_i = 0
+</span></p>
+<p>両辺を <span class="math inline">n</span> で割ると</p>
+<p><span class="math display">
+\frac{1}{n}\sum_{i=1}^n y_i
+= a + b\frac{1}{n}\sum_{i=1}^n x_i
+</span></p>
+<p>ここで</p>
+<p><span class="math display">
+\bar{x}=\frac{1}{n}\sum_{i=1}^n x_i,\quad
+\bar{y}=\frac{1}{n}\sum_{i=1}^n y_i
+</span></p>
+<p>と置けば、1本目の条件は</p>
+<p><span class="math display">
+\bar{y}=a+b\bar{x}
+</span></p>
+<p>となる。</p>
+<p>これは直感的に言うと、</p>
+<blockquote class="blockquote">
+<p>OLSで引いた直線は、必ず点 <span class="math inline">(\bar{x},\bar{y})</span>（両変数の平均）を通る</p>
+</blockquote>
+<p>という性質だ。</p>
+</section>
+<section id="b-で微分して-0-とおく2本目の条件" class="level3">
+<h3 class="anchored" data-anchor-id="b-で微分して-0-とおく2本目の条件">7.2 <span class="math inline">b</span> で微分して <span class="math inline">0</span> とおく（2本目の条件）</h3>
+<p>次に <span class="math inline">b</span> で偏微分する。</p>
+<p><span class="math display">
+\frac{\partial S}{\partial b}
+=\sum_{i=1}^n 2\left(y_i-(a+bx_i)\right)\cdot(-x_i)
+= -2\sum_{i=1}^n x_i\left(y_i-a-bx_i\right)
+</span></p>
+<p>最小点ではこれが <span class="math inline">0</span> なので</p>
+<p><span class="math display">
+\sum_{i=1}^n x_i\left(y_i-a-bx_i\right)=0
+</span></p>
+<p>これを展開して</p>
+<p><span class="math display">
+\sum_{i=1}^n x_i y_i - a\sum_{i=1}^n x_i - b\sum_{i=1}^n x_i^2 = 0
+</span></p>
+<p>ここまでが2本目の条件だ。</p>
+</section>
+<section id="本の条件から-ab-を解く" class="level3">
+<h3 class="anchored" data-anchor-id="本の条件から-ab-を解く">7.3 2本の条件から <span class="math inline">a,b</span> を解く</h3>
+<p>いま手元にある条件は次の2本。</p>
+<p>1本目：</p>
+<p><span class="math display">
+\bar{y}=a+b\bar{x}
+</span></p>
+<p>2本目：</p>
+<p><span class="math display">
+\sum_{i=1}^n x_i y_i - a\sum_{i=1}^n x_i - b\sum_{i=1}^n x_i^2 = 0
+</span></p>
+<p>ここで1本目から <span class="math inline">a</span> を <span class="math inline">b</span> で書くと</p>
+<p><span class="math display">
+a=\bar{y}-b\bar{x}
+</span></p>
+<p>これを2本目へ代入する。</p>
+<p><span class="math display">
+\sum_{i=1}^n x_i y_i - (\bar{y}-b\bar{x})\sum_{i=1}^n x_i - b\sum_{i=1}^n x_i^2 = 0
+</span></p>
+<p><span class="math inline">\sum_{i=1}^n x_i = n\bar{x}</span> を使うと</p>
+<p><span class="math display">
+\sum_{i=1}^n x_i y_i - (\bar{y}-b\bar{x})n\bar{x} - b\sum_{i=1}^n x_i^2 = 0
+</span></p>
+<p>整理すると</p>
+<p><span class="math display">
+\sum_{i=1}^n x_i y_i - n\bar{x}\bar{y} + bn\bar{x}^2 - b\sum_{i=1}^n x_i^2 = 0
+</span></p>
+<p><span class="math inline">b</span> の項をまとめると</p>
+<p><span class="math display">
+b\left(n\bar{x}^2-\sum_{i=1}^n x_i^2\right)
+= -\left(\sum_{i=1}^n x_i y_i - n\bar{x}\bar{y}\right)
+</span></p>
+<p>両辺にマイナスをかけて順番を入れ替えると</p>
+<p><span class="math display">
+b\left(\sum_{i=1}^n x_i^2-n\bar{x}^2\right)
+= \sum_{i=1}^n x_i y_i - n\bar{x}\bar{y}
+</span></p>
+<p>よって</p>
+<p><span class="math display">
+\widehat{b}
+=\frac{\sum_{i=1}^n x_i y_i - n\bar{x}\bar{y}}
+{\sum_{i=1}^n x_i^2 - n\bar{x}^2}
+</span></p>
+<p>そして</p>
+<p><span class="math display">
+\widehat{a}=\bar{y}-\widehat{b}\bar{x}
+</span></p>
+<p>が得られる。</p>
+</section>
+<section id="平均との差に書き直してわかりやすくする" class="level3">
+<h3 class="anchored" data-anchor-id="平均との差に書き直してわかりやすくする">7.4 「平均との差」に書き直してわかりやすくする</h3>
+<p>さっき出た式は少し見た目がごちゃつくので、よく使われる形に直す。</p>
+<p>次の恒等式が成り立つ：</p>
+<p><span class="math display">
+\sum_{i=1}^n (x_i-\bar{x})^2 = \sum_{i=1}^n x_i^2 - n\bar{x}^2
+</span></p>
+<p><span class="math display">
+\sum_{i=1}^n (x_i-\bar{x})(y_i-\bar{y}) = \sum_{i=1}^n x_i y_i - n\bar{x}\bar{y}
+</span></p>
+<p>これを使うと、<span class="math inline">\widehat{b}</span> は</p>
+<p><span class="math display">
+\widehat{b}
+=\frac{\sum_{i=1}^n (x_i-\bar{x})(y_i-\bar{y})}
+{\sum_{i=1}^n (x_i-\bar{x})^2}
+</span></p>
+<p>となる。</p>
+<p>この形の意味は明快で、</p>
+<ul>
+<li>分子：<span class="math inline">x</span> が平均との差で正にずれたとき、<span class="math inline">y</span> も平均との差で正にずれやすいか（同方向に動くか）</li>
+<li>分母：<span class="math inline">x</span> 自体がどれくらい散らばっているか</li>
+</ul>
+<p>を表している。</p>
+<p>だから <span class="math inline">\widehat{b}</span> は、ざっくり言えば</p>
+<blockquote class="blockquote">
+<p><span class="math inline">x</span> と <span class="math inline">y</span> が一緒に動く強さ（分子）を、<span class="math inline">x</span> の散らばり（分母）で割ったもの</p>
+</blockquote>
+<p>になっている。</p>
+</section>
+<section id="点の例に戻って確認" class="level3">
+<h3 class="anchored" data-anchor-id="点の例に戻って確認">7.5 3点の例に戻って確認</h3>
+<p>さっきの例では</p>
+<ul>
+<li><span class="math inline">\bar{x}=\frac{1+2+3}{3}=2</span></li>
+<li><span class="math inline">\bar{y}=\frac{2+2+4}{3}=\frac{8}{3}</span></li>
+</ul>
+<p>分子：</p>
+<p><span class="math display">
+\sum_{i=1}^3 (x_i-\bar{x})(y_i-\bar{y})
+= (1-2)\left(2-\frac{8}{3}\right) + (2-2)\left(2-\frac{8}{3}\right) + (3-2)\left(4-\frac{8}{3}\right)
+</span></p>
+<p>計算すると</p>
+<p><span class="math display">
+= (-1)\left(-\frac{2}{3}\right) + 0\left(-\frac{2}{3}\right) + (1)\left(\frac{4}{3}\right)
+= \frac{2}{3} + 0 + \frac{4}{3}
+= 2
+</span></p>
+<p>分母：</p>
+<p><span class="math display">
+\sum_{i=1}^3 (x_i-\bar{x})^2 = (1-2)^2+(2-2)^2+(3-2)^2 = 1+0+1=2
+</span></p>
+<p>だから</p>
+<p><span class="math display">
+\widehat{b}=\frac{2}{2}=1
+</span></p>
+<p>そして</p>
+<p><span class="math display">
+\widehat{a}=\bar{y}-\widehat{b}\bar{x}=\frac{8}{3}-1\cdot 2=\frac{2}{3}
+</span></p>
+<p>確かに手計算と一致する。</p>
+</section>
+</section>
+<section id="図で確認n個の点とolsrで実行" class="level2">
+<h2 class="anchored" data-anchor-id="図で確認n個の点とolsrで実行">7.6 図で確認：<span class="math inline">n</span>個の点とOLS（Rで実行）</h2>
+<p>ここまでで、OLSは「残差平方和（SSE）を最小にする直線」を選ぶ方法だとわかった。<br>
+上で見た通り手で計算できるが、普通は統計ソフトを使う。</p>
+<section id="rコードデータを作ってolsを実行する" class="level3">
+<h3 class="anchored" data-anchor-id="rコードデータを作ってolsを実行する">7.6.1 Rコード：データを作ってOLSを実行する</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -------------------------------------------------</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 1) データ（例として n 個の点を作る）</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co"># -------------------------------------------------</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">30</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">runif</span>(n, <span class="at">min =</span> <span class="dv">0</span>, <span class="at">max =</span> <span class="dv">10</span>)                 <span class="co"># x をランダムに作る</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fl">1.5</span> <span class="sc">+</span> <span class="fl">0.8</span> <span class="sc">*</span> x <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>)  <span class="co"># 直線 + ノイズで y を作る</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">x =</span> x, <span class="at">y =</span> y)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co"># -------------------------------------------------</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co"># 2) OLS を実行する（y = a + b x）</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co"># -------------------------------------------------</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x, <span class="at">data =</span> df)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 推定された a, b（切片と傾き）</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>a_hat <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit)[<span class="dv">1</span>]</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>b_hat <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit)[<span class="dv">2</span>]</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>a_hat</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>(Intercept) 
+   2.056639 </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>b_hat</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>        x 
+0.7070074 </code></pre>
+</div>
+</div>
+<p><code>lm(y ~ x, data = df)</code> がOLSそのものだ。 <code>y ~ x</code> は「<span class="math inline">y</span> を <span class="math inline">x</span> の一次式 <span class="math inline">a+bx</span> で説明する」という意味になる。</p>
+<p><code>coef(fit)</code> は推定された係数を返す。 ここで</p>
+<ul>
+<li><code>coef(fit)[1]</code> が <span class="math inline">\widehat{a}</span>（切片）</li>
+<li><code>coef(fit)[2]</code> が <span class="math inline">\widehat{b}</span>（傾き）</li>
+</ul>
+<p>に対応する。</p>
+</section>
+<section id="rコード散布図とols直線を描く" class="level3">
+<h3 class="anchored" data-anchor-id="rコード散布図とols直線を描く">7.6.2 Rコード：散布図とOLS直線を描く</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 散布図</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(df<span class="sc">$</span>x, df<span class="sc">$</span>y,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"x"</span>, <span class="at">ylab =</span> <span class="st">"y"</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co"># OLS直線（推定された a_hat, b_hat を使う）</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">a =</span> a_hat, <span class="at">b =</span> b_hat, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 凡例</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topleft"</span>,</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">paste0</span>(<span class="st">"OLS: y = "</span>, <span class="fu">round</span>(a_hat, <span class="dv">3</span>), <span class="st">" + "</span>, <span class="fu">round</span>(b_hat, <span class="dv">3</span>), <span class="st">" x"</span>),</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>点がデータ <span class="math inline">(x_i,y_i)</span> を表し、太い直線がOLSの直線 <span class="math inline">\widehat{y}= \widehat{a}+\widehat{b}x</span> を表している。</p>
+</section>
+<section id="sse最小を実感する残差とsseを計算する" class="level3">
+<h3 class="anchored" data-anchor-id="sse最小を実感する残差とsseを計算する">7.6.3 「SSE最小」を実感する：残差とSSEを計算する</h3>
+<p>OLSはSSEを最小にするはずなので、実際にSSEを計算してみる。 各点の予測値は <span class="math inline">\widehat{y}_i=\widehat{a}+\widehat{b}x_i</span>、残差は <span class="math inline">e_i=y_i-\widehat{y}_i</span> だった。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 予測値と残差</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>y_hat <span class="ot">&lt;-</span> <span class="fu">predict</span>(fit)          <span class="co"># 各 i の予測値 \hat{y}_i</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>e     <span class="ot">&lt;-</span> df<span class="sc">$</span>y <span class="sc">-</span> y_hat          <span class="co"># 残差 e_i = y_i - \hat{y}_i</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co"># SSE = sum e_i^2</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>SSE <span class="ot">&lt;-</span> <span class="fu">sum</span>(e<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>SSE</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 27.30754</code></pre>
+</div>
+</div>
+<p><code>predict(fit)</code> は各点の予測値 <span class="math inline">\widehat{y}_i</span> を返す。 そして <code>sum(e^2)</code> が</p>
+<p><span class="math display">
+\sum_{i=1}^n e_i^2
+</span></p>
+<p>すなわちSSEになっている。</p>
+<hr>
+</section>
+<section id="直線をわざとズラしてsseを比べる" class="level3">
+<h3 class="anchored" data-anchor-id="直線をわざとズラしてsseを比べる">7.6.4 直線をわざとズラしてSSEを比べる</h3>
+<p>OLS直線の代わりに「少しズレた直線」を使うとSSEが大きくなるのを確認する。 たとえば切片を少し増やした直線 <span class="math inline">a=\widehat{a}+1</span>、傾きを少し増やした直線 <span class="math inline">b=\widehat{b}+0.2</span> を考える。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>a_alt <span class="ot">&lt;-</span> a_hat <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>b_alt <span class="ot">&lt;-</span> b_hat <span class="sc">+</span> <span class="fl">0.2</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 代替直線での予測値・残差・SSE</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>y_hat_alt <span class="ot">&lt;-</span> a_alt <span class="sc">+</span> b_alt <span class="sc">*</span> df<span class="sc">$</span>x</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>e_alt     <span class="ot">&lt;-</span> df<span class="sc">$</span>y <span class="sc">-</span> y_hat_alt</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>SSE_alt   <span class="ot">&lt;-</span> <span class="fu">sum</span>(e_alt<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="fu">c</span>(<span class="at">SSE_ols =</span> SSE, <span class="at">SSE_alt =</span> SSE_alt)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  SSE_ols   SSE_alt 
+ 27.30754 175.16007 </code></pre>
+</div>
+</div>
+<p>ここで <code>SSE_alt</code> が <code>SSE_ols</code> より大きければ、</p>
+<blockquote class="blockquote">
+<p>OLSが「SSEを最小にする直線」になっている</p>
+</blockquote>
+<p>ことが数値でも確認できる。</p>
+<hr>
+</section>
+<section id="図にズレた直線も重ねて比較する" class="level3">
+<h3 class="anchored" data-anchor-id="図にズレた直線も重ねて比較する">7.6.5 図に「ズレた直線」も重ねて比較する</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(df<span class="sc">$</span>x, df<span class="sc">$</span>y,</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"x"</span>, <span class="at">ylab =</span> <span class="st">"y"</span>,</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co"># OLS直線</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">a =</span> a_hat, <span class="at">b =</span> b_hat, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="co"># ズレた直線</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">a =</span> a_alt, <span class="at">b =</span> b_alt, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topleft"</span>,</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>         <span class="fu">paste0</span>(<span class="st">"OLS: y = "</span>, <span class="fu">round</span>(a_hat, <span class="dv">2</span>), <span class="st">" + "</span>, <span class="fu">round</span>(b_hat, <span class="dv">2</span>), <span class="st">" x"</span>),</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>         <span class="fu">paste0</span>(<span class="st">"Alt: y = "</span>, <span class="fu">round</span>(a_alt, <span class="dv">2</span>), <span class="st">" + "</span>, <span class="fu">round</span>(b_alt, <span class="dv">2</span>), <span class="st">" x"</span>)</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>       ),</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>       <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>点の集まりに対して、OLS直線の方が「全体として」よく当たっている（ズレの二乗和が小さい）ことが視覚的にも確認できる。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="ここから先で見たいこと">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>ここから先で見たいこと
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>以下の性質は、まだ「因果」や「外生性」を仮定しなくても、<strong>OLS の定義そのもの</strong>から出てくる。</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="ols-の性質定義から自動的に出てくること" class="level1">
+<h1>OLS の性質：定義から自動的に出てくること</h1>
+<p>「OLSをSSE最小化として定義しただけで必ず成り立つ性質」をまとめる。<br>
+つまり、データ <span class="math inline">(x_i,y_i)</span> が与えられたら、<strong>必ずそうなる</strong>という話だけをする。</p>
+<p>以下では、OLSで得られた係数を <span class="math inline">(\widehat{a},\widehat{b})</span>、予測値と残差を</p>
+<p><span class="math display">
+\widehat{y}_i=\widehat{a}+\widehat{b}x_i,\qquad
+\widehat{e}_i=y_i-\widehat{y}_i
+</span></p>
+<p>と書く。</p>
+<section id="p1-回帰直線は平均点-barxbary-を通る" class="level2">
+<h2 class="anchored" data-anchor-id="p1-回帰直線は平均点-barxbary-を通る">(P1) 回帰直線は平均点 <span class="math inline">(\bar{x},\bar{y})</span> を通る</h2>
+<p><span class="math inline">x</span> と <span class="math inline">y</span> の平均を</p>
+<p><span class="math display">
+\bar{x}=\frac{1}{n}\sum_{i=1}^n x_i,\qquad
+\bar{y}=\frac{1}{n}\sum_{i=1}^n y_i
+</span></p>
+<p>とする。</p>
+<p>このときOLSの直線は必ず</p>
+<p><span class="math display">
+\bar{y}=\widehat{a}+\widehat{b}\bar{x}
+</span></p>
+<p>を満たす。つまり、点 <span class="math inline">(\bar{x},\bar{y})</span> を通る。</p>
+<p>直感としては「点群の重心を通る直線を探している」と思えばよい。</p>
+</section>
+<section id="p2-残差の和は0" class="level2">
+<h2 class="anchored" data-anchor-id="p2-残差の和は0">(P2) 残差の和は0</h2>
+<p>OLSで得られた残差は必ず</p>
+<p><span class="math display">
+\sum_{i=1}^n \widehat{e}_i=0
+</span></p>
+<p>を満たす。</p>
+</section>
+<section id="p3-残差と-x-は積の和が0直交性" class="level2">
+<h2 class="anchored" data-anchor-id="p3-残差と-x-は積の和が0直交性">(P3) 残差と <span class="math inline">x</span> は「積の和」が0（直交性）</h2>
+<p>OLSで得られた残差はさらに</p>
+<p><span class="math display">
+\sum_{i=1}^n x_i\widehat{e}_i=0
+</span></p>
+<p>を満たす。</p>
+<p>同じ内容を「平均からのズレ」で書き直すと</p>
+<p><span class="math display">
+\sum_{i=1}^n (x_i-\bar{x})\widehat{e}_i=0
+</span></p>
+<p>とも言える（こちらの方が直感に合うことが多い）。</p>
+<p>この性質の意味はこうだ。</p>
+<ul>
+<li>もし <span class="math inline">x</span> が大きいほど残差が系統的にプラスになっているなら、傾き <span class="math inline">\widehat{b}</span> を少し上げればSSEが下がるはず</li>
+<li>逆に <span class="math inline">x</span> が大きいほど残差が系統的にマイナスなら、傾き <span class="math inline">\widehat{b}</span> を少し下げればSSEが下がるはず</li>
+</ul>
+<p>OLSはSSEを最小にしているので、そのような「まだ直線を回転させたら改善できる」状態が残っていてはいけない。<br>
+それが <span class="math inline">\sum x_i\widehat{e}_i=0</span> の直感になっている。</p>
+</section>
+<section id="p4-分散分解tss-ess-sseと-r2" class="level2">
+<h2 class="anchored" data-anchor-id="p4-分散分解tss-ess-sseと-r2">(P4) 分散分解（TSS = ESS + SSE）と <span class="math inline">R^2</span></h2>
+<p>まず、各点で</p>
+<p><span class="math display">
+y_i=\widehat{y}_i+\widehat{e}_i
+</span></p>
+<p>が成り立つ（これは定義そのもの）。</p>
+<p>ここから、<span class="math inline">y</span> の平均からのズレ <span class="math inline">(y_i-\bar{y})</span> の二乗和は</p>
+<p><span class="math display">
+\sum_{i=1}^n (y_i-\bar{y})^2
+</span></p>
+<p>と書ける。これを <strong>全体のばらつき</strong> とみなす。</p>
+<p>OLSには次の分解が成り立つ：</p>
+<p><span class="math display">
+\sum_{i=1}^n (y_i-\bar{y})^2
+=
+\sum_{i=1}^n (\widehat{y}_i-\bar{y})^2
++
+\sum_{i=1}^n \widehat{e}_i^2
+</span></p>
+<p>左辺を <strong>TSS</strong>（Total Sum of Squares）、右辺の第1項を <strong>ESS</strong>（Explained Sum of Squares）、第2項を <strong>SSE</strong>（残差平方和）と呼ぶことが多い。</p>
+<p>決定係数 <span class="math inline">R^2</span> を以下のように定義する</p>
+<p><span class="math display">
+R^2
+\equiv \frac{\sum_{i=1}^n (\widehat{y}_i-\bar{y})^2}{\sum_{i=1}^n (y_i-\bar{y})^2}
+</span></p>
+<p>これは定義から明らかなように、「OLSの当てはまりの良さ」の尺度である。 先ほどの分解を使うとこれは、 <span class="math display">
+R^2
+=\frac{\sum_{i=1}^n (\widehat{y}_i-\bar{y})^2}{\sum_{i=1}^n (y_i-\bar{y})^2}
+=1-\frac{\sum_{i=1}^n \widehat{e}_i^2}{\sum_{i=1}^n (y_i-\bar{y})^2}
+</span></p>
+<p>と書ける。</p>
+<p><span class="math inline">R^2</span> は「<span class="math inline">y</span> のばらつきのうち、直線（予測）で説明できた割合」を表す指標だということがわかりやすい。</p>
+</section>
+<section id="p5-単位変更尺度変換に対するふるまい" class="level2">
+<h2 class="anchored" data-anchor-id="p5-単位変更尺度変換に対するふるまい">(P5) 単位変更（尺度変換）に対するふるまい</h2>
+<p><span class="math inline">x</span> の単位を変えたとき、係数がどう変わるかを整理する。</p>
+<p>例として、時間 <span class="math inline">x</span> を「時間」から「分」に変えることを考える。<br>
+新しい変数を</p>
+<p><span class="math display">
+x_i' = 60x_i
+</span></p>
+<p>と定義する（1時間 = 60分）。</p>
+<p>同じデータを <span class="math inline">y</span> を <span class="math inline">x'</span> で回帰して</p>
+<p><span class="math display">
+\widehat{y}_i = a' + b'x_i'
+</span></p>
+<p>と書くと、予測値が同じになるためには</p>
+<p><span class="math display">
+a'=\widehat{a},\qquad b'=\frac{\widehat{b}}{60}
+</span></p>
+<p>となる。</p>
+<p>要するに、</p>
+<ul>
+<li><span class="math inline">x</span> を60倍（単位を細かく）すると、傾きは <span class="math inline">1/60</span> 倍になる</li>
+<li>ただし予測値 <span class="math inline">\widehat{y}_i</span> は変わらない（同じ直線を別の単位で書き直しただけ）</li>
+</ul>
+<p>ということだ。</p>
+</section>
+<section id="p6-平行移動原点の取り方に対するふるまい" class="level2">
+<h2 class="anchored" data-anchor-id="p6-平行移動原点の取り方に対するふるまい">(P6) 平行移動（原点の取り方）に対するふるまい</h2>
+<p>次に、<span class="math inline">x</span> に定数を足して</p>
+<p><span class="math display">
+x_i' = x_i + c
+</span></p>
+<p>のように「原点の取り方」だけを変えることを考える（平均との差を取る、などもこの例）。</p>
+<p>同じデータを <span class="math inline">y</span> を <span class="math inline">x'</span> で回帰して</p>
+<p><span class="math display">
+\widehat{y}_i = a' + b'x_i'
+</span></p>
+<p>と書いたとき、予測値が同じであるためには</p>
+<p><span class="math display">
+b'=\widehat{b},\qquad a'=\widehat{a}-\widehat{b}c
+</span></p>
+<p>となる。</p>
+<p>つまり、</p>
+<ul>
+<li><span class="math inline">x</span> に定数 <span class="math inline">c</span> を足しても、傾きは変わらない</li>
+<li>その代わり切片が調整される</li>
+</ul>
+<p>という性質がある。</p>
+<p>この性質が便利なのは、たとえば <span class="math inline">x_i-\bar{x}</span> のように「平均からのズレ」に変換すると、切片の解釈がスッキリする点にある。<br>
+実際、<span class="math inline">x_i' = x_i-\bar{x}</span> とすると、平均は <span class="math inline">\overline{x'}=0</span> なので、(P1) より</p>
+<p><span class="math display">
+\bar{y}=\widehat{a}'
+</span></p>
+<p>となり、「切片が <span class="math inline">y</span> の平均そのもの」になる。</p>
+<hr>
+<p>データに最もフィットする直線はもとまった。これで全て解決？</p>
+<p>じゃないという話を今まで散々してきた。</p>
+<p>もし被説明変数が賃金で、説明変数が教育年数なら、このOLSの結果をレポートした君のキャリアはたたれるのであった。</p>
+<p>だからと言って、OLSはいついかなる時でもだめなのだろうか？</p>
+<p>もちろんそうではない。例えば、Amazonがおすすめ商品リストの作成アルゴリズムを古いアルゴリズムAから新しいアルゴリズムBに変えるべきか迷っているとする。この時、AmazonほどのITシステムが整っていると、次のような<strong>A/Bテスト</strong>を実行できる。</p>
+<ul>
+<li>ユーザーの半分を<strong>ランダム</strong>にグループAに、もう半分をグループBに割り振る。</li>
+<li>グループAでのおすすめ商品リストは今のままアルゴリズムAで作成し、グループBに対しては新しいアルゴリズムBで作成する。</li>
+<li>一定期間この状況を続け、各グループでの商品購入数を比較する。</li>
+</ul>
+<p>これをOLSっぽく書くと以下のような感じになる。ユーザーを<span class="math inline">i</span>とかく。</p>
+<ul>
+<li>被説明変数が<strong>商品購入数</strong>でこれを<span class="math inline">y_i</span>とかく</li>
+<li>説明変数を<strong>アルゴリズムBに切り替えたことをしめす変数</strong>として、これを<span class="math inline">d_i</span>とかく
+<ul>
+<li>すなわち、ユーザー<span class="math inline">i</span>がグループBなら<span class="math inline">d_i = 1</span>で、グループAなら<span class="math inline">d_i = 0</span>である</li>
+</ul></li>
+<li>OLSのモデルは<span class="math inline">y_i = \beta_0 + \beta_1 d_i + \epsilon_i</span>である</li>
+<li>ここで上記のOLSでパラメータ<span class="math inline">\beta_0,\beta_1</span>を推定する</li>
+</ul>
+<p>この時、<span class="math inline">d_i</span>はAmazonによって本当にランダムに割り振られている。Lecture 1で見た通り、このような「実験」の時、その効果は単なるパターンでもいい気がするのであった。</p>
+<p>さて、</p>
+<ol type="1">
+<li>賃金と教育年数の関係</li>
+<li>商品購入数とアルゴリズムの関係</li>
+</ol>
+<p>この二つで前者はOLSじゃダメそうで、後者はOLSでも良さそう。</p>
+<p>この二つを分ける「説明変数がランダムっぽいからOK」というのは一体どういうことなのか。今までふんわり話していたこのランダムっぽさについての話をする。</p>
+<p>そしてそのために、<strong>識別</strong>っていうのが一体なんなのかについてようやくちょっとだけフォーマルに話す。</p>
+<div class="callout callout-style-simple callout-warning callout-titled" title="ここで一度立ち止まる">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">警告</span>ここで一度立ち止まる
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>ここまでで分かったのは、OLS が <strong>いちばんフィットする直線</strong> を返すということだけである。<br>
+その直線の傾きを「欲しいパラメータ」と読めるかどうかは、ここから先の話になる。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="ols-はいつパターンではなくモデルのパラメータになるのか" class="level1">
+<h1>OLS はいつパターンではなくモデルのパラメータになるのか</h1>
+<p>回帰を走らせると「データに最もフィットする直線」は必ず求まる。<br>
+でも、それで <strong>全てが解決したわけではない</strong>。</p>
+<p>重要なのは</p>
+<ul>
+<li><strong>パターン（相関）</strong>：データの中で <em><span class="math inline">x</span> が大きいと <span class="math inline">y</span> も大きい</em> という傾向が見える、という話<br>
+</li>
+<li><strong>パラメータ（因果効果）</strong>：<em><span class="math inline">x</span> を外から1だけ増やしたら <span class="math inline">y</span> がどれだけ変わるか</em> という話</li>
+</ul>
+<p>の違い。</p>
+<p>OLSがいつも返してくれるのは「パターンに一番合う直線」だが、私たちが本当に欲しいのは後者の <strong>パラメータ</strong>である。</p>
+<section id="olsはどんな時に何を識別できるか" class="level2">
+<h2 class="anchored" data-anchor-id="olsはどんな時に何を識別できるか">OLSはどんな時に何を識別できるか</h2>
+<p>ここでは「本当に欲しいパラメータ」を、次のモデルで <strong><span class="math inline">x_i</span> にかかっている係数 <span class="math inline">\beta_1</span></strong> とする。</p>
+<p><span class="math display">
+y_i=\beta_0+\beta_1 x_i + u_i
+</span></p>
+<p>OLSで <span class="math inline">\beta_1</span> を識別、推定する。</p>
+<section id="識別できるとは" class="level3">
+<h3 class="anchored" data-anchor-id="識別できるとは">「識別できる」とは？</h3>
+<p>この文脈で <strong><span class="math inline">\beta_1</span> を識別できる</strong>とは、観測できるデータ（<span class="math inline">(x_i,y_i)</span> の出方）とモデルの仮定だけから、<span class="math inline">\beta_1</span> の値が <strong>一意に定まる</strong>ことを指す。</p>
+<p>言い換えると、<strong>同じデータの出方と両立する「別の <span class="math inline">\beta_1</span>」があり得ない</strong>、という意味である。</p>
+<p>意味がわからないと思うので、「識別できない具体例」を見る。</p>
+</section>
+<section id="なんの仮定もないと識別できない" class="level3">
+<h3 class="anchored" data-anchor-id="なんの仮定もないと識別できない">なんの仮定もないと識別できない</h3>
+<p>観測できるのは <span class="math inline">(x_i,y_i)</span> だけで、誤差 <span class="math inline">u_i</span> は見えない。<br>
+この「誤差が見えない」という一点だけで、<strong>仮定なしには <span class="math inline">\beta_1</span> は一意に決まらない</strong>ことが、数字を入れるとよく分かる。</p>
+<section id="例3人だけのデータ" class="level4">
+<h4 class="anchored" data-anchor-id="例3人だけのデータ">例：3人だけのデータ</h4>
+<p>たとえば次のデータが観測されたとする：</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: right;"><span class="math inline">i</span></th>
+<th style="text-align: right;"><span class="math inline">x_i</span></th>
+<th style="text-align: right;"><span class="math inline">y_i</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">3</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">5</td>
+</tr>
+</tbody>
+</table>
+<p>ぱっと見ると「<span class="math inline">x</span> が1増えると <span class="math inline">y</span> が2増えてるっぽい」ので、真の傾きが <span class="math inline">\beta_1=2</span> だと主張したくなる。</p>
+</section>
+<section id="仮に真の係数が-beta_0beta_112-だとすると" class="level4">
+<h4 class="anchored" data-anchor-id="仮に真の係数が-beta_0beta_112-だとすると">仮に「真の係数」が <span class="math inline">(\beta_0,\beta_1)=(1,2)</span> だとすると</h4>
+<p>このとき誤差は</p>
+<p><span class="math display">
+u_i = y_i - 1 - 2x_i
+</span></p>
+<p>だから、</p>
+<ul>
+<li><span class="math inline">u_1 = 1 - 1 - 0 = 0</span></li>
+<li><span class="math inline">u_2 = 3 - 1 - 2 = 0</span></li>
+<li><span class="math inline">u_3 = 5 - 1 - 4 = 0</span></li>
+</ul>
+<p>つまり <strong>誤差ゼロ</strong>でピッタリ当てはまる。</p>
+</section>
+<section id="でも別の傾きでも誤差を作り直せてしまう" class="level4">
+<h4 class="anchored" data-anchor-id="でも別の傾きでも誤差を作り直せてしまう">でも、別の傾きでも「誤差を作り直せてしまう」</h4>
+<p>たとえば、わざと傾きを <span class="math inline">\tilde\beta_1=1</span> にしてみる。<br>
+切片はとりあえず <span class="math inline">\tilde\beta_0=1</span> のままにすると、誤差は</p>
+<p><span class="math display">
+\tilde u_i = y_i - 1 - 1\cdot x_i
+</span></p>
+<p>なので、</p>
+<ul>
+<li><span class="math inline">\tilde u_1 = 1 - 1 - 0 = 0</span></li>
+<li><span class="math inline">\tilde u_2 = 3 - 1 - 1 = 1</span></li>
+<li><span class="math inline">\tilde u_3 = 5 - 1 - 2 = 2</span></li>
+</ul>
+<p>このときも</p>
+<p><span class="math display">
+y_i = 1 + 1\cdot x_i + \tilde u_i
+</span></p>
+<p>は <strong>必ず成り立つ</strong>（右辺に合わせて <span class="math inline">\tilde u_i</span> を定義しただけだから）。</p>
+<p>見ての通り、<span class="math inline">\tilde u_i</span> は <span class="math inline">x_i</span> が大きいほど大きい。<br>
+つまり、<strong>傾きを小さく言い過ぎた分が「<span class="math inline">x</span> と相関する誤差」として押し込まれている</strong>。</p>
+</section>
+<section id="もっと極端にtildebeta_10-でもいける" class="level4">
+<h4 class="anchored" data-anchor-id="もっと極端にtildebeta_10-でもいける">もっと極端に：<span class="math inline">\tilde\beta_1=0</span> でもいける</h4>
+<p><span class="math inline">\tilde\beta_1=0,\ \tilde\beta_0=1</span> とすると</p>
+<p><span class="math display">
+\tilde u_i = y_i - 1
+</span></p>
+<p>だから</p>
+<ul>
+<li><span class="math inline">\tilde u_1 = 0</span></li>
+<li><span class="math inline">\tilde u_2 = 2</span></li>
+<li><span class="math inline">\tilde u_3 = 4</span></li>
+</ul>
+<p>やっぱり</p>
+<p><span class="math display">
+y_i = 1 + 0\cdot x_i + \tilde u_i
+</span></p>
+<p>は完全に再現できる。</p>
+</section>
+<section id="何が言いたいか" class="level4">
+<h4 class="anchored" data-anchor-id="何が言いたいか">何が言いたいか</h4>
+<p>同じ <span class="math inline">(x_i,y_i)</span> という観測データに対して、</p>
+<ul>
+<li><span class="math inline">(\beta_0,\beta_1)=(1,2)</span> でも説明できるし</li>
+<li><span class="math inline">(\tilde\beta_0,\tilde\beta_1)=(1,1)</span> でも説明できるし</li>
+<li><span class="math inline">(\tilde\beta_0,\tilde\beta_1)=(1,0)</span> でも説明できる</li>
+</ul>
+<p>ということが起きている。</p>
+<p>違いはただ一つで、<strong>傾きを変えた分だけ、誤差 <span class="math inline">\tilde u_i</span> が <span class="math inline">x_i</span> と相関する形に変わる</strong>。</p>
+<p>だから、仮定がない状態では</p>
+<blockquote class="blockquote">
+<p>「傾きが本当はどれで、どこからが誤差なのか」</p>
+</blockquote>
+<p>をデータだけでは決められない（＝<strong><span class="math inline">\beta_1</span> は識別できない</strong>）。</p>
+</section>
+</section>
+</section>
+<section id="識別するためにはモデルに追加の仮定が必要" class="level2">
+<h2 class="anchored" data-anchor-id="識別するためにはモデルに追加の仮定が必要">識別するためにはモデルに追加の「仮定」が必要</h2>
+<p>今、モデルは <span class="math display">
+y_i = \beta_0 + \beta_1 x_i + u_i
+</span></p>
+<p>という関数形がすでに<strong>仮定</strong>されている。これを <strong>linear model（線形モデル）</strong> と呼ぶ。</p>
+<p>先の例でわかったのは、linear model という仮定だけではこのモデルは識別できないということだ。</p>
+<p>識別という強い結果を得るにはさらなる仮定が必要である。</p>
+<p>ではどんな過程があればいいか？</p>
+<section id="識別の中心条件eu_imid-x_i0" class="level3">
+<h3 class="anchored" data-anchor-id="識別の中心条件eu_imid-x_i0">識別の中心条件：<span class="math inline">E[u_i\mid x_i]=0</span></h3>
+<p>linear model の識別のためには、<strong>「<span class="math inline">x</span> によって誤差の平均が偏らない」</strong>という仮定を置くのが標準的である。すなわち、</p>
+<p><span class="math display">
+E[u_i\mid x_i]=0
+</span></p>
+<p>これは</p>
+<ul>
+<li><strong><span class="math inline">x_i</span> の値ごとに <span class="math inline">u_i</span> の平均が偏らない</strong></li>
+<li>つまり <strong><span class="math inline">x_i</span> と誤差が平均的に無関係</strong></li>
+</ul>
+<p>という縛りを入れることで、「<span class="math inline">\beta_1</span> をどう選んでもよい」状態を終わらせてくれる。</p>
+<p>この縛りがあると、<span class="math inline">\beta_1</span> を好き勝手に動かして <span class="math inline">u_i</span> を作り直すことができなくなり、 「データと仮定の両方に整合的な <span class="math inline">\beta_1</span>」が（典型的には）一意に定まるようになる。</p>
+</section>
+</section>
+<section id="説明変数がランダムの正体" class="level2">
+<h2 class="anchored" data-anchor-id="説明変数がランダムの正体">「説明変数がランダム」の正体</h2>
+<p>A/Bテストのように <span class="math inline">x_i</span>（あるいは処置 <span class="math inline">d_i</span>）が本当にランダムに割り当てられていると、能力・嗜好・購買意欲などの「見えない要因」は、A群とB群で平均的に揃う。</p>
+<p>その状況を数式にしたものが、まさに</p>
+<p><span class="math display">
+E[u_i\mid x_i]=0
+</span></p>
+<p>なのである。</p>
+<p>つまり、<strong>「説明変数がランダムっぽいからOLSでも良さそう」</strong>とは、正確には<br>
+<strong>「説明変数の値によって誤差の平均が偏らないので、回帰の傾きが“単なるパターン”ではなく“因果パラメータ”として解釈できる」</strong><br>
+という意味なのである。</p>
+<p>以下でいくつかの例を通してこの条件が何を意味するかをもっと実感する。</p>
+</section>
+<section id="シミュレーションの共通設定" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションの共通設定">シミュレーションの共通設定</h2>
+<ul>
+<li>真の係数：<span class="math inline">\beta_0=1,\ \beta_1=2</span></li>
+<li>サンプルサイズ：<span class="math inline">n=200</span></li>
+<li>繰り返し回数：<span class="math inline">R=2000</span></li>
+<li>説明変数：<span class="math inline">x_i\sim N(0,1)</span></li>
+</ul>
+<p>各実験で、誤差 <span class="math inline">u_i</span> の作り方だけを変える。</p>
+<section id="共通のrコード関数と設定" class="level3">
+<h3 class="anchored" data-anchor-id="共通のrコード関数と設定">共通のRコード（関数と設定）</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co"># --- true parameters ---</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>beta0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>beta1 <span class="ot">&lt;-</span> <span class="dv">2</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="co"># --- simulation settings ---</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">200</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>R <span class="ot">&lt;-</span> <span class="dv">2000</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="co"># --- helper: one OLS slope/intercept from generated (x,y) ---</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>ols_coef <span class="ot">&lt;-</span> <span class="cf">function</span>(x, y) {</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>  cf <span class="ot">&lt;-</span> <span class="fu">coef</span>(<span class="fu">lm</span>(y <span class="sc">~</span> x))</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="at">a_hat =</span> <span class="fu">unname</span>(cf[<span class="dv">1</span>]), <span class="at">b_hat =</span> <span class="fu">unname</span>(cf[<span class="dv">2</span>]))</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="co"># --- helper: run many reps, given a generator for u (can depend on x) ---</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>run_sim <span class="ot">&lt;-</span> <span class="cf">function</span>(u_generator, label) {</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>  a_hat <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>  b_hat <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R) {</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>    x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    u <span class="ot">&lt;-</span> <span class="fu">u_generator</span>(x)</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>    y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>    cf <span class="ot">&lt;-</span> <span class="fu">ols_coef</span>(x, y)</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>    a_hat[r] <span class="ot">&lt;-</span> cf[<span class="dv">1</span>]</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>    b_hat[r] <span class="ot">&lt;-</span> cf[<span class="dv">2</span>]</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">label =</span> label, <span class="at">a_hat =</span> a_hat, <span class="at">b_hat =</span> b_hat)</span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>summarize_sim <span class="ot">&lt;-</span> <span class="cf">function</span>(sim) {</span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(</span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_a =</span> <span class="fu">mean</span>(sim<span class="sc">$</span>a_hat),</span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_b =</span> <span class="fu">mean</span>(sim<span class="sc">$</span>b_hat),</span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">sd_a   =</span> <span class="fu">sd</span>(sim<span class="sc">$</span>a_hat),</span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>    <span class="at">sd_b   =</span> <span class="fu">sd</span>(sim<span class="sc">$</span>b_hat)</span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="例1ノイズの分布が正規分布じゃない時しかも-bimodal" class="level3">
+<h3 class="anchored" data-anchor-id="例1ノイズの分布が正規分布じゃない時しかも-bimodal">例1：ノイズの分布が正規分布じゃない時（しかも bimodal）</h3>
+<p>誤差 <span class="math inline">u_i</span> が正規分布でなくても、条件 <span class="math inline">E[u_i\mid x_i]=0</span> が成り立つなら、OLSは <span class="math inline">\beta_1</span> を識別できる。<br>
+ここでは <strong>二峰性（bimodal）</strong> をはっきり見せたいので、誤差を「2つの正規分布の混合（mixture）」で作る。</p>
+<ul>
+<li><span class="math inline">u_i</span> は <strong>正規ではない</strong>（二峰性になる）</li>
+<li>ただし <span class="math inline">x</span> とは独立で、平均は0（外生性が成り立つ）</li>
+</ul>
+<p>具体的には、確率 <span class="math inline">1/2</span> で <span class="math inline">+m</span> の周り、確率 <span class="math inline">1/2</span> で <span class="math inline">-m</span> の周りに誤差が出るようにする：</p>
+<p><span class="math display">
+u_i=
+\begin{cases}
+m+\varepsilon_i &amp; \text{with prob } 1/2 \\
+-m+\varepsilon_i &amp; \text{with prob } 1/2
+\end{cases}
+\qquad (\varepsilon_i\sim N(0,\sigma^2))
+</span></p>
+<p>このとき <span class="math inline">E[u_i]=0</span> なので <span class="math inline">E[u_i\mid x_i]=0</span> が成り立つ。</p>
+<section id="まず1回だけ図示" class="level4">
+<h4 class="anchored" data-anchor-id="まず1回だけ図示">まず1回だけ図示</h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">101</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 1回分のデータを作る（図示用）</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">3</span>       <span class="co"># 2つの山の中心（±m）</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>sigma <span class="ot">&lt;-</span> <span class="fl">0.7</span> <span class="co"># 各山の広がり</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>s <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>), <span class="at">size =</span> n, <span class="at">replace =</span> <span class="cn">TRUE</span>)  <span class="co"># -1 or +1 を等確率で</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> s <span class="sc">*</span> m <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="dv">0</span>, sigma)</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="co"># 散布図：y vs x</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(x, y, <span class="at">pch =</span> <span class="dv">16</span>,</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"x"</span>, <span class="at">ylab =</span> <span class="st">"y"</span>,</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 1 (one dataset): y vs x (bimodal noise)"</span>)</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の直線</span></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">a =</span> beta0, <span class="at">b =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a><span class="co"># OLS直線（この1回分）</span></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>fit_one <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(fit_one, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topleft"</span>,</span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"true line"</span>, <span class="st">"OLS line (one dataset)"</span>),</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>       <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 誤差uの分布（本当に二峰性か確認）</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(u, <span class="at">breaks =</span> <span class="dv">40</span>,</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 1 (one dataset): distribution of u"</span>,</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"u"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-8-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="推定" class="level4">
+<h4 class="anchored" data-anchor-id="推定">推定</h4>
+<p>「サンプルを作って、OLSを計算する」というのをたくさんやる。</p>
+<p>出てくるサンプルごとにOLSの値は異なるので、一回こっきりのOLSがパラメータに近くても、それはたまたまかもしれない。</p>
+<p>この懸念を払拭するため、何回も異なるサンプルからOLSを計算して、その結果がどのように分布するのかをみるのが、推定量がパラメータをちゃんと識別できているのかをチェックするために効果的である。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># bimodal error generator: mixture of two normals centered at ±m</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">3</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>sigma <span class="ot">&lt;-</span> <span class="fl">0.7</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>sim1 <span class="ot">&lt;-</span> <span class="fu">run_sim</span>(</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">u_generator =</span> <span class="cf">function</span>(x) {</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    s <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>), <span class="at">size =</span> <span class="fu">length</span>(x), <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    s <span class="sc">*</span> m <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">length</span>(x), <span class="dv">0</span>, sigma)</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>  },</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="st">"Example 1: non-normal u (bimodal mixture), E[u|x]=0 holds"</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="co"># b_hatの分布</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(sim1<span class="sc">$</span>b_hat, <span class="at">breaks =</span> <span class="dv">40</span>,</span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 1: distribution of b_hat (bimodal u)"</span>,</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"b_hat"</span>)</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="解説" class="level4">
+<h4 class="anchored" data-anchor-id="解説">解説</h4>
+<p>誤差が正規である必要はない。重要なのは <strong>平均的に <span class="math inline">x</span> と無関係</strong>（<span class="math inline">E[u\mid x]=0</span>）であることだ。 非正規だと外れ値が出やすく、推定値の分布が裾の厚い形になりやすいが、中心は <span class="math inline">\beta_1</span> の近くに来る。</p>
+</section>
+</section>
+<section id="例2ノイズの分布の平均が-0-じゃない時" class="level3">
+<h3 class="anchored" data-anchor-id="例2ノイズの分布の平均が-0-じゃない時">例2：ノイズの分布の平均が <span class="math inline">0</span> じゃない時</h3>
+<p>誤差の平均が0でないと聞くと「OLSが壊れそう」に見えるが、<strong>平均が一定のズレ</strong>（全員に同じ上乗せ）なら傾きは壊れない。 代わりに切片がそのズレを吸収する。</p>
+<p>ここでは</p>
+<p><span class="math display">
+u_i=c+v_i,\qquad E[v_i]=0
+</span></p>
+<p>として <span class="math inline">c=1</span> を入れる。</p>
+<ul>
+<li><span class="math inline">E[u_i\mid x_i]=1</span>（0ではない）</li>
+<li>しかし <span class="math inline">x</span> に依存しない一定ズレなので、傾きは識別できる</li>
+<li>切片は <span class="math inline">\beta_0+c</span> にズレる</li>
+</ul>
+<section id="rコード平均が0でないが一定" class="level4">
+<h4 class="anchored" data-anchor-id="rコード平均が0でないが一定">Rコード（平均が0でないが一定）</h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>c0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>sim2 <span class="ot">&lt;-</span> <span class="fu">run_sim</span>(</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">u_generator =</span> <span class="cf">function</span>(x) c0 <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">length</span>(x), <span class="dv">0</span>, <span class="dv">1</span>),</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="st">"Example 2: E[u]=1 constant shift"</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a><span class="fu">summarize_sim</span>(sim2)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    mean_a     mean_b       sd_a       sd_b 
+1.99815139 1.99998300 0.07201228 0.07020900 </code></pre>
+</div>
+</div>
+</section>
+<section id="図で確認切片と傾き" class="level4">
+<h4 class="anchored" data-anchor-id="図で確認切片と傾き">図で確認（切片と傾き）</h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(sim2<span class="sc">$</span>b_hat, <span class="at">breaks =</span> <span class="dv">40</span>,</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 2: distribution of b_hat"</span>,</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"b_hat"</span>)</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(sim2<span class="sc">$</span>a_hat, <span class="at">breaks =</span> <span class="dv">40</span>,</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 2: distribution of a_hat"</span>,</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"a_hat"</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> beta0 <span class="sc">+</span> c0, <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-11-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="解説-1" class="level4">
+<h4 class="anchored" data-anchor-id="解説-1">解説</h4>
+<p><span class="math inline">u</span> の平均が0でないこと自体が「即、傾きの識別失敗」を意味しない。 <strong>一定の平均ズレ</strong>は切片が吸収するので、傾き <span class="math inline">\beta_1</span> は平均的に正しく推定される。</p>
+</section>
+</section>
+<section id="例3ノイズの分布が説明変数に依存する時" class="level3">
+<h3 class="anchored" data-anchor-id="例3ノイズの分布が説明変数に依存する時">例3：ノイズの分布が説明変数に依存する時</h3>
+<p>「依存する」の中身で話が変わる。</p>
+<ul>
+<li>(3A) 分散だけが <span class="math inline">x</span> に依存（<strong>不均一分散</strong>） <span class="math inline">E[u\mid x]=0</span> が成り立つなら傾きの識別は基本壊れない（ただし標準誤差の扱いが重要）。</li>
+<li>(3B) 平均が <span class="math inline">x</span> に依存（<strong>内生性</strong>） <span class="math inline">E[u\mid x]\neq 0</span> となり、傾きの識別が壊れる（バイアスが出る）。</li>
+</ul>
+<section id="例3a分散が-x-に依存する不均一分散" class="level4">
+<h4 class="anchored" data-anchor-id="例3a分散が-x-に依存する不均一分散">例3A：分散が <span class="math inline">x</span> に依存する（不均一分散）</h4>
+<p><span class="math display">
+u_i = \sigma(x_i)v_i,\qquad E[v_i\mid x_i]=0
+</span></p>
+<p>たとえば <span class="math inline">\sigma(x)=0.5+|x|</span> とすると、<span class="math inline">x</span> が大きいほど誤差の散らばりが増える。</p>
+<p>散布図と一回だけOLS</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">201</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 1回分のデータ（図示用）</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>sigma_x <span class="ot">&lt;-</span> <span class="fl">0.5</span> <span class="sc">+</span> <span class="fu">abs</span>(x)            <span class="co"># 分散（正確には標準偏差）がxに依存</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> sigma_x <span class="sc">*</span> <span class="fu">rnorm</span>(n, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 散布図 + 真の直線 + OLS直線（この1回分）</span></span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(x, y, <span class="at">pch =</span> <span class="dv">16</span>,</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"x"</span>, <span class="at">ylab =</span> <span class="st">"y"</span>,</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 3A (one dataset): heteroskedasticity (Var(u|x) depends on x)"</span>)</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">a =</span> beta0, <span class="at">b =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>)     <span class="co"># 真の直線</span></span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>fit_one <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(fit_one, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)         <span class="co"># 1回こっきりOLS</span></span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topleft"</span>,</span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"true line"</span>, <span class="st">"OLS line (one dataset)"</span>),</span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>       <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="rコード分散だけが依存" class="level4">
+<h4 class="anchored" data-anchor-id="rコード分散だけが依存">Rコード（分散だけが依存）</h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>sim3A <span class="ot">&lt;-</span> <span class="fu">run_sim</span>(</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">u_generator =</span> <span class="cf">function</span>(x) (<span class="fl">0.5</span> <span class="sc">+</span> <span class="fu">abs</span>(x)) <span class="sc">*</span> <span class="fu">rnorm</span>(<span class="fu">length</span>(x), <span class="dv">0</span>, <span class="dv">1</span>),</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="st">"Example 3A: variance depends on x (heteroskedasticity)"</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="fu">summarize_sim</span>(sim3A)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    mean_a     mean_b       sd_a       sd_b 
+0.99967608 1.99815642 0.09960058 0.15655209 </code></pre>
+</div>
+</div>
+</section>
+<section id="図で確認傾きの中心はだいたい合う" class="level4">
+<h4 class="anchored" data-anchor-id="図で確認傾きの中心はだいたい合う">図で確認（傾きの中心はだいたい合う）</h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(sim3A<span class="sc">$</span>b_hat, <span class="at">breaks =</span> <span class="dv">40</span>,</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 3A: distribution of b_hat (heteroskedasticity)"</span>,</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"b_hat"</span>)</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="解説参考" class="level4">
+<h4 class="anchored" data-anchor-id="解説参考">解説（参考）</h4>
+<p><span class="math inline">E[u\mid x]=0</span> が保たれている限り、傾きの中心は概ね <span class="math inline">\beta_1</span> にある。 ただし不均一分散は「推論」パートで注意が必要である。これについては後述。</p>
+</section>
+<section id="例3b平均が-x-に依存する内生性の最小例" class="level4">
+<h4 class="anchored" data-anchor-id="例3b平均が-x-に依存する内生性の最小例">例3B：平均が <span class="math inline">x</span> に依存する（内生性の最小例）</h4>
+<p><span class="math display">
+u_i = \rho x_i + v_i,\qquad E[v_i\mid x_i]=0
+</span></p>
+<p>とすると</p>
+<p><span class="math display">
+E[u_i\mid x_i]=\rho x_i
+</span></p>
+<p>となり外生性が破れる。するとOLSの傾きはズレる。</p>
+<p>散布図と一回だけOLS</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">202</span>)</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 1回分のデータ（図示用）</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>rho <span class="ot">&lt;-</span> <span class="fl">1.0</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> rho <span class="sc">*</span> x <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 散布図 + 真の直線 + OLS直線（この1回分）</span></span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(x, y, <span class="at">pch =</span> <span class="dv">16</span>,</span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"x"</span>, <span class="at">ylab =</span> <span class="st">"y"</span>,</span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 3B (one dataset): endogeneity (E[u|x] != 0)"</span>)</span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">a =</span> beta0, <span class="at">b =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>)     <span class="co"># 真の直線</span></span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>fit_one <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(fit_one, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)         <span class="co"># 1回こっきりOLS</span></span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topleft"</span>,</span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"true line"</span>, <span class="st">"OLS line (one dataset)"</span>),</span>
+<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>       <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="rコード平均が-x-に依存" class="level4">
+<h4 class="anchored" data-anchor-id="rコード平均が-x-に依存">Rコード（平均が <span class="math inline">x</span> に依存）</h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>rho <span class="ot">&lt;-</span> <span class="fl">1.0</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>sim3B <span class="ot">&lt;-</span> <span class="fu">run_sim</span>(</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">u_generator =</span> <span class="cf">function</span>(x) rho <span class="sc">*</span> x <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">length</span>(x), <span class="dv">0</span>, <span class="dv">1</span>),</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="st">"Example 3B: mean depends on x (endogeneity)"</span></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="fu">summarize_sim</span>(sim3B)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    mean_a     mean_b       sd_a       sd_b 
+1.00082801 3.00217339 0.06955953 0.06961053 </code></pre>
+</div>
+</div>
+</section>
+<section id="図で確認傾きがズレる" class="level4">
+<h4 class="anchored" data-anchor-id="図で確認傾きがズレる">図で確認（傾きがズレる）</h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(sim3B<span class="sc">$</span>b_hat, <span class="at">breaks =</span> <span class="dv">40</span>,</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 3B: distribution of b_hat (endogeneity)"</span>,</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"b_hat"</span>)</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="解説-2" class="level4">
+<h4 class="anchored" data-anchor-id="解説-2">解説</h4>
+<p><span class="math inline">u</span> に <span class="math inline">\rho x</span> が混ざると、<span class="math inline">y</span> の中で <span class="math inline">x</span> と一緒に動く部分が誤差にも入ってしまう。 OLSはそれを傾きとして回収するので、本来の <span class="math inline">\beta_1</span> に加えて <span class="math inline">\rho</span> の分まで拾い、傾きがズレる。</p>
+</section>
+</section>
+<section id="例4ノイズがサンプル間で相関するとき時系列っぽい誤差" class="level3">
+<h3 class="anchored" data-anchor-id="例4ノイズがサンプル間で相関するとき時系列っぽい誤差">例4：ノイズがサンプル間で相関するとき（時系列っぽい誤差）</h3>
+<p>ここまでは「各サンプル <span class="math inline">i</span> の誤差 <span class="math inline">u_i</span> は、別のサンプル <span class="math inline">j</span> の誤差とは関係ない（独立っぽい）」という状況を暗黙に想定していた。<br>
+しかし時系列データやパネルデータでは、誤差がサンプル間で相関することが普通に起きる。</p>
+<p>典型例は <strong>AR(1)</strong> で、誤差が</p>
+<p><span class="math display">
+u_t=\rho u_{t-1}+\varepsilon_t,\qquad |\rho|&lt;1
+</span></p>
+<p>のように「前期の誤差を引きずる」形になる。ここで <span class="math inline">\varepsilon_t</span> は平均0のショックだ。</p>
+<p>このとき<strong><span class="math inline">x_t</span> と誤差の平均が無関係（外生性）なら、傾きは概ね識別できる</strong></p>
+<p>モデルは</p>
+<p><span class="math display">
+y_t=\beta_0+\beta_1 x_t + u_t
+</span></p>
+<p>で、<span class="math inline">x_t</span> は誤差と独立に作る。誤差 <span class="math inline">u_t</span> はAR(1)にする。</p>
+<p>このとき、OLSの傾き <span class="math inline">\widehat{b}</span> は平均的には <span class="math inline">\beta_1</span> の近くに来るはずだ。<br>
+ただし誤差が相関しているので、「推定のブレ（標準誤差）」の評価は単純な仮定（独立）だと壊れやすい。</p>
+<p>散布図と一回こっきりのOLS</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">301</span>)</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a><span class="co"># settings</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>n_ts <span class="ot">&lt;-</span> n          <span class="co"># 既に n &lt;- 200 を使っている想定</span></span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>rho_ar <span class="ot">&lt;-</span> <span class="fl">0.7</span></span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>sigma_eps <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a><span class="co"># generate one dataset</span></span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a>t <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">:</span>n_ts</span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a><span class="co"># x_t is exogenous</span></span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_ts, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a><span class="co"># AR(1) error: u_t = rho u_{t-1} + eps_t</span></span>
+<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a>eps <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_ts, <span class="dv">0</span>, sigma_eps)</span>
+<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> <span class="fu">numeric</span>(n_ts)</span>
+<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a>u[<span class="dv">1</span>] <span class="ot">&lt;-</span> eps[<span class="dv">1</span>]</span>
+<span id="cb28-22"><a href="#cb28-22" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (k <span class="cf">in</span> <span class="dv">2</span><span class="sc">:</span>n_ts) {</span>
+<span id="cb28-23"><a href="#cb28-23" aria-hidden="true" tabindex="-1"></a>  u[k] <span class="ot">&lt;-</span> rho_ar <span class="sc">*</span> u[k<span class="dv">-1</span>] <span class="sc">+</span> eps[k]</span>
+<span id="cb28-24"><a href="#cb28-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb28-25"><a href="#cb28-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-26"><a href="#cb28-26" aria-hidden="true" tabindex="-1"></a><span class="co"># outcome</span></span>
+<span id="cb28-27"><a href="#cb28-27" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb28-28"><a href="#cb28-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-29"><a href="#cb28-29" aria-hidden="true" tabindex="-1"></a><span class="co"># one-shot OLS</span></span>
+<span id="cb28-30"><a href="#cb28-30" aria-hidden="true" tabindex="-1"></a>fit_one <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb28-31"><a href="#cb28-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-32"><a href="#cb28-32" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb28-33"><a href="#cb28-33" aria-hidden="true" tabindex="-1"></a><span class="co"># show coefficients (optional)</span></span>
+<span id="cb28-34"><a href="#cb28-34" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb28-35"><a href="#cb28-35" aria-hidden="true" tabindex="-1"></a><span class="fu">coef</span>(fit_one)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>(Intercept)           x 
+  0.9221826   1.9661574 </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="co"># plots</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="co"># (1) time series of u_t</span></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(t, u, <span class="at">type =</span> <span class="st">"l"</span>,</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"t"</span>, <span class="at">ylab =</span> <span class="st">"u_t"</span>,</span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 4A (one dataset): AR(1) errors u_t"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># (2) time series of y_t</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(t, y, <span class="at">type =</span> <span class="st">"l"</span>,</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"t"</span>, <span class="at">ylab =</span> <span class="st">"y_t"</span>,</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 4A (one dataset): y_t over time"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-18-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="co"># (3) scatter + true line + OLS line</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(x, y, <span class="at">pch =</span> <span class="dv">16</span>,</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"x_t"</span>, <span class="at">ylab =</span> <span class="st">"y_t"</span>,</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 4A (one dataset): y_t vs x_t with AR(1) errors"</span>)</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">a =</span> beta0, <span class="at">b =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>)   <span class="co"># true line</span></span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(fit_one, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)       <span class="co"># OLS line (one dataset)</span></span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topleft"</span>,</span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"true line"</span>, <span class="st">"OLS line (one dataset)"</span>),</span>
+<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a>       <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-18-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<section id="rコードar1誤差でols" class="level5">
+<h5 class="anchored" data-anchor-id="rコードar1誤差でols">Rコード（AR(1)誤差でOLS）</h5>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>rho_ar <span class="ot">&lt;-</span> <span class="fl">0.7</span>   <span class="co"># 誤差の自己相関</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>sigma_eps <span class="ot">&lt;-</span> <span class="dv">1</span>  <span class="co"># ショックの標準偏差</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>sim4A <span class="ot">&lt;-</span> <span class="fu">run_sim</span>(</span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">u_generator =</span> <span class="cf">function</span>(x) {</span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>    <span class="co"># AR(1): u_t = rho u_{t-1} + eps_t</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a>    eps <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(<span class="fu">length</span>(x), <span class="dv">0</span>, sigma_eps)</span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>    u <span class="ot">&lt;-</span> <span class="fu">numeric</span>(<span class="fu">length</span>(x))</span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a>    u[<span class="dv">1</span>] <span class="ot">&lt;-</span> eps[<span class="dv">1</span>]</span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (t <span class="cf">in</span> <span class="dv">2</span><span class="sc">:</span><span class="fu">length</span>(x)) {</span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a>      u[t] <span class="ot">&lt;-</span> rho_ar <span class="sc">*</span> u[t<span class="dv">-1</span>] <span class="sc">+</span> eps[t]</span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a>    u</span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a>  },</span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="st">"Example 4A: serially correlated u (AR(1)), exogeneity holds"</span></span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a><span class="fu">summarize_sim</span>(sim4A)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    mean_a     mean_b       sd_a       sd_b 
+1.00056564 1.99820675 0.22907897 0.09860308 </code></pre>
+</div>
+</div>
+</section>
+<section id="図で確認傾きの推定値の分布" class="level5">
+<h5 class="anchored" data-anchor-id="図で確認傾きの推定値の分布">図で確認（傾きの推定値の分布）</h5>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(sim4A<span class="sc">$</span>b_hat, <span class="at">breaks =</span> <span class="dv">40</span>,</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Example 4A: distribution of b_hat (AR(1) errors)"</span>,</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"b_hat"</span>)</span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="解説-3" class="level5">
+<h5 class="anchored" data-anchor-id="解説-3">解説</h5>
+<ul>
+<li>誤差がサンプル間で相関していても、<span class="math inline">x_t</span> と誤差の平均が無関係（<span class="math inline">E[u_t\mid x_t]=0</span>）なら、傾きは概ね狙える。</li>
+<li>ただし誤差の相関は「推論」に効く。独立を仮定した標準誤差はだいたい間違う。 時系列だとHAC（Newey-West）みたいな標準誤差が必要、という話に繋がる。</li>
+</ul>
+<div class="callout callout-style-simple callout-important callout-titled" title="ここから先は仮定つきの話">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>ここから先は仮定つきの話
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>以下の不偏性・分散・一致性・漸近正規性は、<strong><span class="math inline">E[u_i \mid x_i]=0</span> などの仮定の下で</strong>初めて意味を持つ。<br>
+前半で見た「定義から出る性質」と、ここで見る「推定量としての性質」は分けて読むのが大事である。</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+</section>
+<section id="ols-の性質推定量としての性質" class="level1">
+<h1>OLS の性質：推定量としての性質</h1>
+<p>欲しいパラメータを識別できているなら、OLS は「推定量」として妥当である。ここで述べる性質は、OLS の定義から直接導かれるものではなく、</p>
+<p><span class="math display">
+E[u_i \mid x_i] = 0
+</span></p>
+<p>という仮定の下で成立する性質である。</p>
+<p>以下では、OLS 推定量を</p>
+<p><span class="math display">
+\hat\beta_1=\frac{\sum_{i=1}^n (x_i-\bar x)(y_i-\bar y)}{\sum_{i=1}^n (x_i-\bar x)^2}
+</span></p>
+<p>と書き、この推定量の性質を見ていく。</p>
+<p>ここでのメッセージは、<strong>OLS はかなり扱いやすく、強い性質を持つ推定量である</strong>、ということである。 ## 1. 不偏性（平均的に当たる）</p>
+<p><span class="math inline">E[u_i\mid x_i]=0</span> が成り立つとき、OLSは<strong>平均的に正しい</strong>。</p>
+<p>直感はこうだ：</p>
+<ul>
+<li><span class="math inline">y_i=\beta_0+\beta_1 x_i+u_i</span> なので、OLSが見ている <span class="math inline">y</span> のブレには <span class="math inline">u</span> が混ざっている</li>
+<li>しかし <span class="math inline">E[u_i\mid x_i]=0</span> なら、<span class="math inline">x</span> の大きさによって <span class="math inline">u</span> が平均的に偏らない</li>
+<li>その結果、<span class="math inline">x</span> と <span class="math inline">y</span> の共変動は「<span class="math inline">\beta_1 x</span> の部分」から来るものとして回収できる</li>
+</ul>
+<p>よりフォーマルには、</p>
+<p><span class="math display">
+E[\hat\beta_1]=\beta_1
+</span></p>
+<p>が成り立つ。</p>
+<p>これを不偏性と呼ぶ。</p>
+<p>先ほどのシミュレーションで、「一回こっきりのOLSではたまたまその結果かもしれないから何度もOLSをやって、その度に得られるOLSの結果をヒストグラムにした」ことを思い出そう。</p>
+<p>あのヒストグラムが「本当の<span class="math inline">\beta_1</span>」に山の中心を持つようなグラフの時、<strong>平均的にはOLSは正しい値である</strong>ということで、これこそ不偏性である。</p>
+<section id="分散と標準誤差の公式がある" class="level2">
+<h2 class="anchored" data-anchor-id="分散と標準誤差の公式がある">2. 分散と標準誤差の公式がある</h2>
+<p>推定値にはブレがある。ブレの大きさは概ね</p>
+<ul>
+<li>誤差 <span class="math inline">u_i</span> がどれくらい大きいか（ノイズが強いか）</li>
+<li><span class="math inline">x_i</span> がどれくらい散らばっているか（説明変数の情報量があるか）</li>
+<li>サンプルサイズ <span class="math inline">n</span> がどれくらい大きいか</li>
+</ul>
+<p>で決まる。</p>
+<p>特に重要な直感は：</p>
+<ul>
+<li><strong><span class="math inline">x</span> の分散が大きいほど、傾きは精密に推定できる</strong></li>
+<li><strong><span class="math inline">n</span> が大きいほど、標準誤差は小さくなる</strong></li>
+</ul>
+<p>である。これらはどちらも直感的に「推定量ならこうあってほしい」という性質で、OLSはこれらを満たす。</p>
+<p>さらに、OLSの分散は以下のように直接計算することができる。</p>
+<section id="olsの推定量を誤差の重み付き平均として書く" class="level3">
+<h3 class="anchored" data-anchor-id="olsの推定量を誤差の重み付き平均として書く">2.1 OLSの推定量を「誤差の重み付き平均」として書く</h3>
+<p>まず、単回帰（切片あり）では</p>
+<p><span class="math display">
+\hat\beta_1=\frac{\sum_{i=1}^n (x_i-\bar x)(y_i-\bar y)}{\sum_{i=1}^n (x_i-\bar x)^2}
+</span></p>
+<p>である。真のモデル <span class="math inline">y_i=\beta_0+\beta_1 x_i+u_i</span> を代入すると</p>
+<p><span class="math display">
+\hat\beta_1-\beta_1
+=\frac{\sum_{i=1}^n (x_i-\bar x)u_i}{\sum_{i=1}^n (x_i-\bar x)^2}.
+</span></p>
+<p>つまり、OLSの誤差は「<span class="math inline">u_i</span> の重み付き平均」になっている。</p>
+<p>重みは <span class="math inline">(x_i-\bar x)</span> であり、<span class="math inline">x</span> が平均から離れている観測ほど、傾きの推定に強く効く。</p>
+</section>
+<section id="条件付き分散x-を固定して見た分散" class="level3">
+<h3 class="anchored" data-anchor-id="条件付き分散x-を固定して見た分散">2.2 条件付き分散（<span class="math inline">x</span> を固定して見た分散）</h3>
+<p>ここで <span class="math inline">x_1,\dots,x_n</span> を固定したときの分散（条件付き分散）を考える。</p>
+<p>追加の仮定として、誤差が</p>
+<ul>
+<li><span class="math inline">\mathrm{Var}(u_i\mid x_i)=\sigma^2</span>（同分散）</li>
+<li><span class="math inline">\mathrm{Cov}(u_i,u_j\mid x)=0 \ (i\neq j)</span>（相関なし）</li>
+</ul>
+<p>を満たすとしよう（いわゆる <strong>古典的仮定</strong>）。</p>
+<p>このとき</p>
+<p><span class="math display">
+\mathrm{Var}(\hat\beta_1\mid x)
+= \mathrm{Var}\!\left(
+\frac{\sum_{i=1}^n (x_i-\bar x)u_i}{\sum_{i=1}^n (x_i-\bar x)^2}
+\ \middle|\ x\right)
+= \frac{\sigma^2}{\sum_{i=1}^n (x_i-\bar x)^2}.
+</span></p>
+<p>これが単回帰OLSの分散の基本公式である。</p>
+</section>
+<section id="直感の確認x-が散らばるほど小さくなるn-が増えるほど小さくなる" class="level3">
+<h3 class="anchored" data-anchor-id="直感の確認x-が散らばるほど小さくなるn-が増えるほど小さくなる">2.3 直感の確認：「<span class="math inline">x</span> が散らばるほど小さくなる」「<span class="math inline">n</span> が増えるほど小さくなる」</h3>
+<p>上の式から、</p>
+<ul>
+<li>分母に <span class="math inline">\sum (x_i-\bar x)^2</span> が入っている<br>
+→ <span class="math inline">x</span> がよく散らばっている（情報量が多い）ほど分散が小さい</li>
+<li>典型的には <span class="math inline">\sum (x_i-\bar x)^2</span> は <span class="math inline">n</span> に比例して大きくなる<br>
+→ サンプルサイズが増えるほど分散が小さい</li>
+</ul>
+<p>がそのまま読める。</p>
+</section>
+<section id="標準誤差sigma2-は未知なので推定して代入する" class="level3">
+<h3 class="anchored" data-anchor-id="標準誤差sigma2-は未知なので推定して代入する">2.4 標準誤差：<span class="math inline">\sigma^2</span> は未知なので推定して代入する</h3>
+<p>分散公式には <span class="math inline">\sigma^2</span> が出てくるが、これは未知なのでデータから推定する。</p>
+<p>まず残差を</p>
+<p><span class="math display">
+\hat u_i = y_i-\hat\beta_0-\hat\beta_1 x_i
+</span></p>
+<p>と定義し、誤差分散を</p>
+<p><span class="math display">
+\hat\sigma^2=\frac{1}{n-2}\sum_{i=1}^n \hat u_i^2
+</span></p>
+<p>で推定する（自由度が <span class="math inline">n-2</span> なのは、<span class="math inline">\beta_0,\beta_1</span> の2つを推定した分だけ「使った」から）。</p>
+<p>ここで<span class="math inline">\frac{1}{n}</span>とかにすると、不偏性がなくなる。</p>
+<p>すると、<span class="math inline">\hat\beta_1</span> の分散推定量は</p>
+<p><span class="math display">
+\widehat{\mathrm{Var}}(\hat\beta_1\mid x)
+=\frac{\hat\sigma^2}{\sum_{i=1}^n (x_i-\bar x)^2}.
+</span></p>
+<p>そして <strong>標準誤差（standard error）</strong> は、この平方根：</p>
+<p><span class="math display">
+\mathrm{se}(\hat\beta_1)
+=\sqrt{\widehat{\mathrm{Var}}(\hat\beta_1\mid x)}
+=\sqrt{\frac{\hat\sigma^2}{\sum_{i=1}^n (x_i-\bar x)^2}}.
+</span></p>
+</section>
+<section id="なぜ分母が-n-2-なのか" class="level3">
+<h3 class="anchored" data-anchor-id="なぜ分母が-n-2-なのか">なぜ分母が <span class="math inline">n-2</span> なのか</h3>
+<p>単回帰（切片あり） <span class="math display">
+y_i=\beta_0+\beta_1 x_i+u_i
+</span> を考える。OLS推定値 <span class="math inline">(\hat\beta_0,\hat\beta_1)</span> による残差を <span class="math display">
+\hat u_i \equiv y_i-\hat\beta_0-\hat\beta_1 x_i
+</span> と書く。</p>
+<p>ここで重要なのは、OLSは残差平方和 <span class="math display">
+S(\beta_0,\beta_1)=\sum_{i=1}^n (y_i-\beta_0-\beta_1 x_i)^2
+</span> を最小化していることだ。</p>
+<hr>
+<section id="ステップ1olsの一階条件正規方程式" class="level4">
+<h4 class="anchored" data-anchor-id="ステップ1olsの一階条件正規方程式">ステップ1：OLSの一階条件（正規方程式）</h4>
+<p>最小化の一階条件は <span class="math display">
+\frac{\partial S}{\partial \beta_0}= -2\sum_{i=1}^n (y_i-\hat\beta_0-\hat\beta_1 x_i)= -2\sum_{i=1}^n \hat u_i =0
+</span> <span class="math display">
+\frac{\partial S}{\partial \beta_1}= -2\sum_{i=1}^n x_i (y_i-\hat\beta_0-\hat\beta_1 x_i)= -2\sum_{i=1}^n x_i\hat u_i =0
+</span> つまり <span class="math display">
+\sum_{i=1}^n \hat u_i =0,\qquad \sum_{i=1}^n x_i\hat u_i=0
+</span> が成り立つ（残差は「定数」と「<span class="math inline">x</span>」に直交する）。</p>
+<hr>
+</section>
+<section id="ステップ2残差を真の誤差で書き直す" class="level4">
+<h4 class="anchored" data-anchor-id="ステップ2残差を真の誤差で書き直す">ステップ2：残差を真の誤差で書き直す</h4>
+<p>真のモデル <span class="math inline">y_i=\beta_0+\beta_1 x_i+u_i</span> を使うと <span class="math display">
+\hat u_i
+= y_i-\hat\beta_0-\hat\beta_1 x_i
+= u_i-(\hat\beta_0-\beta_0)-(\hat\beta_1-\beta_1)x_i.
+</span> ここで <span class="math display">
+a\equiv \hat\beta_0-\beta_0,\qquad b\equiv \hat\beta_1-\beta_1
+</span> と置けば <span class="math display">
+\hat u_i=u_i-a-bx_i.
+</span></p>
+<hr>
+</section>
+<section id="ステップ3sse残差平方和を展開する" class="level4">
+<h4 class="anchored" data-anchor-id="ステップ3sse残差平方和を展開する">ステップ3：SSE（残差平方和）を展開する</h4>
+<p>残差平方和（SSE）は <span class="math display">\begin{align*}
+\sum_{i=1}^n \hat u_i^2 &amp;=\sum_{i=1}^n (u_i-a-bx_i)^2\\
+&amp;=\sum_{i=1}^n u_i^2 \;-\;2a\sum_{i=1}^n u_i \;-\;2b\sum_{i=1}^n x_i u_i
+\;+\; a^2 n \;+\;2ab\sum_{i=1}^n x_i \;+\; b^2\sum_{i=1}^n x_i^2.
+\end{align*}</span></p>
+<p>ここでポイントは、<strong>OLSの一階条件</strong>を真の誤差 <span class="math inline">u_i</span> で書き直せること。</p>
+<p>実際、<span class="math inline">\sum \hat u_i=0</span> と <span class="math inline">\sum x_i\hat u_i=0</span> に <span class="math inline">\hat u_i=u_i-a-bx_i</span> を代入すると <span class="math display">
+\sum_{i=1}^n u_i = an + b\sum_{i=1}^n x_i,
+</span> <span class="math display">
+\sum_{i=1}^n x_i u_i = a\sum_{i=1}^n x_i + b\sum_{i=1}^n x_i^2.
+</span></p>
+<p>これをさっきのSSE展開式に代入すると、交差項がきれいに消えて</p>
+<p><span class="math display">
+\sum_{i=1}^n \hat u_i^2
+=\sum_{i=1}^n u_i^2 \;-\;\Big( a^2 n + 2ab\sum_{i=1}^n x_i + b^2\sum_{i=1}^n x_i^2 \Big).
+</span></p>
+<p>つまり &gt; SSE は「真の誤差の二乗和」から、<span class="math inline">a,b</span>（2つの推定でフィットした分）だけ確実に差し引かれる。</p>
+<hr>
+</section>
+<section id="ステップ4期待値を取るここで初めて確率の仮定" class="level4">
+<h4 class="anchored" data-anchor-id="ステップ4期待値を取るここで初めて確率の仮定">ステップ4：期待値を取る（ここで初めて確率の仮定）</h4>
+<p>古典的仮定の下で（特に <span class="math inline">E[u_i\mid x_i]=0</span> と同分散） <span class="math display">
+E\!\left[\sum_{i=1}^n u_i^2 \mid x\right]=n\sigma^2.
+</span></p>
+<p>また少し計算すると（ここは結論だけ覚えればOK） <span class="math display">
+E\!\left[a^2 n + 2ab\sum x_i + b^2\sum x_i^2 \mid x\right]=2\sigma^2.
+</span></p>
+<p>よって <span class="math display">
+E\!\left[\sum_{i=1}^n \hat u_i^2 \mid x\right]
+= n\sigma^2 - 2\sigma^2
+= (n-2)\sigma^2.
+</span></p>
+<hr>
+</section>
+<section id="結論1n-2-なら不偏1n-だと下に偏る" class="level4">
+<h4 class="anchored" data-anchor-id="結論1n-2-なら不偏1n-だと下に偏る">結論：<span class="math inline">1/(n-2)</span> なら不偏、<span class="math inline">1/n</span> だと下に偏る</h4>
+<p>したがって <span class="math display">
+\hat\sigma^2=\frac{1}{n-2}\sum_{i=1}^n \hat u_i^2
+</span> は <span class="math display">
+E[\hat\sigma^2\mid x]=\sigma^2
+</span> を満たす（不偏）。</p>
+<p>一方で <span class="math display">
+\tilde\sigma^2=\frac{1}{n}\sum_{i=1}^n \hat u_i^2
+</span> だと <span class="math display">
+E[\tilde\sigma^2\mid x]=\frac{n-2}{n}\sigma^2
+</span> となり、<strong>下方バイアス</strong>になる。</p>
+<p>（ただし <span class="math inline">n</span> が大きいと <span class="math inline">(n-2)/n\approx1</span> なので、実務上の違いは小さくなる。）</p>
+<hr>
+<p>ここまでの二つの性質はデータの数、つまり<strong>サンプル数</strong>が固定されている時の性質。</p>
+<p>ここから先二つは<strong>サンプル数を増やすと良いことがある</strong>という性質。</p>
+</section>
+</section>
+</section>
+<section id="一致性サンプルが増えると真値に近づく" class="level2">
+<h2 class="anchored" data-anchor-id="一致性サンプルが増えると真値に近づく">3. 一致性（サンプルが増えると真値に近づく）</h2>
+<p>正直不偏かどうか以上に重要なのが <strong>一致性</strong> である。</p>
+<p><span class="math display">
+\hat\beta_1 \xrightarrow[]{p} \beta_1 \qquad (n\to\infty)
+</span></p>
+<p>つまり、データが大量に集まれば、OLSの推定値は確率的に真の <span class="math inline">\beta_1</span> に近づく。</p>
+<ul>
+<li><span class="math inline">E[u_i\mid x_i]=0</span> により「誤差の偏り」が平均的に打ち消される</li>
+<li><span class="math inline">n</span> が増えるほどその打ち消しが効いてくる</li>
+</ul>
+<p>というイメージで理解してよい。</p>
+<p>今の知識で一致性の主張を正確に理解することは無理なので、<strong>データがいっぱいあると平均的にどころか、確実に真のパラメータの値に近くなる</strong>と思っておこう。</p>
+</section>
+<section id="漸近正規性大標本で正規分布っぽくなる" class="level2">
+<h2 class="anchored" data-anchor-id="漸近正規性大標本で正規分布っぽくなる">4. 漸近正規性（大標本で正規分布っぽくなる）</h2>
+<p>大標本では、OLS推定量は正規分布で近似できる：</p>
+<p><span class="math display">
+\sqrt{n}\,(\hat\beta_1-\beta_1)\ \Rightarrow\ N(0,\,V)
+</span></p>
+<p>これが成り立つから、私たちは</p>
+<ul>
+<li>信頼区間</li>
+<li>t検定（係数がゼロかどうか）</li>
+<li>p値</li>
+</ul>
+<p>といった推論（inference）ができる。</p>
+<p>今の知識で漸近正規性の主張を正確に理解することは無理なので、<strong>データがいっぱいあるとOLSと真のパラメータのズレは正規分布に従う</strong>と思っておこう。</p>
+</section>
+</section>
+<section id="まとめ" class="level1">
+<h1>まとめ</h1>
+<ul>
+<li>OLS は、<strong>残差平方和を最小にする直線</strong>として定義される。</li>
+<li>平均点を通る・残差和が 0 になるなどの性質は、<strong>定義から自動的に出る</strong>。</li>
+<li>その傾きを「欲しいパラメータ」と読めるのは、<strong><span class="math inline">E[u_i\mid x_i]=0</span></strong> のような識別条件があるときである。</li>
+<li>その条件の下で、OLS には不偏性・一致性・漸近正規性などの<strong>推定量としてのよい性質</strong>がある。</li>
+</ul>
+</section>
+<section id="宿題" class="level1">
+<h1>宿題</h1>
+<ul>
+<li>と書いた部分の式展開を自分でやってみよう</li>
+<li>OLS でも欲しいパラメータが識別できそうな例と、できなさそうな例を自分で考えてみよう</li>
+<li>関数の最適化問題を完全に忘れていた人は、しっかり復習した方がよい
+<ul>
+<li>経済学に出てくる数学ちっくな問題は全て関数の最適化問題なので</li>
+</ul></li>
+<li>OLSを求めるのに一階条件を見たが、これで本当にとけてるためには二階条件ってのも必要
+<ul>
+<li>OLSを求めるときにこの条件が満たされているのかを確認してみよう</li>
+</ul></li>
+<li>次回はOLSの推論をやるので、t-testとかを復習しておこう
+<ul>
+<li>ChatGPTに統計的仮説検定について教えてもらおう</li>
+<li>t-test, F-test, Z-testあたりを最小の例で教えてもらうといい</li>
+</ul></li>
+</ul>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="lecture3_revised_files/libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

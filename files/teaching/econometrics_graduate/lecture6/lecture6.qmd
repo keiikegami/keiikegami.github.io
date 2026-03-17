@@ -1,0 +1,843 @@
+---
+title: "lecture6"
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+# 確率論の基礎概念その5：中心極限定理
+
+今回は**中心極限定理**を扱う。
+
+前回の大数の法則は
+$$
+\bar X_n = \frac{1}{n}\sum_{i=1}^n X_i \to \mu
+$$
+という主張だった。つまり，標本平均は母平均に近づく。
+
+しかし計量経済学で本当に欲しいのは，それだけではない。
+推定量がどのくらいのスケールで揺れるのか，その揺れがどんな分布で近似できるのか，を知りたい。
+信頼区間，$t$ 統計量，Wald 検定，GMM の漸近分布などは，全部ここに立っている。
+
+中心極限定理（CLT）が教えてくれるのは，
+
+- 標本平均のズレはだいたい $n^{-1/2}$ の大きさであり
+- そのズレを $\sqrt{n}$ 倍すると
+- 極限では正規分布で近似できる
+
+という事実である。
+
+今回は**特性関数は使わない**。  
+その代わり，Lindeberg のアイデアに沿って，
+
+1. まず i.i.d. の場合の CLT を述べる
+2. 次に三角配列に対する **Lindeberg--Feller の中心極限定理**を述べる
+3. その十分条件の部分を，**ガウス変数への1個ずつの入れ替え**と Taylor 展開で示す
+4. 最後にシミュレーションで「なぜ正規になるのか」「なぜ 1 個だけ大きいショックがあると壊れるのか」を見る
+
+という流れで進む。
+
+# 何を知りたいのか：平均の極限ではなく，平均の揺れの極限
+
+$X_1,X_2,\dots$ を i.i.d. とし，
+$$
+E[X_1]=\mu,\qquad \mathrm{Var}(X_1)=\sigma^2<\infty
+$$
+とする。
+
+大数の法則は
+$$
+\bar X_n \overset{p}{\to} \mu
+$$
+を与える。しかし，これだけでは統計的推測はできない。  
+たとえば「$\bar X_n$ は $\mu$ の近くにいる」と言われても，その近さが $1/n$ のオーダーなのか，$1/\sqrt{n}$ のオーダーなのか，あるいはもっと遅いのかは，LLN だけではわからない。
+
+そこで，自然に
+$$
+\sqrt{n}(\bar X_n-\mu)
+$$
+を見る。
+
+なぜ $\sqrt{n}$ なのか。分散を計算すると，
+$$
+\mathrm{Var}\!\left(\sqrt{n}(\bar X_n-\mu)\right)
+=
+\mathrm{Var}\!\left(\frac{1}{\sqrt{n}}\sum_{i=1}^n (X_i-\mu)\right)
+=
+\frac{1}{n}\sum_{i=1}^n \mathrm{Var}(X_i-\mu)
+=
+\sigma^2.
+$$
+つまり，$\bar X_n-\mu$ 自体は 0 に縮んでいくが，$\sqrt{n}$ 倍すると分散が消えず，ちょうど**非退化な極限**が期待できる。
+
+この
+$$
+\frac{\sqrt{n}(\bar X_n-\mu)}{\sigma}
+$$
+が極限で $N(0,1)$ になる，というのが CLT の中身である。
+
+# 分布収束
+
+CLT は確率収束ではなく，**分布収束**の定理である。
+
+**定義（分布収束）**  
+確率変数列 $Y_n$ が確率変数 $Y$ に**分布収束**するとは，$Y$ の分布関数 $F_Y$ の連続点 $t$ すべてに対して
+$$
+P(Y_n\le t) \to P(Y\le t)
+\qquad (n\to\infty)
+$$
+が成り立つことをいう。これを
+$$
+Y_n \overset{d}{\to} Y
+$$
+と書く。
+
+CLT で言いたいのは，たとえば
+$$
+\frac{\sqrt{n}(\bar X_n-\mu)}{\sigma} \overset{d}{\to} N(0,1)
+$$
+である。
+
+ここで重要なのは，分布収束は「各 $n$ で定義された確率変数の分布が，だんだんある極限分布に近づく」という主張であって，1 本の標本経路の上での収束を言っているわけではない，という点である。
+
+この講義では，分布収束を**test function**で見る見方も使う。  
+直感的には，「十分多くの滑らかな関数 $h$ に対して $E[h(Y_n)]$ が $E[h(Y)]$ に近いなら，$Y_n$ と $Y$ の分布は近い」と考える。
+
+厳密には，
+
+> **標準事実**：$Y_n \overset{d}{\to} Y$ であることと，任意の有界 Lipschitz 関数 $h$ に対して
+> $$
+> E[h(Y_n)]\to E[h(Y)]
+> $$
+> が成り立つことは同値である。
+
+今回は，まず滑らかな関数について収束を示し，そこから分布収束へ移る。
+
+# 古典的な中心極限定理
+
+まずはいちばんよく見る形を述べる。
+
+**定理（Lindeberg--Lévy の中心極限定理）**  
+$X_1,X_2,\dots$ を i.i.d. 実数値確率変数列とし，
+$$
+E[X_1]=\mu,\qquad \mathrm{Var}(X_1)=\sigma^2\in(0,\infty)
+$$
+とする。このとき
+$$
+\frac{\sqrt{n}(\bar X_n-\mu)}{\sigma}
+=
+\frac{1}{\sigma\sqrt{n}}\sum_{i=1}^n (X_i-\mu)
+\overset{d}{\to} N(0,1)
+$$
+が成り立つ。
+
+同値な書き方をすれば，$n$ が大きいとき
+$$
+\bar X_n \approx N\!\left(\mu,\frac{\sigma^2}{n}\right)
+$$
+である。
+
+これは，計量経済学での最初の本格的な漸近近似である。  
+母分散 $\sigma^2$ が有限なら，平均の誤差は $n^{-1/2}$ オーダーで，しかも形は正規分布になる。
+
+## シミュレーション：かなり歪んだ分布でも平均は正規に近づく
+
+CLT のいちばん大事なメッセージは，**元の分布が正規でなくても，平均は正規に近づく**ということである。
+
+ここでは，かなり歪んでいる Exponential$(1)$ 分布を使う。  
+この分布は
+$$
+E[X_i]=1,\qquad \mathrm{Var}(X_i)=1
+$$
+なので，CLT の対象は
+$$
+Z_n = \sqrt{n}(\bar X_n-1)
+$$
+である。CLT によれば，$Z_n$ は $N(0,1)$ に近づくはずである。
+
+```{r}
+#| fig-cap: "a"
+#| fig-width: 10
+#| fig-height: 6
+set.seed(202506)
+
+R <- 5000
+n_grid <- c(1, 2, 5, 10, 30, 100)
+
+sim_Z <- function(n, R) {
+  x <- matrix(rexp(n * R, rate = 1), nrow = n, ncol = R)
+  sqrt(n) * (colMeans(x) - 1)
+}
+
+z_list <- lapply(n_grid, sim_Z, R = R)
+
+op <- par(mfrow = c(2, 3), mar = c(4, 4, 2, 1))
+for (k in seq_along(n_grid)) {
+  z <- z_list[[k]]
+  hist(z,
+       probability = TRUE,
+       breaks = 40,
+       main = paste0("n = ", n_grid[k]),
+       xlab = expression(Z[n]),
+       border = "white")
+  curve(dnorm(x), add = TRUE, lwd = 2)
+}
+par(op)
+```
+
+$n=1,2$ ではまだかなり右に歪んでいるが，$n=30,100$ くらいになると，かなり正規密度に近い形になる。  
+これが CLT の絵である。
+
+大数の法則が教えるのは「平均が母平均に近づく」ことだった。  
+それに対して CLT は，「そのズレを $\sqrt{n}$ 倍して見ると，正規的な揺れが残る」ことを教えている。
+
+# なぜ三角配列が出てくるのか
+
+古典的な CLT をそのまま証明してもよいのだが，計量経済学ではもう少し一般の形の方が使いやすい。
+そこで，**三角配列**という書き方を導入する。
+
+## 三角配列
+
+三角配列とは，
+$$
+\{X_{ni}: i=1,\dots,k_n,\ n=1,2,\dots\}
+$$
+の形に並んだ確率変数族のことである。$n$ 行目には $k_n$ 個の確率変数がある。
+
+$i.i.d.$ の CLT をこの形で書くと，
+$$
+X_{ni}=\frac{X_i-\mu}{\sigma\sqrt{n}},\qquad i=1,\dots,n
+$$
+であり，$n$ 行目の長さは $n$ である。  
+だから CLT の自然な一般化は，実は最初から三角配列で書かれる。
+
+三角配列を使うと，
+
+- 各観測の分散がバラバラでもよい
+- 行ごとに分布が変わってもよい
+- 「1 個の観測が支配的でない」という条件をはっきり書ける
+
+という利点がある。
+
+## Lindeberg 条件
+
+以下では，各 $n$ について
+$$
+X_{n1},\dots,X_{nk_n}
+$$
+は独立，
+$$
+E[X_{ni}]=0,
+\qquad
+\sigma_{ni}^2:=\mathrm{Var}(X_{ni}),
+\qquad
+s_n^2:=\sum_{i=1}^{k_n}\sigma_{ni}^2
+$$
+とする。
+
+CLT の主役は行和
+$$
+S_n:=\sum_{i=1}^{k_n} X_{ni}
+$$
+であり，その標準化
+$$
+\frac{S_n}{s_n}
+$$
+を考える。
+
+**定義（Lindeberg 条件）**  
+任意の $\varepsilon>0$ に対して
+$$
+\frac{1}{s_n^2}
+\sum_{i=1}^{k_n}
+E\Bigl[X_{ni}^2\,1\{|X_{ni}|>\varepsilon s_n\}\Bigr]
+\to 0
+\qquad (n\to\infty)
+$$
+が成り立つとき，この三角配列は **Lindeberg 条件**を満たすという。
+
+この条件の意味ははっきりしている。  
+全体の分散規模 $s_n^2$ に比べて，**大きすぎるジャンプ**が作る寄与は無視できる，ということである。
+
+言い換えれば，正規極限が出るためには
+
+- 分散はたくさんの小さいショックの和でできていてほしい
+- 1 個か 2 個の巨大な観測が全部を支配してはいけない
+
+のである。
+
+# Lindeberg--Feller の中心極限定理
+
+**定理（Lindeberg--Feller CLT：十分条件）**  
+$\{X_{ni}\}$ を各行で独立な平均 0 の三角配列とし，
+$$
+s_n^2 = \sum_{i=1}^{k_n} \mathrm{Var}(X_{ni}) > 0
+$$
+とする。もし任意の $\varepsilon>0$ に対して
+$$
+\frac{1}{s_n^2}
+\sum_{i=1}^{k_n}
+E\Bigl[X_{ni}^2\,1\{|X_{ni}|>\varepsilon s_n\}\Bigr]
+\to 0
+$$
+が成り立つならば，
+$$
+\frac{1}{s_n}\sum_{i=1}^{k_n} X_{ni}
+\overset{d}{\to} N(0,1)
+$$
+が成り立つ。
+
+厳密な Lindeberg--Feller 定理は，Feller 条件のもとでこの条件がほぼ必要でもあることを述べるが，ここでは**十分条件の部分**だけを使えば十分である。
+
+証明に入る前に，この条件が「1 個の観測の支配を禁止している」ことをまず確認しておく。
+
+## 補題：Lindeberg 条件は「最大分散比率が 0 に行く」ことを含意する
+
+**補題**  
+Lindeberg 条件が成り立つならば
+$$
+\max_{1\le i\le k_n} \frac{\sigma_{ni}^2}{s_n^2} \to 0
+$$
+が成り立つ。
+
+**証明**  
+標準化して $s_n=1$ としてよい。任意の $\varepsilon>0$ に対して
+$$
+\sigma_{ni}^2
+=
+E\bigl[X_{ni}^2 1\{|X_{ni}|\le \varepsilon\}\bigr]
++
+E\bigl[X_{ni}^2 1\{|X_{ni}|> \varepsilon\}\bigr]
+\le
+\varepsilon^2 + E\bigl[X_{ni}^2 1\{|X_{ni}|> \varepsilon\}\bigr].
+$$
+したがって
+$$
+\max_i \sigma_{ni}^2
+\le
+\varepsilon^2 + \sum_{i=1}^{k_n} E\bigl[X_{ni}^2 1\{|X_{ni}|>\varepsilon\}\bigr].
+$$
+右辺第2項は Lindeberg 条件により 0 に行く。よって
+$$
+\limsup_{n\to\infty} \max_i \sigma_{ni}^2 \le \varepsilon^2.
+$$
+$\varepsilon>0$ は任意だから，$\max_i \sigma_{ni}^2\to 0$ が従う。一般の $s_n$ の場合も，同じ議論を $X_{ni}/s_n$ に適用すればよい。$\square$
+
+この補題の意味は重要である。  
+Lindeberg 条件が成り立つとき，1 個の観測が全体分散の大きな割合を持つことはできない。  
+だから極限では「多数の小さいショックの和」という状況が生まれる。
+
+# 証明の戦略：ガウス列に 1 個ずつ入れ替える
+
+ここからが今回の核心である。
+
+特性関数を使う代わりに，$X_{ni}$ と同じ分散を持つガウス変数 $Y_{ni}$ を作る。すると
+$$
+T_n := \sum_{i=1}^{k_n} Y_{ni}
+$$
+は**ちょうど正規分布**になる。  
+したがって，示したいことは
+$$
+S_n = \sum_{i=1}^{k_n} X_{ni}
+$$
+が，分布の意味で $T_n$ に近い，ということである。
+
+そのために，$X_{n1},\dots,X_{nk_n}$ を一気に置き換えるのではなく，
+
+- まず $X_{n1}$ を $Y_{n1}$ に置き換える
+- 次に $X_{n2}$ を $Y_{n2}$ に置き換える
+- これを 1 個ずつ繰り返す
+
+という**telescoping**を使う。
+
+そして 1 回の置き換えで生じる差を Taylor 展開で評価する。  
+1 次と 2 次の項は，平均 0 と分散一致によって打ち消し合う。  
+残る 3 次以降の剰余が小さいことを，Lindeberg 条件で押さえる。
+
+これが Lindeberg の方法である。
+
+# Lindeberg--Feller の証明
+
+以下，見通しをよくするために，まず
+$$
+s_n^2 = \sum_{i=1}^{k_n}\sigma_{ni}^2 = 1
+$$
+と正規化された場合を示す。一般の場合は最後に $X_{ni}/s_n$ を考えればよい。
+
+また
+$$
+C_b^3(\mathbb R)
+$$
+を，3 回連続微分可能で，関数自身と 1,2,3 階微分がすべて有界な関数の集合とする。
+
+## 第1段階：滑らかな test function に対しては正規極限が出る
+
+**補題**  
+$s_n^2=1$ とし，Lindeberg 条件が成り立つとする。このとき任意の $h\in C_b^3(\mathbb R)$ に対して
+$$
+E\bigl[h(S_n)\bigr] \to E\bigl[h(Z)\bigr],
+\qquad Z\sim N(0,1)
+$$
+が成り立つ。
+
+**証明**  
+各 $n,i$ に対して，$Y_{ni}\sim N(0,\sigma_{ni}^2)$ を独立に取り，さらに $\{X_{ni}\}$ とも独立とする。すると
+$$
+T_n := \sum_{i=1}^{k_n} Y_{ni} \sim N(0,1)
+$$
+である。
+
+各 $i$ について
+$$
+W_{ni} := \sum_{j<i} Y_{nj} + \sum_{j>i} X_{nj}
+$$
+とおく。すると telescoping により
+$$
+E[h(S_n)] - E[h(T_n)]
+=
+\sum_{i=1}^{k_n}
+E\Bigl[h(W_{ni}+X_{ni}) - h(W_{ni}+Y_{ni})\Bigr].
+$$
+
+ここで
+$$
+R_h(x,u)
+:=
+ h(x+u)-h(x)-h'(x)u-\frac12 h''(x)u^2
+$$
+とおく。
+
+$W_{ni}$ は $X_{ni},Y_{ni}$ と独立であり，
+$$
+E[X_{ni}]=E[Y_{ni}]=0,
+\qquad
+E[X_{ni}^2]=E[Y_{ni}^2]=\sigma_{ni}^2
+$$
+だから，1 次と 2 次の項は消えて
+$$
+E\Bigl[h(W_{ni}+X_{ni}) - h(W_{ni}+Y_{ni})\Bigr]
+=
+E\bigl[R_h(W_{ni},X_{ni})\bigr] - E\bigl[R_h(W_{ni},Y_{ni})\bigr].
+$$
+したがって
+$$
+|E[h(S_n)]-E[h(T_n)]|
+\le
+\sum_{i=1}^{k_n} E\bigl|R_h(W_{ni},X_{ni})\bigr|
++
+\sum_{i=1}^{k_n} E\bigl|R_h(W_{ni},Y_{ni})\bigr|.
+$$
+
+ここで任意の $\eta>0$ を固定する。
+
+まず $|u|\le \eta$ のとき，Taylor の剰余項評価より
+$$
+|R_h(x,u)|
+\le
+\frac{1}{6}\|h'''\|_\infty |u|^3
+\le
+\frac{\eta}{6}\|h'''\|_\infty u^2.
+$$
+
+次に $|u|>\eta$ のときは粗く評価して
+$$
+|R_h(x,u)|
+\le
+2\|h\|_\infty + \|h'\|_\infty |u| + \frac12\|h''\|_\infty u^2.
+$$
+しかも $|u|>\eta$ なら $1\le u^2/\eta^2$，$|u|\le u^2/\eta$ なので
+$$
+|R_h(x,u)|
+\le
+A_h(\eta) u^2,
+$$
+ただし
+$$
+A_h(\eta)
+:=
+\frac{2\|h\|_\infty}{\eta^2}
++
+\frac{\|h'\|_\infty}{\eta}
++
+\frac12\|h''\|_\infty.
+$$
+
+以上を合わせると，すべての $x,u$ に対して
+$$
+|R_h(x,u)|
+\le
+\frac{\eta}{6}\|h'''\|_\infty u^2
++
+A_h(\eta) u^2 1\{|u|>\eta\}.
+$$
+よって
+$$
+\sum_{i=1}^{k_n} E\bigl|R_h(W_{ni},X_{ni})\bigr|
+\le
+\frac{\eta}{6}\|h'''\|_\infty \sum_{i=1}^{k_n} E[X_{ni}^2]
++
+A_h(\eta)
+\sum_{i=1}^{k_n} E\bigl[X_{ni}^2 1\{|X_{ni}|>\eta\}\bigr].
+$$
+今 $\sum_i E[X_{ni}^2]=1$ だから
+$$
+\sum_{i=1}^{k_n} E\bigl|R_h(W_{ni},X_{ni})\bigr|
+\le
+\frac{\eta}{6}\|h'''\|_\infty
++
+A_h(\eta)
+\sum_{i=1}^{k_n} E\bigl[X_{ni}^2 1\{|X_{ni}|>\eta\}\bigr].
+$$
+Lindeberg 条件より，右辺第2項は $n\to\infty$ で 0 に行く。
+
+同様に
+$$
+\sum_{i=1}^{k_n} E\bigl|R_h(W_{ni},Y_{ni})\bigr|
+\le
+\frac{\eta}{6}\|h'''\|_\infty
++
+A_h(\eta)
+\sum_{i=1}^{k_n} E\bigl[Y_{ni}^2 1\{|Y_{ni}|>\eta\}\bigr].
+$$
+ここで先ほどの補題より
+$$
+\delta_n := \max_i \sigma_{ni} \to 0.
+$$
+$G\sim N(0,1)$ とおき
+$$
+\psi(t):=E\bigl[G^2 1\{|G|>t\}\bigr]
+$$
+と書くと，$\psi(t)\downarrow 0$ as $t\to\infty$ である。しかも
+$$
+E\bigl[Y_{ni}^2 1\{|Y_{ni}|>\eta\}\bigr]
+=
+\sigma_{ni}^2 E\bigl[G^2 1\{|G|>\eta/\sigma_{ni}\}\bigr]
+\le
+\sigma_{ni}^2 \psi(\eta/\delta_n).
+$$
+したがって
+$$
+\sum_{i=1}^{k_n} E\bigl[Y_{ni}^2 1\{|Y_{ni}|>\eta\}\bigr]
+\le
+\psi(\eta/\delta_n)\sum_{i=1}^{k_n}\sigma_{ni}^2
+=
+\psi(\eta/\delta_n)
+\to 0.
+$$
+
+以上より
+$$
+\limsup_{n\to\infty}|E[h(S_n)]-E[h(T_n)]|
+\le
+\frac{\eta}{3}\|h'''\|_\infty.
+$$
+$\eta>0$ は任意なので，右辺を 0 にできる。したがって
+$$
+E[h(S_n)]-E[h(T_n)] \to 0.
+$$
+しかも $T_n\sim N(0,1)$ だから
+$$
+E[h(T_n)] = E[h(Z)]
+\qquad (Z\sim N(0,1)).
+$$
+よって
+$$
+E[h(S_n)] \to E[h(Z)]
+$$
+が示された。$\square$
+
+ここまでで，「滑らかな関数で見れば $S_n$ は正規に近い」ことが示された。
+
+## 第2段階：滑らかな test function の収束から分布収束へ
+
+次に，これが本当に CLT を意味することを確認する。
+
+**補題**  
+確率変数列 $U_n$ と確率変数 $U$ が
+$$
+E[h(U_n)]\to E[h(U)]
+\qquad \text{for all } h\in C_b^3(\mathbb R)
+$$
+を満たすとする。このとき
+$$
+U_n \overset{d}{\to} U
+$$
+が成り立つ。
+
+**証明**  
+上で述べた標準事実により，有界 Lipschitz 関数について期待値が収束することを示せば十分である。そこで $g$ を任意の有界 Lipschitz 関数とする。
+
+$V\sim N(0,1)$ を $U_n,U$ と独立に取り，$\varepsilon>0$ に対して
+$$
+g_\varepsilon(x):=E[g(x+\varepsilon V)]
+$$
+と定める。これは $g$ をガウス核で平滑化したもので，$g_\varepsilon\in C_b^{\infty}(\mathbb R)$，したがって特に $g_\varepsilon\in C_b^3(\mathbb R)$ である。
+
+よって仮定より，固定した $\varepsilon>0$ に対して
+$$
+E[g_\varepsilon(U_n)] \to E[g_\varepsilon(U)].
+$$
+
+一方，$g$ が Lipschitz なら
+$$
+|g_\varepsilon(x)-g(x)|
+=
+\bigl|E[g(x+\varepsilon V)-g(x)]\bigr|
+\le
+\mathrm{Lip}(g)\,\varepsilon E|V|.
+$$
+したがって
+$$
+|E[g(U_n)]-E[g_\varepsilon(U_n)]|
+\le
+\mathrm{Lip}(g)\,\varepsilon E|V|,
+$$
+および同様に
+$$
+|E[g(U)]-E[g_\varepsilon(U)]|
+\le
+\mathrm{Lip}(g)\,\varepsilon E|V|.
+$$
+よって
+$$
+\limsup_{n\to\infty}
+|E[g(U_n)]-E[g(U)]|
+\le
+2\,\mathrm{Lip}(g)\,\varepsilon E|V|.
+$$
+$\varepsilon\downarrow 0$ とすれば右辺は 0 に行く。したがって
+$$
+E[g(U_n)]\to E[g(U)]
+\qquad \text{for every bounded Lipschitz } g.
+$$
+ゆえに $U_n\overset{d}{\to} U$ が従う。$\square$
+
+以上の二つの補題を合わせると，正規化された場合 $s_n=1$ で
+$$
+S_n \overset{d}{\to} N(0,1)
+$$
+が従う。一般の場合は $X_{ni}/s_n$ に適用すれば
+$$
+\frac{S_n}{s_n} \overset{d}{\to} N(0,1)
+$$
+が得られる。これで Lindeberg--Feller CLT の十分条件の証明が終わる。$\square$
+
+# i.i.d. の CLT は系としてすぐ出る
+
+上の一般定理から，古典的な i.i.d. CLT はただちに従う。
+
+**系（古典的 CLT）**  
+$X_1,X_2,\dots$ を i.i.d. とし，
+$$
+E[X_1]=\mu,
+\qquad
+\mathrm{Var}(X_1)=\sigma^2\in(0,\infty)
+$$
+とする。このとき
+$$
+\frac{\sqrt{n}(\bar X_n-\mu)}{\sigma}
+\overset{d}{\to} N(0,1).
+$$
+
+**証明**  
+三角配列
+$$
+X_{ni}:=\frac{X_i-\mu}{\sigma\sqrt{n}},
+\qquad i=1,\dots,n
+$$
+を考える。すると各行で独立，平均 0，しかも
+$$
+\sum_{i=1}^n \mathrm{Var}(X_{ni})
+=
+\sum_{i=1}^n \frac{\sigma^2}{\sigma^2 n}
+=1.
+$$
+
+あとは Lindeberg 条件を確認すればよい。任意の $\varepsilon>0$ に対して
+$$
+\sum_{i=1}^n E\Bigl[X_{ni}^2 1\{|X_{ni}|>\varepsilon\}\Bigr]
+=
+\frac{1}{\sigma^2}
+E\Bigl[(X_1-\mu)^2 1\{|X_1-\mu|>\varepsilon\sigma\sqrt{n}\}\Bigr].
+$$
+右辺の指示関数は $n\to\infty$ で 0 に下がり，かつ被積分関数は
+$$
+\frac{(X_1-\mu)^2}{\sigma^2}
+$$
+で抑えられ，これは可積分である。したがって優収束定理より右辺は 0 に行く。
+
+よって Lindeberg 条件が成り立ち，定理より
+$$
+\frac{1}{\sigma\sqrt{n}}\sum_{i=1}^n (X_i-\mu)
+\overset{d}{\to} N(0,1)
+$$
+が従う。$\square$
+
+この証明は，i.i.d. CLT の本質が
+
+- 各項が十分小さい
+- 大きすぎる項の寄与が消える
+- ガウス変数と 1 個ずつ入れ替えても全体はあまり変わらない
+
+という点にあることを，かなりよく見せている。
+
+# Lindeberg 条件の意味：なぜ「1 人勝ち」がダメなのか
+
+CLT の正規極限は，たくさんの小さな独立ショックが足し合わさるから出てくる。  
+逆に言えば，1 個の観測がほとんど全部を支配しているときには，正規分布は出ない。
+
+この点を，三角配列で見ると非常にわかりやすい。
+
+## 良い例：分散が薄く分散している配列
+
+$\xi_{ni}$ を i.i.d. の Rademacher 変数（$P(\xi_{ni}=1)=P(\xi_{ni}=-1)=1/2$）とし，
+$$
+X_{ni}=\frac{\xi_{ni}}{\sqrt{n}},\qquad i=1,\dots,n
+$$
+とおく。このとき
+$$
+\sum_{i=1}^n \mathrm{Var}(X_{ni}) = 1,
+\qquad
+\max_i \mathrm{Var}(X_{ni}) = \frac{1}{n}\to 0
+$$
+であり，Lindeberg 条件も成り立つ。したがって
+$$
+\sum_{i=1}^n X_{ni} = \frac{1}{\sqrt{n}}\sum_{i=1}^n \xi_{ni}
+\overset{d}{\to} N(0,1).
+$$
+
+## 悪い例：1 個の観測が全部を支配する配列
+
+今度は
+$$
+X_{n1}=\xi_n,
+\qquad
+X_{ni}=0 \quad (i=2,\dots,n)
+$$
+とする。ただし $\xi_n$ は Rademacher 変数である。すると
+$$
+\sum_{i=1}^n \mathrm{Var}(X_{ni})=1
+$$
+ではあるが，分散の 100% を $X_{n1}$ が持っている。したがって Lindeberg 条件は失敗する。
+実際，任意の $\varepsilon<1$ に対して
+$$
+\sum_{i=1}^n E\bigl[X_{ni}^2 1\{|X_{ni}|>\varepsilon\}\bigr]=1.
+$$
+
+このとき行和は
+$$
+\sum_{i=1}^n X_{ni} = \xi_n
+$$
+であり，いつまで経っても $\pm 1$ の二点分布のままで，正規分布には近づかない。
+
+ここに Lindeberg 条件の本質がある。  
+**正規極限には，多数の微小なショックが必要であって，1 個の大きなショックではダメ**なのである。
+
+## シミュレーション：Lindeberg が成り立つとき／壊れるとき
+
+次の図では，
+
+- 左：$X_{ni}=\xi_{ni}/\sqrt{n}$（Lindeberg 条件が成り立つ）
+- 右：$X_{n1}=\xi_n$, $X_{ni}=0$（1 個が全部を支配する）
+
+という二つの配列の行和を比べている。どちらも全体分散は 1 だが，極限の形はまったく違う。
+
+```{r}
+#| fig-cap: "Lindeberg 条件が成り立つとき（左）は行和の経験分布関数が標準正規の分布関数に近づく。1 個の観測が全部を支配する場合（右）は，いつまで経っても正規分布にならない。"
+#| fig-width: 10
+#| fig-height: 4.5
+set.seed(202507)
+
+R <- 4000
+n <- 100
+
+# good array: many small shocks
+xi_good <- matrix(sample(c(-1, 1), n * R, replace = TRUE), nrow = n, ncol = R)
+S_good <- colSums(xi_good) / sqrt(n)
+
+# bad array: one dominant shock
+S_bad <- sample(c(-1, 1), R, replace = TRUE)
+
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
+
+plot(ecdf(S_good),
+     main = "Lindeberg holds",
+     xlab = "x",
+     ylab = "Empirical CDF",
+     verticals = TRUE,
+     do.points = FALSE)
+curve(pnorm(x), add = TRUE, lwd = 2)
+
+plot(ecdf(S_bad),
+     main = "one shock dominates",
+     xlab = "x",
+     ylab = "Empirical CDF",
+     verticals = TRUE,
+     do.points = FALSE)
+curve(pnorm(x), add = TRUE, lwd = 2)
+
+par(op)
+```
+
+左では経験分布関数がかなりなめらかで，標準正規の分布関数に近づいている。  
+右では分布は $\pm 1$ に質量を持つだけなので，標準正規とは全然違う。
+
+この図は，Lindeberg 条件を「正規極限のためには**1 個だけ大きいショックがあってはいけない**」という言葉に翻訳したものだと思えばよい。
+
+# 計量経済学的な読み替え
+
+CLT は，計量経済学では次の形で使われることが多い。
+
+$Z_1,\dots,Z_n$ が i.i.d. で，ある実数値関数 $g$ に対して
+$$
+E[g(Z_i)] = 0,
+\qquad
+\mathrm{Var}(g(Z_i)) = \Omega < \infty
+$$
+とする。このとき
+$$
+\sqrt{n}\,\bar g_n
+:=
+\sqrt{n}\left(\frac{1}{n}\sum_{i=1}^n g(Z_i)\right)
+\overset{d}{\to} N(0,\Omega).
+$$
+
+これは，
+
+- モーメント条件の標本平均は $n^{-1/2}$ オーダーで揺れる
+- その極限分布は正規である
+
+ということを意味する。  
+OLS なら $g(Z_i)=x_i u_i$，GMM なら一般のモーメント条件 $g(Z_i,\theta_0)$，MLE なら score がこれに対応する。
+
+つまり CLT は，計量経済学で現れるほとんどすべての「標準誤差」「漸近正規性」の出発点になっている。
+
+今回は 1 次元だけを扱ったが，多変量版では
+$$
+\sqrt{n}\,\bar g_n \overset{d}{\to} N(0,\Omega)
+\qquad (\Omega \text{ は分散共分散行列})
+$$
+となり，これが実際の推定論にそのままつながる。
+
+# まとめ
+
+今回の要点は次の 4 つである。
+
+1. 大数の法則は平均そのものの収束を述べるが，中心極限定理は**平均の揺れ**の極限を述べる。
+2. 適切なスケールは $\sqrt{n}$ であり，有限分散のもとでは
+   $$
+   \frac{\sqrt{n}(\bar X_n-\mu)}{\sigma} \overset{d}{\to} N(0,1)
+   $$
+   が成り立つ。
+3. より一般には，三角配列に対する Lindeberg--Feller CLT が成り立ち，その条件は「**大きすぎる 1 個の観測の寄与が消える**」という意味を持つ。
+4. 証明の本質は，和を同じ分散を持つガウス和と比較し，1 個ずつ入れ替えながら Taylor 展開で誤差を押さえることにある。
+
+次に進むときには，この CLT をもとに
+
+- Slutsky の定理
+- Delta method
+- multivariate CLT
+- t 統計量や Wald 統計量の漸近分布
+
+へ進むのが自然である。計量経済学で本当に使うのは，そこから先である。

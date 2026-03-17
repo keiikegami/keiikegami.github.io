@@ -1,0 +1,2027 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Lecture 10：不連続回帰デザイン（RDD）</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="lecture10_revised_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture10_revised_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture10_revised_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture10_revised_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture10_revised_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture10_revised_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture10_revised_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture10_revised_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture10_revised_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture10_revised_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture10_revised_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture10_revised_files/libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<style>html{ scroll-behavior: smooth; }</style>
+<style>
+  body {
+    line-height: 1.8;
+  }
+  .lead {
+    font-size: 1.08rem;
+    color: #495057;
+    margin-bottom: 1.2rem;
+  }
+  h1, h2, h3 {
+    margin-top: 1.6rem;
+  }
+  .callout {
+    margin: 1.2rem 0;
+  }
+  table {
+    font-size: 0.96rem;
+  }
+  .small-muted {
+    color: #6c757d;
+    font-size: 0.95rem;
+  }
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+</style>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#導入素朴な回帰ではなぜだめか" id="toc-導入素朴な回帰ではなぜだめか" class="nav-link active" data-scroll-target="#導入素朴な回帰ではなぜだめか">導入：素朴な回帰ではなぜだめか</a>
+  <ul class="collapse">
+  <li><a href="#制度を使う" id="toc-制度を使う" class="nav-link" data-scroll-target="#制度を使う">制度を使う</a></li>
+  </ul></li>
+  <li><a href="#rdd-をフォーマルに書く" id="toc-rdd-をフォーマルに書く" class="nav-link" data-scroll-target="#rdd-をフォーマルに書く">RDD をフォーマルに書く</a>
+  <ul class="collapse">
+  <li><a href="#シャープrdd" id="toc-シャープrdd" class="nav-link" data-scroll-target="#シャープrdd">シャープRDD</a></li>
+  <li><a href="#潜在結果変数" id="toc-潜在結果変数" class="nav-link" data-scroll-target="#潜在結果変数">潜在結果変数</a></li>
+  <li><a href="#識別のアイデア" id="toc-識別のアイデア" class="nav-link" data-scroll-target="#識別のアイデア">識別のアイデア</a></li>
+  <li><a href="#何を仮定しているのか" id="toc-何を仮定しているのか" class="nav-link" data-scroll-target="#何を仮定しているのか">何を仮定しているのか</a></li>
+  <li><a href="#シャープrddの回帰表現" id="toc-シャープrddの回帰表現" class="nav-link" data-scroll-target="#シャープrddの回帰表現">シャープRDDの回帰表現</a></li>
+  <li><a href="#ファジーrdd" id="toc-ファジーrdd" class="nav-link" data-scroll-target="#ファジーrdd">ファジーRDD</a></li>
+  <li><a href="#ファジーrddの識別対象" id="toc-ファジーrddの識別対象" class="nav-link" data-scroll-target="#ファジーrddの識別対象">ファジーRDDの識別対象</a></li>
+  <li><a href="#ファジーrddはなぜivなのか" id="toc-ファジーrddはなぜivなのか" class="nav-link" data-scroll-target="#ファジーrddはなぜivなのか">ファジーRDDはなぜIVなのか</a></li>
+  <li><a href="#シャープrddとファジーrddの違い" id="toc-シャープrddとファジーrddの違い" class="nav-link" data-scroll-target="#シャープrddとファジーrddの違い">シャープRDDとファジーRDDの違い</a></li>
+  </ul></li>
+  <li><a href="#シミュレーション" id="toc-シミュレーション" class="nav-link" data-scroll-target="#シミュレーション">シミュレーション</a>
+  <ul class="collapse">
+  <li><a href="#シャープrddのシミュレーション" id="toc-シャープrddのシミュレーション" class="nav-link" data-scroll-target="#シャープrddのシミュレーション">シャープRDDのシミュレーション</a></li>
+  <li><a href="#カットオフ近傍だけを見る" id="toc-カットオフ近傍だけを見る" class="nav-link" data-scroll-target="#カットオフ近傍だけを見る">カットオフ近傍だけを見る</a></li>
+  <li><a href="#ファジーrddのシミュレーション" id="toc-ファジーrddのシミュレーション" class="nav-link" data-scroll-target="#ファジーrddのシミュレーション">ファジーRDDのシミュレーション</a></li>
+  <li><a href="#ファジーrddはivとして推定できる" id="toc-ファジーrddはivとして推定できる" class="nav-link" data-scroll-target="#ファジーrddはivとして推定できる">ファジーRDDはIVとして推定できる</a></li>
+  </ul></li>
+  <li><a href="#rdd-の実装" id="toc-rdd-の実装" class="nav-link" data-scroll-target="#rdd-の実装">RDD の実装</a>
+  <ul class="collapse">
+  <li><a href="#rddの図をどう読むか" id="toc-rddの図をどう読むか" class="nav-link" data-scroll-target="#rddの図をどう読むか">RDDの図をどう読むか</a></li>
+  <li><a href="#なぜカットオフ近傍だけを見るのか" id="toc-なぜカットオフ近傍だけを見るのか" class="nav-link" data-scroll-target="#なぜカットオフ近傍だけを見るのか">なぜカットオフ近傍だけを見るのか</a></li>
+  <li><a href="#なぜ単純な高次多項式に頼りすぎてはいけないのか" id="toc-なぜ単純な高次多項式に頼りすぎてはいけないのか" class="nav-link" data-scroll-target="#なぜ単純な高次多項式に頼りすぎてはいけないのか">なぜ単純な高次多項式に頼りすぎてはいけないのか</a></li>
+  <li><a href="#rddで必ず確認すべきこと" id="toc-rddで必ず確認すべきこと" class="nav-link" data-scroll-target="#rddで必ず確認すべきこと">RDDで必ず確認すべきこと</a>
+  <ul class="collapse">
+  <li><a href="#共変量がカットオフで不連続でないか" id="toc-共変量がカットオフで不連続でないか" class="nav-link" data-scroll-target="#共変量がカットオフで不連続でないか">共変量がカットオフで不連続でないか</a></li>
+  <li><a href="#ランニング変数の密度がカットオフで不連続でないか" id="toc-ランニング変数の密度がカットオフで不連続でないか" class="nav-link" data-scroll-target="#ランニング変数の密度がカットオフで不連続でないか">ランニング変数の密度がカットオフで不連続でないか</a></li>
+  <li><a href="#プラセボカットオフ" id="toc-プラセボカットオフ" class="nav-link" data-scroll-target="#プラセボカットオフ">プラセボ・カットオフ</a></li>
+  </ul></li>
+  <li><a href="#rddの推定結果をどう解釈するか" id="toc-rddの推定結果をどう解釈するか" class="nav-link" data-scroll-target="#rddの推定結果をどう解釈するか">RDDの推定結果をどう解釈するか</a></li>
+  <li><a href="#rddの限界" id="toc-rddの限界" class="nav-link" data-scroll-target="#rddの限界">RDDの限界</a></li>
+  </ul></li>
+  <li><a href="#rdd-を使った実証研究" id="toc-rdd-を使った実証研究" class="nav-link" data-scroll-target="#rdd-を使った実証研究">RDD を使った実証研究</a>
+  <ul class="collapse">
+  <li><a href="#shigeoka-2014-the-effect-of-patient-cost-sharing-on-utilization-health-and-risk-protection" id="toc-shigeoka-2014-the-effect-of-patient-cost-sharing-on-utilization-health-and-risk-protection" class="nav-link" data-scroll-target="#shigeoka-2014-the-effect-of-patient-cost-sharing-on-utilization-health-and-risk-protection">Shigeoka (2014) : <em>The Effect of Patient Cost Sharing on Utilization, Health, and Risk Protection</em></a>
+  <ul class="collapse">
+  <li><a href="#制度の設定" id="toc-制度の設定" class="nav-link" data-scroll-target="#制度の設定">制度の設定</a></li>
+  <li><a href="#メインの回帰式" id="toc-メインの回帰式" class="nav-link" data-scroll-target="#メインの回帰式">メインの回帰式</a></li>
+  <li><a href="#実際の推定のイメージ" id="toc-実際の推定のイメージ" class="nav-link" data-scroll-target="#実際の推定のイメージ">実際の推定のイメージ</a></li>
+  <li><a href="#外来受診は-70-歳で増える" id="toc-外来受診は-70-歳で増える" class="nav-link" data-scroll-target="#外来受診は-70-歳で増える">外来受診は 70 歳で増える</a></li>
+  <li><a href="#入院も-70-歳で増える" id="toc-入院も-70-歳で増える" class="nav-link" data-scroll-target="#入院も-70-歳で増える">入院も 70 歳で増える</a></li>
+  <li><a href="#ただし健康改善ははっきりしない" id="toc-ただし健康改善ははっきりしない" class="nav-link" data-scroll-target="#ただし健康改善ははっきりしない">ただし健康改善ははっきりしない</a></li>
+  <li><a href="#この論文の全体像" id="toc-この論文の全体像" class="nav-link" data-scroll-target="#この論文の全体像">この論文の全体像</a></li>
+  <li><a href="#rdd-の例としての読み方" id="toc-rdd-の例としての読み方" class="nav-link" data-scroll-target="#rdd-の例としての読み方">RDD の例としての読み方</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#rdd-を使った代表的研究の例" id="toc-rdd-を使った代表的研究の例" class="nav-link" data-scroll-target="#rdd-を使った代表的研究の例">RDD を使った代表的研究の例</a>
+  <ul class="collapse">
+  <li><a href="#abdulkadiroğlu-angrist-and-pathak-2014" id="toc-abdulkadiroğlu-angrist-and-pathak-2014" class="nav-link" data-scroll-target="#abdulkadiroğlu-angrist-and-pathak-2014">1. Abdulkadiroğlu, Angrist, and Pathak (2014)</a></li>
+  <li><a href="#cellini-ferreira-and-rothstein-2010" id="toc-cellini-ferreira-and-rothstein-2010" class="nav-link" data-scroll-target="#cellini-ferreira-and-rothstein-2010">2. Cellini, Ferreira, and Rothstein (2010)</a></li>
+  <li><a href="#malamud-and-pop-eleches-2011" id="toc-malamud-and-pop-eleches-2011" class="nav-link" data-scroll-target="#malamud-and-pop-eleches-2011">3. Malamud and Pop-Eleches (2011)</a></li>
+  <li><a href="#card-dobkin-and-maestas-2009" id="toc-card-dobkin-and-maestas-2009" class="nav-link" data-scroll-target="#card-dobkin-and-maestas-2009">4. Card, Dobkin, and Maestas (2009)</a></li>
+  <li><a href="#card-dobkin-and-maestas-2008" id="toc-card-dobkin-and-maestas-2008" class="nav-link" data-scroll-target="#card-dobkin-and-maestas-2008">5. Card, Dobkin, and Maestas (2008)</a></li>
+  <li><a href="#altmejd-et-al.-2021" id="toc-altmejd-et-al.-2021" class="nav-link" data-scroll-target="#altmejd-et-al.-2021">6. Altmejd et al.&nbsp;(2021)</a></li>
+  <li><a href="#beuermann-jackson-navarro-sola-and-pardo-2023" id="toc-beuermann-jackson-navarro-sola-and-pardo-2023" class="nav-link" data-scroll-target="#beuermann-jackson-navarro-sola-and-pardo-2023">7. Beuermann, Jackson, Navarro-Sola, and Pardo (2023)</a></li>
+  <li><a href="#corbi-papaioannou-and-surico-2019" id="toc-corbi-papaioannou-and-surico-2019" class="nav-link" data-scroll-target="#corbi-papaioannou-and-surico-2019">8. Corbi, Papaioannou, and Surico (2019)</a></li>
+  <li><a href="#card-and-giuliano-2016" id="toc-card-and-giuliano-2016" class="nav-link" data-scroll-target="#card-and-giuliano-2016">9. Card and Giuliano (2016)</a></li>
+  <li><a href="#huh-reif-and-mocan-2021" id="toc-huh-reif-and-mocan-2021" class="nav-link" data-scroll-target="#huh-reif-and-mocan-2021">10. Huh, Reif, and Mocan (2021)</a></li>
+  <li><a href="#cohodes-2020" id="toc-cohodes-2020" class="nav-link" data-scroll-target="#cohodes-2020">11. Cohodes (2020)</a></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Lecture 10：不連続回帰デザイン（RDD）</h1>
+<p class="subtitle lead">sharp / fuzzy RDD と制度的カットオフの利用</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-simple callout-important callout-titled" title="この講義で押さえたいこと">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>この講義で押さえたいこと
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>RDD</strong> は、制度が作るカットオフの不連続を使って因果効果を識別する方法である。</li>
+<li>識別の核心は、<strong>カットオフ近傍では他の要因が滑らかに変化する</strong> と考えられることである。</li>
+<li><strong>sharp RDD と fuzzy RDD</strong> の違い、そして実装上の注意点を分けて理解することが大事である。</li>
+</ul>
+</div>
+</div>
+<div class="lead">
+<pre><code>今回はまず、素朴な回帰では自己負担の因果効果が見えないことを確認し、その後で制度のカットオフを使う RDD の発想に入る。後半では sharp / fuzzy RDD の違い、実装上の注意点、そして実証研究での読み方を整理する。</code></pre>
+</div>
+<div class="callout callout-style-simple callout-note callout-titled" title="この lecture の流れ">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この lecture の流れ
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>まず、素朴な相関ではなぜ因果効果が分からないのかを確認する。</li>
+<li>次に、sharp RDD と fuzzy RDD の識別の考え方をフォーマルに整理する。</li>
+<li>最後に、実装上の注意点と Shigeoka (2014) を中心とした実証研究の読み方を確認する。</li>
+</ol>
+</div>
+</div>
+<section id="導入素朴な回帰ではなぜだめか" class="level1">
+<h1>導入：素朴な回帰ではなぜだめか</h1>
+<p>前回、操作変数法について学んだ。操作変数法は強力だが、いかんせん強い操作変数を見つけるのが難しいというのが欠点である。</p>
+<p>逆に言えば、「強い IV」さえ見つけられれば大体の経済学者を黙らせる分析が可能になる。</p>
+<p>今回紹介する<strong>不連続回帰デザイン</strong>、<strong>Regression Discontinuity Design (RDD)</strong>は、「強い IV」を見つけて利用する系統的な方法論として理解して良い。</p>
+<p>RDD の発想をつかむために、まずは政策担当者の立場で考えてみよう。</p>
+<p>高齢者の医療費自己負担をどのように設計すべきかを考えている官僚がいるとする。</p>
+<p>自己負担を下げれば受診は増えるだろうが、それが本当に必要な医療へのアクセス改善につながるのか、それとも単に医療費を膨らませるだけなのかは重要な問題である。</p>
+<p>制度設計のためには、まず「自己負担が下がると人々はどれだけ医療を利用するようになるのか」を知りたい。</p>
+<p>これが厚生労働省の官僚たる君の今回の仕事である。</p>
+<p>そこで最初にやりたくなるのは、<strong>個人ごとの自己負担額</strong>と<strong>外来受診回数</strong>を集めて、散布図を書いたり単純な回帰をしたりすることである。</p>
+<p>やってみる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1234</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">3000</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 観測されない健康状態（大きいほど健康が悪い）</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>health_bad <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の自己負担額</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>copay <span class="ot">&lt;-</span> <span class="dv">25</span> <span class="sc">+</span> <span class="dv">10</span> <span class="sc">*</span> health_bad <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">8</span>)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の構造：自己負担が高いほど受診回数は減る</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co"># ただし健康が悪い人ほど受診回数は多い</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>visits <span class="ot">&lt;-</span> <span class="dv">8</span> <span class="sc">-</span> <span class="fl">0.15</span> <span class="sc">*</span> copay <span class="sc">+</span> <span class="fl">2.2</span> <span class="sc">*</span> health_bad <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">1.8</span>)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>df_naive <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">copay =</span> copay,</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">visits =</span> visits</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(df_naive<span class="sc">$</span>copay, df_naive<span class="sc">$</span>visits,</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">cex =</span> <span class="fl">0.5</span>,</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"自己負担額"</span>,</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="st">"外来受診回数"</span>,</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"自己負担額と外来受診回数の素朴な散布図"</span>)</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="fu">lm</span>(visits <span class="sc">~</span> copay, <span class="at">data =</span> df_naive), <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture10_revised_files/figure-html/naive-rdd-motivation-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(<span class="fu">lm</span>(visits <span class="sc">~</span> copay, <span class="at">data =</span> df_naive))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = visits ~ copay, data = df_naive)
+
+Residuals:
+   Min     1Q Median     3Q    Max 
+-8.742 -1.483  0.009  1.515  7.985 
+
+Coefficients:
+             Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  4.716457   0.091092  51.777  &lt; 2e-16 ***
+copay       -0.016757   0.003241  -5.171 2.48e-07 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 2.264 on 2998 degrees of freedom
+Multiple R-squared:  0.00884,   Adjusted R-squared:  0.008509 
+F-statistic: 26.74 on 1 and 2998 DF,  p-value: 2.483e-07</code></pre>
+</div>
+</div>
+<p>しかし、この素朴な方法はうまくいかない。</p>
+<p>なぜなら、</p>
+<ul>
+<li>もともと病気が重い人ほど病院に多く通うし、</li>
+<li>支払う医療費も多くなりやすいからである。</li>
+</ul>
+<p>つまりデータの中で見えている相関は、「価格が高いと受診しない」という因果効果ではなく、「具合の悪い人ほどたくさん受診し、たくさん支払う」という健康状態の違いを反映しているかもしれない。</p>
+<p>ということで、上記の散布図や回帰結果は、自己負担の因果効果をそのまま教えてはくれない。</p>
+<p>問題を整理すると以下のような感じ。</p>
+<p>数式で書けば、官僚が見たいのは本当は</p>
+<p><span class="math display">\[
+\text{visits}_i = \alpha + \beta\, \text{copay}_i + u_i
+\]</span></p>
+<p>における <span class="math inline">\(\beta\)</span> である。</p>
+<p>ここで <span class="math inline">\(\text{visits}_i\)</span> は外来受診回数、<span class="math inline">\(\text{copay}_i\)</span> は自己負担額である。政策担当者が知りたいのは、自己負担が外生的に変化したときに受診回数がどう動くか、すなわち <span class="math inline">\(\beta\)</span> の因果的な意味である。</p>
+<p>ところが実際には、観測されない健康状態 <span class="math inline">\(h_i\)</span> が存在して、</p>
+<p><span class="math display">\[
+\text{visits}_i = \alpha + \beta\, \text{copay}_i + \gamma h_i + \varepsilon_i
+\]</span></p>
+<p>のようになっていると考えるのが自然である。さらに、健康状態の悪い人ほど多く医療を利用するので、自己負担額とも相関しやすい。すると</p>
+<p><span class="math display">\[
+\operatorname{Cov}(\text{copay}_i,\varepsilon_i) \neq 0
+\]</span></p>
+<p>となり、単純な散布図や OLS では <span class="math inline">\(\beta\)</span> をきれいに識別できない。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="RDD の直感">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>RDD の直感
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>RDD の発想は、<strong>本来なめらかに変わるはずの世界に制度が作った段差</strong> を利用することにある。したがって、まず treatment のジャンプと outcome のジャンプの両方を見る、という順番が大事である。</p>
+</div>
+</div>
+<section id="制度を使う" class="level2">
+<h2 class="anchored" data-anchor-id="制度を使う">制度を使う</h2>
+<p>この問題はただのエクササイズではなく、本当に問題となっている本当に重要な問題である。</p>
+<p>Shigeoka (2014) はこの問題を正面から扱った論文であり、その識別戦略は今回注目するRDDである。</p>
+<p>Shigeoka (2014) の研究が利用しているのは、</p>
+<blockquote class="blockquote">
+<p>日本では当時、<strong>70歳になると医療費の自己負担が大きく下がる</strong>というルール</p>
+</blockquote>
+<p>である。</p>
+<p>70歳未満の人と70歳以上の人では患者負担が制度上大きく異なっており、この <strong>カットオフ</strong> が非常に強い価格変化を生んでいる。</p>
+<p>この制度の重要な点は、<strong>年齢そのものは連続的に変化するのに、自己負担だけが70歳で不連続に変わる</strong>ことである。</p>
+<p>69歳11か月の人と70歳0か月の人は、本来きわめてよく似た人たちだと考えられる。健康状態も、所得も、生活環境も、年齢に対して通常は滑らかに変わるはずである。ところが制度上の価格だけは、70歳を境にジャンプする。もし受診回数もその地点でジャンプしていれば、その差を自己負担の因果効果として解釈できるのではないか、というのが RDD の基本アイデアである。</p>
+<p>この発想をシミュレーションで見てみよう。ここでは 70歳未満では自己負担が高く、70歳以上では自己負担が低くなるような制度を人工的に作る。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">5678</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">4000</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>age <span class="ot">&lt;-</span> <span class="fu">runif</span>(n, <span class="at">min =</span> <span class="dv">68</span>, <span class="at">max =</span> <span class="dv">72</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>post70 <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(age <span class="sc">&gt;=</span> <span class="dv">70</span>, <span class="dv">1</span>, <span class="dv">0</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 健康状態は年齢に対して滑らかに変化</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>health_bad <span class="ot">&lt;-</span> <span class="fl">0.4</span> <span class="sc">*</span> (age <span class="sc">-</span> <span class="dv">70</span>) <span class="sc">+</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 70歳で自己負担が不連続に低下</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>copay <span class="ot">&lt;-</span> <span class="dv">30</span> <span class="sc">-</span> <span class="dv">12</span> <span class="sc">*</span> post70 <span class="sc">+</span> <span class="dv">4</span> <span class="sc">*</span> health_bad <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">2</span>)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="co"># 自己負担が下がると受診回数が増える</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>visits <span class="ot">&lt;-</span> <span class="dv">6</span> <span class="sc">-</span> <span class="fl">0.25</span> <span class="sc">*</span> copay <span class="sc">+</span> <span class="fl">1.5</span> <span class="sc">*</span> health_bad <span class="sc">+</span> <span class="fl">0.3</span> <span class="sc">*</span> (age <span class="sc">-</span> <span class="dv">70</span>) <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">1.5</span>)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>df_rdd <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">age =</span> age,</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">copay =</span> copay,</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">visits =</span> visits</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>まず、70歳で本当に自己負担が jump していることを確認する。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(df_rdd<span class="sc">$</span>age, df_rdd<span class="sc">$</span>copay,</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">cex =</span> <span class="fl">0.4</span>,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"年齢"</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="st">"自己負担額"</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"70歳で自己負担額が不連続に下がる"</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">70</span>, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>fit_left  <span class="ot">&lt;-</span> <span class="fu">lm</span>(copay <span class="sc">~</span> age, <span class="at">data =</span> <span class="fu">subset</span>(df_rdd, age <span class="sc">&lt;</span> <span class="dv">70</span>))</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>fit_right <span class="ot">&lt;-</span> <span class="fu">lm</span>(copay <span class="sc">~</span> age, <span class="at">data =</span> <span class="fu">subset</span>(df_rdd, age <span class="sc">&gt;=</span> <span class="dv">70</span>))</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>xx_left  <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">68</span>, <span class="dv">70</span>, <span class="at">length.out =</span> <span class="dv">100</span>)</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>xx_right <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">70</span>, <span class="dv">72</span>, <span class="at">length.out =</span> <span class="dv">100</span>)</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(xx_left, <span class="fu">predict</span>(fit_left, <span class="at">newdata =</span> <span class="fu">data.frame</span>(<span class="at">age =</span> xx_left)), <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(xx_right, <span class="fu">predict</span>(fit_right, <span class="at">newdata =</span> <span class="fu">data.frame</span>(<span class="at">age =</span> xx_right)), <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture10_revised_files/figure-html/rdd-first-stage-plot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>次に、外来受診回数も 70歳で jump しているかを見る。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(df_rdd<span class="sc">$</span>age, df_rdd<span class="sc">$</span>visits,</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">cex =</span> <span class="fl">0.4</span>,</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"年齢"</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="st">"外来受診回数"</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"70歳で外来受診回数にも不連続があるか"</span>)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">70</span>, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>fit_left_y  <span class="ot">&lt;-</span> <span class="fu">lm</span>(visits <span class="sc">~</span> age, <span class="at">data =</span> <span class="fu">subset</span>(df_rdd, age <span class="sc">&lt;</span> <span class="dv">70</span>))</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>fit_right_y <span class="ot">&lt;-</span> <span class="fu">lm</span>(visits <span class="sc">~</span> age, <span class="at">data =</span> <span class="fu">subset</span>(df_rdd, age <span class="sc">&gt;=</span> <span class="dv">70</span>))</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(xx_left, <span class="fu">predict</span>(fit_left_y, <span class="at">newdata =</span> <span class="fu">data.frame</span>(<span class="at">age =</span> xx_left)), <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(xx_right, <span class="fu">predict</span>(fit_right_y, <span class="at">newdata =</span> <span class="fu">data.frame</span>(<span class="at">age =</span> xx_right)), <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture10_revised_files/figure-html/rdd-outcome-plot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>ここで見ているのは、<strong>70歳の直前と直後で 結果 にどれだけ大きな ジャンプ があるか</strong>である。</p>
+<p>年齢の効果そのものは滑らかだと考え、制度によって価格だけが不連続に変化するなら、その不連続を利用して価格の因果効果を識別できる。これが RDD の考え方である。</p>
+<p>したがって RDD は、</p>
+<blockquote class="blockquote">
+<p><strong>本来はなめらかに変化するはずの世界に、制度が作った段差を利用して因果効果を識別する方法</strong></p>
+</blockquote>
+<p>だと理解できる。</p>
+<p>前回の IV の話とのつながりで言えば、RDD は「制度の cutoff に埋め込まれた非常に強い外生 variation を使う方法」である。</p>
+<p>普通の IV では、操作変数が本当に強いか、外生的か、という点がいつも問題になる。これに対して RDD では、制度それ自体が強い不連続を作ってくれている。だから RDD はしばしば非常に説得力のある実証デザインになる。</p>
+<p>もちろん、カットオフがあるだけで何でも識別できるわけではない。 本当に重要なのは、<strong>カットオフの直前直後で人々が十分に似ているか</strong>、そして <strong>制度以外の要因がその点で不連続に変化していないか</strong> である。</p>
+<p>以下では、この考え方をより フォーマルに定義する。 まずは</p>
+<ul>
+<li>running variable</li>
+<li>cutoff</li>
+<li>treatment の不連続</li>
+<li>outcome の不連続</li>
+</ul>
+<p>という概念を導入し、RDD がどのように因果効果を識別するのかを説明する。</p>
+<div class="callout callout-style-simple callout-important callout-titled" title="ここからは定義を整理する">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>ここからは定義を整理する
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>ここでは running variable、cutoff、sharp RDD、fuzzy RDD という基本用語をそろえる。直感だけでなく、<strong>どの極限を比較しているのか</strong> を意識して読むと理解しやすい。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="rdd-をフォーマルに書く" class="level1">
+<h1>RDD をフォーマルに書く</h1>
+<p>RDD では、各個人 <span class="math inline">\(i\)</span> に対して、連続的な変数 <span class="math inline">\(X_i\)</span> が観測されているとする。<br>
+これを <strong>ランニング変数</strong> と呼ぶ。先ほどの例では年齢がこれにあたる。</p>
+<p>また、ある閾値 <span class="math inline">\(c\)</span> が存在し、この値を境に制度上の扱いが変わるとする。<br>
+この <span class="math inline">\(c\)</span> を <strong>カットオフ</strong> と呼ぶ。</p>
+<p>RDD の基本的な発想は、</p>
+<blockquote class="blockquote">
+<p>カットオフのごく近くでは、<span class="math inline">\(X_i\)</span> が少し違うだけの個人同士は非常によく似ているはずであり、その一方で処置だけがカットオフで不連続に変化する</p>
+</blockquote>
+<p>というものである。</p>
+<p>まずは、処置がカットオフをまたぐと完全に切り替わる、最も基本的な <strong>シャープRDD</strong> から考える。</p>
+<section id="シャープrdd" class="level2">
+<h2 class="anchored" data-anchor-id="シャープrdd">シャープRDD</h2>
+<p>シャープRDDでは、処置はランニング変数がカットオフを超えたかどうかだけで機械的に決まる。<br>
+つまり、</p>
+<p><span class="math display">\[
+D_i = 1\{X_i \ge c\}
+\]</span></p>
+<p>である。ここで <span class="math inline">\(D_i\)</span> は処置ダミーであり、<span class="math inline">\(1\{\cdot\}\)</span> は条件が成り立つとき1、そうでないとき0をとる指示関数である。</p>
+<p>たとえば、</p>
+<ul>
+<li><span class="math inline">\(X_i\)</span> = 年齢</li>
+<li><span class="math inline">\(c = 70\)</span></li>
+<li><span class="math inline">\(D_i\)</span> = 70歳以上で低い自己負担率が適用されるかどうか</li>
+</ul>
+<p>というのが先ほどの例である。</p>
+</section>
+<section id="潜在結果変数" class="level2">
+<h2 class="anchored" data-anchor-id="潜在結果変数">潜在結果変数</h2>
+<p>因果効果を考えるために、各個人について潜在結果変数を導入する。<br>
+<span class="math inline">\(Y_i(1)\)</span> を処置を受けたときの潜在結果変数、<span class="math inline">\(Y_i(0)\)</span> を処置を受けなかったときの潜在結果変数とする。</p>
+<p>観察される結果変数は</p>
+<p><span class="math display">\[
+Y_i = D_i Y_i(1) + (1-D_i) Y_i(0)
+\]</span></p>
+<p>である。</p>
+<p>我々が知りたいのは、カットオフ近傍にいる個人にとって処置が結果変数に与える影響である。<br>
+RDDではこれを、<span class="math inline">\(X_i=c\)</span> における局所的な平均因果効果として捉える。</p>
+</section>
+<section id="識別のアイデア" class="level2">
+<h2 class="anchored" data-anchor-id="識別のアイデア">識別のアイデア</h2>
+<p>シャープRDDの核心は、潜在結果変数の条件付き期待値がカットオフで連続である、という仮定である。<br>
+すなわち、</p>
+<p><span class="math display">\[
+\lim_{x \downarrow c} E[Y_i(0)\mid X_i=x]
+=
+\lim_{x \uparrow c} E[Y_i(0)\mid X_i=x]
+\]</span></p>
+<p>かつ</p>
+<p><span class="math display">\[
+\lim_{x \downarrow c} E[Y_i(1)\mid X_i=x]
+=
+\lim_{x \uparrow c} E[Y_i(1)\mid X_i=x]
+\]</span></p>
+<p>を仮定する。</p>
+<p>この仮定の意味は、「もし制度がなければ、結果変数はカットオフのところで滑らかに変化していたはずだ」ということである。<br>
+したがって、実際に観察される結果変数の条件付き期待値にカットオフで不連続があれば、それは処置の導入によるものだと解釈できる。</p>
+<p>実際、シャープRDDでは</p>
+<p><span class="math display">\[
+E[Y_i \mid X_i=x]
+=
+\begin{cases}
+E[Y_i(0)\mid X_i=x] &amp; (x&lt;c) \\
+E[Y_i(1)\mid X_i=x] &amp; (x\ge c)
+\end{cases}
+\]</span></p>
+<p>なので、カットオフにおける左右極限の差は</p>
+<p><span class="math display">\[
+\lim_{x \downarrow c} E[Y_i\mid X_i=x]
+-
+\lim_{x \uparrow c} E[Y_i\mid X_i=x]
+\]</span></p>
+<p><span class="math display">\[
+=
+\lim_{x \downarrow c} E[Y_i(1)\mid X_i=x]
+-
+\lim_{x \uparrow c} E[Y_i(0)\mid X_i=x].
+\]</span></p>
+<p>連続性仮定より、これは</p>
+<p><span class="math display">\[
+E[Y_i(1)-Y_i(0)\mid X_i=c]
+\]</span></p>
+<p>に等しい。</p>
+<p>したがってシャープRDDでは、カットオフにおける結果変数の不連続が、そのままカットオフ近傍での平均因果効果になる。</p>
+<p>これをシャープRDDの識別対象と書けば、</p>
+<p><span class="math display">\[
+\tau_{SRD}
+=
+\lim_{x \downarrow c} E[Y_i\mid X_i=x]
+-
+\lim_{x \uparrow c} E[Y_i\mid X_i=x].
+\]</span></p>
+<p>そして連続性仮定のもとで</p>
+<p><span class="math display">\[
+\tau_{SRD}
+=
+E[Y_i(1)-Y_i(0)\mid X_i=c].
+\]</span></p>
+<p>これがシャープRDDの識別結果である。</p>
+</section>
+<section id="何を仮定しているのか" class="level2">
+<h2 class="anchored" data-anchor-id="何を仮定しているのか">何を仮定しているのか</h2>
+<p>ここで重要なのは、RDDが「カットオフの前後の人が完全に同じ」と言っているわけではないことである。<br>
+年齢が少し違えば、健康状態や所得も少しは違うかもしれない。<br>
+RDDが必要としているのは、それらの違いが <strong>滑らかに</strong> 変化していることである。</p>
+<p>つまり、カットオフで不連続に変わるのが処置だけであれば、結果変数に現れる不連続も処置の効果だと考えられる。</p>
+<p>逆に言えば、カットオフで処置以外のものまで同時に不連続に変わってしまうと、RDDの解釈は壊れる。<br>
+したがって実証では、</p>
+<ul>
+<li>ランニング変数の密度がカットオフで不連続でないか</li>
+<li>あらかじめ決まっている共変量がカットオフで不連続でないか</li>
+</ul>
+<p>を確認することが重要になる。</p>
+</section>
+<section id="シャープrddの回帰表現" class="level2">
+<h2 class="anchored" data-anchor-id="シャープrddの回帰表現">シャープRDDの回帰表現</h2>
+<p>実務では、カットオフの近傍だけに注目して、結果変数をランニング変数の関数として近似する。<br>
+もっとも単純には、左右で傾きの違う局所線形回帰を考えて</p>
+<p><span class="math display">\[
+Y_i
+=
+\alpha
++
+\tau D_i
++
+\beta_1 (X_i-c)
++
+\beta_2 D_i (X_i-c)
++
+u_i
+\]</span></p>
+<p>を推定する。</p>
+<p>ここで</p>
+<ul>
+<li><span class="math inline">\(\alpha\)</span> はカットオフ直前の条件付き平均</li>
+<li><span class="math inline">\(\tau\)</span> はカットオフにおける不連続</li>
+<li><span class="math inline">\(\beta_1\)</span> はカットオフ左側の傾き</li>
+<li><span class="math inline">\(\beta_1+\beta_2\)</span> はカットオフ右側の傾き</li>
+</ul>
+<p>を表す。</p>
+<p>この式で最も重要なのは <span class="math inline">\(\tau\)</span> であり、これがシャープRDDの処置効果に対応する。</p>
+<p>もちろん、実際にはカットオフから遠いところのデータをそのまま使うのではなく、カットオフ近傍だけを用い、しかも近い観測に大きな重みを置くのが一般的である。<br>
+この点はバンド幅の話で後で詳しく扱う。</p>
+</section>
+<section id="ファジーrdd" class="level2">
+<h2 class="anchored" data-anchor-id="ファジーrdd">ファジーRDD</h2>
+<p>ここまでは、カットオフをまたぐと処置が完全に切り替わるシャープRDDを見た。<br>
+しかし現実には、制度上はカットオフがあっても、人々が必ずしもそのルールどおりに処置を受けるとは限らない。</p>
+<p>たとえば、</p>
+<ul>
+<li>70歳を超えると自己負担率は下がるはずだが、実際の負担額には多少のばらつきがある</li>
+<li>テストの点数が基準を超えたら補習の対象から外れるはずだが、実際には裁量で例外がある</li>
+<li>所得基準を超えたら給付金が減るはずだが、事務処理や申請の有無で完全には一致しない</li>
+</ul>
+<p>ということがある。</p>
+<p>このように、カットオフで処置の<strong>確率</strong>は不連続に変化するが、処置が完全には決まらない状況を <strong>ファジーRDD</strong> という。</p>
+<p>シャープRDDでは</p>
+<p><span class="math display">\[
+D_i = 1\{X_i \ge c\}
+\]</span></p>
+<p>だったが、ファジーRDDではこれは成り立たない。<br>
+代わりに</p>
+<p><span class="math display">\[
+P(D_i=1\mid X_i=x)
+\]</span></p>
+<p>が <span class="math inline">\(x=c\)</span> で不連続になることを利用する。</p>
+<p>すなわち、</p>
+<p><span class="math display">\[
+\lim_{x \downarrow c} E[D_i\mid X_i=x]
+-
+\lim_{x \uparrow c} E[D_i\mid X_i=x]
+\neq 0
+\]</span></p>
+<p>であることが重要である。</p>
+</section>
+<section id="ファジーrddの識別対象" class="level2">
+<h2 class="anchored" data-anchor-id="ファジーrddの識別対象">ファジーRDDの識別対象</h2>
+<p>ファジーRDDでは、結果変数の不連続そのものは処置効果ではない。<br>
+なぜなら、カットオフをまたいでも処置を受ける人の割合が0から1に完全には変わらないからである。</p>
+<p>その代わり、カットオフにおける</p>
+<ul>
+<li>結果変数の不連続</li>
+<li>処置確率の不連続</li>
+</ul>
+<p>の比をとる。</p>
+<p>つまり、</p>
+<p><span class="math display">\[
+\tau_{FRD}
+=
+\frac{
+\lim_{x \downarrow c} E[Y_i\mid X_i=x]
+-
+\lim_{x \uparrow c} E[Y_i\mid X_i=x]
+}{
+\lim_{x \downarrow c} E[D_i\mid X_i=x]
+-
+\lim_{x \uparrow c} E[D_i\mid X_i=x]
+}.
+\]</span></p>
+<p>この形は、まさに Wald 推定量である。<br>
+したがってファジーRDDは、<strong>カットオフをまたいだかどうかを操作変数としたIV</strong> だと理解できる。</p>
+<p>具体的には、</p>
+<p><span class="math display">\[
+Z_i = 1\{X_i \ge c\}
+\]</span></p>
+<p>を操作変数と考える。<br>
+すると <span class="math inline">\(Z_i\)</span> はカットオフをまたいだかどうかを表し、これが処置 <span class="math inline">\(D_i\)</span> を不連続に動かす。<br>
+一方で、連続性仮定のもとでは、<span class="math inline">\(Z_i\)</span> はカットオフ近傍では処置を通じてのみ結果変数に影響すると考えられる。</p>
+<p>この意味でファジーRDDは、<strong>ランニング変数がカットオフを超えたかどうかを操作変数として使う局所的な2段階最小二乗法</strong> である。</p>
+</section>
+<section id="ファジーrddはなぜivなのか" class="level2">
+<h2 class="anchored" data-anchor-id="ファジーrddはなぜivなのか">ファジーRDDはなぜIVなのか</h2>
+<p>IVの言葉で言えば、<span class="math inline">\(Z_i=1\{X_i\ge c\}\)</span> は次の2つの性質を持つ。</p>
+<p>第一に、<strong>関連性</strong> がある。<br>
+つまりカットオフをまたぐことで処置の受けやすさが不連続に変化する。</p>
+<p><span class="math display">\[
+\lim_{x \downarrow c} E[D_i\mid X_i=x]
+\neq
+\lim_{x \uparrow c} E[D_i\mid X_i=x].
+\]</span></p>
+<p>第二に、カットオフ近傍では <strong>外生性</strong> や <strong>排除制約</strong> が成り立つと考える。<br>
+すなわち、<span class="math inline">\(X_i\)</span> のその他の効果は滑らかであり、<span class="math inline">\(Z_i\)</span> が結果変数に与える不連続な影響は処置を通じたものだけだと考える。</p>
+<p>その結果、ファジーRDDの識別対象はIVのWald比と同じ形になる。<br>
+つまり、</p>
+<p><span class="math display">\[
+\text{IV推定量}
+=
+\frac{\text{操作変数が結果変数をどれだけ動かしたか}}{\text{操作変数が処置をどれだけ動かしたか}}
+\]</span></p>
+<p>という前回の形が、そのまま</p>
+<p><span class="math display">\[
+\tau_{FRD}
+=
+\frac{\text{カットオフにおける結果変数の不連続}}{\text{カットオフにおける処置確率の不連続}}
+\]</span></p>
+<p>として現れているのである。</p>
+<p>したがってファジーRDDは、</p>
+<blockquote class="blockquote">
+<p><strong>カットオフをまたいだかどうかを操作変数とする局所的なIV</strong></p>
+</blockquote>
+<p>だと理解すればよい。</p>
+</section>
+<section id="シャープrddとファジーrddの違い" class="level2">
+<h2 class="anchored" data-anchor-id="シャープrddとファジーrddの違い">シャープRDDとファジーRDDの違い</h2>
+<p>両者の違いは、カットオフで何が不連続に変化するかにある。</p>
+<p>シャープRDDでは、処置そのものがカットオフで完全に切り替わる。<br>
+したがって、結果変数の不連続がそのまま処置効果になる。</p>
+<p>一方、ファジーRDDでは、カットオフで不連続に変化するのは処置そのものではなく、処置を受ける<strong>確率</strong>である。<br>
+したがって、結果変数の不連続をそのまま処置効果とは読めず、処置確率の不連続で割る必要がある。<br>
+この点で、ファジーRDDはIVと全く同じ発想になる。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="図と回帰を対応づける">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>図と回帰を対応づける
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>RDD は図で理解しやすい反面、どの回帰がどのジャンプを推定しているのかが曖昧になりやすい。ここではシミュレーションを通じて、図で見た段差が推定量にどう対応するかを確認する。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="シミュレーション" class="level1">
+<h1>シミュレーション</h1>
+<p>ここまでで、RDD では「カットオフの前後で、処置や結果変数に不連続が現れるか」を見る、ということを学んだ。<br>
+次に、これをシミュレーションで実感してみよう。</p>
+<p>ここではまず <strong>シャープRDD</strong> の例を作る。<br>
+その後で、<strong>ファジーRDD</strong> では「処置そのもの」ではなく「処置を受ける確率」がカットオフで不連続に変わることも確認する。</p>
+<section id="シャープrddのシミュレーション" class="level2">
+<h2 class="anchored" data-anchor-id="シャープrddのシミュレーション">シャープRDDのシミュレーション</h2>
+<p>以下では、ランニング変数 <span class="math inline">\(X_i\)</span> が一様分布に従うとする。<br>
+カットオフは <span class="math inline">\(c=0\)</span> とし、<span class="math inline">\(X_i \ge 0\)</span> なら処置を受けるものとする。</p>
+<p>潜在結果変数は</p>
+<p><span class="math display">\[
+Y_i(0) = 2 + 0.8X_i + u_i
+\]</span></p>
+<p><span class="math display">\[
+Y_i(1) = Y_i(0) + 1.5
+\]</span></p>
+<p>とする。<br>
+つまり、処置効果は一定で <span class="math inline">\(1.5\)</span> である。<br>
+このとき観察される結果変数は</p>
+<p><span class="math display">\[
+Y_i = D_i Y_i(1) + (1-D_i)Y_i(0)
+\]</span></p>
+<p>であり、<span class="math inline">\(D_i = 1\{X_i \ge 0\}\)</span> である。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">2000</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">runif</span>(n, <span class="at">min =</span> <span class="sc">-</span><span class="dv">1</span>, <span class="at">max =</span> <span class="dv">1</span>)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(x <span class="sc">&gt;=</span> <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">0.5</span>)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>y0 <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">+</span> <span class="fl">0.8</span> <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>y1 <span class="ot">&lt;-</span> y0 <span class="sc">+</span> <span class="fl">1.5</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>y  <span class="ot">&lt;-</span> d <span class="sc">*</span> y1 <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> d) <span class="sc">*</span> y0</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>df_sharp <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> x,</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">d =</span> d,</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">y =</span> y</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(df_sharp)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           x d        y
+1 -0.4248450 0 1.162225
+2  0.5766103 1 3.441311
+3 -0.1820462 0 1.845373
+4  0.7660348 1 4.046740
+5  0.8809346 1 2.930076
+6 -0.9088870 0 1.793177</code></pre>
+</div>
+</div>
+<p>まず、ランニング変数と処置の関係を描いてみよう。 シャープRDDでは、カットオフで処置が完全に切り替わるはずである。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(df_sharp<span class="sc">$</span>x, df_sharp<span class="sc">$</span>d,</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">cex =</span> <span class="fl">0.4</span>,</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Running variable"</span>,</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="st">"Treatment dummy"</span>,</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Sharp RDD"</span>)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture10_revised_files/figure-html/sharp-rdd-treatment-plot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>次に、ランニング変数と結果変数の関係を描いてみる。 カットオフで結果変数にも不連続が現れるはずである。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(df_sharp<span class="sc">$</span>x, df_sharp<span class="sc">$</span>y,</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">cex =</span> <span class="fl">0.4</span>,</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Running variable"</span>,</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="st">"Outcome"</span>,</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Sharp RDD"</span>)</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>fit_left  <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x, <span class="at">data =</span> <span class="fu">subset</span>(df_sharp, x <span class="sc">&lt;</span> <span class="dv">0</span>))</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>fit_right <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x, <span class="at">data =</span> <span class="fu">subset</span>(df_sharp, x <span class="sc">&gt;=</span> <span class="dv">0</span>))</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>xx_left  <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">0</span>, <span class="at">length.out =</span> <span class="dv">100</span>)</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>xx_right <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length.out =</span> <span class="dv">100</span>)</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(xx_left,</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>      <span class="fu">predict</span>(fit_left, <span class="at">newdata =</span> <span class="fu">data.frame</span>(<span class="at">x =</span> xx_left)),</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>      <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(xx_right,</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>      <span class="fu">predict</span>(fit_right, <span class="at">newdata =</span> <span class="fu">data.frame</span>(<span class="at">x =</span> xx_right)),</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>      <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture10_revised_files/figure-html/sharp-rdd-outcome-plot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>この図では、カットオフの左側と右側で回帰直線を別々に引いている。 そのとき、<span class="math inline">\(x=0\)</span> のところで生じる縦のズレが、シャープRDDにおける処置効果に対応する。</p>
+<p>最も単純な回帰式でこれを推定すると、</p>
+<p><span class="math display">\[
+Y_i = \alpha
++
+\tau D_i
++
+\beta_1 X_i
++
+\beta_2 D_i X_i
++
+u_i
+\]</span></p>
+<p>となる。 ここで <span class="math inline">\(\tau\)</span> がカットオフにおける不連続、すなわちシャープRDDの効果である。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>fit_sharp <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> d <span class="sc">+</span> x <span class="sc">+</span> d<span class="sc">:</span>x, <span class="at">data =</span> df_sharp)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit_sharp)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = y ~ d + x + d:x, data = df_sharp)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-1.52675 -0.33739 -0.01125  0.34063  1.69450 
+
+Coefficients:
+             Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  2.017531   0.030665  65.793   &lt;2e-16 ***
+d            1.480874   0.043922  33.716   &lt;2e-16 ***
+x            0.815428   0.053436  15.260   &lt;2e-16 ***
+d:x         -0.009835   0.076668  -0.128    0.898    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.4975 on 1996 degrees of freedom
+Multiple R-squared:  0.8459,    Adjusted R-squared:  0.8457 
+F-statistic:  3654 on 3 and 1996 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+</div>
+<p>上の回帰で、<code>d</code> の係数がカットオフにおける不連続の大きさを表している。 今回のシミュレーションでは真の処置効果を <span class="math inline">\(1.5\)</span> に設定しているので、推定値もそれに近い値になるはずである。</p>
+</section>
+<section id="カットオフ近傍だけを見る" class="level2">
+<h2 class="anchored" data-anchor-id="カットオフ近傍だけを見る">カットオフ近傍だけを見る</h2>
+<p>RDDでは、カットオフから遠い観測まで無条件に使うのではなく、カットオフ近傍だけに注目することが重要である。 そこで、<span class="math inline">\(|X_i| \le 0.3\)</span> のデータだけを使って同じ回帰をしてみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>df_sharp_local <span class="ot">&lt;-</span> <span class="fu">subset</span>(df_sharp, <span class="fu">abs</span>(x) <span class="sc">&lt;=</span> <span class="fl">0.3</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>fit_sharp_local <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> d <span class="sc">+</span> x <span class="sc">+</span> d<span class="sc">:</span>x, <span class="at">data =</span> df_sharp_local)</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit_sharp_local)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = y ~ d + x + d:x, data = df_sharp_local)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-1.28966 -0.31846 -0.01704  0.31496  1.67365 
+
+Coefficients:
+            Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  2.06300    0.05336  38.661  &lt; 2e-16 ***
+d            1.42120    0.07729  18.387  &lt; 2e-16 ***
+x            1.11954    0.31125   3.597 0.000347 ***
+d:x         -0.16755    0.44711  -0.375 0.707980    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.4762 on 628 degrees of freedom
+Multiple R-squared:  0.7709,    Adjusted R-squared:  0.7698 
+F-statistic: 704.4 on 3 and 628 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+</div>
+<p>このように、カットオフ近傍だけに絞ることで、「左右の個人は十分似ているはずだ」というRDDの発想により忠実な推定になる。 一方で、使うデータが少なくなるので標準誤差は大きくなりやすい。 このトレードオフが、後で学ぶ <strong>バンド幅選択</strong> の問題である。</p>
+</section>
+<section id="ファジーrddのシミュレーション" class="level2">
+<h2 class="anchored" data-anchor-id="ファジーrddのシミュレーション">ファジーRDDのシミュレーション</h2>
+<p>次に、ファジーRDDを考える。 ここでは、カットオフを超えると処置を受ける確率は大きく上がるが、処置が完全には決まらない状況を作る。</p>
+<p>具体的には、処置ダミー <span class="math inline">\(D_i\)</span> を確率的に発生させる。 カットオフ左側では処置確率を低く、右側では高くする。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">456</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">3000</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">runif</span>(n, <span class="at">min =</span> <span class="sc">-</span><span class="dv">1</span>, <span class="at">max =</span> <span class="dv">1</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>z <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(x <span class="sc">&gt;=</span> <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span>)  <span class="co"># カットオフをまたいだかどうか</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 処置確率はカットオフで不連続に上がる</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>p_d <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(x <span class="sc">&lt;</span> <span class="dv">0</span>, <span class="fl">0.2</span> <span class="sc">+</span> <span class="fl">0.1</span> <span class="sc">*</span> (x <span class="sc">+</span> <span class="dv">1</span>), <span class="fl">0.7</span> <span class="sc">+</span> <span class="fl">0.1</span> <span class="sc">*</span> x)</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>p_d <span class="ot">&lt;-</span> <span class="fu">pmin</span>(<span class="fu">pmax</span>(p_d, <span class="fl">0.01</span>), <span class="fl">0.99</span>)</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(n, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> p_d)</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">0.5</span>)</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>y0 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> <span class="fl">0.5</span> <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>y1 <span class="ot">&lt;-</span> y0 <span class="sc">+</span> <span class="dv">2</span></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>y  <span class="ot">&lt;-</span> d <span class="sc">*</span> y1 <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> d) <span class="sc">*</span> y0</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>df_fuzzy <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> x,</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">z =</span> z,</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">d =</span> d,</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">y =</span> y,</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">p_d =</span> p_d</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(df_fuzzy)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           x z d         y       p_d
+1 -0.8208968 0 0 0.6174627 0.2179103
+2 -0.5789754 0 0 0.7865857 0.2421025
+3  0.4659105 1 0 1.0704556 0.7465911
+4  0.7042671 1 0 1.0910863 0.7704267
+5  0.5767958 1 1 3.4204633 0.7576796
+6 -0.3360801 0 0 0.8050766 0.2663920</code></pre>
+</div>
+</div>
+<p>まず、カットオフで処置確率が不連続に変化していることを図で確認する。 個票のままだと見にくいので、区間ごとの平均を描く。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>breaks <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>, <span class="at">by =</span> <span class="fl">0.05</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>bin_id <span class="ot">&lt;-</span> <span class="fu">cut</span>(df_fuzzy<span class="sc">$</span>x, <span class="at">breaks =</span> breaks, <span class="at">include.lowest =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>bin_mean_x <span class="ot">&lt;-</span> <span class="fu">tapply</span>(df_fuzzy<span class="sc">$</span>x, bin_id, mean)</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>bin_mean_d <span class="ot">&lt;-</span> <span class="fu">tapply</span>(df_fuzzy<span class="sc">$</span>d, bin_id, mean)</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(bin_mean_x, bin_mean_d,</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>,</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Running variable"</span>,</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="st">"Avg. Prob. Treatment"</span>,</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Fazzy RDD"</span>)</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture10_revised_files/figure-html/fuzzy-rdd-firststage-binned-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>次に、結果変数のほうにもカットオフで不連続があるかを見る。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>bin_mean_y <span class="ot">&lt;-</span> <span class="fu">tapply</span>(df_fuzzy<span class="sc">$</span>y, bin_id, mean)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(bin_mean_x, bin_mean_y,</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>,</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Running variable"</span>,</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="st">"Avg. Prob. Treatment"</span>,</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Fazzy RDD"</span>)</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture10_revised_files/figure-html/fuzzy-rdd-outcome-binned-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>ファジーRDDでは、結果変数の不連続をそのまま処置効果とは読めない。 なぜなら、カットオフで変わっているのは処置そのものではなく、処置を受ける<strong>確率</strong>だからである。</p>
+<p>したがって、ファジーRDDでは</p>
+<p><span class="math display">\[
+\frac{\text{結果変数の不連続}}{\text{処置確率の不連続}}
+\]</span></p>
+<p>をとる。 これは前回学んだ Wald 推定量と同じ発想であり、ファジーRDDが局所的なIVになっていることを意味する。</p>
+<p>まず、局所線形回帰で結果変数の不連続と処置確率の不連続をそれぞれ推定してみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>fit_y <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> z <span class="sc">+</span> x <span class="sc">+</span> z<span class="sc">:</span>x, <span class="at">data =</span> df_fuzzy)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>fit_d <span class="ot">&lt;-</span> <span class="fu">lm</span>(d <span class="sc">~</span> z <span class="sc">+</span> x <span class="sc">+</span> z<span class="sc">:</span>x, <span class="at">data =</span> df_fuzzy)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>jump_y <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_y)[<span class="st">"z"</span>]</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>jump_d <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_d)[<span class="st">"z"</span>]</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>wald_fuzzy <span class="ot">&lt;-</span> jump_y <span class="sc">/</span> jump_d</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>jump_y</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       z 
+0.887084 </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>jump_d</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>        z 
+0.4314346 </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>wald_fuzzy</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       z 
+2.056126 </code></pre>
+</div>
+</div>
+<p>ここで</p>
+<ul>
+<li><code>jump_y</code> はカットオフにおける結果変数の不連続</li>
+<li><code>jump_d</code> はカットオフにおける処置確率の不連続</li>
+<li><code>wald_fuzzy</code> はその比</li>
+</ul>
+<p>であり、これがファジーRDDの推定量である。</p>
+</section>
+<section id="ファジーrddはivとして推定できる" class="level2">
+<h2 class="anchored" data-anchor-id="ファジーrddはivとして推定できる">ファジーRDDはIVとして推定できる</h2>
+<p>ファジーRDDでは、カットオフをまたいだかどうか</p>
+<p><span class="math display">\[
+Z_i = 1\{X_i \ge 0\}
+\]</span></p>
+<p>を操作変数とみなすことができる。 すると、ファジーRDDは局所的なIVそのものである。</p>
+<p><code>AER</code> パッケージの <code>ivreg()</code> を使うと、同じ発想をそのまま実装できる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(AER)</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>fit_iv <span class="ot">&lt;-</span> <span class="fu">ivreg</span>(</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>  y <span class="sc">~</span> d <span class="sc">+</span> x <span class="sc">+</span> d<span class="sc">:</span>x <span class="sc">|</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>    z <span class="sc">+</span> x <span class="sc">+</span> z<span class="sc">:</span>x,</span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> df_fuzzy</span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit_iv)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+ivreg(formula = y ~ d + x + d:x | z + x + z:x, data = df_fuzzy)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-1.88781 -0.34652 -0.01614  0.34401  1.84160 
+
+Coefficients:
+            Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  1.00695    0.04461  22.570   &lt;2e-16 ***
+d            2.06215    0.08564  24.079   &lt;2e-16 ***
+x            0.57477    0.06507   8.833   &lt;2e-16 ***
+d:x         -0.16900    0.11253  -1.502    0.133    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.5046 on 2996 degrees of freedom
+Multiple R-Squared: 0.838,  Adjusted R-squared: 0.8379 
+Wald test:  2421 on 3 and 2996 DF,  p-value: &lt; 2.2e-16 </code></pre>
+</div>
+</div>
+<p>この回帰では、</p>
+<ul>
+<li><code>d</code> が内生的な処置</li>
+<li><code>z</code> が操作変数</li>
+<li><code>x</code> と <code>z:x</code> がランニング変数まわりのコントロール</li>
+</ul>
+<p>になっている。 考え方としては、「カットオフをまたいだことが処置確率をどれだけ変え、その結果として結果変数をどれだけ変えたか」を見ている。</p>
+<div class="callout callout-style-simple callout-warning callout-titled" title="実装ではこの点を外さない">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">警告</span>実装ではこの点を外さない
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>RDD は説得力の強いデザインだが、実装を雑にするとかなり危うくなる。特に <strong>カットオフ近傍に絞ること</strong>、<strong>高次多項式に頼りすぎないこと</strong>、<strong>操作や共変量の不連続を点検すること</strong> が重要である。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="rdd-の実装" class="level1">
+<h1>RDD の実装</h1>
+<p>ここまでで、RDD の基本的な識別の考え方は確認した。<br>
+しかし実証では、単に「カットオフで不連続が見えたから効果がある」と言うだけでは不十分である。<br>
+実際には、</p>
+<ul>
+<li>どのデータを使って推定するのか</li>
+<li>図をどう読むのか</li>
+<li>推定結果をどこまで信用してよいのか</li>
+</ul>
+<p>を慎重に考えなければならない。</p>
+<p>この節では、RDD を実際に使うときに重要になる実装上のポイントを整理する。</p>
+<section id="rddの図をどう読むか" class="level2">
+<h2 class="anchored" data-anchor-id="rddの図をどう読むか">RDDの図をどう読むか</h2>
+<p>RDD の図で見たいものは、ランニング変数と結果変数の関係そのものではない。<br>
+本質は、<strong>カットオフにおける不連続</strong> である。</p>
+<p>横軸にランニング変数、縦軸に結果変数をとって散布図を描くとき、重要なのは</p>
+<ul>
+<li>カットオフの左側で結果変数がどう推移しているか</li>
+<li>カットオフの右側で結果変数がどう推移しているか</li>
+<li>その2つをカットオフまで延長したとき、縦にどれだけズレているか</li>
+</ul>
+<p>である。</p>
+<p>言い換えると、RDD は「左側の平均」と「右側の平均」を比べる方法ではない。<br>
+比べているのは、<strong>カットオフにおける左右の極限</strong> である。</p>
+<p>シャープRDD の識別対象は</p>
+<p><span class="math display">\[
+\tau_{SRD}
+=
+\lim_{x \downarrow c} E[Y_i\mid X_i=x]
+-
+\lim_{x \uparrow c} E[Y_i\mid X_i=x]
+\]</span></p>
+<p>だった。<br>
+したがって図でも、単に左右で水準が違うことよりも、<strong>カットオフちょうどのところで不連続があるか</strong> が重要になる。</p>
+<p>また、左右の傾きが違っていても、それ自体は問題ではない。<br>
+RDD の本質は傾きではなく、カットオフにおける縦のズレである。</p>
+</section>
+<section id="なぜカットオフ近傍だけを見るのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜカットオフ近傍だけを見るのか">なぜカットオフ近傍だけを見るのか</h2>
+<p>RDD の識別は、カットオフの近くにいる個人同士は十分似ている、という考え方に依存している。<br>
+したがって、カットオフから遠い観測まで無条件に使うのは危険である。</p>
+<p>たとえば年齢をランニング変数にして 70 歳をカットオフとする場合、69 歳 11 か月の人と 70 歳 0 か月の人はかなり似ていると考えやすい。<br>
+しかし 55 歳の人と 85 歳の人まで同じ回帰式でまとめてしまうと、年齢に伴うさまざまな違いが大きすぎて、カットオフ近傍の比較という RDD の発想から離れてしまう。</p>
+<p>このため、RDD では通常、<strong>カットオフ近傍のデータだけを使って推定する</strong>。<br>
+この「どこまでを近傍とみなすか」を決めるのが <strong>バンド幅</strong> である。</p>
+<p>バンド幅を小さくすると、比較される個人同士はより似たものになり、識別の説得力は高まる。<br>
+しかしその一方で、使えるデータが減るので推定は不精確になりやすい。</p>
+<p>逆にバンド幅を大きくすると、推定は安定しやすくなるが、カットオフから遠い観測まで混ざってしまい、局所比較としての説得力は弱まる。</p>
+<p>つまりバンド幅の選択には、</p>
+<ul>
+<li>小さすぎると不精確</li>
+<li>大きすぎると比較が雑になる</li>
+</ul>
+<p>というトレードオフがある。</p>
+<p>実務では、この問題に対処するために、カットオフ近傍だけを使う <strong>局所線形回帰</strong> が標準的に使われる。<br>
+これは、カットオフの左右それぞれで直線近似を行い、その不連続を読む方法である。</p>
+</section>
+<section id="なぜ単純な高次多項式に頼りすぎてはいけないのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜ単純な高次多項式に頼りすぎてはいけないのか">なぜ単純な高次多項式に頼りすぎてはいけないのか</h2>
+<p>RDD を初めて学ぶと、全標本を使って</p>
+<p><span class="math display">\[
+Y_i
+=
+\alpha
++
+\tau D_i
++
+\beta_1 X_i
++
+\beta_2 X_i^2
++
+\beta_3 X_i^3
++
+\cdots
++
+u_i
+\]</span></p>
+<p>のような高次多項式を入れればよいのではないか、と思うかもしれない。<br>
+しかし現在の実務では、このような全標本に対する高次多項式回帰に強く依存するやり方はあまり好まれない。</p>
+<p>理由は単純で、高次多項式はカットオフから遠い領域の形に強く影響されやすく、カットオフ近傍での推定を不自然に歪めることがあるからである。<br>
+RDD が本当に知りたいのはカットオフ近傍の局所比較なので、全体の複雑な形を当てにいくよりも、近傍での単純な近似を重視したほうがよい。</p>
+<p>したがって、講義レベルでは</p>
+<blockquote class="blockquote">
+<p>RDD ではカットオフ近傍だけを使い、左右で別々に局所線形回帰をするのが標準的である</p>
+</blockquote>
+<p>と理解しておけば十分である。</p>
+</section>
+<section id="rddで必ず確認すべきこと" class="level2">
+<h2 class="anchored" data-anchor-id="rddで必ず確認すべきこと">RDDで必ず確認すべきこと</h2>
+<p>RDD が説得力を持つためには、「カットオフで不連続なのは処置だけである」という解釈が成り立たなければならない。<br>
+そのため実証では、推定結果そのものだけでなく、その前提がもっともらしいかを確認する作業が非常に重要である。</p>
+<section id="共変量がカットオフで不連続でないか" class="level3">
+<h3 class="anchored" data-anchor-id="共変量がカットオフで不連続でないか">共変量がカットオフで不連続でないか</h3>
+<p>まず確認すべきなのは、あらかじめ決まっている個人属性や共変量がカットオフで不連続になっていないかである。</p>
+<p>たとえば、</p>
+<ul>
+<li>性別</li>
+<li>学歴</li>
+<li>家族背景</li>
+<li>過去の健康状態</li>
+<li>前年度の成績</li>
+</ul>
+<p>など、処置の前に決まっている変数がカットオフで急に飛んでいるとしたら、左右の個人が「ほとんど同じ」とは言いにくくなる。</p>
+<p>理想的には、これらの変数については</p>
+<p><span class="math display">\[
+\lim_{x \downarrow c} E[W_i\mid X_i=x]
+=
+\lim_{x \uparrow c} E[W_i\mid X_i=x]
+\]</span></p>
+<p>が成り立っていてほしい。<br>
+ここで <span class="math inline">\(W_i\)</span> は事前に決まっている共変量である。</p>
+<p>したがって実証では、主要な共変量についても RDD の図や回帰を行い、カットオフで不連続がないことを確認する。</p>
+</section>
+<section id="ランニング変数の密度がカットオフで不連続でないか" class="level3">
+<h3 class="anchored" data-anchor-id="ランニング変数の密度がカットオフで不連続でないか">ランニング変数の密度がカットオフで不連続でないか</h3>
+<p>次に重要なのが、ランニング変数そのものの分布がカットオフで不連続でないか、という点である。</p>
+<p>もし人々がカットオフの左右を意図的に操作できるなら、カットオフ近傍の左右の個人はもはや「ほとんどランダムに分かれた集団」とは言えなくなる。<br>
+たとえば試験の点数を少し操作できる、申請基準の直前直後に合わせて行動を変えられる、というような場合には注意が必要である。</p>
+<p>この問題は、ランニング変数の密度をカットオフ近傍で描くことである程度確認できる。<br>
+もしカットオフの片側に観測が不自然に集中していれば、操作や選別が起きている可能性がある。</p>
+<p>この発想にもとづく代表的な検定が <strong>McCrary test</strong> である。<br>
+講義では細部までは立ち入らなくてよいが、メッセージは単純である。</p>
+<blockquote class="blockquote">
+<p>カットオフの左右に不自然な人の集まり方がないかを確認する。</p>
+</blockquote>
+</section>
+<section id="プラセボカットオフ" class="level3">
+<h3 class="anchored" data-anchor-id="プラセボカットオフ">プラセボ・カットオフ</h3>
+<p>さらに有用なのが、<strong>本当のカットオフ以外の場所でも不連続が出ていないか</strong> を見ることである。<br>
+もし 70 歳で制度が変わるはずなのに、68 歳や 72 歳でも同じような不連続が大量に見えるなら、その結果は本当に制度の効果なのか疑わしくなる。</p>
+<p>このため、実証では本来のカットオフとは別の場所に偽のカットオフを置いて、同じような推定を行うことがある。<br>
+これを <strong>プラセボ・カットオフ</strong> の確認という。</p>
+<p>本物の制度変更点でだけ不連続が見え、他の場所では見えないのであれば、RDD の解釈はより説得的になる。</p>
+</section>
+</section>
+<section id="rddの推定結果をどう解釈するか" class="level2">
+<h2 class="anchored" data-anchor-id="rddの推定結果をどう解釈するか">RDDの推定結果をどう解釈するか</h2>
+<p>RDD が識別しているのは、一般に <strong>カットオフ近傍での局所的な効果</strong> である。<br>
+これはとても重要な点である。</p>
+<p>たとえば 70 歳をカットオフにした医療制度の RDD で識別されるのは、70 歳近傍にいる人々にとっての自己負担変化の効果である。<br>
+それが 40 歳や 90 歳の人にも同じように当てはまるとは限らない。</p>
+<p>したがって RDD は非常に説得力のある因果効果を与える一方で、その効果は本質的に <strong>局所的</strong> である。<br>
+これは IV における局所平均処置効果とかなり似た考え方である。</p>
+<p>言い換えると、RDD の強みは「かなりきれいな比較ができる」ことにあるが、その代償として「わかるのはカットオフ近傍の効果に限られる」ことが多い。</p>
+</section>
+<section id="rddの限界" class="level2">
+<h2 class="anchored" data-anchor-id="rddの限界">RDDの限界</h2>
+<p>RDD は強力な方法だが、万能ではない。主な限界は次の通りである。</p>
+<p>第一に、カットオフ近傍でしか識別できない。<br>
+したがって、外的妥当性には常に注意が必要である。</p>
+<p>第二に、ランニング変数が操作可能だとデザインが壊れうる。<br>
+人々がカットオフの左右に自分をうまく配置できるなら、比較の信頼性は低下する。</p>
+<p>第三に、推定は仕様に敏感になりうる。<br>
+バンド幅の選び方や近似の仕方によって結果が変わる可能性があるため、複数の仕様で頑健性を確認することが重要である。</p>
+<p>第四に、カットオフ近傍のデータが少ないと、不精確な推定になりやすい。<br>
+局所比較を厳密にしようとするほど、標準誤差が大きくなることは避けにくい。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="論文を読むときの視点">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>論文を読むときの視点
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>実証研究では、どの制度ルールが cutoff を作っているのか、その cutoff の前後で本当に人々が似ていると言えそうか、そしてどの範囲の local effect を読んでいるのか、という順に確認すると読みやすい。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="rdd-を使った実証研究" class="level1">
+<h1>RDD を使った実証研究</h1>
+<section id="shigeoka-2014-the-effect-of-patient-cost-sharing-on-utilization-health-and-risk-protection" class="level2">
+<h2 class="anchored" data-anchor-id="shigeoka-2014-the-effect-of-patient-cost-sharing-on-utilization-health-and-risk-protection">Shigeoka (2014) : <em>The Effect of Patient Cost Sharing on Utilization, Health, and Risk Protection</em></h2>
+<p>ここでは、RDD を使った代表的な実証研究として Shigeoka (2014) を取り上げる。<br>
+この論文は、日本では 70 歳になると医療費の自己負担が大きく下がる、という制度上の不連続を利用して、自己負担の変化が</p>
+<ul>
+<li>医療利用</li>
+<li>健康</li>
+<li>家計の医療費リスク</li>
+</ul>
+<p>に与える因果効果を推定している。</p>
+<p>この論文の魅力は、RDD の発想が非常に明確に表れている点にある。<br>
+年齢は連続的に変化するが、医療費自己負担は 70 歳のところで制度的に不連続に変わる。<br>
+したがって、70 歳の直前と直後を比較することで、自己負担の変化が医療行動や健康に与える影響を説得的に識別できる。</p>
+<section id="制度の設定" class="level3">
+<h3 class="anchored" data-anchor-id="制度の設定">制度の設定</h3>
+<p>この論文が利用している制度的ショックは、70 歳到達時点での自己負担率の大幅な低下である。<br>
+したがって、この論文における</p>
+<ul>
+<li>ランニング変数は <strong>年齢</strong></li>
+<li>カットオフは <strong>70 歳</strong></li>
+<li>処置は <strong>低い自己負担率が適用されること</strong></li>
+</ul>
+<p>である。</p>
+<p>この設定のもとで、論文は次の問いを考えている。</p>
+<ul>
+<li>医療価格が下がると、人はどれだけ多く医療を使うようになるのか</li>
+<li>その利用増加は健康改善につながるのか</li>
+<li>自己負担軽減は家計の医療費リスクをどれだけ下げるのか</li>
+</ul>
+<hr>
+</section>
+<section id="メインの回帰式" class="level3">
+<h3 class="anchored" data-anchor-id="メインの回帰式">メインの回帰式</h3>
+<p>この論文では、結果変数に応じて少し異なる形の RDD 回帰を使っている。</p>
+<section id="個人レベルの結果変数" class="level4">
+<h4 class="anchored" data-anchor-id="個人レベルの結果変数">個人レベルの結果変数</h4>
+<p>健康状態や自己負担支出のように、個人ごとに観察できる変数については、基本的に</p>
+<p><span class="math display">\[
+Y_{iat} = f(a) + \beta \,\mathrm{Post70}_{iat} + X_{iat}'\gamma + \varepsilon_{iat}
+\]</span></p>
+<p>という形の回帰を行う。</p>
+<p>ここで</p>
+<ul>
+<li><span class="math inline">\(Y_{iat}\)</span> は個人 <span class="math inline">\(i\)</span>、年齢 <span class="math inline">\(a\)</span>、年 <span class="math inline">\(t\)</span> における結果変数</li>
+<li><span class="math inline">\(\mathrm{Post70}_{iat}\)</span> は 70 歳以上ダミー</li>
+<li><span class="math inline">\(f(a)\)</span> は年齢の滑らかな関数</li>
+<li><span class="math inline">\(X_{iat}\)</span> は共変量</li>
+</ul>
+<p>である。</p>
+<p>この式における <span class="math inline">\(\beta\)</span> は、<strong>70 歳で自己負担が下がることによる不連続な変化</strong> を表している。</p>
+</section>
+<section id="集計カウントの結果変数" class="level4">
+<h4 class="anchored" data-anchor-id="集計カウントの結果変数">集計カウントの結果変数</h4>
+<p>一方、患者数や死亡数のように人数の集計として観察される変数については、</p>
+<p><span class="math display">\[
+\log(Y_{at}) = f(a) + \beta \,\mathrm{Post70}_{at} + \mu_{at}
+\]</span></p>
+<p>という形を使う。</p>
+<p>ここで <span class="math inline">\(Y_{at}\)</span> は年齢 <span class="math inline">\(a\)</span>、年 <span class="math inline">\(t\)</span> における患者数や死亡数である。<br>
+このとき <span class="math inline">\(\beta\)</span> は、70 歳到達による人数のパーセント変化として読める。</p>
+<p>つまりこの論文は、結果変数に応じて</p>
+<ul>
+<li>個人データなら通常の RDD</li>
+<li>カウントデータなら対数カウントを使った RDD</li>
+</ul>
+<p>を使い分けている。</p>
+<hr>
+</section>
+</section>
+<section id="実際の推定のイメージ" class="level3">
+<h3 class="anchored" data-anchor-id="実際の推定のイメージ">実際の推定のイメージ</h3>
+<p>実装の中身は、70 歳の周辺で年齢プロファイルを左右別々の滑らかな関数で近似し、その 70 歳での縦のズレを読む、という標準的な RDD である。</p>
+<p>その考え方は、たとえば</p>
+<p><span class="math display">\[
+Y_i
+=
+\alpha
++
+\tau D_i
++
+\beta_1 (A_i-70)
++
+\beta_2 D_i(A_i-70)
++
+u_i
+\]</span></p>
+<p>のような局所線形回帰で表現できる。<br>
+ここで</p>
+<ul>
+<li><span class="math inline">\(A_i\)</span> は年齢</li>
+<li><span class="math inline">\(D_i = 1\{A_i \ge 70\}\)</span> は 70 歳以上ダミー</li>
+<li><span class="math inline">\(\tau\)</span> は 70 歳における不連続</li>
+</ul>
+<p>である。</p>
+<p>論文そのものでは、70 歳近傍のサンプルに絞り、年齢の多項式を左右で別々に入れ、さらに共変量も加える、という形でより丁寧に推定している。<br>
+ただし本質は同じであり、見ているのは <strong>70 歳のところで結果変数がどれだけ不連続に変化するか</strong> である。</p>
+<hr>
+</section>
+<section id="外来受診は-70-歳で増える" class="level3">
+<h3 class="anchored" data-anchor-id="外来受診は-70-歳で増える">外来受診は 70 歳で増える</h3>
+<p><img src="Shigeoka_2014_figure2.png" class="img-fluid"></p>
+<p>Figure 2 は、この論文の中心的な結果を示している。<br>
+70 歳のところで、外来受診に関する指標がはっきりと上に不連続にずれている。</p>
+<p>この図の構造は RDD の基本そのものである。</p>
+<ul>
+<li>横軸は年齢</li>
+<li>縦軸は外来受診に関する結果変数</li>
+<li>70 歳の縦線がカットオフ</li>
+<li>左右で滑らかな年齢プロファイルを引いたとき、70 歳で縦のズレが生じている</li>
+</ul>
+<p>この不連続は、70 歳で自己負担率が下がったことによって、外来利用が増えたことを意味している。</p>
+<p>また Figure 2 には、単に「受診したかどうか」だけでなく、再診患者の受診間隔に関する情報も含まれている。<br>
+したがってこの図は、</p>
+<ul>
+<li>受診者数が増える</li>
+<li>既存患者もより頻繁に通うようになる</li>
+</ul>
+<p>という2つの変化を同時に示している。</p>
+<p>論文の第一の結論は、<strong>自己負担が下がると外来利用は増える</strong>、という点にある。</p>
+<hr>
+</section>
+<section id="入院も-70-歳で増える" class="level3">
+<h3 class="anchored" data-anchor-id="入院も-70-歳で増える">入院も 70 歳で増える</h3>
+<p><img src="Shigeoka_2014_figure4.png" class="img-fluid"></p>
+<p>Figure 4 は、入院に関する年齢プロファイルを示している。<br>
+ここでも 70 歳のところで不連続が見られ、自己負担率の低下が入院利用にも影響していることがわかる。</p>
+<p>外来だけを見ていると、価格低下によって軽症の受診が少し増えただけではないか、という見方も可能である。<br>
+しかし入院にも反応が見られる以上、価格低下は医療需要全体に影響していると理解できる。</p>
+<p>したがってこの論文の第二のポイントは、<strong>自己負担の低下は外来だけでなく入院利用も押し上げる</strong>、という点である。</p>
+<hr>
+</section>
+<section id="ただし健康改善ははっきりしない" class="level3">
+<h3 class="anchored" data-anchor-id="ただし健康改善ははっきりしない">ただし健康改善ははっきりしない</h3>
+<p><img src="Shigeoka_2014_figure6.png" class="img-fluid"></p>
+<p>Figure 6 は、死亡に関する年齢プロファイルを示している。<br>
+ここでは、外来や入院で見られたような明確な不連続は観察されにくい。</p>
+<p>この点は論文の重要な含意である。<br>
+自己負担を下げると医療利用は増える。これは Figure 2 と Figure 4 でかなり明確に見えている。<br>
+しかし、その利用増加が死亡率の大きな改善として直ちに現れているわけではない。</p>
+<p>したがって、この論文のメッセージは単純な「価格を下げれば健康が改善する」というものではない。<br>
+むしろ、</p>
+<ul>
+<li>自己負担軽減は医療利用を増やす</li>
+<li>しかし健康改善の証拠は限定的である</li>
+<li>その一方で、家計の医療費リスクを下げるという保険としての価値はある</li>
+</ul>
+<p>という、よりバランスの取れた結論になっている。</p>
+<hr>
+</section>
+<section id="この論文の全体像" class="level3">
+<h3 class="anchored" data-anchor-id="この論文の全体像">この論文の全体像</h3>
+<p>この論文の構造は、次のようにまとめられる。</p>
+<p>まず、70 歳で自己負担率が制度的に下がる。<br>
+その結果、70 歳の直前直後では、人々の属性はほぼ連続的に変化していると考えられる一方で、医療価格だけが不連続に変化する。</p>
+<p>そこで著者は、この制度的な不連続を利用して、70 歳のところで</p>
+<ul>
+<li>外来受診</li>
+<li>入院</li>
+<li>死亡</li>
+<li>自己負担支出</li>
+</ul>
+<p>などがどのように変化するかを調べている。</p>
+<p>その結果、</p>
+<ol type="1">
+<li>外来利用は増える<br>
+</li>
+<li>入院も増える<br>
+</li>
+<li>しかし健康改善の証拠は強くない<br>
+</li>
+<li>その一方で、家計の医療費リスクは軽減される</li>
+</ol>
+<p>という結論が得られている。</p>
+<hr>
+</section>
+<section id="rdd-の例としての読み方" class="level3">
+<h3 class="anchored" data-anchor-id="rdd-の例としての読み方">RDD の例としての読み方</h3>
+<p>この論文を RDD の例として読むときに重要なのは、医療制度の細かな知識よりも、識別の構造をはっきり捉えることである。</p>
+<ul>
+<li>ランニング変数は年齢</li>
+<li>カットオフは 70 歳</li>
+<li>70 歳で価格だけが制度的に不連続に変わる</li>
+<li>その不連続を利用して因果効果を識別する</li>
+</ul>
+<p>つまり、</p>
+<blockquote class="blockquote">
+<p><strong>本来は滑らかに変化する年齢プロファイルの中に、制度が作った段差がある。<br>
+その段差を使って因果効果を読む。</strong></p>
+</blockquote>
+<p>というのが RDD の本質であり、Shigeoka (2014) はその非常にきれいな実例になっている。</p>
+<p>この論文は、RDD が単に「図に段差があればよい」という手法ではなく、制度上の不連続を利用して価格弾力性、健康効果、リスク保護を同時に考えることのできる、非常に豊かな実証デザインであることを示している。</p>
+</section>
+</section>
+</section>
+<section id="rdd-を使った代表的研究の例" class="level1">
+<h1>RDD を使った代表的研究の例</h1>
+<p>RDD はかなり広い分野で使われている。<br>
+実際には、ランニング変数とカットオフの置き方はかなり多様である。<br>
+以下では、トップジャーナル周辺に出ている代表例を、<strong>ランニング変数が何で、どこにカットオフがあるのか</strong> がわかる形で並べる。</p>
+<section id="abdulkadiroğlu-angrist-and-pathak-2014" class="level3">
+<h3 class="anchored" data-anchor-id="abdulkadiroğlu-angrist-and-pathak-2014">1. Abdulkadiroğlu, Angrist, and Pathak (2014)</h3>
+<p><strong>The Elite Illusion: Achievement Effects at Boston and New York Exam Schools</strong><br>
+<em>Econometrica</em></p>
+<ul>
+<li>ランニング変数：入学試験のスコア順位</li>
+<li>カットオフ：各試験校の合格最低点</li>
+<li>識別しているもの：試験校にぎりぎり合格したことの効果</li>
+</ul>
+<p>超有名な教育RDDである。<br>
+「ほんの少し点数が高くて合格した生徒」と「ほんの少し足りず不合格だった生徒」を比べている。</p>
+</section>
+<section id="cellini-ferreira-and-rothstein-2010" class="level3">
+<h3 class="anchored" data-anchor-id="cellini-ferreira-and-rothstein-2010">2. Cellini, Ferreira, and Rothstein (2010)</h3>
+<p><strong>The Value of School Facility Investments: Evidence from a Dynamic Regression Discontinuity Design</strong><br>
+<em>Quarterly Journal of Economics</em></p>
+<ul>
+<li>ランニング変数：学校債の住民投票での賛成票比率</li>
+<li>カットオフ：50%</li>
+<li>識別しているもの：学校施設投資の可決による効果</li>
+</ul>
+<p>これは close election 型のRDDで、票差がわずかで可決した地区と否決した地区を比較する。</p>
+</section>
+<section id="malamud-and-pop-eleches-2011" class="level3">
+<h3 class="anchored" data-anchor-id="malamud-and-pop-eleches-2011">3. Malamud and Pop-Eleches (2011)</h3>
+<p><strong>Home Computer Use and the Development of Human Capital</strong><br>
+<em>Quarterly Journal of Economics</em></p>
+<ul>
+<li>ランニング変数：世帯所得</li>
+<li>カットオフ：コンピュータ購入バウチャーの所得上限</li>
+<li>識別しているもの：家庭用コンピュータ保有の効果</li>
+</ul>
+<p>「所得が上限を少し下回ってバウチャーをもらえた家計」と「少し上回ってもらえなかった家計」を比べる設計である。</p>
+</section>
+<section id="card-dobkin-and-maestas-2009" class="level3">
+<h3 class="anchored" data-anchor-id="card-dobkin-and-maestas-2009">4. Card, Dobkin, and Maestas (2009)</h3>
+<p><strong>Does Medicare Save Lives?</strong><br>
+<em>Quarterly Journal of Economics</em></p>
+<ul>
+<li>ランニング変数：年齢</li>
+<li>カットオフ：65歳</li>
+<li>識別しているもの：Medicare 受給開始の効果</li>
+</ul>
+<p>年齢RDDの代表例で、65歳で Medicare の適用が大きく変わることを利用している。</p>
+</section>
+<section id="card-dobkin-and-maestas-2008" class="level3">
+<h3 class="anchored" data-anchor-id="card-dobkin-and-maestas-2008">5. Card, Dobkin, and Maestas (2008)</h3>
+<p><strong>The Impact of Nearly Universal Insurance Coverage on Health Care Utilization: Evidence from Medicare</strong><br>
+<em>American Economic Review</em></p>
+<ul>
+<li>ランニング変数：年齢</li>
+<li>カットオフ：65歳</li>
+<li>識別しているもの：Medicare eligibility が医療利用に与える効果</li>
+</ul>
+<p>同じく Medicare の 65歳カットオフを使った論文で、こちらは主に医療利用への効果を見ている。</p>
+</section>
+<section id="altmejd-et-al.-2021" class="level3">
+<h3 class="anchored" data-anchor-id="altmejd-et-al.-2021">6. Altmejd et al.&nbsp;(2021)</h3>
+<p><strong>O Brother, Where Start Thou? Sibling Spillovers on College and Major Choice in Four Countries</strong><br>
+<em>Quarterly Journal of Economics</em></p>
+<ul>
+<li>ランニング変数：上のきょうだいの大学入試・出願スコア</li>
+<li>カットオフ：大学・学部ごとの合格ライン</li>
+<li>識別しているもの：上のきょうだいが特定の大学・専攻に進んだことの下のきょうだいへの波及効果</li>
+</ul>
+<p>大学入試の合格ラインをまたぐかどうかを使う、きれいな admissions cutoff 型RDDである。</p>
+</section>
+<section id="beuermann-jackson-navarro-sola-and-pardo-2023" class="level3">
+<h3 class="anchored" data-anchor-id="beuermann-jackson-navarro-sola-and-pardo-2023">7. Beuermann, Jackson, Navarro-Sola, and Pardo (2023)</h3>
+<p><strong>What Is a Good School, and Can Parents Tell? Evidence on the Multidimensionality of School Output</strong><br>
+<em>Review of Economic Studies</em></p>
+<ul>
+<li>ランニング変数：中等学校入学試験（SEA）のスコア</li>
+<li>カットオフ：学校ごとの配属カットオフ</li>
+<li>識別しているもの：ある学校に配属されることの効果</li>
+</ul>
+<p>学校選択制度が作る複数の合格ラインを使った multi-cutoff RD の代表例である。</p>
+</section>
+<section id="corbi-papaioannou-and-surico-2019" class="level3">
+<h3 class="anchored" data-anchor-id="corbi-papaioannou-and-surico-2019">8. Corbi, Papaioannou, and Surico (2019)</h3>
+<p><strong>Regional Transfer Multipliers</strong><br>
+<em>Review of Economic Studies</em></p>
+<ul>
+<li>ランニング変数：自治体人口</li>
+<li>カットオフ：政府間移転の算定に使われる人口閾値</li>
+<li>識別しているもの：地方への財政移転増加の効果</li>
+</ul>
+<p>「人口が閾値を少し上回るか下回るか」で交付金が不連続に変わることを使う、人口閾値RDDの代表例である。</p>
+</section>
+<section id="card-and-giuliano-2016" class="level3">
+<h3 class="anchored" data-anchor-id="card-and-giuliano-2016">9. Card and Giuliano (2016)</h3>
+<p><strong>Can Tracking Raise the Test Scores of High-Ability Minority Students?</strong><br>
+<em>American Economic Review</em></p>
+<ul>
+<li>ランニング変数：生徒の能力・選抜スコア</li>
+<li>カットオフ：ギフテッド／高能力クラスへの選抜基準</li>
+<li>識別しているもの：高能力クラスに入ることの効果</li>
+</ul>
+<p>教育分野で非常によく読まれるRDDで、選抜基準の直上・直下を比べている。</p>
+</section>
+<section id="huh-reif-and-mocan-2021" class="level3">
+<h3 class="anchored" data-anchor-id="huh-reif-and-mocan-2021">10. Huh, Reif, and Mocan (2021)</h3>
+<p><strong>Teenage Driving, Mortality, and Risky Behaviors</strong><br>
+<em>AER: Insights</em></p>
+<ul>
+<li>ランニング変数：年齢</li>
+<li>カットオフ：最低運転年齢</li>
+<li>識別しているもの：運転可能になることの効果</li>
+</ul>
+<p>これはトップ5誌ではないが、AER系のかなりわかりやすい年齢RDDである。<br>
+「ある年齢に達すると運転できるようになる」という制度が、そのままRDデザインになっている。</p>
+</section>
+<section id="cohodes-2020" class="level3">
+<h3 class="anchored" data-anchor-id="cohodes-2020">11. Cohodes (2020)</h3>
+<p><strong>The Long-Run Impacts of Specialized Programming for High-Achieving Students</strong><br>
+<em>American Economic Journal: Economic Policy</em></p>
+<ul>
+<li>ランニング変数：選抜スコア</li>
+<li>カットオフ：高能力向けプログラムの参加基準</li>
+<li>識別しているもの：高能力向け特別プログラム参加の長期効果</li>
+</ul>
+<p>これもトップ5誌ではないが、教育RDDとしてかなり使いやすい例である。</p>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="lecture10_revised_files/libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

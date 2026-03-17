@@ -1,0 +1,289 @@
+---
+title: "Minimum Distance"
+subtitle: "計量経済学大学院講義ノート"
+lang: ja
+number-sections: true
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+  pdf:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    documentclass: scrartcl
+execute:
+  echo: false
+  warning: false
+  error: false
+---
+
+::: {.callout-note}
+## この章の到達目標
+
+この章の目的は次の 4 点である。
+
+1. Minimum Distance（MD）推定量を、縮約形統計量 $g_n$ と構造モデルの対応物 $\gamma(\theta)$ を結びつける推定法として理解する。
+2. MD 推定量の漸近分布
+   $$
+   \sqrt{n}(\hat\theta-\theta_0)
+   \overset{d}{\to}
+   N\!\left(
+   0,
+   (\Gamma'W\Gamma)^{-1}\Gamma'WSW\Gamma(\Gamma'W\Gamma)^{-1}
+   \right)
+   $$
+   を導く。
+3. 最適重み $W=S^{-1}$ による効率化を理解する。
+4. MD が GMM や SMM とどう関係するかを整理する。
+:::
+
+::: {.callout-important}
+## 記法の確認
+
+この章では、データから得られる縮約形統計量を $g_n\in\mathbb R^K$、構造モデルが与える理論対応物を $\gamma(\theta)\in\mathbb R^K$ とする。目的関数は
+$$
+Q_n(\theta)
+=
+-\frac12
+\bigl(g_n-\gamma(\theta)\bigr)'
+\widehat W_n
+\bigl(g_n-\gamma(\theta)\bigr)
+$$
+である。
+
+また、
+$$
+\Gamma(\theta)=\frac{\partial \gamma(\theta)}{\partial\theta'},
+\qquad
+\Gamma=\Gamma(\theta_0)
+$$
+と書く。ここで $\Gamma(\theta)$ は $K\times p$ 行列である。
+:::
+
+# 導入
+
+Minimum Distance は、データから計算された何らかの統計量 $g_n$ に対し、構造モデルがその統計量について予測する値 $\gamma(\theta)$ を近づけることでパラメータを推定する方法である。
+
+重要なのは、$g_n$ が必ずしも単純な標本平均である必要はないことである。たとえば
+
+- 補助回帰の係数
+- 分位点
+- 分布の要約統計
+- ヘテロジニアス・エージェント・モデルにおける wealth distribution の特徴量
+
+なども $g_n$ として使える。
+
+この意味で MD は非常に柔軟であり、GMM のように「各観測に対してモーメント関数 $g(X_t;\theta)$ を書く」必要がない場面でも使える。
+
+::: {.callout-tip}
+## GMM・SMM との関係
+
+- GMM は、$g_n(\theta)$ という「パラメータ入りの標本モーメント」を直接最小化する。
+- SMM は、データ・モーメント $g_n$ とシミュレーションで得た $\gamma_m(\theta)$ を一致させる。
+- MD は、データ・モーメント $g_n$ と閉形式の $\gamma(\theta)$ を一致させる。
+
+したがって MD は、SMM からシミュレーション誤差を取り除いたものと考えると理解しやすい。
+:::
+
+# 漸近正規性
+
+## 基本定理
+
+::: {#thm-md-asymp-normal}
+## Minimum Distance 推定量の漸近正規性
+
+$\hat\theta$ が
+$$
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
+$$ {#eq-md-approx-foc}
+を満たすとする。さらに次を仮定する。
+
+1. $\hat\theta\overset{p}{\to}\theta_0$.
+2. $\widehat W_n\overset{p}{\to}W$，ただし $W$ は正定値対称行列である。
+3. $\theta_0$ は $\Theta$ の内部点である。
+4. $\gamma(\theta)$ は $\theta$ について連続微分可能である。
+5. 
+   $$
+   \sqrt n\bigl(g_n-\gamma(\theta_0)\bigr)\overset{d}{\to}N(0,S),
+   $$
+   ただし $S$ は正定値である。
+6. $\Gamma=\partial\gamma(\theta_0)/\partial\theta'$ は full column rank $p$ をもつ。
+
+このとき
+$$
+\sqrt n(\hat\theta-\theta_0)
+\overset{d}{\to}
+N\!\left(
+0,
+(\Gamma'W\Gamma)^{-1}\Gamma'WSW\Gamma(\Gamma'W\Gamma)^{-1}
+\right).
+$$
+:::
+
+::: {.proof}
+一階条件より
+$$
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}
+=
+\Gamma(\hat\theta)'\widehat W_n\bigl(g_n-\gamma(\hat\theta)\bigr)
+=
+o_p(n^{-1/2})
+$$
+である。ここで $\gamma(\hat\theta)$ を $\theta_0$ のまわりで平均値展開すると、ある $\tilde\theta$ を用いて
+$$
+\gamma(\hat\theta)=\gamma(\theta_0)+\Gamma(\tilde\theta)(\hat\theta-\theta_0)
+$$
+だから
+$$
+\bigl(\Gamma(\hat\theta)'\widehat W_n\Gamma(\tilde\theta)\bigr)\sqrt n(\hat\theta-\theta_0)
+=
+\Gamma(\hat\theta)'\widehat W_n\sqrt n\bigl(g_n-\gamma(\theta_0)\bigr)+o_p(1)
+$$
+を得る。
+
+一致性と $\Gamma(\theta)$ の連続性により
+$$
+\Gamma(\hat\theta)\overset{p}{\to}\Gamma,
+\qquad
+\Gamma(\tilde\theta)\overset{p}{\to}\Gamma
+$$
+であるから、
+$$
+\sqrt n(\hat\theta-\theta_0)
+=
+(\Gamma'W\Gamma)^{-1}\Gamma'W\sqrt n\bigl(g_n-\gamma(\theta_0)\bigr)+o_p(1)
+$$
+となる。最後は中心極限定理と Slutsky の定理で従う。
+:::
+
+## 何が仮定されているか
+
+上の定理では
+$$
+\sqrt n\bigl(g_n-\gamma(\theta_0)\bigr)\overset{d}{\to}N(0,S)
+$$
+を仮定しているが、これは実質的に **モデルが正しく特定されている** ことを意味する。もしどの $\theta$ に対しても $\gamma(\theta)$ がデータの極限統計量と一致しないなら、MD 推定量は「最も近い近似」を選ぶだけで、ここでの正規近似はそのままでは使えない。
+
+## GMM との形式的類似
+
+漸近分散の式は GMM と極めてよく似ている。違いは
+
+- GMM では $G=\partial E[g(X_t;\theta)]/\partial\theta'$
+- MD では $\Gamma=\partial\gamma(\theta)/\partial\theta'$
+
+が登場する点である。
+
+この意味で MD は、**モーメント条件が $g_n-\gamma(\theta)$ の形に分離している GMM** とみなせる。
+
+# 最適重みと効率性
+
+over identified の場合、重み行列の選び方はやはり重要である。効率的重みは
+$$
+W=S^{-1}
+$$
+であり、このとき漸近分散は
+$$
+(\Gamma'S^{-1}\Gamma)^{-1}
+$$ {#eq-md-efficient}
+に簡約される。
+
+MD では、$S$ はデータから得られる縮約形統計量 $g_n$ の漸近分散である。したがって $S$ の一貫推定量 $\widehat S$ が得られれば、
+$$
+\widehat W_n=\widehat S^{-1}
+$$
+とすることで、**1 回の最適化で効率的 MD** を実装できる。
+
+::: {.callout-note}
+## なぜ GMM より実装が楽なことがあるか
+
+GMM では $S$ の推定が $\theta$ に依存することが多く、二段階推定が自然だった。MD では $g_n$ 自体が先に推定される縮約形統計量であることが多いため、$S$ を先に評価しやすい。したがって効率的重みを最初から使える場面が少なくない。
+:::
+
+# 標準誤差の推定
+
+## 一般形
+
+一般の重み $W$ に対する漸近分散
+$$
+\Omega
+=
+(\Gamma'W\Gamma)^{-1}\Gamma'WSW\Gamma(\Gamma'W\Gamma)^{-1}
+$$
+の推定量は、自然に
+$$
+\widehat\Omega
+=
+(\widehat\Gamma'\widehat W_n\widehat\Gamma)^{-1}
+\widehat\Gamma'\widehat W_n\widehat S\widehat W_n\widehat\Gamma
+(\widehat\Gamma'\widehat W_n\widehat\Gamma)^{-1}
+$$
+である。ここで
+$$
+\widehat\Gamma=\Gamma(\hat\theta)
+$$
+である。
+
+## 効率的重みの場合
+
+もし $\widehat W_n=\widehat S^{-1}$ を使っているなら、推定量は大きく簡約されて
+$$
+\widehat\Omega_{\mathrm{eff}}
+=
+(\widehat\Gamma'\widehat S^{-1}\widehat\Gamma)^{-1}
+$$
+となる。
+
+この式は GMM や SMM の効率的分散と全く同じ見た目であり、講義全体を通じて「効率的重みを使うと sandwich が簡約する」という共通構造が見えてくる。
+
+# MD の応用上の解釈
+
+MD は応用研究ではしばしば「二段階推定」の第 2 段階として現れる。
+
+1. 第 1 段階で縮約形統計量 $g_n$ を推定する。
+2. 第 2 段階でその統計量と構造モデル $\gamma(\theta)$ を一致させる。
+
+たとえば、補助回帰から得られた係数ベクトルを $g_n$ とし、構造モデルがその係数に対して何を予測するかを $\gamma(\theta)$ とすれば、MD は「補助モデルを通じて構造パラメータを同定する」方法になる。
+
+::: {.callout-important}
+## 講義全体の見取り図
+
+ここまでで
+
+- M 推定
+- GMM
+- SMM
+- MD
+
+の 4 つを見てきた。これらは見た目こそ違うが、すべて
+$$
+\sqrt n(\hat\theta-\theta_0)\overset{d}{\to}N(0,H^{-1}\Sigma H^{-1})
+$$
+という共通骨格をもつ。次章では、この共通骨格の上に **仮説検定** を組み立てる。
+:::
+
+# まとめ
+
+この章の要点は次の通りである。
+
+1. MD は、データから得られた縮約形統計量 $g_n$ と理論対応物 $\gamma(\theta)$ の距離を最小化する推定法である。
+2. 漸近分散は
+   $$
+   (\Gamma'W\Gamma)^{-1}\Gamma'WSW\Gamma(\Gamma'W\Gamma)^{-1}
+   $$
+   である。
+3. 効率的重みは $W=S^{-1}$ であり、そのとき漸近分散は
+   $$
+   (\Gamma'S^{-1}\Gamma)^{-1}
+   $$
+   に簡約される。
+4. 標準誤差推定では、$S$ の推定量と $\widehat\Gamma=\Gamma(\hat\theta)$ を plug-in すればよい。
+5. MD は、分離可能な GMM やシミュレーション誤差のない SMM とみなせる。
+
+::: {.callout-note}
+## 次章への接続
+
+次の仮説検定の章では、これまで得た漸近正規性と分散推定を使って、Wald 検定、LM 検定、QLR 検定を統一的に扱う。
+:::

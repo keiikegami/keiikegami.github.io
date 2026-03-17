@@ -1,0 +1,814 @@
+---
+title: "極値推定"
+subtitle: "計量経済学大学院講義ノート"
+lang: ja
+number-sections: true
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+  pdf:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    documentclass: scrartcl
+execute:
+  echo: false
+  warning: false
+  error: false
+---
+
+
+::: {.callout-note}
+## この章の到達目標
+
+この章の目的は次の4点である。
+
+1. M 推定、GMM、SMM、MD を **極値推定** という一つの枠組みで理解する。
+2. 極値推定量の一致性を保証する 2 つの鍵、すなわち **clean maximum** と **uniform convergence** を理解する。
+3. 漸近正規性の基本表現
+   $$
+   o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
+   $$
+   を理解し、推論に必要な分散行列の構造を見る。
+4. 後続章で各推定法ごとの $H$ と $\Sigma$ を具体化する準備を整える。
+:::
+
+::: {.callout-important}
+## 記法の確認
+
+本章では以下の記法を用いる。
+
+- $\theta_0$：真のパラメータ
+- $\Theta \subseteq \mathbb{R}^p$：パラメータ空間
+- $Q_n(\theta)$：標本目的関数
+- $Q(\theta)$：母目的関数
+- $\|\cdot\|$：ユークリッドノルム
+- $\to_p$：確率収束、$\to_d$：分布収束
+- $o_p(1)$：0 への確率収束、$O_p(1)$：確率的有界
+
+また、必要に応じてデータは i.i.d.、もしくは厳密定常かつエルゴード的であると仮定する。
+:::
+
+# 導入
+
+構造モデルや半構造モデルの多くでは、まずデータからある目的関数 $Q_n(\theta)$ を作り、その目的関数を最大化あるいは最小化することでパラメータを推定する。最小化問題も符号を反転させれば最大化問題として書けるので、本章では最大化に統一する。
+
+::: {#def-extremum}
+## 極値推定量
+
+$\hat\theta$ を $\Theta$ 値の可測関数とする。$\hat\theta$ が
+$$
+Q_n(\hat\theta) \geq \sup_{\theta\in\Theta} Q_n(\theta)-\eta_n,
+$$ {#eq-extremum-def}
+を満たし、かつ $\eta_n=o_p(1)$ であるとき、$\hat\theta$ を **極値推定量** と呼ぶ。
+:::
+
+式 @eq-extremum-def の $\eta_n$ は、数値最適化の誤差を許すための項である。実際の応用では、特にシミュレーションを含む推定法では目的関数を厳密に最大化することは難しい。そのため、
+
+- 理論上の最大値に十分近い値を達成していればよい
+- その誤差が漸近的に無視できればよい
+
+という立場をとる。
+
+母目的関数 $Q: \Theta \to \mathbb{R}$ は、標本目的関数の確率極限に対応する。真のパラメータ $\theta_0$ は、通常
+$$
+Q(\theta_0) \geq Q(\theta) \qquad (\forall\theta\in\Theta)
+$$
+を満たす点として定義される。さらに
+$$
+Q(\theta_0)>Q(\theta) \qquad (\forall\theta\neq \theta_0)
+$$
+が成り立つとき、$\theta_0$ は識別されているという。
+
+::: {.callout-tip}
+## 直観
+
+極値推定の基本発想は単純である。
+
+- 有限標本では $Q_n$ を最大化して $\hat\theta$ を得る。
+- 標本が大きくなると $Q_n$ は $Q$ に近づく。
+- したがって、$Q_n$ の最大化点は $Q$ の最大化点 $\theta_0$ に近づくはずである。
+
+本章の一致性理論は、この素朴な直観を厳密にしたものである。
+:::
+
+## 極値推定の代表例
+
+この章では後続章で詳しく扱う 4 種類の推定量を、極値推定という観点からまとめておく。
+
+### M 推定
+
+M 推定では標本目的関数が
+$$
+Q_n(\theta)=\frac{1}{n}\sum_{t=1}^n m(X_t;\theta)
+$$
+という標本平均の形をとる。したがって、厳密定常かつエルゴード的なデータのもとでは
+$$
+Q_n(\theta) \to_p E[m(X_t;\theta)] \equiv Q(\theta)
+$$
+が各固定された $\theta$ について成り立つ。
+
+代表例は次の通りである。
+
+1. **最尤法**  
+   $m(X_t;\theta)=\log f(X_t;\theta)$ とおけば、最尤法は M 推定量になる。
+
+2. **マルコフ過程の条件付き最尤法**  
+   $X_t=(Y_t,Y_{t-1})$ として
+   $$
+   m(X_t;\theta)=\log f(Y_t\mid Y_{t-1};\theta)
+   $$
+   と置けばよい。
+
+3. **非線形最小二乗法**  
+   条件付き平均が $E[Y_t\mid Z_t]=\varphi(Z_t;\theta_0)$ であれば
+   $$
+   Q_n(\theta)=-\frac1n\sum_{t=1}^n\bigl(Y_t-\varphi(Z_t;\theta)\bigr)^2
+   $$
+   を最大化することで推定できる。
+
+### GMM
+
+GMM ではモーメント条件
+$$
+E[g(X_t;\theta_0)]=0
+$$
+を用いる。標本モーメントを
+$$
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+$$
+とすると、標本目的関数は
+$$
+Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n g_n(\theta)
+$$
+で与えられる。ここで $\widehat W_n$ は正定値対称な重み行列である。母目的関数は
+$$
+Q(\theta)=-\frac12 g(\theta)'Wg(\theta),
+\qquad g(\theta)=E[g(X_t;\theta)]
+$$
+となる。
+
+### SMM
+
+SMM は、データから得られるターゲット・モーメント $g_n$ と、モデルからシミュレーションで得られるモーメント $\gamma_m(\theta)$ を一致させる推定法である。標本目的関数は
+$$
+Q_n(\theta)=-\frac12\bigl(g_n-\gamma_m(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma_m(\theta)\bigr)
+$$
+である。
+
+### Minimum Distance
+
+Minimum Distance では、ある縮約形統計量 $g_n$ と、その構造モデル上の対応物 $\gamma(\theta)$ の距離を最小化する。目的関数は
+$$
+Q_n(\theta)=-\frac12\bigl(g_n-\gamma(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma(\theta)\bigr)
+$$
+である。
+
+::: {.callout-note}
+## この章と後続章の関係
+
+この章では、M 推定・GMM・SMM・MD に共通する **抽象的な極値推定理論** を扱う。  
+後続章では、それぞれの推定法に固有の
+
+- 目的関数の曲率
+- 漸近分散の推定方法
+- 効率性
+- 実装上の注意
+
+を具体的に掘り下げる。
+:::
+
+# 一致性
+
+推定量 $\hat\theta$ が **一致** するとは
+$$
+\hat\theta \to_p \theta_0
+$$
+が成り立つことである。これは、標本サイズが大きくなるにつれて、$\hat\theta$ が真の値 $\theta_0$ に高い確率で近づくことを意味する。
+
+極値推定量の一致性の本質は、
+
+1. 母目的関数 $Q$ が $\theta_0$ で十分きれいに最大化されていること
+2. 標本目的関数 $Q_n$ が $Q$ に一様に近づくこと
+
+の 2 点に尽きる。
+
+::: {#thm-extremum-consistency}
+## 極値推定量の一致性
+
+次を仮定する。
+
+1. **clean maximum**：任意の $\delta>0$ に対して
+   $$
+   \sup_{\theta\in\Theta:\,\|\theta-\theta_0\|\geq \delta} Q(\theta) < Q(\theta_0).
+   $$
+2. **uniform convergence**：
+   $$
+   \sup_{\theta\in\Theta} |Q_n(\theta)-Q(\theta)| = o_p(1).
+   $$
+
+このとき、@def-extremum の意味で定義された任意の極値推定量 $\hat\theta$ は一致する。すなわち
+$$
+\hat\theta \to_p \theta_0.
+$$
+:::
+
+::: {.proof}
+任意の $\delta>0$ を固定する。clean maximum より
+$$
+\varepsilon
+=Q(\theta_0)-\sup_{\theta\in\Theta:\,\|\theta-\theta_0\|\geq \delta}Q(\theta)
+>0
+$$
+である。
+
+次の事象を考える。
+$$
+S_n=
+\left\{
+|\eta_n|<\frac{\varepsilon}{3},\ 
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|<\frac{\varepsilon}{3}
+\right\}.
+$$
+仮定より $P(S_n)\to 1$。
+
+$S_n$ 上では
+$$
+Q(\hat\theta)
+\ge Q_n(\hat\theta)-\frac{\varepsilon}{3}
+\ge Q_n(\theta_0)-\eta_n-\frac{\varepsilon}{3}
+\ge Q_n(\theta_0)-\frac{2\varepsilon}{3}
+\ge Q(\theta_0)-\varepsilon.
+$$
+したがって
+$$
+Q(\hat\theta) > \sup_{\theta\in\Theta:\,\|\theta-\theta_0\|\ge \delta} Q(\theta).
+$$
+よって $S_n$ 上では必ず $\|\hat\theta-\theta_0\|<\delta$ である。ゆえに
+$$
+P(\|\hat\theta-\theta_0\|<\delta)\ge P(S_n)\to 1.
+$$
+$\delta>0$ は任意だから、$\hat\theta\to_p\theta_0$ が従う。
+:::
+
+::: {.callout-tip}
+## clean maximum と識別の違い
+
+識別は通常
+$$
+Q(\theta_0)>Q(\theta) \qquad (\theta\neq\theta_0)
+$$
+という一点ごとの比較で表される。他方、clean maximum は
+
+> $\theta_0$ から一定距離以上離れた点では、$Q$ が一様に低い
+
+ことを要求する。したがって clean maximum は識別より少し強い条件であり、"遠く離れたところで $Q(\theta)$ が $Q(\theta_0)$ に限りなく近づく" ような病的な状況を排除する。
+:::
+
+## clean maximum の検証
+
+clean maximum を直接検証する代わりに、より使いやすい十分条件を使うことが多い。
+
+::: {#lem-clean-maximum}
+## clean maximum の十分条件
+
+次を仮定する。
+
+1. $\Theta$ はコンパクトである。
+2. $Q:\Theta\to\mathbb{R}$ は連続である。
+3. $Q(\theta_0)>Q(\theta)$ がすべての $\theta\neq\theta_0$ について成り立つ。
+
+このとき clean maximum が成り立つ。
+:::
+
+::: {.proof}
+任意の $\delta>0$ を固定する。集合
+$$
+A_\delta=\{\theta\in\Theta:\|\theta-\theta_0\|\ge \delta\}
+$$
+はコンパクトである。$Q$ は連続だから、Weierstrass の定理より $A_\delta$ 上で最大値をとる点 $\theta_\delta^*\in A_\delta$ が存在する。すると
+$$
+\sup_{\theta\in A_\delta}Q(\theta)=Q(\theta_\delta^*).
+$$
+しかし $\theta_\delta^*\neq\theta_0$ なので、仮定 3 より
+$$
+Q(\theta_\delta^*)<Q(\theta_0).
+$$
+したがって clean maximum が従う。
+:::
+
+## M 推定量における uniform convergence
+
+M 推定では
+$$
+Q_n(\theta)=\frac1n\sum_{t=1}^n m(X_t;\theta),
+\qquad
+Q(\theta)=E[m(X_t;\theta)]
+$$
+であるから、必要なのは
+$$
+\sup_{\theta\in\Theta}
+\left|
+\frac1n\sum_{t=1}^n m(X_t;\theta)-E[m(X_t;\theta)]
+\right|=o_p(1)
+$$
+を示すことである。
+
+点ごとの大数法則だけでは不十分である。各固定された $\theta$ で収束していても、$\theta$ を動かしたときに目的関数に「動き回る谷」や「スパイク」が残る可能性があるからである。これを排除するのが一様収束である。
+
+### ブラケット数
+
+一様収束を示すために、関数族の複雑さを測る **ブラケット数** を使う。
+
+::: {#def-bracketing}
+## ブラケット数
+
+$L_1=\{f(X_t):E|f(X_t)|<\infty\}$ とし、$\mathcal F\subseteq L_1$ を関数族とする。関数の組
+$$
+\{(\ell_{\varepsilon,1},u_{\varepsilon,1}),\ldots,(\ell_{\varepsilon,N},u_{\varepsilon,N})\}
+$$
+が $\mathcal F$ をレベル $\varepsilon$ で **ブラケットする** とは、任意の $f\in\mathcal F$ に対してある $i$ が存在し
+$$
+\ell_{\varepsilon,i}\le f\le u_{\varepsilon,i},
+\qquad
+E[u_{\varepsilon,i}-\ell_{\varepsilon,i}]\le \varepsilon
+$$
+が成り立つことをいう。
+
+このようなブラケットの最小個数を $N_{[]} (\mathcal F,\varepsilon)$ と書き、すべての $\varepsilon>0$ に対して有限なら、$\mathcal F$ は有限ブラケット数をもつという。
+:::
+
+ブラケット数が有限であるとは、関数族全体を有限個の「上下からの挟み込み」で近似できるという意味である。これにより、無限個の関数に対する supremum を、有限個のブラケット上の maximum に帰着できる。
+
+::: {#lem-ulln-bracketing}
+## ブラケット数による一様収束
+
+$\mathcal M=\{m(\cdot;\theta):\theta\in\Theta\}$ とする。次を仮定する。
+
+1. $X_1,\ldots,X_n$ は厳密定常かつエルゴード的である。
+2. 任意の $\varepsilon>0$ に対して $N_{[]}(\mathcal M,\varepsilon)<\infty$ である。
+
+このとき
+$$
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|=o_p(1)
+$$
+が成り立つ。実際にはより強く、almost surely の収束まで示せる。
+:::
+
+::: {.proof}
+要点だけ示す。任意の有理数 $\varepsilon>0$ をとる。仮定より、$\mathcal M$ をレベル $\varepsilon$ でブラケットする有限個の関数対
+$$
+(\ell_{\varepsilon,1},u_{\varepsilon,1}),\ldots,(\ell_{\varepsilon,N},u_{\varepsilon,N})
+$$
+が存在する。
+
+任意の $\theta$ について、ある $i(\theta)$ が存在して
+$$
+\ell_{\varepsilon,i(\theta)}(X_t)
+\le m(X_t;\theta)
+\le u_{\varepsilon,i(\theta)}(X_t)
+$$
+かつ
+$$
+E\bigl[u_{\varepsilon,i(\theta)}(X_t)-\ell_{\varepsilon,i(\theta)}(X_t)\bigr]\le \varepsilon.
+$$
+したがって
+$$
+Q_n(\theta)-Q(\theta)
+\le \frac1n\sum_{t=1}^n u_{\varepsilon,i(\theta)}(X_t)-E[u_{\varepsilon,i(\theta)}(X_t)] + \varepsilon.
+$$
+ここで右辺第1項は有限個のブラケット上の最大値で抑えられるので、エルゴード定理より
+$$
+\max_{1\le i\le N}
+\left\{
+\frac1n\sum_{t=1}^n u_{\varepsilon,i}(X_t)-E[u_{\varepsilon,i}(X_t)]
+\right\}
+\to 0
+$$
+almost surely である。同様に下側ブラケットから
+$$
+\inf_{\theta\in\Theta}(Q_n(\theta)-Q(\theta))\ge -\varepsilon+o_{a.s.}(1)
+$$
+が従う。よって
+$$
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|\le \varepsilon+o_{a.s.}(1).
+$$
+$\varepsilon>0$ は任意だから結論が得られる。
+:::
+
+### コンパクト性・連続性・支配条件からの有限ブラケット数
+
+ブラケット数の有限性を直接示すのは難しいことが多い。実務上は次の十分条件が最も使いやすい。
+
+::: {#lem-finite-bracketing}
+## コンパクト性・連続性・支配条件による有限ブラケット数
+
+次を仮定する。
+
+1. $\Theta$ はコンパクトである。
+2. $m(X_t;\theta)$ は任意の $X_t$ に対して $\theta$ で連続である。
+3. 
+   $$
+   E[\sup_{\theta\in\Theta}|m(X_t;\theta)|]<\infty.
+   $$
+
+このとき、$\mathcal M=\{m(\cdot;\theta):\theta\in\Theta\}$ は有限ブラケット数をもつ。
+:::
+
+::: {.proof}
+任意の $\delta>0$ をとる。$\Theta$ がコンパクトなので、有限個の半径 $\delta$ の開球で被覆できる。中心を $\theta_1,\ldots,\theta_J$ とする。
+
+各 $j$ に対して
+$$
+\ell_{\delta,j}(x)=\inf_{\|\theta-\theta_j\|\le\delta}m(x;\theta),
+\qquad
+u_{\delta,j}(x)=\sup_{\|\theta-\theta_j\|\le\delta}m(x;\theta)
+$$
+と置く。連続性とコンパクト性により、これらはよく定義される。
+
+任意の $\theta$ はどれか一つの球に属するので、対応する $j$ について
+$$
+\ell_{\delta,j}(x)\le m(x;\theta)\le \nu_{\delta,j}(x)
+$$
+が成り立つ。したがって、$J$ 個のブラケットで $\mathcal M$ を被覆できる。
+
+残るのは、ブラケット幅の期待値が $\delta\downarrow 0$ とともに 0 に行くことを示すことである。連続関数はコンパクト集合上で一様連続だから、各 $x$ に対して
+$$
+\max_{1\le j\le J}\bigl(\nu_{\delta,j}(x)-\ell_{\delta,j}(x)\bigr)\to 0.
+$$
+さらに
+$$
+\max_{1\le j\le J}\bigl|\nu_{\delta,j}(X_t)-\ell_{\delta,j}(X_t)\bigr|
+\le 2\sup_{\theta\in\Theta}|m(X_t;\theta)|,
+$$
+であり、右辺は仮定 3 により可積分である。よって優収束定理からブラケット幅の期待値は 0 に収束する。したがって任意の $\varepsilon>0$ に対して有限個の $\varepsilon$-ブラケットが構成できる。
+:::
+
+::: {.callout-note}
+## 何が本質か
+
+M 推定量の一致性で重要なのは、目的関数の具体形そのものではなく、
+
+- $\theta$ を動かしたときに関数族が複雑すぎないこと
+- その結果、標本平均が一様に収束すること
+
+である。コンパクト性・連続性・支配条件は、そのための便利な十分条件にすぎない。
+:::
+
+## M 推定量の一致性
+
+ここまでの結果をまとめると、M 推定量について次が得られる。
+
+::: {#thm-m-consistency}
+## M 推定量の一致性
+
+$\hat\theta$ が
+$$
+Q_n(\hat\theta)\ge \sup_{\theta\in\Theta}Q_n(\theta)-\eta_n,
+\qquad \eta_n=o_p(1)
+$$
+を満たし、
+$$
+Q_n(\theta)=\frac1n\sum_{t=1}^n m(X_t;\theta)
+$$
+とする。次を仮定する。
+
+1. $X_1,\ldots,X_n$ は厳密定常かつエルゴード的である。
+2. $\Theta$ はコンパクトである。
+3. $m(X_t;\theta)$ は $\theta$ で連続である。
+4. 
+   $$
+   E[\sup_{\theta\in\Theta}|m(X_t;\theta)|]<\infty.
+   $$
+5. 母目的関数 $Q(\theta)=E[m(X_t;\theta)]$ は $\theta_0$ で一意に最大化される。
+
+このとき
+$$
+\hat\theta\to_p\theta_0.
+$$
+:::
+
+::: {.proof}
+仮定 2, 3, 5 と @lem-clean-maximum より clean maximum が成り立つ。仮定 2--4 と @lem-finite-bracketing より関数族 $\mathcal M$ は有限ブラケット数をもち、仮定 1 と @lem-ulln-bracketing より uniform convergence が成り立つ。したがって @thm-extremum-consistency を適用すればよい。
+:::
+
+## GMM の一致性
+
+GMM では、一様収束の対象は標本モーメント $g_n(\theta)$ である。
+
+::: {#thm-gmm-consistency}
+## GMM 推定量の一致性
+
+GMM の標本目的関数を
+$$
+Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n g_n(\theta),
+\qquad
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+$$
+とする。さらに
+$$
+g(\theta)=E[g(X_t;\theta)]
+$$
+とおく。次を仮定する。
+
+1. $X_1,\ldots,X_n$ は厳密定常かつエルゴード的である。
+2. $\Theta$ はコンパクトである。
+3. $g(\theta)$ は連続である。
+4. $\widehat W_n\to_p W$。ただし $W$ は正定値対称行列である。
+5. $g(\theta)=0$ であることと $\theta=\theta_0$ であることが同値である。
+6. 
+   $$
+   \mathcal G=\{g_k(\cdot;\theta):\theta\in\Theta,\ 1\le k\le K\}
+   $$
+   は有限ブラケット数をもつ。
+
+このとき GMM 推定量 $\hat\theta$ は一致し、
+$$
+\hat\theta\to_p\theta_0.
+$$
+:::
+
+::: {.proof}
+証明の骨格は @thm-extremum-consistency の適用である。
+
+まず仮定 3--5 より
+$$
+Q(\theta)=-\frac12 g(\theta)'Wg(\theta)
+$$
+は $\theta_0$ で一意に最大化され、かつ連続である。したがって @lem-clean-maximum により clean maximum が成り立つ。
+
+次に、仮定 6 と @lem-ulln-bracketing を各成分 $g_k(X_t;\theta)$ に適用すると
+$$
+\sup_{\theta\in\Theta}\|g_n(\theta)-g(\theta)\|\to_p 0
+$$
+が得られる。これを用いて
+$$
+2\{Q(\theta)-Q_n(\theta)\}
+= g_n(\theta)'(\widehat W_n-W)g_n(\theta)
++\bigl(g_n(\theta)-g(\theta)\bigr)'W\bigl(g_n(\theta)+g(\theta)\bigr)
+$$
+と分解すれば、右辺第 1 項も第 2 項も $o_p(1)$ であることがわかる。したがって uniform convergence が成立する。
+
+以上より @thm-extremum-consistency から結論が従う。
+:::
+
+## SMM の一致性
+
+SMM では標本側の不確実性に加えて、シミュレーション側の不確実性が入る。そのため、モデル・モーメントのシミュレーション近似 $\gamma_m(\theta)$ が **一様に** 真の $\gamma(\theta)$ に近づくことが必要になる。
+
+::: {#thm-smm-consistency}
+## SMM 推定量の一致性
+
+SMM の標本目的関数を
+$$
+Q_n(\theta)=-\frac12\bigl(g_n-\gamma_m(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma_m(\theta)\bigr)
+$$
+とし、母目的関数を
+$$
+Q(\theta)=-\frac12\bigl(g_0-\gamma(\theta)\bigr)'W\bigl(g_0-\gamma(\theta)\bigr)
+$$
+とする。次を仮定する。
+
+1. $\Theta$ はコンパクトである。
+2. $\gamma(\theta)$ は $\theta$ で連続である。
+3. 
+   $$
+   \sup_{\theta\in\Theta}\|\gamma_m(\theta)-\gamma(\theta)\|=o_p(1).
+   $$
+4. $g_n\to_p g_0$ かつ $\widehat W_n\to_p W$。ただし $W$ は正定値対称行列である。
+5. $\gamma(\theta)=g_0$ であることと $\theta=\theta_0$ であることが同値である。
+
+このとき SMM 推定量 $\hat\theta$ は一致する。
+:::
+
+::: {.proof}
+仮定 1, 2, 5 と @lem-clean-maximum より clean maximum が成り立つ。仮定 3, 4 を使って
+$$
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|=o_p(1)
+$$
+を示せばよい。実際、
+$$
+2\{Q(\theta)-Q_n(\theta)
+\}
+=(g_n-\gamma_m(\theta))'(\widehat W_n-W)(g_n-\gamma_m(\theta))
+$$
+$$
+\qquad +\bigl(g_n-g_0+\gamma(\theta)-\gamma_m(\theta)\bigr)'W
+\bigl(g_n-\gamma_m(\theta)+g_0-\gamma(\theta)\bigr)
+$$
+と分解できる。仮定 3 によりシミュレーション誤差が一様に消え、仮定 4 により標本モーメントと重み行列も収束するので、右辺全体が $o_p(1)$ となる。よって @thm-extremum-consistency が適用できる。
+:::
+
+::: {.callout-caution}
+## SMM の実装上の注意
+
+SMM を数値的に実装する際は、異なる $\theta$ の間で **同じ乱数系列** を使うことが重要である。乱数系列を毎回変えてしまうと、同じ $\theta$ でも評価される目的関数値がぶれ、最適化が不安定になる。
+:::
+
+## Minimum Distance の一致性
+
+Minimum Distance は SMM からシミュレーション誤差を取り除いた形になっている。
+
+::: {#thm-md-consistency}
+## Minimum Distance 推定量の一致性
+
+標本目的関数を
+$$
+Q_n(\theta)=-\frac12\bigl(g_n-\gamma(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma(\theta)\bigr)
+$$
+とする。次を仮定する。
+
+1. $\Theta$ はコンパクトである。
+2. $\gamma(\theta)$ は $\theta$ で連続である。
+3. $g_n\to_p g_0$ かつ $\widehat W_n\to_p W$。ただし $W$ は正定値対称行列である。
+4. $\gamma(\theta)=g_0$ であることと $\theta=\theta_0$ であることが同値である。
+
+このとき Minimum Distance 推定量 $\hat\theta$ は一致する。
+:::
+
+::: {.proof}
+SMM の場合の証明から、シミュレーション近似 $\gamma_m(\theta)$ を真の $\gamma(\theta)$ に置き換えればよい。clean maximum と uniform convergence が同様に確認できるので、@thm-extremum-consistency が適用できる。
+:::
+
+# 漸近正規性
+
+一致性だけでは推論はできない。標準誤差、信頼区間、Wald 検定などを行うには、$\hat\theta$ の漸近分布が必要である。本章ではその最も一般的な形を与える。
+
+## OLS との類似
+
+極値推定の漸近正規性は、実は OLS の議論と非常によく似ている。線形回帰
+$$
+y_t=x_t'\beta_0+u_t
+$$
+を考えると、OLS の目的関数は
+$$
+Q_n(\beta)=-\frac{1}{2n}\sum_{t=1}^n (y_t-x_t'\beta)^2
+$$
+である。FOC を $\hat\beta$ で評価すると
+$$
+0=
+-\left(\frac1n\sum_{t=1}^n x_tx_t'\right)(\hat\beta-\beta_0)
++\left(\frac1n\sum_{t=1}^n x_tu_t\right).
+$$
+両辺に $\sqrt{n}$ を掛ければ
+$$
+0=H_n\sqrt{n}(\hat\beta-\beta_0)-Z_n
+$$
+と書ける。ここで
+$$
+H_n=\frac1n\sum_{t=1}^n x_tx_t',
+\qquad
+Z_n=\frac1{\sqrt n}\sum_{t=1}^n x_tu_t.
+$$
+一般の極値推定でも、適切な正則性条件の下でほぼ同じ構造が現れる。
+
+## 一般形
+
+目的関数が十分滑らかで、かつ数値最適化誤差が十分小さいとする。すると、近似的一階条件
+$$
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
+$$
+を $\theta_0$ のまわりで展開することで、しばしば
+$$
+o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
+$$ {#eq-master-linearization}
+という表現が得られる。ここで
+
+- $H_n$ は目的関数の局所的な曲率を表す行列
+- $Z_n$ は標本平均の変動を表す確率ベクトル
+
+である。
+
+もし
+$$
+H_n\to_p H,
+\qquad
+Z_n\to_d N(0,\Sigma),
+$$
+かつ $H$ が可逆であれば、@eq-master-linearization から
+$$
+\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1})
+$$
+が従うはずである。次の定理はそれを厳密に述べたものだ。
+
+::: {#thm-master-an}
+## 極値推定量の漸近正規性：基本定理
+
+次を仮定する。
+
+1. 
+   $$
+   o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n.
+   $$
+2. $H_n\to_p H$。ただし $H$ は正定値対称行列である。
+3. $Z_n\to_d N(0,\Sigma)$。ただし $\Sigma$ は正定値対称行列である。
+
+このとき
+$$
+\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1}).
+$$
+:::
+
+::: {.proof}
+$H$ は正定値なので可逆である。仮定 1 の両辺に $H^{-1}$ を掛けると
+$$
+o_p(1)=H^{-1}H_n\sqrt{n}(\hat\theta-\theta_0)-H^{-1}Z_n.
+$$
+仮定 2 より $H^{-1}H_n\to_p I$ であるから
+$$
+H^{-1}H_n=I+o_p(1).
+$$
+また仮定 3 と連続写像定理より
+$$
+H^{-1}Z_n\to_d N(0,H^{-1}\Sigma H^{-1}),
+$$
+したがって $H^{-1}Z_n=O_p(1)$ である。
+
+よって
+$$
+o_p(1)=(I+o_p(1))\sqrt{n}(\hat\theta-\theta_0)-O_p(1)
+$$
+から $\sqrt{n}(\hat\theta-\theta_0)=O_p(1)$ が従う。これを元の式に戻せば
+$$
+\sqrt{n}(\hat\theta-\theta_0)=H^{-1}Z_n+o_p(1).
+$$
+したがって Slutsky の定理により
+$$
+\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1}).
+$$
+:::
+
+::: {.callout-note}
+## $H$ と $\Sigma$ の経済学的意味
+
+漸近分散
+$$
+\Omega = H^{-1}\Sigma H^{-1}
+$$
+の中で、
+
+- $H$ は目的関数の **曲率** を表す。曲率が大きいほど、最適点の位置はデータの揺らぎに対して頑健になりやすい。
+- $\Sigma$ は標本平均やスコアの **ばらつき** を表す。
+
+したがって、推定の精度は「目的関数の鋭さ」と「データのノイズ」のバランスで決まる。
+:::
+
+## この定理がどこで使われるか
+
+後続章では、各推定法ごとに @thm-master-an の $H_n$ と $Z_n$ を具体化する。
+
+- **M 推定**：$H$ は Hessian、$\Sigma$ はスコアの分散または長期分散
+- **GMM**：$H=G'WG$、$\Sigma=G'WSWG$
+- **SMM**：GMM に加えてシミュレーション誤差が入る
+- **MD**：$H=\Gamma'W\Gamma$、$\Sigma=\Gamma'WSW\Gamma$
+
+つまり、後続章の技術的作業は、結局のところ
+
+1. 近似的一階条件をつくる
+2. $H_n$ の確率極限を求める
+3. $Z_n$ に中心極限定理を適用する
+
+という 3 ステップに帰着する。
+
+## 非微分可能な目的関数について
+
+本章の導出は、暗黙のうちに目的関数の微分可能性を使っている。しかし、量的回帰、maximum score、ある種のシミュレーション推定などでは目的関数が微分可能でないことがある。その場合でも、目的関数が局所的に二次近似できれば、同じ型の漸近正規性が導ける。これは付録で扱う一般結果に対応している。
+
+# まとめ
+
+この章で押さえるべき点は次の通りである。
+
+1. **極値推定は統一的な枠組み** であり、M 推定・GMM・SMM・MD を同じ論理で扱える。
+2. 一致性には
+   - clean maximum
+   - uniform convergence
+   の 2 条件が中心である。
+3. M 推定では、uniform convergence は **一様大数法則** の問題に還元される。
+4. 漸近正規性は
+   $$
+   o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
+   $$
+   という線形化表現から導かれる。
+5. 後続章では、各推定法ごとに $H$ と $\Sigma$ を具体化し、標準誤差推定と仮説検定に進む。
+
+::: {.callout-tip}
+## 次章への接続
+
+次の「M 推定」の章では、この章の抽象理論を最尤法・非線形最小二乗法に落とし込み、
+
+- 漸近分散の具体式
+- sandwich 分散
+- 正しく指定された最尤法と誤指定最尤法の違い
+
+を詳しく扱う。
+:::
+
+# 参考文献
+
+- Billingsley, P. (2008), *Probability and Measure*.
+- Hayashi, F. (2000), *Econometrics*, Chapter 7.
+- van der Vaart, A. W. and Wellner, J. A. (1996), *Weak Convergence and Empirical Processes*.
+

@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>lecture1</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="lecture1_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture1_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture1_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture1_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture1_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture1_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture1_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture1_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture1_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture1_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture1_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture1_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">lecture1</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="この授業の前半でやること" class="level1">
+<h1>この授業の前半でやること</h1>
+<p>以下の内容を数学的に正確に記述できるようになることを目指す。</p>
+<ul>
+<li>確率変数</li>
+<li>条件付き期待値</li>
+<li>各種収束概念
+<ul>
+<li>概収束</li>
+<li>p次平均収束</li>
+<li>確率収束</li>
+<li>分布収束</li>
+</ul></li>
+<li>大数の強法則</li>
+<li>中心極限定理（ここはお気持ち程度）</li>
+</ul>
+<p>なぜ気軽な気持ちで計量経済学を知りたいだけなのにこれらを学ぶハメになってしまうのか。</p>
+<p>それは計量経済学という分野が</p>
+<ul>
+<li>条件付き期待値または尤度のモデリング</li>
+<li>無限にサンプルがあった時にそのモデルをどの程度の誤差で復元できるか</li>
+</ul>
+<p>という二つのことしか考えていないからである。</p>
+<p>このうちで、尤度の理解は容易である。尤度とは、「そのサンプルの起こりやすさ」である。</p>
+<p>しかし、<strong>条件付き期待値</strong>というオブジェクトは数学的にはるかに入り組んでいる。その理解のためにはそもそも期待値が積分であることを理解した方がよくて、期待値が積分であるということを理解するためには確率変数が確率空間上の関数であることを理解した方が良い。なのでこの辺のごちゃっとした話を避けて通れない。</p>
+<p>そして、二点目の無限にサンプルがあった時の話というのはさらに入り組んでくる。おそらく皆さんどこかで<strong>大数の法則</strong>とか<strong>中心極限定理</strong>とかの話を聞いことはあると思う。</p>
+<p>大数の法則はコインを無限に投げ続けた時に、表が出た割合が<span class="math inline">\(\frac{1}{2}\)</span>に「近づく」ことを指すわけだが、「近づく」の意味を正確に理解しないと、いけない時が来てしまったということである。</p>
+<p>中心極限定理もそうである。これは<span class="math inline">\(\frac{1}{2}\)</span>とサンプル平均との差が正規分布に「近づいていく」ということを主張するわけだが、ここでも「近づく」の意味を理解しないといけない時が来てしまった。</p>
+<p>正確に理解すると何がいいのか。それは誰にもわからない。ただ、この辺の話はなんかすごいかっこいいので、やってみると面白くなること請け合いである。また、将来的にデータサイエンスやらなんやらをやろうとなった時に、この辺の話をなぁなぁにしていると、同僚に死ぬほど舐められてしまう。ちゃんと勉強して逆に同僚を舐めていこう。</p>
+</section>
+<section id="モチベーション" class="level1">
+<h1>モチベーション</h1>
+<section id="なぜ有限加法性では足りないのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜ有限加法性では足りないのか">なぜ有限加法性では足りないのか</h2>
+<p>高校までの確率では，標本空間 <span class="math inline">\(\Omega\)</span> の各元 <span class="math inline">\(\omega\)</span> に重み <span class="math inline">\(p(\omega)\)</span> を割り当てて，事象 <span class="math inline">\(A \subset \Omega\)</span> の確率を</p>
+<p><span class="math display">\[
+P(A)=\sum_{\omega\in A} p(\omega)
+\]</span></p>
+<p>で定める，という見方が自然である。これは <span class="math inline">\(\Omega\)</span> が有限集合であるときには完全にうまく働く。実際，サイコロやカードのように，起こりうる結果が有限個しかない試行では，確率を「各結果の確率を足し上げたもの」と考えて差し支えない。</p>
+<section id="具体例サイコロ" class="level3">
+<h3 class="anchored" data-anchor-id="具体例サイコロ">具体例：サイコロ</h3>
+<p>すでに意味がわからないと思うので、具体例を出す。</p>
+<p>たとえば，6面体の公平なサイコロを1回投げる試行を考えよう。このとき標本空間は</p>
+<p><span class="math display">\[
+\Omega=\{1,2,3,4,5,6\}
+\]</span></p>
+<p>である。各元 <span class="math inline">\(\omega\in\Omega\)</span> は「出た目」を表している。公平なサイコロであれば，各結果は同じ確率で起こるので，</p>
+<p><span class="math display">\[
+p(1)=p(2)=\cdots=p(6)=\frac16
+\]</span></p>
+<p>と定めるのが自然である。</p>
+<p>たとえば，「偶数の目が出る」という事象を</p>
+<p><span class="math display">\[
+A=\{2,4,6\}
+\]</span></p>
+<p>と書けば，その確率は各結果の確率を足し合わせて</p>
+<p><span class="math display">\[
+P(A)=p(2)+p(4)+p(6)=\frac16+\frac16+\frac16=\frac12
+\]</span></p>
+<p>となる。同様に，「<span class="math inline">\(3\)</span> 以下の目が出る」という事象</p>
+<p><span class="math display">\[
+B=\{1,2,3\}
+\]</span></p>
+<p>の確率は</p>
+<p><span class="math display">\[
+P(B)=p(1)+p(2)+p(3)=\frac12
+\]</span></p>
+<p>である。</p>
+<p>このように，標本空間が有限集合であるときには，各元 <span class="math inline">\(\omega\)</span> に確率 <span class="math inline">\(p(\omega)\)</span> を割り当てておき，任意の事象の確率をその和として定める，という考え方が素直に機能する。</p>
+<hr>
+<p>この見方は無限回の試行を扱おうとすると限界に突き当たる。これから扱いたい大数の法則や中心極限定理は，本質的に <span class="math inline">\(n\to\infty\)</span> の極限を述べる定理である。したがって，最初から無限列を標本空間とする枠組みが必要になる。</p>
+</section>
+<section id="無限回のコイン投げ" class="level3">
+<h3 class="anchored" data-anchor-id="無限回のコイン投げ">無限回のコイン投げ</h3>
+<p>公平なコインを無限回投げる実験を考える。標本空間は</p>
+<p><span class="math display">\[
+\Omega=\{H,T\}^{\mathbb N}
+\]</span></p>
+<p>であり，<span class="math inline">\(\omega=(\omega_1,\omega_2,\omega_3,\dots)\)</span> は「第1回，第2回，第3回，<span class="math inline">\(\dots\)</span> の表裏の並び」を表す。</p>
+<p>有限回までの情報だけを見る基本的な事象として，</p>
+<p><span class="math display">\[
+C(x_1,\dots,x_n) = \{\omega\in\Omega:\omega_1=x_1,\dots,\omega_n=x_n\},
+\qquad x_i\in{H,T}
+\]</span></p>
+<p>を考える。これは最初の <span class="math inline">\(n\)</span> 回の結果が指定された事象であり，公平なコインなら</p>
+<p><span class="math display">\[
+P(C(x_1,\dots,x_n))=2^{-n}
+\]</span></p>
+<p>であるべきだと考えられる。</p>
+<p>ところが，ひとつの無限列 <span class="math inline">\(\omega\in\Omega\)</span> だけが起こる事象 <span class="math inline">\({\omega}\)</span> の確率はどうなるだろうか。<span class="math inline">\(\omega\)</span> の最初の <span class="math inline">\(n\)</span> 個だけを固定した事象を</p>
+<p><span class="math display">\[
+C_n(\omega) = \{\eta\in\Omega:\eta_1=\omega_1,\dots,\eta_n=\omega_n\}
+\]</span></p>
+<p>と書けば，</p>
+<p><span class="math display">\[
+{\omega}\subset C_n(\omega), \qquad P(C_n(\omega))=2^{-n}
+\]</span></p>
+<p>である。したがって</p>
+<p><span class="math display">\[
+0\le P({\omega})\le 2^{-n}
+\qquad (n=1,2,\dots)
+\]</span></p>
+<p>となり，<span class="math inline">\(n\to\infty\)</span> とすると</p>
+<p><span class="math display">\[
+P({\omega})=0
+\]</span></p>
+<p>でなければならない。</p>
+<p>ここで，たとえば</p>
+<p><span class="math display">\[
+A=\{\omega\in\Omega:\omega_1=H\}
+\]</span></p>
+<p>という事象を考える。これは「第1回が表である」という事象なので，当然</p>
+<p><span class="math display">\[
+P(A)=\frac12
+\]</span></p>
+<p>であってほしい。ところが <span class="math inline">\(A\)</span> は無数の点の集まりであり，各点の確率はすべて <span class="math inline">\(0\)</span> である。したがって，<span class="math inline">\(A\)</span> の確率を「点ごとの確率を足し上げる」ことで作ることはできない。</p>
+<p>このことは，無限回の試行では，確率を各点に割り当ててから事象の確率を復元する，という高校までの見方がもはや本質的ではないことを示している。必要なのは，各元ではなく，各事象そのものに直接確率を与える枠組みである。</p>
+</section>
+</section>
+<section id="どの事象に確率を与えるべきか" class="level2">
+<h2 class="anchored" data-anchor-id="どの事象に確率を与えるべきか">どの事象に確率を与えるべきか</h2>
+<p>では，<span class="math inline">\(\Omega\)</span> のすべての部分集合に確率を与えればよいのだろうか。少なくとも，我々が確率を語りたい事象の集まりは，普通の論理操作に対して閉じていなければならない。</p>
+<p>まず，事象 <span class="math inline">\(A\)</span> の確率が定義されているなら，その否定である <span class="math inline">\(A^c\)</span> の確率も定義されていなければ困る。また，<span class="math inline">\(A\)</span> または <span class="math inline">\(B\)</span> が起こるという事象 <span class="math inline">\(A\cup B\)</span> の確率も定義されていなければならない。さらに，極限を扱うためには，有限回ではなく可算回の和や共通部分に対しても閉じている必要がある。</p>
+<p>このため，確率を定義する対象として，<span class="math inline">\(\Omega\)</span> の部分集合族 <span class="math inline">\(\mathcal F\)</span> を考え，次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(\Omega\in\mathcal F\)</span> である。</li>
+<li><span class="math inline">\(A\in\mathcal F\)</span> ならば <span class="math inline">\(A^c\in\mathcal F\)</span> である。</li>
+<li><span class="math inline">\(A_1,A_2,\dots\in\mathcal F\)</span> ならば <span class="math display">\[
+\bigcup_{n=1}^\infty A_n\in\mathcal F
+\]</span> である。</li>
+</ol>
+<p>このような <span class="math inline">\(\mathcal F\)</span> を <span class="math inline">\(\sigma\)</span>-代数という。補集合に閉じているので，可算共通部分にも自動的に閉じている。実際，</p>
+<p><span class="math display">\[
+\bigcap_{n=1}^\infty A_n = \left(\bigcup_{n=1}^\infty A_n^c\right)^c
+\]</span></p>
+<p>であるから，<span class="math inline">\(\mathcal F\)</span> は可算個の共通部分にも閉じている。</p>
+<p>無限回のコイン投げでは，まず有限個の時点だけを指定した円筒事象</p>
+<p><span class="math display">\[
+C(x_1,\dots,x_n)
+\]</span></p>
+<p>のような基本事象に確率を与え，そこから可算回の和・共通部分・補集合によって作られる事象全体を考えるのが自然である。すなわち，基本事象から生成される <span class="math inline">\(\sigma\)</span>-代数の上で確率を考えるのである。</p>
+<section id="無限回のコイン投げが記述できない問題は解決する" class="level3">
+<h3 class="anchored" data-anchor-id="無限回のコイン投げが記述できない問題は解決する">無限回のコイン投げが記述できない問題は解決する？</h3>
+<p>ここまでで，「無限回のコイン投げを扱うには，各点 <span class="math inline">\(\omega\in\Omega\)</span> に重みをつけるのではなく，事象の集まり <span class="math inline">\(\mathcal F\)</span> の上で確率を定義する必要がある」ということを見た。 では，実際にそのような確率をちゃんと作ってみる。</p>
+<p>まず，標本空間をもう一度書くと，</p>
+<p><span class="math display">\[
+\Omega=\{H,T\}^{\mathbb N}
+\]</span></p>
+<p>である。 各 <span class="math inline">\(\omega=(\omega_1,\omega_2,\omega_3,\dots)\)</span> は，無限回のコイン投げの結果の列を表している。</p>
+<p>この上で，最も基本的な事象は，最初の有限回の結果だけを指定する<strong>円筒事象</strong>である。すなわち，</p>
+<p><span class="math display">\[
+C(x_1,\dots,x_n) = \{\omega\in\Omega:\omega_1=x_1,\dots,\omega_n=x_n\}, \qquad x_i\in\{H,T\}
+\]</span></p>
+<p>である。</p>
+<p>これは「最初の <span class="math inline">\(n\)</span> 回だけ見たときに，結果が <span class="math inline">\((x_1,\dots,x_n)\)</span> である」という事象である。 公平なコインなら，これらの事象には当然</p>
+<p><span class="math display">\[
+P(C(x_1,\dots,x_n))=2^{-n}
+\]</span></p>
+<p>を割り当てたい。</p>
+<p>たとえば，</p>
+<p><span class="math display">\[
+P(\omega_1=H)=\frac12,
+\qquad
+P(\omega_1=H,\omega_2=T)=\frac14,
+\qquad
+P(\omega_1=H,\omega_2=T,\omega_3=H)=\frac18
+\]</span></p>
+<p>であってほしい，ということである。</p>
+<p>ここで重要なのは，この割り当てが<strong>矛盾していない</strong>ことである。</p>
+<p>たとえば，</p>
+<p><span class="math display">\[
+\{\omega:\omega_1=H\} = \{\omega:\omega_1=H,\omega_2=H\}
+;\cup;\{\omega:\omega_1=H,\omega_2=T\}
+\]</span></p>
+<p>であり，右辺の二つは互いに交わらない。したがって，もし確率が加法的であるなら，</p>
+<p><span class="math display">\[
+P(\omega_1=H) = P(\omega_1=H,\omega_2=H)+P(\omega_1=H,\omega_2=T) = \frac14+\frac14 = \frac12
+\]</span></p>
+<p>となってほしい。これは自然である。</p>
+<p>同様に，</p>
+<p><span class="math display">\[
+C(x_1,\dots,x_n) = C(x_1,\dots,x_n,H)\cup C(x_1,\dots,x_n,T)
+\]</span></p>
+<p>であり，右辺は互いに素だから，</p>
+<p><span class="math display">\[
+2^{-n} = 2^{-(n+1)}+2^{-(n+1)}
+\]</span></p>
+<p>となる。これも矛盾していない。</p>
+<p>つまり，円筒事象に対して</p>
+<p><span class="math display">\[
+P(C(x_1,\dots,x_n))=2^{-n}
+\]</span></p>
+<p>と定めることは，少なくとも有限回までの情報については整合的である。</p>
+<p>では，この割り当てを円筒事象だけでなく，それらから生成される <span class="math inline">\(\sigma\)</span>-代数全体、つまり<strong>無限回のコイン投げで起こること全て</strong>へ拡張できるだろうか。</p>
+<p>答えは<strong>YES</strong>である。</p>
+<p>厳密には，円筒事象全体から生成される <span class="math inline">\(\sigma\)</span>-代数を</p>
+<p><span class="math display">\[
+\mathcal F=\sigma\bigl(\{C(x_1,\dots,x_n):n\ge1,\ x_i\in\{H,T\}\}\bigr)
+\]</span></p>
+<p>と書くと，この <span class="math inline">\(\mathcal F\)</span> の上に確率測度 <span class="math inline">\(P\)</span> を定義して，</p>
+<p><span class="math display">\[
+P(C(x_1,\dots,x_n))=2^{-n}
+\qquad
+\text{for all } n,(x_1,\dots,x_n)
+\]</span></p>
+<p>を満たすようにすることができる。</p>
+<p>この事実は，<strong>拡張定理</strong>によって正当化される。 授業のこの段階では定理の証明までは追わなくてよいが，少なくとも</p>
+<ul>
+<li>有限個の座標だけを指定した基本事象に自然な確率を与える</li>
+<li>その割り当てが整合的である</li>
+<li>するとその情報から，必要な事象全体へ確率を拡張できる</li>
+</ul>
+<p>という流れを理解しておけば十分である。このようにして「無限の試行」への確率を構成する。</p>
+</section>
+</section>
+<section id="大数の強法則をチラ見" class="level2">
+<h2 class="anchored" data-anchor-id="大数の強法則をチラ見">大数の強法則をチラ見</h2>
+<p>大数の強法則を述べるには，まさに可算回の操作が必要になる。無限回のコイン投げに対して，</p>
+<p><span class="math display">\[
+X_n(\omega)=
+\begin{cases}
+1 &amp; (\omega_n=H),\
+0 &amp; (\omega_n=T)
+\end{cases}
+\]</span></p>
+<p>とおくと，</p>
+<p><span class="math display">\[
+\frac1n\sum_{k=1}^n X_k(\omega)
+\]</span></p>
+<p>は最初の <span class="math inline">\(n\)</span> 回における表の相対度数である。大数の強法則は，公平なコインなら</p>
+<p><span class="math display">\[
+\left\{\omega\in\Omega:\lim_{n\to\infty}\frac1n\sum_{k=1}^n X_k(\omega)=\frac12\right\}
+\]</span></p>
+<p>という事象の確率が <span class="math inline">\(1\)</span> である，と主張する。</p>
+<p>しかし，「極限が <span class="math inline">\(\frac12\)</span> である」という事象は，有限回の和や共通部分だけでは書けない。極限の定義をそのまま書き下すと，</p>
+<p><span class="math display">\[
+\left\{\omega:\lim_{n\to\infty}\frac1n\sum_{k=1}^n X_k(\omega)=\frac12\right\} = \bigcap_{m=1}^\infty
+\bigcup_{N=1}^\infty
+\bigcap_{n=N}^\infty
+\left\{
+\omega:
+\left|
+\frac1n\sum_{k=1}^n X_k(\omega)-\frac12
+\right|
+&lt;
+\frac1m
+\right\}.
+\]</span></p>
+<p>右辺には可算個の共通部分と可算個の和が現れている。したがって，この事象の確率をそもそも定義したいなら，確率が定義される事象の族は可算回の操作で閉じていなければならない。有限加法性だけでは，大数の強法則が主張している事象そのものを記述することができないのである。</p>
+</section>
+<section id="確率は-sigma-加法的でなければならない" class="level2">
+<h2 class="anchored" data-anchor-id="確率は-sigma-加法的でなければならない">確率は <span class="math inline">\(\sigma\)</span>-加法的でなければならない</h2>
+<p>したがって，確率とは</p>
+<p><span class="math display">\[
+P:\mathcal F\to[0,1]
+\]</span></p>
+<p>という写像であって，少なくとも</p>
+<p><span class="math display">\[
+P(\Omega)=1
+\]</span></p>
+<p>を満たし，さらに互いに素な事象 <span class="math inline">\(A_1,A_2,\dots\in\mathcal F\)</span> に対して</p>
+<p><span class="math display">\[
+P\left(\bigsqcup_{n=1}^\infty A_n\right) = \sum_{n=1}^\infty P(A_n)
+\]</span></p>
+<p>が成り立つことを要請するのが自然である。これが <span class="math inline">\(\sigma\)</span>-加法性である。</p>
+<p><span class="math inline">\(\sigma\)</span>-加法性を仮定すると，確率と極限の相性がよくなる。たとえば，増大列 <span class="math inline">\(A_1\subset A_2\subset\cdots\)</span> に対して</p>
+<p><span class="math display">\[
+P\left(\bigcup_{n=1}^\infty A_n\right) = \lim_{n\to\infty}P(A_n)
+\]</span></p>
+<p>が成り立つ。この種の性質は，大数の法則や中心極限定理を扱うときに繰り返し使われる。逆に言えば，有限加法性だけでは，極限操作を含む確率論の基本定理を安定に展開することができない。</p>
+</section>
+<section id="まとめ" class="level2">
+<h2 class="anchored" data-anchor-id="まとめ">まとめ</h2>
+<p>有限個の結果しかない試行では，確率を各結果に割り当てて足し上げるという見方で十分である。しかし，無限回のコイン投げのような無限試行では，各点の確率はすべて <span class="math inline">\(0\)</span> になりうるので，事象の確率を点の確率から復元することはできない。したがって，確率は最初から事象の族 <span class="math inline">\(\mathcal F\)</span> の上に定義しなければならない。</p>
+<p>さらに，大数の強法則のような極限定理を記述するには，「極限が存在する」という事象が <span class="math inline">\(\mathcal F\)</span> に入っていなければならない。そのためには <span class="math inline">\(\mathcal F\)</span> は可算回の和・共通部分に対して閉じている必要があり，すなわち <span class="math inline">\(\sigma\)</span>-代数でなければならない。そして，その上に定義される確率 <span class="math inline">\(P\)</span> もまた <span class="math inline">\(\sigma\)</span>-加法的でなければならない。</p>
+<p>こうして，測度論的確率論では，確率空間</p>
+<p><span class="math display">\[
+(\Omega,\mathcal F,P)
+\]</span></p>
+<p>を出発点として理論を組み立てる。この枠組みの上で，確率変数は可測関数として，期待値は積分として，条件付き期待値は部分 <span class="math inline">\(\sigma\)</span>-代数に関する射影として理解されることになる。</p>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

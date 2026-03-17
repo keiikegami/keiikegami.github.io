@@ -1,0 +1,534 @@
+---
+title: "GMM"
+subtitle: "計量経済学大学院講義ノート"
+lang: ja
+number-sections: true
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+  pdf:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    documentclass: scrartcl
+execute:
+  echo: false
+  warning: false
+  error: false
+---
+
+
+::: {.callout-note}
+## この章の到達目標
+
+この章の目的は次の 5 点である。
+
+1. GMM 推定量の漸近正規性を
+   $$
+   \sqrt{n}(\hat\theta-\theta_0)\overset{d}{\to}
+   N\!\left(0,(G'WG)^{-1}G'WSWG(G'WG)^{-1}\right)
+   $$
+   の形で理解する。
+2. **just identified** と **over identified** の違い、および重み行列 $W$ が効率性に与える影響を理解する。
+3. i.i.d.、m.d.s.、一般の依存データで、$S$ の推定法がどう変わるかを整理する。
+4. 実務上重要な **two-step efficient GMM**、**one-step correction**、**CU-GMM** の位置づけを理解する。
+5. 過剰識別制約の検定、すなわち **Hansen-Sargan の $J$ 検定** を理解する。
+:::
+
+::: {.callout-important}
+## 記法の確認
+
+この章では、モーメント条件
+$$
+E[g(X_t;\theta_0)]=0
+$$
+を出発点とする。標本モーメントを
+$$
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+$$
+と書き、GMM の目的関数を
+$$
+Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n g_n(\theta)
+$$
+とする。
+
+さらに、$\theta$ に関する導関数として
+$$
+d(X_t;\theta)=\frac{\partial g(X_t;\theta)}{\partial\theta'},
+\qquad
+G_n(\theta)=\frac1n\sum_{t=1}^n d(X_t;\theta),
+\qquad
+G=E[d(X_t;\theta_0)]
+$$
+を用いる。ここで
+
+- $g(X_t;\theta)\in\mathbb R^K$
+- $\theta\in\mathbb R^p$
+- $d(X_t;\theta),G_n(\theta),G\in\mathbb R^{K\times p}$
+
+である。通常、識別のためには $K\ge p$ が必要である。
+:::
+
+# 導入
+
+GMM（generalized method of moments）は、モデルが与えるモーメント条件
+$$
+E[g(X_t;\theta_0)]=0
+$$
+を使って $\theta_0$ を推定する方法である。M 推定と比べると、尤度全体を使うのではなく、モデルから得られる特定のモーメント条件だけを使うので、しばしば **limited information** 推定と呼ばれる。
+
+GMM の基本的な考え方は次の通りである。
+
+1. もし $\theta=\theta_0$ なら、標本モーメント $g_n(\theta)$ は 0 に近いはずである。
+2. したがって、$g_n(\theta)$ の大きさを測る二次形式
+   $$
+   g_n(\theta)'\widehat W_n g_n(\theta)
+   $$
+   を小さくする $\theta$ を選べばよい。
+3. その「大きさ」の測り方を決めるのが重み行列 $\widehat W_n$ であり、これが効率性を左右する。
+
+::: {.callout-tip}
+## 直観
+
+GMM の推定誤差は、M 推定と同じく
+
+- モーメントの標本誤差
+- 目的関数の局所曲率
+
+の 2 つの要素から決まる。ただし GMM では、score の代わりに標本モーメント $g_n(\theta_0)$ がノイズの源になり、曲率は $G'WG$ という形で現れる。
+:::
+
+# 漸近正規性の詳細
+
+## 基本定理
+
+まず、$g(X_t;\theta)$ が $\theta$ に関して滑らかな場合の標準的な漸近理論を述べる。
+
+::: {#thm-gmm-asymp-normal}
+## GMM 推定量の漸近正規性
+
+$\hat\theta$ が
+$$
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
+$$ {#eq-gmm-approx-foc}
+を満たすとする。さらに次を仮定する。
+
+1. $X_1,\ldots,X_n$ は厳密定常かつエルゴード的である。
+2. $\hat\theta\overset{p}{\to}\theta_0$.
+3. $\widehat W_n\overset{p}{\to} W$，ただし $W$ は正定値対称行列である。
+4. $\theta_0$ は $\Theta$ の内部点である。
+5. 任意の $X_t$ に対して $g(X_t;\theta)$ は $\theta$ について連続微分可能である。
+6. 
+   $$
+   \sqrt n\,g_n(\theta_0)\overset{d}{\to} N(0,S),
+   $$
+   ただし $S$ は正定値である。
+7. $\theta_0$ のある凸・コンパクト近傍 $N$ が存在して
+   $$
+   E\!\left[\sup_{\theta\in N}\|d(X_t;\theta)\|\right]<\infty.
+   $$
+8. $G=E[d(X_t;\theta_0)]$ は full column rank $p$ をもつ。
+
+このとき
+$$
+\sqrt n(\hat\theta-\theta_0)
+\overset{d}{\to}
+N\!\left(0,
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\right).
+$$
+:::
+
+::: {.proof}
+近似的一階条件 @eq-gmm-approx-foc を用いると
+$$
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}
+=
+-G_n(\hat\theta)'\widehat W_n g_n(\hat\theta)
+=o_p(n^{-1/2})
+$$
+である。ここで $g_n(\hat\theta)$ を $\theta_0$ のまわりで平均値展開すると、ある $\tilde\theta$ を用いて
+$$
+g_n(\hat\theta)=g_n(\theta_0)+G_n(\tilde\theta)(\hat\theta-\theta_0)
+$$
+だから、
+$$
+o_p(1)
+=
+\bigl(G_n(\hat\theta)'\widehat W_n G_n(\tilde\theta)\bigr)\sqrt n(\hat\theta-\theta_0)
++
+G_n(\hat\theta)'\widehat W_n \sqrt n\,g_n(\theta_0)
+$$
+を得る。
+
+一様大数法則と一致性により
+$$
+G_n(\hat\theta)\overset{p}{\to} G,
+\qquad
+G_n(\tilde\theta)\overset{p}{\to} G
+$$
+が成り立つので、
+$$
+G_n(\hat\theta)'\widehat W_n G_n(\tilde\theta)\overset{p}{\to} G'WG
+$$
+である。したがって
+$$
+\sqrt n(\hat\theta-\theta_0)
+=
+-(G'WG)^{-1}G'W\sqrt n\,g_n(\theta_0)+o_p(1),
+$$
+となり、最後は連続写像定理と Slutsky の定理で従う。
+:::
+
+## 漸近分散の分解
+
+上の定理では
+$$
+H=G'WG,
+\qquad
+\Sigma=G'WSWG
+$$
+と書けば、
+$$
+\Omega=H^{-1}\Sigma H^{-1}
+$$
+という、前章までと全く同じ **曲率とノイズの分解** になる。
+
+- $G$ はモーメント条件がパラメータにどれだけ敏感かを表す。
+- $W$ は研究者が選ぶ重みである。
+- $S$ は標本モーメント $\sqrt n\,g_n(\theta_0)$ の漸近分散である。
+
+この形を見ると、GMM の推定精度は
+
+1. モーメントの情報量（$G$）
+2. モーメントのノイズ（$S$）
+3. ノイズをどう重みづけるか（$W$）
+
+の 3 つに依存することが分かる。
+
+## just identified と over identified
+
+### just identified の場合
+
+$K=p$ で $G$ が可逆なら、
+$$
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}=G^{-1}SG^{-1'}
+$$
+となり、重み行列 $W$ は打ち消し合う。したがって **just identified モデルでは $W$ の選び方は漸近分散に影響しない**。
+
+### over identified の場合
+
+$K>p$ では $G$ は正方行列でないため、この打ち消しは起きない。したがって **over identified モデルでは $W$ の選び方が効率性を左右する**。
+
+::: {.callout-important}
+## 重要な含意
+
+over identified GMM では、同じモーメント条件でも重み行列の選び方が悪いと標準誤差が大きくなり、信頼区間も広くなる。GMM の実務では「モーメント条件をどう作るか」だけでなく、「どの重みで評価するか」も本質的である。
+:::
+
+## 最適重み付けと効率性
+
+効率的な重みは
+$$
+W=S^{-1}
+$$
+である。このとき漸近分散は
+$$
+\Omega_{\mathrm{eff}}=(G'S^{-1}G)^{-1}
+$$
+に簡約される。
+
+なぜこれが最適かというと、任意の正定値行列 $W$ に対して
+$$
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\succeq
+(G'S^{-1}G)^{-1}
+$$
+が成り立つからである。ここで $\succeq$ は半正定値行列の意味での大小である。
+
+この不等式は、GMM における効率性の中心結果であり、実務的には **two-step efficient GMM** の理論的根拠になる。
+
+### two-step efficient GMM
+
+実装は通常 2 段階で行う。
+
+1. まず $\widehat W_n=I_K$ など単純な重みで一段階推定量 $\tilde\theta$ を得る。
+2. 次に $\tilde\theta$ を使って $S$ を推定し、その逆行列を重みとしてもう一度 GMM を解く。
+
+こうして得られる二段階推定量 $\hat\theta$ は、適当な条件の下で効率的漸近分散
+$$
+(G'S^{-1}G)^{-1}
+$$
+をもつ。
+
+# 標準誤差の推定
+
+## 基本的な plug-in 推定
+
+一般形の漸近分散
+$$
+\Omega=(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+$$
+を推定するには、$G$ と $S$ をそれぞれ推定すればよい。
+
+$G$ の自然な推定量は
+$$
+\widehat G=\frac1n\sum_{t=1}^n d(X_t;\hat\theta)
+$$
+である。したがって、一般形の sandwich 推定量は
+$$
+\widehat\Omega
+=
+(\widehat G'\widehat W_n\widehat G)^{-1}
+\widehat G'\widehat W_n\widehat S \widehat W_n\widehat G
+(\widehat G'\widehat W_n\widehat G)^{-1}
+$$ {#eq-gmm-sandwich}
+である。
+
+## i.i.d. または m.d.s. の場合
+
+データが i.i.d. か、あるいは $(g(X_t;\theta_0),\mathcal F_t)$ が m.d.s. であれば、
+$$
+S=E[g(X_t;\theta_0)g(X_t;\theta_0)']
+$$
+である。したがって
+$$
+\widehat S
+=
+\frac1n\sum_{t=1}^n g(X_t;\hat\theta)g(X_t;\hat\theta)'
+$$
+あるいは
+$$
+\widehat S
+=
+\frac1n\sum_{t=1}^n
+\bigl(g(X_t;\hat\theta)-g_n(\hat\theta)\bigr)
+\bigl(g(X_t;\hat\theta)-g_n(\hat\theta)\bigr)'
+$$
+を用いればよい。
+
+一致性が成り立てば、@eq-gmm-sandwich は $\Omega$ の一貫推定量になる。
+
+## 依存データと HAC 推定
+
+一般の依存データでは、$S$ は長期分散
+$$
+S=\sum_{j=-\infty}^{\infty} C_j,
+\qquad
+C_j=E[g(X_t;\theta_0)g(X_{t-j};\theta_0)']
+$$
+である。したがって単純な標本分散では不十分であり、**Newey-West 型の HAC 推定量**を使う。
+
+代表的には
+$$
+\widehat S
+=
+\widehat C_0+\sum_{j=1}^{J_n}\left(1-\frac{j}{J_n+1}\right)
+(\widehat C_j+\widehat C_j')
+$$
+であり、
+$$
+\widehat C_j
+=
+\frac1n\sum_{t=j+1}^n
+g(X_t;\hat\theta)g(X_{t-j};\hat\theta)'.
+$$
+ここで $J_n$ はバンド幅であり、理論上は $J_n\to\infty$ かつ $J_n/n\to 0$ が必要である。
+
+::: {.callout-note}
+## 実務上の注意
+
+HAC 標準誤差はバンド幅 $J_n$ に敏感である。四半期データなら 8、12、16 ラグなどがよく使われるが、推論結果がどの程度ロバストかを確認するのが望ましい。
+:::
+
+## 効率的 GMM の標準誤差
+
+もし $\widehat W_n=\widehat S^{-1}$ を使っていれば、漸近分散は
+$$
+\Omega_{\mathrm{eff}}=(G'S^{-1}G)^{-1}
+$$
+だから、推定量は簡約されて
+$$
+\widehat\Omega_{\mathrm{eff}}
+=
+(\widehat G'\widehat S^{-1}\widehat G)^{-1}
+$$
+となる。実務ではこの形が最もよく使われる。
+
+# one-step correction
+
+二段階 GMM の第 2 段階を毎回完全に最適化するのが計算上重い場合、**one-step correction** が有用である。
+
+$\tilde\theta$ を $\sqrt n$-一致な初期推定量とし、$\widehat W_n$ を効率的重みとする。このとき Newton-Raphson を 1 回だけ適用して
+$$
+\hat\theta_{\mathrm{1step}}
+=
+\tilde\theta
+-
+(\widetilde G'\widehat W_n\widetilde G)^{-1}
+\widetilde G'\widehat W_n
+\left(\frac1n\sum_{t=1}^n g(X_t;\tilde\theta)\right),
+$$
+ただし
+$$
+\widetilde G=G_n(\tilde\theta)
+$$
+と定める。
+
+すると適当な条件の下で
+$$
+\sqrt n(\hat\theta_{\mathrm{1step}}-\theta_0)
+\overset{d}{\to}
+N\!\left(0,(G'S^{-1}G)^{-1}\right)
+$$
+が成り立つ。つまり、**一回の Newton ステップだけで漸近的には効率的** になる。
+
+::: {.callout-tip}
+## いつ有利か
+
+- 目的関数の完全最適化が重い
+- しかし勾配やヤコビアンは比較的計算しやすい
+
+というとき、one-step correction は有力である。逆に、勾配の計算が難しいモデルでは、ふつうの二段階最適化の方が扱いやすいこともある。
+:::
+
+# 過剰識別制約の検定
+
+over identified モデルでは $K-p$ 個の余剰モーメント条件があり、それらを使ってモデルの適合度を検定できる。
+
+## $J$ 統計量
+
+帰無仮説は
+$$
+H_0:\quad E[g(X_t;\theta_0)]=0 \text{ を満たす }\theta_0\in\Theta \text{ が存在する}
+$$
+である。検定統計量は
+$$
+J=-2nQ_n(\hat\theta)
+=
+n\,g_n(\hat\theta)'\widehat W_n g_n(\hat\theta)
+$$ {#eq-j-stat}
+である。
+
+::: {#thm-jtest}
+## Hansen-Sargan の $J$ 検定
+
+@thm-gmm-asymp-normal の仮定に加え、さらに
+$$
+\widehat W_n\overset{p}{\to} S^{-1}
+$$
+を仮定する。このとき、帰無仮説の下で
+$$
+J\overset{d}{\to}\chi^2_{K-p}
+$$
+が成り立つ。
+:::
+
+::: {.proof}
+平均値展開により
+$$
+\sqrt n\,g_n(\hat\theta)
+=
+\sqrt n\,g_n(\theta_0)+G\sqrt n(\hat\theta-\theta_0)+o_p(1)
+$$
+である。さらに効率的 GMM の線形表示
+$$
+\sqrt n(\hat\theta-\theta_0)
+=
+-(G'S^{-1}G)^{-1}G'S^{-1}\sqrt n\,g_n(\theta_0)+o_p(1)
+$$
+を代入すると、$J$ は
+$$
+Z'PZ+o_p(1)
+$$
+という形になる。ここで $Z\sim N(0,I_K)$、$P$ は rank $K-p$ の直交射影行列である。したがって極限分布は $\chi^2_{K-p}$ になる。
+:::
+
+この検定は
+
+- **test of over-identifying restrictions**
+- **Hansen-Sargan test**
+- **J test**
+
+などと呼ばれる。
+
+::: {.callout-important}
+## 何が分かり、何は分からないか
+
+$J$ 検定で棄却されると、「少なくともいくつかのモーメント条件が誤指定されている」ことは分かる。しかし、**どのモーメント条件が悪いのかまでは教えてくれない**。したがって、棄却後はモーメント条件の個別診断が必要である。
+:::
+
+# Continuously-updated GMM
+
+## 定義
+
+効率的 GMM を 2 段階で実装する代わりに、重み行列自体を $\theta$ の関数にして 1 回の最適化で済ませる方法が **continuously-updated GMM（CU-GMM）** である。目的関数は
+$$
+Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n(\theta)g_n(\theta)
+$$
+である。
+
+典型的には
+$$
+\widehat W_n(\theta)
+=
+\left(
+\frac1n\sum_{t=1}^n g(X_t;\theta)g(X_t;\theta)'
+\right)^{-1}
+$$
+あるいは
+$$
+\widehat W_n(\theta)
+=
+\left(
+\frac1n\sum_{t=1}^n g(X_t;\theta)g(X_t;\theta)'
+-g_n(\theta)g_n(\theta)'
+\right)^{-1}
+$$
+のようにとる。
+
+依存データでは、ここでも Newey-West 型の長期分散推定量の逆行列を使える。
+
+## CU-GMM の意味
+
+CU-GMM は形式上は GMM だが、より広くは generalized empirical likelihood の一部として理解できる。理論的には、高次のバイアス項が小さくなるなど、通常の二段階 GMM より望ましい有限標本特性をもつことがある。
+
+一方で、重み行列も同時に最適化対象になるため、数値計算は重くなりやすい。したがって、
+
+- 二段階 GMM
+- one-step correction
+- CU-GMM
+
+のどれが最も実用的かは、モデルの複雑さと数値最適化の難しさによって決まる。
+
+# まとめ
+
+この章の要点は次の通りである。
+
+1. GMM 推定量の漸近分散は
+   $$
+   (G'WG)^{-1}G'WSWG(G'WG)^{-1}
+   $$
+   で与えられる。
+2. just identified モデルでは重み行列は漸近分散に影響しないが、over identified モデルでは影響する。
+3. 効率的重みは $W=S^{-1}$ であり、そのとき漸近分散は
+   $$
+   (G'S^{-1}G)^{-1}
+   $$
+   に簡約される。
+4. 標準誤差の推定では、i.i.d./m.d.s. なら標本共分散、依存データなら HAC 推定を使う。
+5. over identified モデルでは $J$ 検定により過剰識別制約を検定できる。
+6. 効率的推定の実装法として、二段階 GMM、one-step correction、CU-GMM がある。
+
+::: {.callout-note}
+## 次章への接続
+
+次の SMM 章では、GMM のモーメント条件
+$$
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+$$
+のうち、モデル側のモーメントが閉形式で書けない場合を扱う。GMM の骨格はそのまま残るが、**シミュレーション誤差** が新たなノイズ源として加わる。
+:::

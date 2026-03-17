@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>lecture2</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="lecture2_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture2_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture2_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture2_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture2_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture2_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture2_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture2_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture2_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture2_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture2_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture2_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">lecture2</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>本節の内容は基本的に舟木「確率論」に依拠する。これよりわかりやすい確率論の本はこの世に存在しないので、どんなにわからなくてもこの本と睨めっこしていくしかないので注意。</p>
+<section id="確率論の基礎概念" class="level1">
+<h1>確率論の基礎概念</h1>
+<p>前回は，無限試行を扱うためには，確率を各点に割り当てるだけでは不十分であり，<span class="math inline">\(\sigma\)</span>-代数の上に <span class="math inline">\(\sigma\)</span>-加法的な確率を定義する必要があることを見た。この回では，その上に立って，測度論的確率論の基本対象である確率空間，確率変数，分布，期待値，分散を定義する。後の大数の法則，中心極限定理，条件付き期待値は，すべてここで導入する概念の上に構成される。</p>
+<section id="確率空間と確率変数" class="level2">
+<h2 class="anchored" data-anchor-id="確率空間と確率変数">確率空間と確率変数</h2>
+<section id="確率空間" class="level3">
+<h3 class="anchored" data-anchor-id="確率空間">確率空間</h3>
+<p><strong>定義（<span class="math inline">\(\sigma\)</span>-代数）</strong> 集合 <span class="math inline">\(\Omega\)</span> の部分集合族 <span class="math inline">\(\mathcal F\subset 2^\Omega\)</span> が <span class="math inline">\(\sigma\)</span>-代数であるとは，次を満たすことをいう。</p>
+<ol type="1">
+<li><span class="math inline">\(\Omega\in\mathcal F\)</span>。</li>
+<li><span class="math inline">\(A\in\mathcal F\)</span> ならば <span class="math inline">\(A^c\in\mathcal F\)</span>。</li>
+<li><span class="math inline">\(A_1,A_2,\dots\in\mathcal F\)</span> ならば <span class="math display">\[
+\bigcup_{n=1}^\infty A_n\in\mathcal F
+\]</span> である。</li>
+</ol>
+<p>このとき <span class="math inline">\((\Omega,\mathcal F)\)</span> を可測空間という。<span class="math inline">\(\mathcal F\)</span> の元を事象という。</p>
+<p><strong>めちゃくちゃ重要な例：（ボレル <span class="math inline">\(\sigma\)</span>-代数）</strong> <span class="math inline">\(\mathbb R\)</span> の開集合全体を含む最小の <span class="math inline">\(\sigma\)</span>-代数を <span class="math inline">\(\mathbb R\)</span> のボレル <span class="math inline">\(\sigma\)</span>-代数といい，</p>
+<p><span class="math display">\[
+\mathcal B(\mathbb R)
+\]</span></p>
+<p>と書く。実際にはもっと少ない集合、たとえば以下のように半区間に対して、それを含む最小の<span class="math inline">\(\sigma\)</span>-代数を考えても同じものになることがわかっているので、</p>
+<p><span class="math display">\[
+\mathcal B(\mathbb R)=\sigma({(-\infty,x]:x\in\mathbb R})
+\]</span></p>
+<p>としてもよい。</p>
+<p><strong>定義（確率測度・確率空間）</strong> 可測空間 <span class="math inline">\((\Omega,\mathcal F)\)</span> 上の写像</p>
+<p><span class="math display">\[
+P:\mathcal F\to[0,1]
+\]</span></p>
+<p>が確率測度であるとは，次を満たすことをいう。</p>
+<ol type="1">
+<li><span class="math inline">\(P(\Omega)=1\)</span>。</li>
+<li>互いに素な事象列 <span class="math inline">\(A_1,A_2,\dots\in\mathcal F\)</span> に対して <span class="math display">\[
+P\left(\bigsqcup_{n=1}^\infty A_n\right)
+=
+\sum_{n=1}^\infty P(A_n)
+\]</span> が成り立つ。</li>
+</ol>
+<p>組 <span class="math inline">\((\Omega,\mathcal F,P)\)</span> を確率空間という。</p>
+<p><strong>例（公平なサイコロ）</strong> 6面体の公平なサイコロを1回投げる試行では，</p>
+<p><span class="math display">\[
+\Omega=\{1,2,3,4,5,6\},\qquad \mathcal F=2^\Omega
+\]</span></p>
+<p>とするのが自然である。各 <span class="math inline">\(\omega\in\Omega\)</span> に対して</p>
+<p><span class="math display">\[
+P(\{\omega\})=\frac16
+\]</span></p>
+<p>と定めれば，任意の事象 <span class="math inline">\(A\subset\Omega\)</span> に対して</p>
+<p><span class="math display">\[
+P(A)=\sum_{\omega\in A}P(\{\omega\})
+\]</span></p>
+<p>となる。たとえば，<span class="math inline">\(A={2,4,6}\)</span> とすれば</p>
+<p><span class="math display">\[
+P(A)=\frac12
+\]</span></p>
+<p>である。</p>
+<p><strong>例（無限回のコイン投げ）</strong> 無限回のコイン投げでは，</p>
+<p><span class="math display">\[
+\Omega=\{H,T\}^{\mathbb N}
+\]</span></p>
+<p>を標本空間とする。ここでは <span class="math inline">\(\Omega\)</span> は非可算集合であり，すべての部分集合に対して素朴に確率を与えるのではなく，円筒事象から生成される <span class="math inline">\(\sigma\)</span>-代数の上に確率を定義する。このような例が，測度論的確率論の必要性を示している。</p>
+<p><strong>めちゃくちゃ重要な例（区間上の一様な確率空間）</strong><br>
+標本空間として区間</p>
+<p><span class="math display">\[
+\Omega=(0,1),\qquad \mathcal F=\mathcal B((0,1))
+\]</span></p>
+<p>を考える。ここで <span class="math inline">\(\mathcal B((0,1))\)</span> は <span class="math inline">\((0,1)\)</span> 上のボレル <span class="math inline">\(\sigma\)</span>-代数である。</p>
+<p>この上に，区間の長さを与える測度 <span class="math inline">\(\lambda\)</span> を入れる。すなわち，開区間 <span class="math inline">\((a,b)\subset(0,1)\)</span> に対して</p>
+<p><span class="math display">\[
+\lambda((a,b))=b-a
+\]</span></p>
+<p>とし，これを <span class="math inline">\(\mathcal B((0,1))\)</span> 全体に拡張したものをルベーグ測度という。（この拡張ができるか、とかややこしい話が無限にあるが、それは触れない。とにかくこういう都合のいいmeasureがあるとしていい。）</p>
+<p>特に</p>
+<p><span class="math display">\[
+\lambda((0,1))=1
+\]</span></p>
+<p>であるから，<span class="math inline">\(\lambda\)</span> は <span class="math inline">\((0,1)\)</span> 上の確率測度である。</p>
+<p>したがって，</p>
+<p><span class="math display">\[
+\bigl((0,1),\mathcal B((0,1)),\lambda\bigr)
+\]</span></p>
+<p>は確率空間になる。</p>
+<p>この例は，標本空間が有限集合でなくても自然な確率空間を作れることを示している。後で見るように，この確率空間は連続的な確率変数を考えるときの最も基本的な舞台になる。</p>
+<p><strong>命題（確率の基本性質）</strong> <span class="math inline">\(A,B\in\mathcal F\)</span> とする。このとき次が成り立つ。</p>
+<ol type="1">
+<li><span class="math inline">\(P(\varnothing)=0\)</span>。</li>
+<li><span class="math inline">\(P(A^c)=1-P(A)\)</span>。</li>
+<li><span class="math inline">\(A\subset B\)</span> ならば <span class="math inline">\(P(A)\leq P(B)\)</span>。</li>
+<li></li>
+</ol>
+<p><span class="math display">\[
+P(A\cup B)=P(A)+P(B)-P(A\cap B)。
+\]</span> 5. <span class="math inline">\(A_1\subset A_2\subset\cdots\)</span> かつ <span class="math inline">\(A=\bigcup_{n=1}^\infty A_n\)</span> ならば <span class="math display">\[
+P(A_n)\to P(A)。
+\]</span> 6. <span class="math inline">\(A_1\supset A_2\supset\cdots\)</span> かつ <span class="math inline">\(A=\bigcap_{n=1}^\infty A_n\)</span> ならば <span class="math display">\[
+P(A_n)\to P(A)。
+\]</span></p>
+<p>5, 6 は確率と極限操作の相性のよさを表しており，後の極限定理で繰り返し用いられる。</p>
+<p><strong>定義（ほとんど確実，a.s.）</strong> 事象 <span class="math inline">\(A\in\mathcal F\)</span> が</p>
+<p><span class="math display">\[
+P(A)=1
+\]</span></p>
+<p>を満たすとき，<span class="math inline">\(A\)</span> はほとんど確実に起こるという。 また，2つの確率変数 <span class="math inline">\(X,Y\)</span> に対して</p>
+<p><span class="math display">\[
+P({\omega\in\Omega:X(\omega)=Y(\omega)})=1
+\]</span></p>
+<p>であるとき，</p>
+<p><span class="math display">\[
+X=Y\quad \text{a.s.}
+\]</span></p>
+<p>と書く。</p>
+<p><strong>定義（部分 <span class="math inline">\(\sigma\)</span>-代数）</strong> <span class="math inline">\(\mathcal G\subset\mathcal F\)</span> が <span class="math inline">\(\sigma\)</span>-代数であるとき，<span class="math inline">\(\mathcal G\)</span> を <span class="math inline">\(\mathcal F\)</span> の部分 <span class="math inline">\(\sigma\)</span>-代数という。部分 <span class="math inline">\(\sigma\)</span>-代数は「観測可能な情報の集まり」とみなされ，後で条件付き期待値を定義する際に重要になる。</p>
+</section>
+<section id="確率変数" class="level3">
+<h3 class="anchored" data-anchor-id="確率変数">確率変数</h3>
+<p><strong>定義（確率変数）</strong> 確率空間 <span class="math inline">\((\Omega,\mathcal F,P)\)</span> 上の写像</p>
+<p><span class="math display">\[
+X:\Omega\to\mathbb R
+\]</span></p>
+<p>が確率変数であるとは，<span class="math inline">\(X\)</span> が <span class="math inline">\((\Omega,\mathcal F)\)</span> から <span class="math inline">\((\mathbb R,\mathcal B(\mathbb R))\)</span> への<strong>可測関数</strong>であること，すなわち任意の <span class="math inline">\(B\in\mathcal B(\mathbb R)\)</span> に対して</p>
+<p><span class="math display">\[
+X^{-1}(B)=\{\omega\in\Omega:X(\omega)\in B\}\in\mathcal F
+\]</span></p>
+<p>が成り立つことをいう。</p>
+<p>要するに，<span class="math inline">\(X\)</span> の値に関する自然な事象が，すべて確率を持つように要求している。</p>
+<p><strong>命題（可測性の判定）</strong> 写像 <span class="math inline">\(X:\Omega\to\mathbb R\)</span> について，次は同値である。</p>
+<ol type="1">
+<li><span class="math inline">\(X\)</span> は確率変数である。</li>
+<li>任意の <span class="math inline">\(x\in\mathbb R\)</span> に対して <span class="math display">\[
+\{\omega:X(\omega)\leq x\}\in\mathcal F
+\]</span> である。</li>
+<li>任意の <span class="math inline">\(x\in\mathbb R\)</span> に対して <span class="math display">\[
+\{\omega:X(\omega)&lt;x\}\in\mathcal F
+\]</span> である。</li>
+</ol>
+<p>この命題により，実数値確率変数の可測性は半直線の逆像だけを確認すれば十分である。</p>
+<p><strong>例（指示関数）</strong> <span class="math inline">\(A\in\mathcal F\)</span> に対して</p>
+<p><span class="math display">\[
+\mathbf 1_A(\omega)=
+\begin{cases}
+1 &amp; (\omega\in A),\
+0 &amp; (\omega\notin A)
+\end{cases}
+\]</span></p>
+<p>と定めると，<span class="math inline">\(\mathbf 1_A\)</span> は確率変数である。指示関数は「事象」を「数値化した確率変数」とみなすものであり，特に、後々出てくる、期待値との関係</p>
+<p><span class="math display">\[
+E[\mathbf 1_A]=P(A)
+\]</span></p>
+<p>は特に重要である。</p>
+<p><strong>例（一様確率変数）</strong><br>
+確率空間</p>
+<p><span class="math display">\[
+\bigl((0,1),\mathcal B((0,1)),\lambda\bigr)
+\]</span></p>
+<p>を考える。ただし <span class="math inline">\(\lambda\)</span> は <span class="math inline">\((0,1)\)</span> 上のルベーグ測度である。このとき，</p>
+<p><span class="math display">\[
+U(\omega)=\omega
+\]</span></p>
+<p>で定まる関数 <span class="math inline">\(U:(0,1)\to\mathbb R\)</span> は確率変数である。</p>
+<p>特に，任意の <span class="math inline">\(0&lt;a&lt;b&lt;1\)</span> に対して</p>
+<p><span class="math display">\[
+\lambda(\{\omega \mid a&lt;U(\omega)\le b\})=b-a
+\]</span></p>
+<p>である。</p>
+<p>この <span class="math inline">\(U\)</span> を <span class="math inline">\((0,1)\)</span> 上の一様分布に従う確率変数という。（分布はこの後導入する）</p>
+<p><strong>命題（確率変数の演算）</strong> <span class="math inline">\(X,Y\)</span> を確率変数とし，<span class="math inline">\(a,b\in\mathbb R\)</span> とする。このとき</p>
+<p><span class="math display">\[
+aX+bY,\quad XY,\quad |X|,\quad \max(X,Y),\quad \min(X,Y)
+\]</span></p>
+<p>はいずれも確率変数である。より一般に，<span class="math inline">\(X_1,\dots,X_n\)</span> が確率変数で，<span class="math inline">\(g:\mathbb R^n\to\mathbb R\)</span> が連続ならば，</p>
+<p><span class="math display">\[
+g(X_1,\dots,X_n)
+\]</span></p>
+<p>も確率変数である。</p>
+<p><strong>命題(確率変数の極限も確率変数)</strong></p>
+<p><strong>定義（生成される <span class="math inline">\(\sigma\)</span>-代数）</strong> 確率変数 <span class="math inline">\(X\)</span> が生成する <span class="math inline">\(\sigma\)</span>-代数を</p>
+<p><span class="math display">\[
+\sigma(X)=\{X^{-1}(B):B\in\mathcal B(\mathbb R)\}
+\]</span></p>
+<p>と書く。これは <span class="math inline">\(X\)</span> を可測にする最小の <span class="math inline">\(\sigma\)</span>-代数である。 <span class="math inline">\(\sigma(X)\)</span> は「<span class="math inline">\(X\)</span> を観測することで得られる情報全体」と解釈できる。</p>
+<p><strong>命題（生成されているのは<span class="math inline">\(\sigma-\)</span>代数）</strong></p>
+<p><strong>定義（確率ベクトル）</strong> 写像</p>
+<p><span class="math display">\[
+X=(X_1,\dots,X_d):\Omega\to\mathbb R^d
+\]</span></p>
+<p>が確率ベクトルであるとは，<span class="math inline">\((\Omega,\mathcal F)\)</span> から <span class="math inline">\((\mathbb R^d,\mathcal B(\mathbb R^d))\)</span> への可測関数であることをいう。これは，各成分 <span class="math inline">\(X_1,\dots,X_d\)</span> がそれぞれ確率変数であることと同値である。</p>
+</section>
+<section id="分布" class="level3">
+<h3 class="anchored" data-anchor-id="分布">分布</h3>
+<p><strong>定義（分布，法則）</strong><br>
+確率変数 <span class="math inline">\(X:\Omega\to\mathbb R\)</span> に対して，</p>
+<p><span class="math display">\[
+P_X(B)=P(X\in B)=P(X^{-1}(B)),\qquad B\in\mathcal B(\mathbb R)
+\]</span></p>
+<p>で定まる <span class="math inline">\(\mathbb R\)</span> 上の確率測度 <span class="math inline">\(P_X\)</span> を，<span class="math inline">\(X\)</span> の分布，あるいは法則という。</p>
+<p>したがって，分布とは「<span class="math inline">\(X\)</span> がどの値の領域にどれだけの確率で入るか」を記述するものであり，背後にある標本空間そのものよりも，<span class="math inline">\(X\)</span> の値の振る舞いに着目した概念である。</p>
+<p><strong>定義（分布関数）</strong><br>
+実数値確率変数 <span class="math inline">\(X\)</span> の分布関数を</p>
+<p><span class="math display">\[
+F_X(x)=P(X\le x),\qquad x\in\mathbb R
+\]</span></p>
+<p>で定める。</p>
+<p>つまり，</p>
+<blockquote class="blockquote">
+<p>確率変数 <span class="math inline">\(\to\)</span> 確率測度 <span class="math inline">\(=\)</span> 分布 <span class="math inline">\(\to\)</span> 分布関数</p>
+</blockquote>
+<p>という流れである。</p>
+<p><strong>命題（分布関数の基本性質）</strong><br>
+任意の実数値確率変数 <span class="math inline">\(X\)</span> の分布関数 <span class="math inline">\(F_X\)</span> は次を満たす。</p>
+<ol type="1">
+<li><span class="math inline">\(F_X\)</span> は単調非減少である。</li>
+<li><span class="math inline">\(F_X\)</span> は右連続である。</li>
+<li></li>
+</ol>
+<p><span class="math display">\[
+\lim_{x\to-\infty}F_X(x)=0,\qquad \lim_{x\to\infty}F_X(x)=1
+\]</span></p>
+<p>である。</p>
+<p>逆に，これらの性質を持つ関数 <span class="math inline">\(F:\mathbb R\to[0,1]\)</span> に対しては，ある一意的な確率測度 <span class="math inline">\(\mu\)</span> が存在して</p>
+<p><span class="math display">\[
+F(x)=\mu((-\infty,x])
+\]</span></p>
+<p>が成り立つ。これを <strong>分布関数 <span class="math inline">\(F\)</span> に対応するルベーグ–スティルチェス測度</strong> (Lebesgue–Stieltjes measure) という。普通この確率測度 <span class="math inline">\(\mu\)</span> を <span class="math inline">\(dF\)</span> と書く。</p>
+<p>もしかしたらこれまでどこかで</p>
+<p><span class="math display">\[
+E[X]=\int x\,dF(x)
+\]</span></p>
+<p>みたいな表記を見たことがあるかもしれない。このときの <span class="math inline">\(dF\)</span> はこいつである。</p>
+<p>ここでは先ほどの流れが逆転して，</p>
+<blockquote class="blockquote">
+<p>分布関数 <span class="math inline">\(\to\)</span> 確率測度 <span class="math inline">\(\mu = dF\)</span> (Lebesgue–Stieltjes measure) <span class="math inline">\(=\)</span> 分布</p>
+</blockquote>
+<p>となっている。</p>
+<p>さらに重要なのは，この分布 <span class="math inline">\(\mu\)</span> をもつ確率変数を，標準的な確率空間の上で実現できることである。</p>
+<p>そのために，確率空間</p>
+<p><span class="math display">\[
+\bigl((0,1),\mathcal B((0,1)),\lambda\bigr)
+\]</span></p>
+<p>を考える。ただし <span class="math inline">\(\lambda\)</span> は <span class="math inline">\((0,1)\)</span> 上のルベーグ測度である。<span class="math inline">\(\lambda((0,1))=1\)</span> なので，これは確率測度でもある。<br>
+この空間上で恒等写像</p>
+<p><span class="math display">\[
+U(\omega)=\omega
+\]</span></p>
+<p>を考えると，<span class="math inline">\(U\)</span> は <span class="math inline">\((0,1)\)</span> 上の一様分布に従う確率変数であった。</p>
+<p>ここで，最初に与えられる分布関数 <span class="math inline">\(F\)</span> の <strong>generalized inverse</strong> を</p>
+<p><span class="math display">\[
+F^{-1}(u)=\inf\{y\in\mathbb R\mid F(y)\ge u\},\qquad u\in(0,1)
+\]</span></p>
+<p>で定め，これを用いて</p>
+<p><span class="math display">\[
+Y(\omega)=F^{-1}(U(\omega))=F^{-1}(\omega)
+\]</span></p>
+<p>とおく。</p>
+<p>すると，<span class="math inline">\(Y\)</span> は <span class="math inline">\(\mathbb R\)</span> 上の確率変数になり，その分布はちょうど <span class="math inline">\(\mu\)</span> になる。すなわち，任意のボレル集合 <span class="math inline">\(B\in\mathcal B(\mathbb R)\)</span> に対して</p>
+<p><span class="math display">\[
+\lambda\bigl(Y^{-1}(B)\bigr)=\mu(B)
+\]</span></p>
+<p>が成り立つ。</p>
+<p>特に区間 <span class="math inline">\((-\infty,x]\)</span> に対しては</p>
+<p><span class="math display">\[
+\lambda(Y\le x)=\mu((-\infty,x])=F(x)
+\]</span></p>
+<p>だから，</p>
+<p><span class="math display">\[
+P(Y\le x)=F(x)
+\]</span></p>
+<p>となり，<span class="math inline">\(Y\)</span> はたしかに分布関数 <span class="math inline">\(F\)</span> を持つ。</p>
+<p>ここまでの流れを合わせると，任意の確率変数 <span class="math inline">\(X\)</span> に対して，その分布関数 <span class="math inline">\(F_X\)</span> を経由して，同じ分布に従う確率変数を <span class="math inline">\((0,1)\)</span> 上で作ることができる，ということになる。</p>
+<blockquote class="blockquote">
+<p>確率変数 <span class="math inline">\(X\)</span> <span class="math inline">\(\to\)</span> 分布 <span class="math inline">\(\mu\)</span> <span class="math inline">\(\to\)</span> 分布関数 <span class="math inline">\(F\)</span><br>
+<span class="math inline">\(\to\)</span> generalized inverse <span class="math inline">\(F^{-1}\)</span><br>
+<span class="math inline">\(\to\)</span> 一様分布 <span class="math inline">\(\lambda\)</span> を出発点にした確率変数 <span class="math inline">\(Y\)</span></p>
+</blockquote>
+<p>ということである。</p>
+<p>この話はただの数学お遊びではない。</p>
+<p>任意の分布に従う確率変数から乱数を発生させるときのシミュレーションは，この構成をそのまま実装している。具体的には，コンピュータはまず一様分布 <span class="math inline">\(\mathrm{Unif}(0,1)\)</span> に従う乱数 <span class="math inline">\(U\)</span> を発生させ，それを分布関数 <span class="math inline">\(F\)</span> の generalized inverse に通して</p>
+<p><span class="math display">\[
+Y=F^{-1}(U)
+\]</span></p>
+<p>を作る。すると <span class="math inline">\(Y\)</span> は分布関数 <span class="math inline">\(F\)</span> に従う。</p>
+<p>この方法を <strong>逆関数法</strong> (inverse transform method) という。</p>
+<p><strong>確率測度と分布関数の例：Dirac’s <span class="math inline">\(\delta\)</span></strong></p>
+<p><strong>定義（同分布）</strong> 確率変数 <span class="math inline">\(X,Y\)</span> が同分布であるとは，</p>
+<p><span class="math display">\[
+P_X=P_Y
+\]</span></p>
+<p>が成り立つことをいう。実数値確率変数については，これは</p>
+<p><span class="math display">\[
+F_X(x)=F_Y(x)\qquad (\forall x\in\mathbb R)
+\]</span></p>
+<p>と同値である。</p>
+<p><strong>例（離散分布）</strong> <span class="math inline">\(X\)</span> が高々可算個の値しか取らないとき，確率関数</p>
+<p><span class="math display">\[
+p_X(x)=P(X=x)
+\]</span></p>
+<p>を用いて</p>
+<p><span class="math display">\[
+P_X(B)=\sum_{x\in B}p_X(x)
+\]</span></p>
+<p>と書ける。このとき <span class="math inline">\(X\)</span> は離散型確率変数という。</p>
+<p>たとえば <span class="math inline">\(X\)</span> が Bernoulli 分布に従うとは，</p>
+<p><span class="math display">\[
+P(X=1)=p,\qquad P(X=0)=1-p,\qquad 0\leq p\leq 1
+\]</span></p>
+<p>であることをいう。これはコイン投げの表裏を <span class="math inline">\(1,0\)</span> で表した最も基本的な分布である。</p>
+<p><strong>例（密度を持つ分布）</strong> ある可測関数 <span class="math inline">\(f:\mathbb R\to[0,\infty)\)</span> が存在して</p>
+<p><span class="math display">\[
+\int_{\mathbb R} f(x),dx=1
+\]</span></p>
+<p>かつ</p>
+<p><span class="math display">\[
+P_X(B)=\int_B f(x),dx,\qquad B\in\mathcal B(\mathbb R)
+\]</span></p>
+<p>が成り立つとき，<span class="math inline">\(f\)</span> を <span class="math inline">\(X\)</span> の確率密度関数という。このとき</p>
+<p><span class="math display">\[
+F_X(x)=\int_{-\infty}^x f(t),dt
+\]</span></p>
+<p>である。</p>
+</section>
+<section id="期待値と分散" class="level3">
+<h3 class="anchored" data-anchor-id="期待値と分散">期待値と分散</h3>
+<p>ここでは，確率空間 <span class="math inline">\((\Omega,\mathcal F,P)\)</span> 上の実数値確率変数に対して，期待値と分散を定義する。測度論的確率論では，期待値は本質的には確率測度 <span class="math inline">\(P\)</span> に関するルベーグ積分である。したがって，期待値に関する基本定理は，ルベーグ積分の基本定理の確率論版とみなすことができる。</p>
+<section id="期待値の定義" class="level4">
+<h4 class="anchored" data-anchor-id="期待値の定義">期待値の定義</h4>
+<p><strong>定義（単純確率変数の期待値）</strong><br>
+確率変数 <span class="math inline">\(X\)</span> が有限個の値しかとらないとき，<span class="math inline">\(X\)</span> を単純確率変数という。非負の単純確率変数は</p>
+<p><span class="math display">\[
+X(\omega)=\sum_{i=1}^k a_i \mathbf 1_{C_i}(\omega),
+\qquad a_i\geq 0,\ C_i\in\mathcal F
+\]</span></p>
+<p>の形に書ける。このとき，<span class="math inline">\(X\)</span> の期待値を</p>
+<p><span class="math display">\[
+E[X]=\sum_{i=1}^k a_i P(C_i)
+\]</span></p>
+<p>で定める。</p>
+<p><strong>定義（非負確率変数の期待値）</strong><br>
+一般の非負確率変数 <span class="math inline">\(X\geq 0\)</span> に対しては，<span class="math inline">\(X_n\uparrow X\)</span> を満たす単純確率変数列 <span class="math inline">\((X_n)\)</span> をとり，</p>
+<p><span class="math display">\[
+E[X]=\lim_{n\to\infty}E[X_n]\in[0,\infty]
+\]</span></p>
+<p>で定める。右辺の極限は，近似列 <span class="math inline">\((X_n)\)</span> のとり方によらない。</p>
+<p>たとえば，<span class="math inline">\(X\geq 0\)</span> に対して</p>
+<p><span class="math display">\[
+X_n(\omega)
+=
+\sum_{i=0}^{n2^n-1}\frac{i}{2^n}\,
+\mathbf 1_{\left\{\frac{i}{2^n}\leq X(\omega)&lt;\frac{i+1}{2^n}\right\}}
++
+n\,\mathbf 1_{\{X(\omega)\geq n\}}
+\]</span></p>
+<p>とおけば，<span class="math inline">\(X_n\)</span> は単純確率変数であり，<span class="math inline">\(X_n(\omega)\uparrow X(\omega)\)</span> が成り立つ。</p>
+<p><strong>定義（一般の確率変数の期待値）</strong><br>
+一般の確率変数 <span class="math inline">\(X\)</span> に対して，その正部分・負部分を</p>
+<p><span class="math display">\[
+X^+=\max(X,0),\qquad X^-=\max(-X,0)
+\]</span></p>
+<p>で定める。すると</p>
+<p><span class="math display">\[
+X=X^+-X^-,
+\qquad
+|X|=X^++X^-
+\]</span></p>
+<p>が成り立つ。<span class="math inline">\(E[X^+]&lt;\infty\)</span> または <span class="math inline">\(E[X^-]&lt;\infty\)</span> の少なくとも一方が成り立つとき，</p>
+<p><span class="math display">\[
+E[X]=E[X^+]-E[X^-]
+\]</span></p>
+<p>で <span class="math inline">\(X\)</span> の期待値を定める。特に</p>
+<p><span class="math display">\[
+E[|X|]&lt;\infty
+\]</span></p>
+<p>が成り立つとき，<span class="math inline">\(X\)</span> は<strong>可積分</strong>であるという。</p>
+<p><strong>定義（事象上の期待値）</strong><br>
+<span class="math inline">\(A\in\mathcal F\)</span> に対して，</p>
+<p><span class="math display">\[
+E[X,A]
+\equiv
+E[X \mathbf 1_A]
+\]</span></p>
+<p>と定める。</p>
+<p>気をつけたいのは、ここまで書いたのは「定義」であるということ。具体的に期待値はこうやって計算するんだよ、ということは述べていない。それでも次の述べるような基本的な性質を満たすオブジェクトであることは示すことができる。</p>
+</section>
+<section id="期待値の基本性質" class="level4">
+<h4 class="anchored" data-anchor-id="期待値の基本性質">期待値の基本性質</h4>
+<p>以下では，必要な期待値が有限に定義されているとする。</p>
+<p><strong>命題（期待値の基本性質）</strong><br>
+確率変数 <span class="math inline">\(X,Y\)</span> と定数 <span class="math inline">\(\alpha,\beta\in\mathbb R\)</span> に対して，次が成り立つ。</p>
+<ol type="1">
+<li><p>線形性 <span class="math display">\[
+E[\alpha X+\beta Y]=\alpha E[X]+\beta E[Y].
+\]</span></p></li>
+<li><p>単調性 <span class="math display">\[
+X\leq Y\ \text{a.s.}
+\quad\Longrightarrow\quad
+E[X]\leq E[Y].
+\]</span></p></li>
+<li><p>絶対値評価 <span class="math display">\[
+|E[X]|\leq E[|X|].
+\]</span></p></li>
+<li><p>指示関数に対して <span class="math display">\[
+E[\mathbf 1_A]=P(A),\qquad A\in\mathcal F.
+\]</span></p></li>
+</ol>
+</section>
+<section id="期待値に関する不等式" class="level4">
+<h4 class="anchored" data-anchor-id="期待値に関する不等式">期待値に関する不等式</h4>
+<p><strong>定理（Markov–Chebyshev 型の不等式）</strong><br>
+<span class="math inline">\(\psi:\mathbb R\to[0,\infty)\)</span> をボレル可測関数とし，<span class="math inline">\(A\in\mathcal B(\mathbb R)\)</span> に対して <span class="math inline">\(\inf_{x\in A}\psi(x)&gt;0\)</span> とする。このとき</p>
+<p><span class="math display">\[
+P(X\in A)
+\leq
+\frac{E[\psi(X)]}{\inf_{x\in A}\psi(x)}
+\]</span></p>
+<p>が成り立つ。</p>
+<p>特に，<span class="math inline">\(\psi(x)=|x|^p\)</span>，<span class="math inline">\(A=\{x:|x|\geq \varepsilon\}\)</span>，<span class="math inline">\(\varepsilon&gt;0\)</span> とすれば</p>
+<p><span class="math display">\[
+P(|X|\geq \varepsilon)
+\leq
+\frac{E[|X|^p]}{\varepsilon^p}
+\]</span></p>
+<p>を得る。</p>
+<p><strong>定理（Jensen の不等式）</strong><br>
+<span class="math inline">\(\psi:\mathbb R\to\mathbb R\)</span> を凸関数とする。<span class="math inline">\(E[|X|]&lt;\infty\)</span> かつ <span class="math inline">\(E[|\psi(X)|]&lt;\infty\)</span> ならば</p>
+<p><span class="math display">\[
+\psi(E[X])\leq E[\psi(X)]
+\]</span></p>
+<p>が成り立つ。</p>
+<p><strong>定理（Hölder の不等式）</strong><br>
+<span class="math inline">\(1&lt;p,q&lt;\infty\)</span> で</p>
+<p><span class="math display">\[
+\frac1p+\frac1q=1
+\]</span></p>
+<p>とする。<span class="math inline">\(E[|X|^p]&lt;\infty\)</span>，<span class="math inline">\(E[|Y|^q]&lt;\infty\)</span> ならば</p>
+<p><span class="math display">\[
+E[|XY|]
+\leq
+E[|X|^p]^{1/p}E[|Y|^q]^{1/q}
+\]</span></p>
+<p>が成り立つ。</p>
+<p><strong>系（Cauchy–Schwarz の不等式）</strong><br>
+<span class="math inline">\(X,Y\in L^2\)</span> ならば</p>
+<p><span class="math display">\[
+|E[XY]|
+\leq
+E[X^2]^{1/2}E[Y^2]^{1/2}
+\]</span></p>
+<p>が成り立つ。特に <span class="math inline">\(Y=1\)</span> とすれば</p>
+<p><span class="math display">\[
+(E[X])^2\leq E[X^2]
+\]</span></p>
+<p>を得る。</p>
+</section>
+<section id="期待値と極限操作" class="level4">
+<h4 class="anchored" data-anchor-id="期待値と極限操作">期待値と極限操作</h4>
+<p>大数の法則や中心極限定理を扱うためには，期待値と極限を交換できる条件が重要になる。</p>
+<p><strong>定理（Lebesgueの優収束定理）</strong><br>
+確率変数列 <span class="math inline">\((X_n)\)</span> と確率変数 <span class="math inline">\(X\)</span> が</p>
+<p><span class="math display">\[
+X_n\to X \quad \text{a.s.}
+\]</span></p>
+<p>を満たし，さらに可積分な確率変数 <span class="math inline">\(Y\)</span> が存在して</p>
+<p><span class="math display">\[
+|X_n|\leq Y
+\qquad (n=1,2,\dots)
+\]</span></p>
+<p>が成り立つとする。このとき</p>
+<p><span class="math display">\[
+\lim_{n\to\infty}E[X_n]=E[X]
+\]</span></p>
+<p>である。</p>
+<p><strong>定理（単調収束定理）</strong><br>
+<span class="math inline">\(0\leq X_1\leq X_2\leq\cdots\)</span> かつ</p>
+<p><span class="math display">\[
+X_n\to X \quad \text{a.s.}
+\]</span></p>
+<p>ならば</p>
+<p><span class="math display">\[
+\lim_{n\to\infty}E[X_n]=E[X]
+\]</span></p>
+<p>が成り立つ。</p>
+<p><strong>定理（Fatou の補題）</strong><br>
+<span class="math inline">\(X_n\geq 0\)</span> ならば</p>
+<p><span class="math display">\[
+E\!\left[\liminf_{n\to\infty}X_n\right]
+\leq
+\liminf_{n\to\infty}E[X_n]
+\]</span></p>
+<p>が成り立つ。</p>
+<p>これらの結果は，非負確率変数の期待値の定義そのものや，後に扱う極限定理の証明で基本的な役割を果たす。</p>
+</section>
+<section id="分散共分散モーメント" class="level4">
+<h4 class="anchored" data-anchor-id="分散共分散モーメント">分散・共分散・モーメント</h4>
+<p><strong>定義（分散）</strong><br>
+<span class="math inline">\(E[X^2]&lt;\infty\)</span> とする。このとき <span class="math inline">\(X\)</span> の分散を</p>
+<p><span class="math display">\[
+\operatorname{Var}(X)=E[(X-E[X])^2]
+\]</span></p>
+<p>で定める。</p>
+<p><strong>定義（共分散）</strong><br>
+<span class="math inline">\(E[X^2]&lt;\infty\)</span>，<span class="math inline">\(E[Y^2]&lt;\infty\)</span> のとき，<span class="math inline">\(X,Y\)</span> の共分散を</p>
+<p><span class="math display">\[
+\operatorname{Cov}(X,Y)
+=
+E[(X-E[X])(Y-E[Y])]
+\]</span></p>
+<p>で定める。</p>
+<p><strong>定義（モーメント）</strong><br>
+<span class="math inline">\(n\in\mathbb N\)</span> に対して，<span class="math inline">\(E[|X|^n]&lt;\infty\)</span> ならば</p>
+<p><span class="math display">\[
+E[X^n]
+\]</span></p>
+<p>を <span class="math inline">\(X\)</span> の <span class="math inline">\(n\)</span> 次モーメントという。また，</p>
+<p><span class="math display">\[
+E[(X-E[X])^n]
+\]</span></p>
+<p>を <span class="math inline">\(n\)</span> 次中心モーメントという。</p>
+<p><strong>命題（分散と共分散の基本公式）</strong><br>
+二乗可積分確率変数 <span class="math inline">\(X,Y\)</span> に対して，次が成り立つ。</p>
+<ol type="1">
+<li><p><span class="math display">\[
+\operatorname{Var}(X)=E[X^2]-(E[X])^2.
+\]</span></p></li>
+<li><p><span class="math display">\[
+\operatorname{Cov}(X,Y)=E[XY]-E[X]E[Y].
+\]</span></p></li>
+<li><p><span class="math display">\[
+\operatorname{Var}(X+Y)
+=
+\operatorname{Var}(X)+\operatorname{Var}(Y)+2\operatorname{Cov}(X,Y).
+\]</span></p></li>
+<li><p>任意の <span class="math inline">\(a,b\in\mathbb R\)</span> に対して <span class="math display">\[
+\operatorname{Var}(aX+b)=a^2\operatorname{Var}(X).
+\]</span></p></li>
+</ol>
+<p><strong>系（Chebyshev の不等式）</strong><br>
+<span class="math inline">\(E[X^2]&lt;\infty\)</span> とし，<span class="math inline">\(\varepsilon&gt;0\)</span> とする。このとき</p>
+<p><span class="math display">\[
+P(|X-E[X]|\geq \varepsilon)
+\leq
+\frac{\operatorname{Var}(X)}{\varepsilon^2}
+\]</span></p>
+<p>が成り立つ。</p>
+<p>これは，上の Markov–Chebyshev 型の不等式を <span class="math inline">\(|X-E[X]|^2\)</span> に適用したものである。</p>
+</section>
+</section>
+<section id="分布による表示" class="level3">
+<h3 class="anchored" data-anchor-id="分布による表示">分布による表示</h3>
+<p>今までは期待値の定義から従う基本的な性質を述べてきた。しかし，この段階ではまだ，期待値を実際にどう計算するかという問題が残っている。</p>
+<p>定義に忠実にやるなら，まず単純確率変数で近似して，その期待値を極限で定める，という手順を踏むことになる。しかし，実際に期待値を計算するときに，毎回この構成に立ち返るのはあまりにも不便である。</p>
+<p>実は，期待値や分散は，確率変数そのものの定義域 <span class="math inline">\(\Omega\)</span> を見なくても，<strong>その分布だけから計算することができる</strong>。これが，我々が実際に期待値を計算するときに使っている方法に対応している。</p>
+<p><strong>定理（分布による期待値の表示）</strong><br>
+<span class="math inline">\(X\)</span> を実数値確率変数，<span class="math inline">\(g:\mathbb R\to\mathbb R\)</span> をボレル可測関数とする。このとき，<span class="math inline">\(g(X)\)</span> が期待値を持つなら，<span class="math inline">\(E[g(X)]\)</span> は <span class="math inline">\(X\)</span> の分布だけで決まる。</p>
+<p>特に，<span class="math inline">\(X\)</span> が離散型で確率関数 <span class="math inline">\(p_X\)</span> を持つなら</p>
+<p><span class="math display">\[
+E[g(X)]=\sum_x g(x)p_X(x)
+\]</span></p>
+<p>である。</p>
+<p>また，<span class="math inline">\(X\)</span> が連続型で密度関数 <span class="math inline">\(f_X\)</span> を持つなら</p>
+<p><span class="math display">\[
+E[g(X)]=\int_{\mathbb R} g(x)f_X(x)\,dx
+\]</span></p>
+<p>である。</p>
+<p>したがって，特に</p>
+<p><span class="math display">\[
+E[X]=\sum_x x\,p_X(x)
+\qquad\text{または}\qquad
+E[X]=\int_{\mathbb R} x f_X(x)\,dx
+\]</span></p>
+<p>であり，</p>
+<p><span class="math display">\[
+E[X^n]=\sum_x x^n p_X(x)
+\qquad\text{または}\qquad
+E[X^n]=\int_{\mathbb R} x^n f_X(x)\,dx
+\]</span></p>
+<p>となる。</p>
+<p>さらに分散も</p>
+<p><span class="math display">\[
+\operatorname{Var}(X)=E[(X-E[X])^2]
+\]</span></p>
+<p>だから，離散型なら</p>
+<p><span class="math display">\[
+\operatorname{Var}(X)=\sum_x (x-E[X])^2p_X(x),
+\]</span></p>
+<p>連続型なら</p>
+<p><span class="math display">\[
+\operatorname{Var}(X)=\int_{\mathbb R}(x-E[X])^2 f_X(x)\,dx
+\]</span></p>
+<p>と書ける。</p>
+<p>要するに，期待値とは「値そのものの平均」ではなく，<strong>それぞれの値を，その値が出る確率で重み付けした平均</strong>である。離散型ではそれが和になり，連続型では積分になる。</p>
+<p>なお，離散型と連続型をまとめて書くと</p>
+<p><span class="math display">\[
+E[g(X)]=\int_{\mathbb R} g(x)\,P_X(dx)
+\]</span></p>
+<p>と表せる。この記法の意味は，「<span class="math inline">\(\Omega\)</span> 上で <span class="math inline">\(g(X(\omega))\)</span> を積分する代わりに，<span class="math inline">\(\mathbb R\)</span> 上で <span class="math inline">\(X\)</span> の分布に関して平均をとっている」ということである。この授業ではまず離散型と密度を持つ連続型の場合を中心に使えば十分である。</p>
+</section>
+<section id="代表的な分布の例" class="level3">
+<h3 class="anchored" data-anchor-id="代表的な分布の例">代表的な分布の例</h3>
+<p>最後に，分布による表示を実際に使って，いくつかの代表的な分布について期待値や分散を計算してみる。</p>
+<section id="二項分布" class="level4">
+<h4 class="anchored" data-anchor-id="二項分布">二項分布</h4>
+<p><strong>定義</strong><br>
+確率変数 <span class="math inline">\(X\)</span> がパラメータ <span class="math inline">\(n\in\mathbb N\)</span>，<span class="math inline">\(p\in[0,1]\)</span> の<strong>二項分布</strong>に従うとは，</p>
+<p><span class="math display">\[
+P(X=k)=\binom{n}{k}p^k(1-p)^{n-k},\qquad k=0,1,\dots,n
+\]</span></p>
+<p>が成り立つことをいう。これを</p>
+<p><span class="math display">\[
+X\sim \mathrm{Bin}(n,p)
+\]</span></p>
+<p>と書く。</p>
+<p>このとき期待値は</p>
+<p><span class="math display">\[
+E[X]=\sum_{k=0}^n k\binom{n}{k}p^k(1-p)^{n-k}
+\]</span></p>
+<p>である。これを直接計算してもよいが，少し工夫すると</p>
+<p><span class="math display">\[
+k\binom{n}{k}=n\binom{n-1}{k-1}
+\]</span></p>
+<p>だから，</p>
+<p><span class="math display">\[
+E[X]
+=
+\sum_{k=1}^n n\binom{n-1}{k-1}p^k(1-p)^{n-k}
+\]</span></p>
+<p><span class="math display">\[
+=
+np\sum_{k=1}^n \binom{n-1}{k-1}p^{k-1}(1-p)^{(n-1)-(k-1)}
+\]</span></p>
+<p>となる。ここで <span class="math inline">\(j=k-1\)</span> とおけば，</p>
+<p><span class="math display">\[
+E[X]
+=
+np\sum_{j=0}^{n-1}\binom{n-1}{j}p^j(1-p)^{(n-1)-j}
+=
+np
+\]</span></p>
+<p>を得る。</p>
+<p>次に分散を求める。まず</p>
+<p><span class="math display">\[
+E[X(X-1)]
+=
+\sum_{k=0}^n k(k-1)\binom{n}{k}p^k(1-p)^{n-k}
+\]</span></p>
+<p>であるが，</p>
+<p><span class="math display">\[
+k(k-1)\binom{n}{k}=n(n-1)\binom{n-2}{k-2}
+\]</span></p>
+<p>を用いると，</p>
+<p><span class="math display">\[
+E[X(X-1)]
+=
+n(n-1)p^2
+\]</span></p>
+<p>となる。したがって</p>
+<p><span class="math display">\[
+E[X^2]=E[X(X-1)]+E[X]=n(n-1)p^2+np
+\]</span></p>
+<p>であり，</p>
+<p><span class="math display">\[
+\operatorname{Var}(X)=E[X^2]-(E[X])^2
+\]</span></p>
+<p>より</p>
+<p><span class="math display">\[
+\operatorname{Var}(X)=np(1-p)
+\]</span></p>
+<p>を得る。</p>
+</section>
+<section id="ポワソン分布" class="level4">
+<h4 class="anchored" data-anchor-id="ポワソン分布">ポワソン分布</h4>
+<p><strong>定義</strong><br>
+確率変数 <span class="math inline">\(X\)</span> がパラメータ <span class="math inline">\(\lambda&gt;0\)</span> の<strong>ポワソン分布</strong>に従うとは，</p>
+<p><span class="math display">\[
+P(X=k)=e^{-\lambda}\frac{\lambda^k}{k!},\qquad k=0,1,2,\dots
+\]</span></p>
+<p>が成り立つことをいう。これを</p>
+<p><span class="math display">\[
+X\sim \mathrm{Poisson}(\lambda)
+\]</span></p>
+<p>と書く。</p>
+<p>このとき期待値は</p>
+<p><span class="math display">\[
+E[X]
+=
+\sum_{k=0}^\infty k\,e^{-\lambda}\frac{\lambda^k}{k!}
+\]</span></p>
+<p>である。<span class="math inline">\(k=0\)</span> の項は <span class="math inline">\(0\)</span> なので <span class="math inline">\(k\ge1\)</span> に限って，</p>
+<p><span class="math display">\[
+E[X]
+=
+e^{-\lambda}\sum_{k=1}^\infty k\frac{\lambda^k}{k!}
+=
+e^{-\lambda}\sum_{k=1}^\infty \lambda\frac{\lambda^{k-1}}{(k-1)!}
+\]</span></p>
+<p><span class="math display">\[
+=
+\lambda e^{-\lambda}\sum_{j=0}^\infty \frac{\lambda^j}{j!}
+=
+\lambda e^{-\lambda}e^\lambda
+=
+\lambda
+\]</span></p>
+<p>となる。</p>
+<p>同様に，</p>
+<p><span class="math display">\[
+E[X(X-1)]
+=
+\sum_{k=0}^\infty k(k-1)e^{-\lambda}\frac{\lambda^k}{k!}
+\]</span></p>
+<p>についても，</p>
+<p><span class="math display">\[
+k(k-1)\frac{1}{k!}=\frac{1}{(k-2)!}
+\]</span></p>
+<p>を使えば</p>
+<p><span class="math display">\[
+E[X(X-1)]
+=
+e^{-\lambda}\sum_{k=2}^\infty \lambda^2\frac{\lambda^{k-2}}{(k-2)!}
+=
+\lambda^2
+\]</span></p>
+<p>となる。したがって</p>
+<p><span class="math display">\[
+E[X^2]=E[X(X-1)]+E[X]=\lambda^2+\lambda
+\]</span></p>
+<p>なので，</p>
+<p><span class="math display">\[
+\operatorname{Var}(X)=E[X^2]-(E[X])^2=\lambda
+\]</span></p>
+<p>である。</p>
+<p>つまりポワソン分布では，</p>
+<p><span class="math display">\[
+E[X]=\lambda,\qquad \operatorname{Var}(X)=\lambda
+\]</span></p>
+<p>となり，期待値と分散が一致する。</p>
+</section>
+<section id="正規分布" class="level4">
+<h4 class="anchored" data-anchor-id="正規分布">正規分布</h4>
+<p><strong>定義</strong><br>
+確率変数 <span class="math inline">\(X\)</span> が平均 <span class="math inline">\(\mu\in\mathbb R\)</span>，分散 <span class="math inline">\(\sigma^2&gt;0\)</span> の<strong>正規分布</strong>に従うとは，密度関数が</p>
+<p><span class="math display">\[
+f_X(x)=\frac{1}{\sqrt{2\pi}\sigma}\exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right),\qquad x\in\mathbb R
+\]</span></p>
+<p>で与えられることをいう。これを</p>
+<p><span class="math display">\[
+X\sim N(\mu,\sigma^2)
+\]</span></p>
+<p>と書く。</p>
+<p>まず期待値を求めるために，変数変換</p>
+<p><span class="math display">\[
+z=\frac{x-\mu}{\sigma}
+\]</span></p>
+<p>を用いる。すると</p>
+<p><span class="math display">\[
+E[X]
+=
+\int_{-\infty}^{\infty}x\,f_X(x)\,dx
+=
+\int_{-\infty}^{\infty}(\mu+\sigma z)\frac{1}{\sqrt{2\pi}}e^{-z^2/2}\,dz
+\]</span></p>
+<p>となる。これを分けると</p>
+<p><span class="math display">\[
+E[X]
+=
+\mu \int_{-\infty}^{\infty}\frac{1}{\sqrt{2\pi}}e^{-z^2/2}\,dz
++
+\sigma \int_{-\infty}^{\infty}z\frac{1}{\sqrt{2\pi}}e^{-z^2/2}\,dz
+\]</span></p>
+<p>である。第1項は <span class="math inline">\(\mu\)</span>，第2項は奇関数の積分なので <span class="math inline">\(0\)</span> である。したがって</p>
+<p><span class="math display">\[
+E[X]=\mu
+\]</span></p>
+<p>を得る。</p>
+<p>次に分散は</p>
+<p><span class="math display">\[
+\operatorname{Var}(X)=E[(X-\mu)^2]
+\]</span></p>
+<p>だから，</p>
+<p><span class="math display">\[
+E[(X-\mu)^2]
+=
+\int_{-\infty}^{\infty}(x-\mu)^2f_X(x)\,dx
+\]</span></p>
+<p>に同じ変数変換を用いると</p>
+<p><span class="math display">\[
+E[(X-\mu)^2]
+=
+\int_{-\infty}^{\infty}\sigma^2 z^2 \frac{1}{\sqrt{2\pi}}e^{-z^2/2}\,dz
+=
+\sigma^2 \int_{-\infty}^{\infty} z^2 \frac{1}{\sqrt{2\pi}}e^{-z^2/2}\,dz
+\]</span></p>
+<p>となる。そして標準正規分布について</p>
+<p><span class="math display">\[
+\int_{-\infty}^{\infty} z^2 \frac{1}{\sqrt{2\pi}}e^{-z^2/2}\,dz=1
+\]</span></p>
+<p>が成り立つので，</p>
+<p><span class="math display">\[
+\operatorname{Var}(X)=\sigma^2
+\]</span></p>
+<p>を得る。</p>
+<p>したがって正規分布では</p>
+<p><span class="math display">\[
+E[X]=\mu,\qquad \operatorname{Var}(X)=\sigma^2
+\]</span></p>
+<p>である。</p>
+</section>
+<section id="指数分布" class="level4">
+<h4 class="anchored" data-anchor-id="指数分布">指数分布</h4>
+<p><strong>定義</strong><br>
+確率変数 <span class="math inline">\(X\)</span> がパラメータ <span class="math inline">\(\lambda&gt;0\)</span> の<strong>指数分布</strong>に従うとは，密度関数が</p>
+<p><span class="math display">\[
+f_X(x)=\lambda e^{-\lambda x},\qquad x\ge 0
+\]</span></p>
+<p>で与えられることをいう。これを</p>
+<p><span class="math display">\[
+X\sim \mathrm{Exp}(\lambda)
+\]</span></p>
+<p>と書く。</p>
+<p>期待値は</p>
+<p><span class="math display">\[
+E[X]
+=
+\int_0^\infty x\lambda e^{-\lambda x}\,dx
+\]</span></p>
+<p>である。部分積分を用いると，</p>
+<p><span class="math display">\[
+u=x,\qquad dv=\lambda e^{-\lambda x}dx
+\]</span></p>
+<p>とおけるので，</p>
+<p><span class="math display">\[
+du=dx,\qquad v=-e^{-\lambda x}
+\]</span></p>
+<p>である。したがって</p>
+<p><span class="math display">\[
+E[X]
+=
+\left[-xe^{-\lambda x}\right]_0^\infty
++
+\int_0^\infty e^{-\lambda x}\,dx
+\]</span></p>
+<p>となる。第1項は <span class="math inline">\(0\)</span> であり，第2項は</p>
+<p><span class="math display">\[
+\int_0^\infty e^{-\lambda x}\,dx=\frac{1}{\lambda}
+\]</span></p>
+<p>だから，</p>
+<p><span class="math display">\[
+E[X]=\frac{1}{\lambda}
+\]</span></p>
+<p>を得る。</p>
+<p>次に2次モーメントは</p>
+<p><span class="math display">\[
+E[X^2]=\int_0^\infty x^2\lambda e^{-\lambda x}\,dx
+\]</span></p>
+<p>であり，部分積分を2回使うと</p>
+<p><span class="math display">\[
+E[X^2]=\frac{2}{\lambda^2}
+\]</span></p>
+<p>となる。したがって</p>
+<p><span class="math display">\[
+\operatorname{Var}(X)=E[X^2]-(E[X])^2
+=
+\frac{2}{\lambda^2}-\frac{1}{\lambda^2}
+=
+\frac{1}{\lambda^2}
+\]</span></p>
+<p>である。</p>
+<p>つまり指数分布では</p>
+<p><span class="math display">\[
+E[X]=\frac{1}{\lambda},\qquad \operatorname{Var}(X)=\frac{1}{\lambda^2}
+\]</span></p>
+<p>となる。</p>
+</section>
+</section>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
