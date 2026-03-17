@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Lecture 6：重回帰の応用と潜在アウトカム</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="lecture6_revised_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture6_revised_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture6_revised_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture6_revised_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture6_revised_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture6_revised_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture6_revised_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture6_revised_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture6_revised_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture6_revised_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture6_revised_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture6_revised_files/libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<style>html{ scroll-behavior: smooth; }</style>
+<style>
+  body {
+    line-height: 1.8;
+  }
+  .lead {
+    font-size: 1.08rem;
+    color: #495057;
+    margin-bottom: 1.2rem;
+  }
+  h1, h2, h3 {
+    margin-top: 1.6rem;
+  }
+  .callout {
+    margin: 1.2rem 0;
+  }
+  table {
+    font-size: 0.96rem;
+  }
+  .small-muted {
+    color: #6c757d;
+    font-size: 0.95rem;
+  }
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+</style>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#重回帰の応用" id="toc-重回帰の応用" class="nav-link active" data-scroll-target="#重回帰の応用">重回帰の応用</a>
+  <ul class="collapse">
+  <li><a href="#対数変数の時の係数の解釈" id="toc-対数変数の時の係数の解釈" class="nav-link" data-scroll-target="#対数変数の時の係数の解釈">1. 対数変数の時の係数の解釈</a>
+  <ul class="collapse">
+  <li><a href="#被説明変数だけ対数をとる場合" id="toc-被説明変数だけ対数をとる場合" class="nav-link" data-scroll-target="#被説明変数だけ対数をとる場合">1.1 被説明変数だけ対数をとる場合</a></li>
+  <li><a href="#説明変数だけ対数をとる場合" id="toc-説明変数だけ対数をとる場合" class="nav-link" data-scroll-target="#説明変数だけ対数をとる場合">1.2 説明変数だけ対数をとる場合</a></li>
+  <li><a href="#両方とも対数をとる場合" id="toc-両方とも対数をとる場合" class="nav-link" data-scroll-target="#両方とも対数をとる場合">1.3 両方とも対数をとる場合</a></li>
+  <li><a href="#対数を使うときの注意" id="toc-対数を使うときの注意" class="nav-link" data-scroll-target="#対数を使うときの注意">1.4 対数を使うときの注意</a></li>
+  </ul></li>
+  <li><a href="#二次関数" id="toc-二次関数" class="nav-link" data-scroll-target="#二次関数">2. 二次関数</a>
+  <ul class="collapse">
+  <li><a href="#二次項を入れる意味" id="toc-二次項を入れる意味" class="nav-link" data-scroll-target="#二次項を入れる意味">2.1 二次項を入れる意味</a></li>
+  <li><a href="#典型的な解釈" id="toc-典型的な解釈" class="nav-link" data-scroll-target="#典型的な解釈">2.2 典型的な解釈</a></li>
+  <li><a href="#頂点の解釈" id="toc-頂点の解釈" class="nav-link" data-scroll-target="#頂点の解釈">2.3 頂点の解釈</a></li>
+  </ul></li>
+  <li><a href="#交差項" id="toc-交差項" class="nav-link" data-scroll-target="#交差項">3. 交差項</a>
+  <ul class="collapse">
+  <li><a href="#交差項の意味" id="toc-交差項の意味" class="nav-link" data-scroll-target="#交差項の意味">3.1 交差項の意味</a></li>
+  <li><a href="#ダミー変数との交差項" id="toc-ダミー変数との交差項" class="nav-link" data-scroll-target="#ダミー変数との交差項">3.2 ダミー変数との交差項</a></li>
+  <li><a href="#切片も傾きも違う" id="toc-切片も傾きも違う" class="nav-link" data-scroll-target="#切片も傾きも違う">3.3 切片も傾きも違う</a></li>
+  </ul></li>
+  <li><a href="#多項式近似" id="toc-多項式近似" class="nav-link" data-scroll-target="#多項式近似">4. 多項式近似</a>
+  <ul class="collapse">
+  <li><a href="#多項式近似の発想" id="toc-多項式近似の発想" class="nav-link" data-scroll-target="#多項式近似の発想">4.1 多項式近似の発想</a></li>
+  <li><a href="#注意点" id="toc-注意点" class="nav-link" data-scroll-target="#注意点">4.2 注意点</a></li>
+  </ul></li>
+  <li><a href="#ダミー変数" id="toc-ダミー変数" class="nav-link" data-scroll-target="#ダミー変数">5. ダミー変数</a>
+  <ul class="collapse">
+  <li><a href="#ダミー変数の係数の意味" id="toc-ダミー変数の係数の意味" class="nav-link" data-scroll-target="#ダミー変数の係数の意味">5.1 ダミー変数の係数の意味</a></li>
+  <li><a href="#他の変数をコントロールした上での差" id="toc-他の変数をコントロールした上での差" class="nav-link" data-scroll-target="#他の変数をコントロールした上での差">5.2 他の変数をコントロールした上での差</a></li>
+  </ul></li>
+  <li><a href="#カテゴリー変数" id="toc-カテゴリー変数" class="nav-link" data-scroll-target="#カテゴリー変数">6. カテゴリー変数</a>
+  <ul class="collapse">
+  <li><a href="#カテゴリー変数はダミーに分解する" id="toc-カテゴリー変数はダミーに分解する" class="nav-link" data-scroll-target="#カテゴリー変数はダミーに分解する">6.1 カテゴリー変数はダミーに分解する</a></li>
+  <li><a href="#なぜ全部入れてはいけないのか" id="toc-なぜ全部入れてはいけないのか" class="nav-link" data-scroll-target="#なぜ全部入れてはいけないのか">6.2 なぜ全部入れてはいけないのか</a></li>
+  <li><a href="#基準カテゴリの選び方" id="toc-基準カテゴリの選び方" class="nav-link" data-scroll-target="#基準カテゴリの選び方">6.3 基準カテゴリの選び方</a></li>
+  </ul></li>
+  <li><a href="#個別の定数項を入れる固定効果モデル" id="toc-個別の定数項を入れる固定効果モデル" class="nav-link" data-scroll-target="#個別の定数項を入れる固定効果モデル">7. 個別の定数項を入れる：固定効果モデル</a>
+  <ul class="collapse">
+  <li><a href="#固定効果の意味" id="toc-固定効果の意味" class="nav-link" data-scroll-target="#固定効果の意味">7.1 固定効果の意味</a></li>
+  <li><a href="#固定効果モデルで何ができるか" id="toc-固定効果モデルで何ができるか" class="nav-link" data-scroll-target="#固定効果モデルで何ができるか">7.2 固定効果モデルで何ができるか</a></li>
+  <li><a href="#ダミー変数として見る固定効果" id="toc-ダミー変数として見る固定効果" class="nav-link" data-scroll-target="#ダミー変数として見る固定効果">7.3 ダミー変数として見る固定効果</a></li>
+  <li><a href="#年固定効果" id="toc-年固定効果" class="nav-link" data-scroll-target="#年固定効果">7.4 年固定効果</a></li>
+  <li><a href="#固定効果モデルの限界" id="toc-固定効果モデルの限界" class="nav-link" data-scroll-target="#固定効果モデルの限界">7.5 固定効果モデルの限界</a></li>
+  </ul></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ">8. まとめ</a></li>
+  </ul></li>
+  <li><a href="#重回帰だけでも面白い分析はできる" id="toc-重回帰だけでも面白い分析はできる" class="nav-link" data-scroll-target="#重回帰だけでも面白い分析はできる">重回帰だけでも面白い分析はできる</a>
+  <ul class="collapse">
+  <li><a href="#bertrand-and-mullainathan-2004-are-emily-and-greg-more-employable-than-lakisha-and-jamal" id="toc-bertrand-and-mullainathan-2004-are-emily-and-greg-more-employable-than-lakisha-and-jamal" class="nav-link" data-scroll-target="#bertrand-and-mullainathan-2004-are-emily-and-greg-more-employable-than-lakisha-and-jamal">Bertrand and Mullainathan (2004): Are Emily and Greg More Employable than Lakisha and Jamal?</a>
+  <ul class="collapse">
+  <li><a href="#実験の設定" id="toc-実験の設定" class="nav-link" data-scroll-target="#実験の設定">実験の設定</a></li>
+  <li><a href="#最も単純な回帰" id="toc-最も単純な回帰" class="nav-link" data-scroll-target="#最も単純な回帰">最も単純な回帰</a></li>
+  <li><a href="#コントロール変数を入れた重回帰" id="toc-コントロール変数を入れた重回帰" class="nav-link" data-scroll-target="#コントロール変数を入れた重回帰">コントロール変数を入れた重回帰</a></li>
+  <li><a href="#履歴書の質を入れた回帰" id="toc-履歴書の質を入れた回帰" class="nav-link" data-scroll-target="#履歴書の質を入れた回帰">履歴書の質を入れた回帰</a></li>
+  <li><a href="#交差項を入れた回帰" id="toc-交差項を入れた回帰" class="nav-link" data-scroll-target="#交差項を入れた回帰">交差項を入れた回帰</a></li>
+  <li><a href="#回帰結果の読み方" id="toc-回帰結果の読み方" class="nav-link" data-scroll-target="#回帰結果の読み方">回帰結果の読み方</a></li>
+  <li><a href="#まとめ-1" id="toc-まとめ-1" class="nav-link" data-scroll-target="#まとめ-1">まとめ</a></li>
+  </ul></li>
+  <li><a href="#donohue-and-levitt-2001-the-impact-of-legalized-abortion-on-crime" id="toc-donohue-and-levitt-2001-the-impact-of-legalized-abortion-on-crime" class="nav-link" data-scroll-target="#donohue-and-levitt-2001-the-impact-of-legalized-abortion-on-crime">Donohue and Levitt (2001): The Impact of Legalized Abortion on Crime</a>
+  <ul class="collapse">
+  <li><a href="#問題意識" id="toc-問題意識" class="nav-link" data-scroll-target="#問題意識">問題意識</a></li>
+  <li><a href="#基本的な回帰の考え方" id="toc-基本的な回帰の考え方" class="nav-link" data-scroll-target="#基本的な回帰の考え方">基本的な回帰の考え方</a></li>
+  <li><a href="#コホートを使った発想" id="toc-コホートを使った発想" class="nav-link" data-scroll-target="#コホートを使った発想">コホートを使った発想</a></li>
+  <li><a href="#固定効果の役割" id="toc-固定効果の役割" class="nav-link" data-scroll-target="#固定効果の役割">固定効果の役割</a></li>
+  <li><a href="#係数の解釈" id="toc-係数の解釈" class="nav-link" data-scroll-target="#係数の解釈">係数の解釈</a></li>
+  <li><a href="#原論文の主張" id="toc-原論文の主張" class="nav-link" data-scroll-target="#原論文の主張">原論文の主張</a></li>
+  <li><a href="#その後の論争" id="toc-その後の論争" class="nav-link" data-scroll-target="#その後の論争">その後の論争</a></li>
+  <li><a href="#まとめ-2" id="toc-まとめ-2" class="nav-link" data-scroll-target="#まとめ-2">まとめ</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#因果推論とは何を識別することなのか" id="toc-因果推論とは何を識別することなのか" class="nav-link" data-scroll-target="#因果推論とは何を識別することなのか">因果推論とは何を識別することなのか</a>
+  <ul class="collapse">
+  <li><a href="#潜在アウトカム" id="toc-潜在アウトカム" class="nav-link" data-scroll-target="#潜在アウトカム">潜在アウトカム</a></li>
+  <li><a href="#因果推論で知りたいパラメータ" id="toc-因果推論で知りたいパラメータ" class="nav-link" data-scroll-target="#因果推論で知りたいパラメータ">因果推論で知りたいパラメータ</a>
+  <ul class="collapse">
+  <li><a href="#平均処置効果" id="toc-平均処置効果" class="nav-link" data-scroll-target="#平均処置効果">平均処置効果</a></li>
+  <li><a href="#処置群に対する平均処置効果" id="toc-処置群に対する平均処置効果" class="nav-link" data-scroll-target="#処置群に対する平均処置効果">処置群に対する平均処置効果</a></li>
+  <li><a href="#なぜこれが難しいのか" id="toc-なぜこれが難しいのか" class="nav-link" data-scroll-target="#なぜこれが難しいのか">なぜこれが難しいのか</a></li>
+  </ul></li>
+  <li><a href="#なぜ単純な平均差ではだめなのか" id="toc-なぜ単純な平均差ではだめなのか" class="nav-link" data-scroll-target="#なぜ単純な平均差ではだめなのか">なぜ単純な平均差ではだめなのか</a></li>
+  <li><a href="#識別とは何か" id="toc-識別とは何か" class="nav-link" data-scroll-target="#識別とは何か">識別とは何か</a></li>
+  <li><a href="#回帰は何をしているのか" id="toc-回帰は何をしているのか" class="nav-link" data-scroll-target="#回帰は何をしているのか">回帰は何をしているのか</a></li>
+  <li><a href="#今後の講義で何をするのか" id="toc-今後の講義で何をするのか" class="nav-link" data-scroll-target="#今後の講義で何をするのか">今後の講義で何をするのか</a></li>
+  <li><a href="#まとめ-3" id="toc-まとめ-3" class="nav-link" data-scroll-target="#まとめ-3">まとめ</a></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Lecture 6：重回帰の応用と潜在アウトカム</h1>
+<p class="subtitle lead">関数形・ダミー変数・固定効果・因果推論の導入</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-simple callout-important callout-titled" title="この講義で押さえたいこと">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>この講義で押さえたいこと
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>重回帰</strong>は変数を増やす道具というより、関数形を工夫して経済関係を表現する道具である。</li>
+<li><strong>ダミー変数・交差項・固定効果</strong>は、「何を比較したいのか」を式に落とすための基本部品である。</li>
+<li><strong>因果推論</strong>では、回帰式を書けることと因果効果を識別できることを区別して考える必要がある。</li>
+</ul>
+</div>
+</div>
+<div class="lead">
+<pre><code>今回は、重回帰の応用的な書き方をまとめて整理したあとで、後半で潜在アウトカムと識別の考え方に入る。前半は「どう式を書くか」、後半は「その係数を因果効果として読めるのはいつか」という流れで読むと理解しやすい。</code></pre>
+</div>
+<div class="callout callout-style-simple callout-note callout-titled" title="この lecture の流れ">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この lecture の流れ
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>まず、対数・二次項・交差項・ダミー変数・固定効果など、重回帰の書き方を整理する。</li>
+<li>次に、重回帰だけでもかなり多くの実証研究が書けることを具体例で確認する。</li>
+<li>最後に、潜在アウトカムと識別の考え方を導入して、因果推論の入口をつかむ。</li>
+</ol>
+</div>
+</div>
+<section id="重回帰の応用" class="level1">
+<h1>重回帰の応用</h1>
+<p>ここまでは、重回帰が「他の変数を一定にした上での関係」を見るための道具であること、そして欠落変数バイアスの考え方を学んだ。 このセクションでは、<strong>重回帰を使うと実際にどのような分析ができるのか</strong>を見ていく。</p>
+<ul>
+<li>対数変数の時の係数の解釈</li>
+<li>二次関数</li>
+<li>交差項</li>
+<li>多項式近似</li>
+<li>ダミー変数</li>
+<li>カテゴリー変数</li>
+<li>個別の定数項を入れる：固定効果モデル</li>
+</ul>
+<p>などを今回は見る。</p>
+<p>重回帰の強みは、説明変数を増やせることそのものではない。</p>
+<p>本当に重要なのは、<strong>変数の入れ方を工夫することで、さまざまな経済的関係を表現できること</strong>である。</p>
+<p>さらに、<strong>因果推論</strong>の基本的な考え方とそのための基本モデルである<strong>潜在変数モデル</strong>についても紹介する。計量経済学で因果推論と言った時には、ほぼ必ずその分析手法はなんらかの重回帰モデルでの分析である。</p>
+<p>因果推論という営みがどのようなパラメータを識別する営みなのかを紹介し、単なる回帰分析がなぜ因果推論なんていうかっこいい名前を与えられているのかについて理解していく。</p>
+<section id="対数変数の時の係数の解釈" class="level2">
+<h2 class="anchored" data-anchor-id="対数変数の時の係数の解釈">1. 対数変数の時の係数の解釈</h2>
+<p>実証分析では、変数をそのまま使うのではなく、<strong>対数をとってから回帰に入れる</strong>ことが多い。 これは、金額・売上・賃金・人口のように、値のスケールが大きく、しかも「差」より「割合」で考えた方が自然な変数で特によく使われる。</p>
+<p>対数を使うときは、どの変数に対数をとったかによって係数の解釈が変わる。</p>
+<section id="被説明変数だけ対数をとる場合" class="level3">
+<h3 class="anchored" data-anchor-id="被説明変数だけ対数をとる場合">1.1 被説明変数だけ対数をとる場合</h3>
+<p>たとえば</p>
+<p><span class="math display">
+\log y_i = \beta_0 + \beta_1 x_i + u_i
+</span></p>
+<p>というモデルを考える。</p>
+<p>このとき、<span class="math inline">x_i</span> が1単位増えると、<span class="math inline">y_i</span> はおよそ <span class="math inline">100\beta_1</span> パーセント変化する。</p>
+<p>つまり、<span class="math inline">\beta_1 = 0.03</span> なら、<span class="math inline">x</span> が1増えると <span class="math inline">y</span> はおよそ3%増える、と読む。</p>
+<p>この形は、たとえば</p>
+<ul>
+<li>教育年数が1年増えると賃金は何%変わるか</li>
+<li>店舗面積が1単位増えると売上は何%変わるか</li>
+</ul>
+<p>のような問いで便利である。</p>
+</section>
+<section id="説明変数だけ対数をとる場合" class="level3">
+<h3 class="anchored" data-anchor-id="説明変数だけ対数をとる場合">1.2 説明変数だけ対数をとる場合</h3>
+<p>次に</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 \log x_i + u_i
+</span></p>
+<p>を考える。</p>
+<p>このとき、<span class="math inline">x_i</span> が1%増えると、<span class="math inline">y_i</span> はおよそ <span class="math inline">\beta_1/100</span> だけ変化する。</p>
+<p>つまり、<span class="math inline">\beta_1 = 2</span> なら、<span class="math inline">x</span> が1%増えると <span class="math inline">y</span> は約0.02単位増える。</p>
+<p>これは、説明変数の変化を「割合」で考えたいが、被説明変数は水準で解釈したいときに便利である。</p>
+</section>
+<section id="両方とも対数をとる場合" class="level3">
+<h3 class="anchored" data-anchor-id="両方とも対数をとる場合">1.3 両方とも対数をとる場合</h3>
+<p>さらに</p>
+<p><span class="math display">
+\log y_i = \beta_0 + \beta_1 \log x_i + u_i
+</span></p>
+<p>という形もよく使う。 これは <strong>log-log モデル</strong> と呼ばれる。</p>
+<p>このとき <span class="math inline">\beta_1</span> は、<span class="math inline">x</span> が1%増えたときに <span class="math inline">y</span> が何%変化するかを表す。 つまり、<span class="math inline">\beta_1</span> は<strong>弾力性</strong>である。</p>
+<p>たとえば <span class="math inline">\beta_1 = 0.8</span> なら、<span class="math inline">x</span> が1%増えると <span class="math inline">y</span> は0.8%増える。</p>
+<p>これは経済学ではとても重要で、需要関数や生産関数などで頻繁に使われる。</p>
+</section>
+<section id="対数を使うときの注意" class="level3">
+<h3 class="anchored" data-anchor-id="対数を使うときの注意">1.4 対数を使うときの注意</h3>
+<p>対数は便利だが、0以下の値にはとれない。 したがって、変数に0が多い場合や負の値をとる場合には、そのままでは使えない。</p>
+<p>また、対数を使うと係数の解釈が水準ではなく割合になるので、<strong>何が何%変わるのか</strong>を常に意識して読む必要がある。</p>
+</section>
+</section>
+<section id="二次関数" class="level2">
+<h2 class="anchored" data-anchor-id="二次関数">2. 二次関数</h2>
+<p>単回帰や重回帰というと「直線」を当てはめるイメージが強い。 しかし、説明変数を工夫すれば、<strong>曲線的な関係</strong>も表現できる。</p>
+<p>最も基本的なのが二次関数である。</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 x_i + \beta_2 x_i^2 + u_i
+</span></p>
+<p>このモデルでは、<span class="math inline">x</span> と <span class="math inline">y</span> の関係は放物線になる。</p>
+<section id="二次項を入れる意味" class="level3">
+<h3 class="anchored" data-anchor-id="二次項を入れる意味">2.1 二次項を入れる意味</h3>
+<p>二次項を入れると、<span class="math inline">x</span> の効果は一定ではなく、<span class="math inline">x</span> の値によって変わる。</p>
+<p><span class="math inline">x</span> の限界効果は</p>
+<p><span class="math display">
+\frac{\partial y_i}{\partial x_i} = \beta_1 + 2\beta_2 x_i
+</span></p>
+<p>で与えられる。</p>
+<p>つまり、<span class="math inline">x</span> が小さいときと大きいときで、<span class="math inline">x</span> の効果は異なる。</p>
+</section>
+<section id="典型的な解釈" class="level3">
+<h3 class="anchored" data-anchor-id="典型的な解釈">2.2 典型的な解釈</h3>
+<ul>
+<li><span class="math inline">\beta_2 &lt; 0</span> なら、上に凸ではなく<strong>逆U字型</strong>になる</li>
+<li><span class="math inline">\beta_2 &gt; 0</span> なら、<strong>U字型</strong>になる</li>
+</ul>
+<p>たとえば、</p>
+<ul>
+<li>勉強時間とテスト成績</li>
+<li>年齢と賃金</li>
+<li>広告費と売上</li>
+</ul>
+<p>などでは、最初は増加するが、どこかで伸びが鈍る、あるいは逆に下がる、という関係を考えたくなることがある。 そのようなときに二次項が役に立つ。</p>
+</section>
+<section id="頂点の解釈" class="level3">
+<h3 class="anchored" data-anchor-id="頂点の解釈">2.3 頂点の解釈</h3>
+<p>二次関数の頂点は</p>
+<p><span class="math display">
+x^\ast = -\frac{\beta_1}{2\beta_2}
+</span></p>
+<p>で与えられる。 これにより、「どの水準で最大になるか」「どこを境に増加から減少に変わるか」を計算できる。</p>
+</section>
+</section>
+<section id="交差項" class="level2">
+<h2 class="anchored" data-anchor-id="交差項">3. 交差項</h2>
+<p>重回帰の大きな強みの一つは、<strong>ある変数の効果が別の変数に依存する</strong>ことを表現できる点である。 そのために使うのが交差項である。</p>
+<p>たとえば</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 x_i + \beta_2 z_i + \beta_3 (x_i z_i) + u_i
+</span></p>
+<p>を考える。</p>
+<p>ここで <span class="math inline">x_i z_i</span> が交差項である。</p>
+<section id="交差項の意味" class="level3">
+<h3 class="anchored" data-anchor-id="交差項の意味">3.1 交差項の意味</h3>
+<p>このモデルでは、<span class="math inline">x</span> の効果は</p>
+<p><span class="math display">
+\frac{\partial y_i}{\partial x_i} = \beta_1 + \beta_3 z_i
+</span></p>
+<p>となる。</p>
+<p>つまり、<span class="math inline">x</span> の効果は <span class="math inline">z</span> の値によって変わる。 逆に、<span class="math inline">z</span> の効果も <span class="math inline">x</span> の値によって変わる。</p>
+</section>
+<section id="ダミー変数との交差項" class="level3">
+<h3 class="anchored" data-anchor-id="ダミー変数との交差項">3.2 ダミー変数との交差項</h3>
+<p>特によく使うのは、ダミー変数（後述するが、0か1の値を取る変数）との交差項である。</p>
+<p>たとえば <span class="math inline">d_i</span> を男女ダミーとして</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 x_i + \beta_2 d_i + \beta_3 (x_i d_i) + u_i
+</span></p>
+<p>を考える。</p>
+<p>このとき</p>
+<ul>
+<li><span class="math inline">d_i = 0</span> のグループでは傾きは <span class="math inline">\beta_1</span></li>
+<li><span class="math inline">d_i = 1</span> のグループでは傾きは <span class="math inline">\beta_1 + \beta_3</span></li>
+</ul>
+<p>になる。</p>
+<p>つまり、<strong>2つのグループで傾きが異なる</strong>ことを表現している。</p>
+</section>
+<section id="切片も傾きも違う" class="level3">
+<h3 class="anchored" data-anchor-id="切片も傾きも違う">3.3 切片も傾きも違う</h3>
+<p>上の式では</p>
+<ul>
+<li><span class="math inline">\beta_2</span> が切片の差</li>
+<li><span class="math inline">\beta_3</span> が傾きの差</li>
+</ul>
+<p>を表している。</p>
+<p>したがって、交差項を使うと「平均的に違う」だけでなく、「説明変数への反応の仕方が違う」という異質性まで捉えることができる。</p>
+</section>
+</section>
+<section id="多項式近似" class="level2">
+<h2 class="anchored" data-anchor-id="多項式近似">4. 多項式近似</h2>
+<p>二次関数は曲線を表現する最も簡単な方法だが、それでも十分でないこともある。 そのようなときは、三次項、四次項などを追加して、より柔軟な形を作ることができる。</p>
+<p>たとえば</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 x_i + \beta_2 x_i^2 + \beta_3 x_i^3 + u_i
+</span></p>
+<p>のようなモデルである。</p>
+<p>より一般には</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 x_i + \beta_2 x_i^2 + \cdots + \beta_K x_i^K + u_i
+</span></p>
+<p>という形を考える。 これを多項式近似という。</p>
+<section id="多項式近似の発想" class="level3">
+<h3 class="anchored" data-anchor-id="多項式近似の発想">4.1 多項式近似の発想</h3>
+<p>「本当の関係の形はよくわからないが、直線ではなさそうだ」というとき、多項式を使うとかなり柔軟に曲線を近似できる。</p>
+<p>実際、滑らかな関数の多くは、ある範囲では多項式でかなりよく近似できる。</p>
+</section>
+<section id="注意点" class="level3">
+<h3 class="anchored" data-anchor-id="注意点">4.2 注意点</h3>
+<p>ただし、次数を高くしすぎると問題もある。</p>
+<ul>
+<li>サンプル内で不自然にうねうねした形になる</li>
+<li>端の方で急激に曲がる</li>
+<li>係数の解釈が難しくなる</li>
+<li>多重共線性が強くなりやすい</li>
+</ul>
+<p>したがって、<strong>柔軟性が上がる一方で、解釈や安定性は下がる</strong>。 実際の分析では、図を見ながら二次や三次くらいまでに抑えることも多い。</p>
+</section>
+</section>
+<section id="ダミー変数" class="level2">
+<h2 class="anchored" data-anchor-id="ダミー変数">5. ダミー変数</h2>
+<p>ダミー変数とは、ある属性を0と1で表した変数である。 たとえば</p>
+<ul>
+<li>女性なら1、男性なら0</li>
+<li>都市部なら1、地方なら0</li>
+<li>政策実施後なら1、実施前なら0</li>
+</ul>
+<p>といった変数である。</p>
+<section id="ダミー変数の係数の意味" class="level3">
+<h3 class="anchored" data-anchor-id="ダミー変数の係数の意味">5.1 ダミー変数の係数の意味</h3>
+<p>モデル</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 d_i + u_i
+</span></p>
+<p>を考える。</p>
+<p>ここで <span class="math inline">d_i</span> がダミー変数なら、</p>
+<ul>
+<li><span class="math inline">d_i = 0</span> のときの平均は <span class="math inline">\beta_0</span></li>
+<li><span class="math inline">d_i = 1</span> のときの平均は <span class="math inline">\beta_0 + \beta_1</span></li>
+</ul>
+<p>となる。</p>
+<p>したがって、<span class="math inline">\beta_1</span> は<strong>2つのグループの平均の差</strong>を表す。</p>
+</section>
+<section id="他の変数をコントロールした上での差" class="level3">
+<h3 class="anchored" data-anchor-id="他の変数をコントロールした上での差">5.2 他の変数をコントロールした上での差</h3>
+<p>重回帰の中でダミー変数を使うと、その係数は</p>
+<p><strong>他の変数を一定にした上での平均的な差</strong></p>
+<p>として解釈できる。</p>
+<p>たとえば</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 \text{educ}_i + \beta_2 \text{female}_i + u_i
+</span></p>
+<p>なら、<span class="math inline">\beta_2</span> は教育年数を一定にした上での男女差を表す。</p>
+</section>
+</section>
+<section id="カテゴリー変数" class="level2">
+<h2 class="anchored" data-anchor-id="カテゴリー変数">6. カテゴリー変数</h2>
+<p>現実には、属性が2種類ではなく、3種類以上あることも多い。 たとえば</p>
+<ul>
+<li>学年：1年、2年、3年、4年</li>
+<li>地域：東京、大阪、福岡、その他</li>
+<li>学部：経済、法、工、文</li>
+</ul>
+<p>のような変数である。 このような変数をカテゴリー変数という。</p>
+<section id="カテゴリー変数はダミーに分解する" class="level3">
+<h3 class="anchored" data-anchor-id="カテゴリー変数はダミーに分解する">6.1 カテゴリー変数はダミーに分解する</h3>
+<p>カテゴリーが <span class="math inline">G</span> 個あるときは、通常 <span class="math inline">G-1</span> 個のダミー変数を作って回帰に入れる。</p>
+<p>たとえば学部が</p>
+<ul>
+<li>経済</li>
+<li>法</li>
+<li>工</li>
+</ul>
+<p>の3種類なら、</p>
+<ul>
+<li>法ダミー</li>
+<li>工ダミー</li>
+</ul>
+<p>の2つを入れて、「経済」を基準カテゴリにする。</p>
+<p>するとモデルは</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 D_{i,\text{law}} + \beta_2 D_{i,\text{engineering}} + u_i
+</span></p>
+<p>のようになる。</p>
+<p>このとき</p>
+<ul>
+<li><span class="math inline">\beta_0</span> は基準カテゴリ（経済）の平均</li>
+<li><span class="math inline">\beta_1</span> は法と経済の差</li>
+<li><span class="math inline">\beta_2</span> は工と経済の差</li>
+</ul>
+<p>を表す。</p>
+</section>
+<section id="なぜ全部入れてはいけないのか" class="level3">
+<h3 class="anchored" data-anchor-id="なぜ全部入れてはいけないのか">6.2 なぜ全部入れてはいけないのか</h3>
+<p>3種類のカテゴリについて3つすべてのダミーを入れると、必ず</p>
+<p><span class="math display">
+D_{i,\text{econ}} + D_{i,\text{law}} + D_{i,\text{engineering}} = 1
+</span></p>
+<p>が成り立つ。 さらに定数項も入っていると、完全な線形関係が生じてしまう。</p>
+<p>そのため、<strong>1つは基準カテゴリとして落とす</strong>必要がある。 これを忘れると、いわゆる dummy variable trap に陥る。</p>
+</section>
+<section id="基準カテゴリの選び方" class="level3">
+<h3 class="anchored" data-anchor-id="基準カテゴリの選び方">6.3 基準カテゴリの選び方</h3>
+<p>基準カテゴリはどれを選んでもよい。 ただし、解釈しやすいグループを基準にすると便利である。</p>
+<p>たとえば</p>
+<ul>
+<li>政策前を基準にする</li>
+<li>男性を基準にする</li>
+<li>首都圏以外を基準にする</li>
+</ul>
+<p>などである。</p>
+<p>基準を変えると係数の見え方は変わるが、モデルが表している内容そのものは変わらない。</p>
+</section>
+</section>
+<section id="個別の定数項を入れる固定効果モデル" class="level2">
+<h2 class="anchored" data-anchor-id="個別の定数項を入れる固定効果モデル">7. 個別の定数項を入れる：固定効果モデル</h2>
+<p>ここまで見てきたダミー変数の考え方を極端に押し進めると、<strong>観測単位ごとに定数項を持たせる</strong>という発想にたどり着く。 これが固定効果モデルである。</p>
+<p>たとえば個人 <span class="math inline">i</span> を時点 <span class="math inline">t</span> で観測したパネルデータで</p>
+<p><span class="math display">
+y_{it} = \alpha_i + \beta x_{it} + u_{it}
+</span></p>
+<p>というモデルを考える。</p>
+<p>ここで <span class="math inline">\alpha_i</span> は個人ごとの定数項であり、固定効果と呼ばれる。</p>
+<section id="固定効果の意味" class="level3">
+<h3 class="anchored" data-anchor-id="固定効果の意味">7.1 固定効果の意味</h3>
+<p><span class="math inline">\alpha_i</span> は、その個人に固有で、時間を通じて変わらない要因を表している。</p>
+<p>たとえば個人データなら</p>
+<ul>
+<li>生まれつきの能力</li>
+<li>家庭環境</li>
+<li>性格</li>
+<li>長期的な志向</li>
+</ul>
+<p>のような、観測しにくいがその人に固有の特徴が入っていると考えられる。</p>
+<p>企業データなら</p>
+<ul>
+<li>企業文化</li>
+<li>ブランド力</li>
+<li>経営方針</li>
+</ul>
+<p>学校データなら</p>
+<ul>
+<li>学校の伝統</li>
+<li>立地</li>
+<li>教育方針</li>
+</ul>
+<p>などが含まれるかもしれない。</p>
+</section>
+<section id="固定効果モデルで何ができるか" class="level3">
+<h3 class="anchored" data-anchor-id="固定効果モデルで何ができるか">7.2 固定効果モデルで何ができるか</h3>
+<p>固定効果モデルの重要な点は、こうした<strong>時間を通じて変わらない観測されない要因</strong>を吸収できることである。</p>
+<p>その結果、<span class="math inline">\beta</span> は</p>
+<p><strong>同じ個人の中で <span class="math inline">x</span> が変化したときに <span class="math inline">y</span> がどう変わるか</strong></p>
+<p>に近い情報から識別される。</p>
+<p>つまり、比較の軸が「人と人の比較」から「同じ人の中での変化の比較」に移る。</p>
+</section>
+<section id="ダミー変数として見る固定効果" class="level3">
+<h3 class="anchored" data-anchor-id="ダミー変数として見る固定効果">7.3 ダミー変数として見る固定効果</h3>
+<p>固定効果モデルは、実際には「個人ダミーを全部入れた回帰」と考えることができる。</p>
+<p>たとえば個人が100人いれば、99個の個人ダミーを入れるのと同じ発想である。 したがって、固定効果モデルはダミー変数の延長線上にある。</p>
+</section>
+<section id="年固定効果" class="level3">
+<h3 class="anchored" data-anchor-id="年固定効果">7.4 年固定効果</h3>
+<p>個人固定効果と並んでよく使うのが年固定効果である。</p>
+<p><span class="math display">
+y_{it} = \alpha_i + \lambda_t + \beta x_{it} + u_{it}
+</span></p>
+<p>ここで <span class="math inline">\lambda_t</span> は各年に共通するショックを吸収する。 たとえば景気、制度変更、物価、全国的なトレンドなどである。</p>
+<p>このモデルでは、</p>
+<ul>
+<li><span class="math inline">\alpha_i</span> が個人固有の不変要因</li>
+<li><span class="math inline">\lambda_t</span> が時点共通の要因</li>
+</ul>
+<p>を吸収する。</p>
+</section>
+<section id="固定効果モデルの限界" class="level3">
+<h3 class="anchored" data-anchor-id="固定効果モデルの限界">7.5 固定効果モデルの限界</h3>
+<p>固定効果モデルは強力だが万能ではない。</p>
+<p>吸収できるのは、<strong>時間を通じて変わらない要因</strong>だけである。 時間とともに変わる観測されない要因が <span class="math inline">x_{it}</span> と相関していれば、なおバイアスは残りうる。</p>
+<p>また、時間を通じて変わらない変数は、個人固定効果と完全に重なってしまうため、その係数は識別できない。</p>
+<p>たとえば個人固定効果を入れたモデルでは、性別のように各個人について不変な変数の係数は推定できない。</p>
+</section>
+</section>
+<section id="まとめ" class="level2">
+<h2 class="anchored" data-anchor-id="まとめ">8. まとめ</h2>
+<p>このセクションで見たように、重回帰を使うと</p>
+<ul>
+<li>対数を通じて割合の関係を扱える</li>
+<li>二次項や多項式で曲線的な関係を表現できる</li>
+<li>交差項で効果の異質性を表現できる</li>
+<li>ダミー変数やカテゴリー変数でグループ間の差を扱える</li>
+<li>固定効果モデルで観測されない不変要因を吸収できる</li>
+</ul>
+<p>ようになる。</p>
+<p>実際の実証分析では、これらを単独で使うだけでなく、組み合わせて使うことが多い。 たとえば</p>
+<ul>
+<li>対数賃金を被説明変数にし</li>
+<li>教育年数とその二乗を入れ</li>
+<li>性別ダミーとの交差項を入れ</li>
+<li>個人固定効果と年固定効果を加える</li>
+</ul>
+<p>といった形である。</p>
+<p>したがって、重回帰を学ぶときには「式を機械的に推定する」のではなく、 <strong>どのような関係を表現したいのかに応じて、どの変数をどう入れるべきかを考えること</strong>が大切である。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="ここからは実証研究の例">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>ここからは実証研究の例
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>ここからは、前半で見た <strong>ダミー変数・交差項・固定効果</strong> が実際の論文の中でどう使われるのかを見る。式の形そのものよりも、「どの比較をしているのか」を意識しながら読むのがポイントである。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="重回帰だけでも面白い分析はできる" class="level1">
+<h1>重回帰だけでも面白い分析はできる</h1>
+<section id="bertrand-and-mullainathan-2004-are-emily-and-greg-more-employable-than-lakisha-and-jamal" class="level2">
+<h2 class="anchored" data-anchor-id="bertrand-and-mullainathan-2004-are-emily-and-greg-more-employable-than-lakisha-and-jamal">Bertrand and Mullainathan (2004): Are Emily and Greg More Employable than Lakisha and Jamal?</h2>
+<p><strong>Bertrand and Mullainathan (2004)</strong> は、労働市場における人種差別を、実際の求人応募を使ったフィールド実験で測定した非常に有名な研究である。著者たちはボストンとシカゴの求人広告に対して架空の履歴書を送り、応募者の名前だけで人種が想起されるように操作した。たとえば Emily や Greg のような White-sounding names と、Lakisha や Jamal のような African-American-sounding names を用いた。さらに、履歴書の質もランダムに変えて、名前による差だけでなく、高品質な履歴書がどれだけ報われるかが人種で違うかどうかも調べた。全体では 1,300 を超える求人広告に応募し、5,000 通近い履歴書が送られた。 この研究の重要な点は、かなり強い主張をしているにもかかわらず、分析の中心にあるのがダミー変数、交差項、コントロール変数を含む比較的基本的な重回帰であることである。</p>
+<section id="実験の設定" class="level3">
+<h3 class="anchored" data-anchor-id="実験の設定">実験の設定</h3>
+<p>各求人広告に対して、著者たちは通常4通の履歴書を送った。そのうち2通は相対的に高品質、2通は相対的に低品質であり、さらに高品質1通・低品質1通には White-sounding name を、残りの高品質1通・低品質1通には African-American-sounding name を割り当てた。高品質履歴書には、やや多い職歴、職歴の穴の少なさ、メールアドレス、資格、語学スキル、受賞歴などが加えられていた。つまり、名前も履歴書の質もランダムに割り当てられている。</p>
+<p>各履歴書 <span class="math inline">i</span> について、結果変数を</p>
+<p><span class="math display">
+Callback_i =
+\begin{cases}
+1 &amp; \text{企業から面接などの連絡が来たとき} \\
+0 &amp; \text{それ以外}
+\end{cases}
+</span></p>
+<p>と定義する。</p>
+</section>
+<section id="最も単純な回帰" class="level3">
+<h3 class="anchored" data-anchor-id="最も単純な回帰">最も単純な回帰</h3>
+<p>まず、名前だけで callback の確率が違うかを見るために、次の回帰を考える。</p>
+<p><span class="math display">
+Callback_i = \beta_0 + \beta_1 BlackName_i + u_i
+</span></p>
+<p>ここで、</p>
+<ul>
+<li><span class="math inline">Callback_i</span> は履歴書 <span class="math inline">i</span> が callback を受けたかどうか</li>
+<li><span class="math inline">BlackName_i</span> は African-American-sounding name なら1、White-sounding name なら0</li>
+</ul>
+<p>である。</p>
+<p>このとき、</p>
+<ul>
+<li><span class="math inline">\beta_0</span> は White-sounding name の応募者の平均 callback 率</li>
+<li><span class="math inline">\beta_1</span> は African-American-sounding name であることによる callback 率の差</li>
+</ul>
+<p>を表す。</p>
+<p>この論文の主結果は、White-sounding names の方が African-American-sounding names より 50% 多く callback を受けたというものである。NBER の要約では、White names の応募者は約10通に1回、African-American names の応募者は約15通に1回 callback を得たと説明されている。</p>
+<p>名前はランダムに割り当てられているので、平均的には他の特徴は同じであり、<span class="math inline">\beta_1</span> の差は名前の操作によって生じた差と解釈できる。</p>
+</section>
+<section id="コントロール変数を入れた重回帰" class="level3">
+<h3 class="anchored" data-anchor-id="コントロール変数を入れた重回帰">コントロール変数を入れた重回帰</h3>
+<p>実際には、職種、都市、求人の要件などによって callback 率は変わる。そこで、次のような重回帰を考える。</p>
+<p><span class="math display">
+Callback_i = \beta_0 + \beta_1 BlackName_i + X_i'\gamma + u_i
+</span></p>
+<p>ここで <span class="math inline">X_i</span> はコントロール変数のベクトルであり、たとえば</p>
+<ul>
+<li>都市ダミー</li>
+<li>職種ダミー</li>
+<li>求人票に書かれた要件</li>
+<li>応募者の性別ダミー</li>
+</ul>
+<p>などを含む。</p>
+<p>この式における <span class="math inline">\beta_1</span> は、都市や職種などを一定にした上で、African-American-sounding name の履歴書がどれだけ callback を受けにくいかを表す。論文中では、履歴書の特徴から予測 callback を作る probit 回帰や、都市ダミー・職種ダミー・求人要件ダミーを含む仕様が使われている。</p>
+</section>
+<section id="履歴書の質を入れた回帰" class="level3">
+<h3 class="anchored" data-anchor-id="履歴書の質を入れた回帰">履歴書の質を入れた回帰</h3>
+<p>次に、履歴書の質そのものを説明変数に加える。</p>
+<p><span class="math display">
+Callback_i = \beta_0 + \beta_1 BlackName_i + \beta_2 HighQuality_i + u_i
+</span></p>
+<p>ここで <span class="math inline">HighQuality_i</span> は高品質履歴書なら1、低品質履歴書なら0である。</p>
+<p>このとき、</p>
+<ul>
+<li><span class="math inline">\beta_2</span> は White-sounding name の応募者にとって、高品質履歴書の平均的な上乗せ効果</li>
+<li><span class="math inline">\beta_1</span> は low quality を基準にしたときの名前差</li>
+</ul>
+<p>として読める。</p>
+<p>原論文では、高品質履歴書の操作は実際に効いており、White names の応募者では高品質履歴書の callback 率は低品質履歴書より高かった。主観的 quality 分類では、White names の callback 率は low quality で 8.50%、high quality で 10.79% だった。一方、African-American names では 6.19% と 6.70% で、差はかなり小さかった。</p>
+</section>
+<section id="交差項を入れた回帰" class="level3">
+<h3 class="anchored" data-anchor-id="交差項を入れた回帰">交差項を入れた回帰</h3>
+<p>この論文の核心は、高品質履歴書のリターンが人種で違うかどうかを調べる点にある。そのための回帰式は次のように書ける。</p>
+<p><span class="math display">
+Callback_i =
+\beta_0 + \beta_1 BlackName_i + \beta_2 HighQuality_i + \beta_3 (BlackName_i \times HighQuality_i) + X_i'\gamma + u_i
+</span></p>
+<p>この式の係数の意味は次の通りである。</p>
+<ul>
+<li><span class="math inline">\beta_0</span> は White name かつ low quality の応募者の平均 callback 率</li>
+<li><span class="math inline">\beta_1</span> は low quality のときの、Black name と White name の差</li>
+<li><span class="math inline">\beta_2</span> は White name の応募者における、高品質履歴書の効果</li>
+<li><span class="math inline">\beta_3</span> はその高品質履歴書の効果が Black name でどれだけ変わるか</li>
+</ul>
+<p>したがって、</p>
+<ul>
+<li>White name の応募者における高品質履歴書の効果は <span class="math inline">\beta_2</span></li>
+<li>Black name の応募者における高品質履歴書の効果は <span class="math inline">\beta_2 + \beta_3</span></li>
+</ul>
+<p>となる。</p>
+<p>もし <span class="math inline">\beta_3 &lt; 0</span> なら、高品質履歴書の効果は Black name の応募者の方が小さいことを意味する。</p>
+<p>原論文では、White names では高品質履歴書による callback 上昇が比較的大きい一方、African-American names ではその上昇がずっと小さいと報告されている。要約でも、White applicants with higher quality resumes receive nearly 30 percent more callbacks than White applicants with lower quality resumes, while the effect is smaller for African Americans とされている。</p>
+</section>
+<section id="回帰結果の読み方" class="level3">
+<h3 class="anchored" data-anchor-id="回帰結果の読み方">回帰結果の読み方</h3>
+<p>この論文の結果は、回帰の言葉でまとめると次の3点になる。</p>
+<p>第一に、<span class="math inline">BlackName_i</span> の係数は負であり、African-American-sounding name の履歴書は callback を受けにくい。これは、名前だけで企業の反応が変わることを意味する。</p>
+<p>第二に、<span class="math inline">HighQuality_i</span> の係数は正であり、良い履歴書ほど callback を受けやすい。</p>
+<p>第三に、<span class="math inline">BlackName_i \times HighQuality_i</span> の係数は負の方向を示し、良い履歴書のリターンが African-American-sounding name の応募者では小さいことが示唆される。つまり、単に平均差があるだけでなく、observable credentials の報われ方そのものが違う。</p>
+</section>
+<section id="まとめ-1" class="level3">
+<h3 class="anchored" data-anchor-id="まとめ-1">まとめ</h3>
+<p>Bertrand and Mullainathan (2004) は、名前だけで callback が変わるのか、そして良い履歴書を作ることの見返りが名前によって違うのかを、ダミー変数と交差項を入れた重回帰で調べた論文である。</p>
+<p>この論文では、</p>
+<ul>
+<li>ダミー変数によってグループ差を表現し</li>
+<li>コントロール変数によって他の要因を一定にし</li>
+<li>交差項によって効果の異質性を表現している</li>
+</ul>
+<p>この意味で、重回帰は単に説明変数をたくさん入れる道具ではなく、グループ差や効果の異質性を明示的にモデル化するための道具であることがよくわかる。</p>
+</section>
+</section>
+<section id="donohue-and-levitt-2001-the-impact-of-legalized-abortion-on-crime" class="level2">
+<h2 class="anchored" data-anchor-id="donohue-and-levitt-2001-the-impact-of-legalized-abortion-on-crime">Donohue and Levitt (2001): The Impact of Legalized Abortion on Crime</h2>
+<p>Donohue and Levitt (2001) は、<strong>1970年代の中絶合法化が、約18年後以降の犯罪減少につながったのではないか</strong>という仮説を提示した非常に有名な論文である。論文の中心的な主張は、合法化によって「望まれない出生」が減り、その結果として、後に犯罪に巻き込まれやすい環境で育つ子どもの数も減ったため、1990年代の犯罪減少の一部を説明できるのではないか、というものである。原論文の要約では、犯罪は中絶合法化からおよそ18年後に下がり始め、1970年に先行して合法化した州では他州より早く犯罪減少が起き、1970年代・1980年代の中絶率が高かった州ほど1990年代の犯罪減少が大きかった、と述べられている。</p>
+<p>この論文の面白いところは、かなり大きな社会的主張をしているにもかかわらず、分析の形そのものは <strong>州ダミー、年ダミー、対数変数、そして cohort exposure を使った重回帰</strong> として理解できることである。</p>
+<section id="問題意識" class="level3">
+<h3 class="anchored" data-anchor-id="問題意識">問題意識</h3>
+<p>アメリカでは1990年代に犯罪率が大きく低下した。 この低下を説明する候補としては、警察、景気、刑務所収容、人口年齢構成、麻薬市場の変化などさまざまなものが考えられる。Donohue and Levitt (2001) は、その中に <strong>中絶合法化から時間差をおいて現れる cohort の質の変化</strong> という説明を加えた。</p>
+<p>この仮説の時間的な直感はかなり単純である。 もし 1973 年の Roe v. Wade 前後で出生コホートの構成が変わったなら、その影響はすぐには犯罪統計に現れない。犯罪の多くは若年期から若年成人期に集中するので、影響が観察されるのは十数年後になるはずである。原論文も、犯罪減少が合法化の約18年後に現れる点を重要な事実として挙げている。</p>
+</section>
+<section id="基本的な回帰の考え方" class="level3">
+<h3 class="anchored" data-anchor-id="基本的な回帰の考え方">基本的な回帰の考え方</h3>
+<p>もっとも粗い発想は、州 <span class="math inline">s</span>、年 <span class="math inline">t</span> の犯罪率を、その州の過去の中絶率で説明することである。たとえば</p>
+<p><span class="math display">
+\log Crime_{st} = \alpha_s + \lambda_t + \beta AbortionRate_{s,t-\ell} + X_{st}'\gamma + u_{st}
+</span></p>
+<p>という形である。</p>
+<p>ここで、</p>
+<ul>
+<li><span class="math inline">Crime_{st}</span> は州 <span class="math inline">s</span>・年 <span class="math inline">t</span> の犯罪率</li>
+<li><span class="math inline">\alpha_s</span> は州固定効果</li>
+<li><span class="math inline">\lambda_t</span> は年固定効果</li>
+<li><span class="math inline">AbortionRate_{s,t-\ell}</span> は <span class="math inline">\ell</span> 年前の中絶率</li>
+<li><span class="math inline">X_{st}</span> はその他のコントロール変数</li>
+</ul>
+<p>である。</p>
+<p>この式で <span class="math inline">\alpha_s</span> は州ごとの変わらない特徴を吸収し、<span class="math inline">\lambda_t</span> は全国共通の年ショックを吸収する。したがって <span class="math inline">\beta</span> は、<strong>同じ州の中で、他州や全国トレンドを差し引いた上で、中絶率の高かった cohort が後により低い犯罪率と結びつくか</strong>を表す。</p>
+<p>ただし、実際の論文の重要な仕様は、単純なラグ付き州年回帰というより、<strong>年齢コホートごとの「中絶への曝露」を明示的に使う</strong>ところにある。</p>
+</section>
+<section id="コホートを使った発想" class="level3">
+<h3 class="anchored" data-anchor-id="コホートを使った発想">コホートを使った発想</h3>
+<p>論文の中心にある考え方は、ある年に観察される犯罪者集団は、異なる出生年のコホートから構成されているという点である。たとえば 1995 年の 18 歳は 1977 年生まれ、20 歳は 1975 年生まれ、というように、各年齢集団は異なる時点の中絶環境にさらされている。</p>
+<p>そこで、州 <span class="math inline">s</span>、年 <span class="math inline">t</span>、年齢 <span class="math inline">a</span> の犯罪率について、</p>
+<p><span class="math display">
+\log Crime_{s t a} =
+\alpha_s + \lambda_t + \eta_a + \beta Exposure_{s,t-a}
++ X_{sta}'\gamma + u_{sta}
+</span></p>
+<p>のような式を考える。</p>
+<p>ここで、</p>
+<ul>
+<li><span class="math inline">Crime_{sta}</span> は州 <span class="math inline">s</span>、年 <span class="math inline">t</span>、年齢 <span class="math inline">a</span> の犯罪率</li>
+<li><span class="math inline">\eta_a</span> は年齢固定効果</li>
+<li><span class="math inline">Exposure_{s,t-a}</span> は、その年齢集団が胎児期にいた年の中絶率、あるいはそれに基づく曝露指標</li>
+</ul>
+<p>である。</p>
+<p>この式の <span class="math inline">\beta</span> は、<strong>中絶率の高い出生コホートほど、後に犯罪率が低いか</strong>を表す。</p>
+<p>Foote and Goetz (2008) が「著者たちの concluding regressions は、同じ州・同じ年の中で異なる年齢コホートを比較している」と要約していることからも、議論の核心がこの cohort-based specification にあったことがわかる。</p>
+</section>
+<section id="固定効果の役割" class="level3">
+<h3 class="anchored" data-anchor-id="固定効果の役割">固定効果の役割</h3>
+<p>この論文では固定効果が非常に重要である。 州固定効果 <span class="math inline">\alpha_s</span> は、州ごとの恒常的な差、たとえば都市化、歴史的な犯罪水準、法制度、文化などを吸収する。年固定効果 <span class="math inline">\lambda_t</span> は、全国共通の景気、全国的な policing の変化、マクロなトレンドなどを吸収する。年齢固定効果 <span class="math inline">\eta_a</span> は、若年層ほど犯罪を犯しやすいという一般的な年齢プロファイルを吸収する。</p>
+<p>したがって、この論文の識別は</p>
+<ul>
+<li>州ごとの固定的な違い</li>
+<li>全国共通の年ショック</li>
+<li>年齢による一般的な犯罪傾向</li>
+</ul>
+<p>を取り除いたあとで、<strong>同じ州・同じ年の中でも、どの出生コホートがより高い中絶環境にさらされていたか</strong>という差に依存している。</p>
+</section>
+<section id="係数の解釈" class="level3">
+<h3 class="anchored" data-anchor-id="係数の解釈">係数の解釈</h3>
+<p>被説明変数が対数犯罪率であれば、<span class="math inline">\beta</span> は半弾力性として解釈できる。 たとえば <span class="math inline">\beta &lt; 0</span> なら、中絶率が高かった出生コホートほど、後に観察される犯罪率が低いことを意味する。</p>
+<p>したがって、この論文の推定結果は、</p>
+<ul>
+<li>中絶合法化のタイミング</li>
+<li>州ごとの中絶率の違い</li>
+<li>コホートの年齢構成</li>
+</ul>
+<p>を利用して、<strong>中絶への曝露が高いコホートは犯罪参加が少ない</strong>という関係を示そうとしている。</p>
+</section>
+<section id="原論文の主張" class="level3">
+<h3 class="anchored" data-anchor-id="原論文の主張">原論文の主張</h3>
+<p>原論文は、合法化の約18年後から犯罪が下がり始めたこと、1970年に先行合法化した州でより早く犯罪低下が起きたこと、そして中絶率が高かった州ほどその後の犯罪減少が大きかったことを主要な証拠として提示した。</p>
+<p>このため、Donohue and Levitt (2001) はしばしば、<strong>州固定効果・年固定効果・コホート比較を組み合わせた重回帰で、大きな社会現象を説明しにいった論文</strong>として読まれる。</p>
+</section>
+<section id="その後の論争" class="level3">
+<h3 class="anchored" data-anchor-id="その後の論争">その後の論争</h3>
+<p>この論文は非常に有名になった一方で、すぐに強い批判も受けた。 とくに重要なのが Foote and Goetz によるコメントである。彼らは、Donohue and Levitt の concluding regressions には <strong>coding mistake</strong> があり、さらに犯罪変数を totals ではなく <strong>per capita</strong> で扱う方が適切だと主張した。そのうえで、これらを修正すると結果はかなり弱くなると論じた。これは 2008 年の QJE comment の要約でも明記されている。</p>
+<p>批判のポイントを式のレベルで言えば、問題は「どの variation を使って <span class="math inline">\beta</span> を識別しているのか」が本当に妥当か、ということである。 州×年の中で cohort 間の差を見る仕様では、人口規模や年齢構成の扱いが少し変わるだけで結果がかなり動く可能性がある。Foote and Goetz はまさにそこを突いた。</p>
+<p>これに対して Donohue and Levitt は、その後の応答やアップデートで、元論文の一部には誤りがあったことを認めつつも、別の仕様や追加データを使っても中絶と犯罪の負の関係はなお見られると主張した。2019年の更新版では、2001年論文は「今後20年について強い out-of-sample prediction を置いた」と振り返ったうえで、その後のデータも broadly consistent だと論じている。</p>
+<p>したがって、この論争の流れは次のようにまとめられる。</p>
+<ul>
+<li><strong>2001年</strong>：Donohue and Levitt が、中絶合法化は1990年代の犯罪減少にかなり寄与したと主張した。</li>
+<li><strong>2005〜2008年</strong>：Foote and Goetz が coding mistake と per-capita specification の問題を指摘し、主要結果はかなり弱くなると批判した。</li>
+<li><strong>その後</strong>：Donohue and Levitt は修正後も仮説はなお支持されると主張し、2019年の更新版でも長期データは元の見方と整合的だと述べた。 ## この論文が示していること</li>
+</ul>
+</section>
+<section id="まとめ-2" class="level3">
+<h3 class="anchored" data-anchor-id="まとめ-2">まとめ</h3>
+<p>Donohue and Levitt (2001) の価値は、結論に論争があるとしても、<strong>重回帰と固定効果を使って、時間差を伴う社会現象をどう分析するか</strong>を非常に鮮やかに示した点にある。</p>
+<p>この論文では、</p>
+<ul>
+<li><strong>対数変数</strong> によって犯罪率の変化を扱い</li>
+<li><strong>州ダミー・年ダミー・年齢ダミー</strong> によって大きな交絡要因を吸収し</li>
+<li><strong>コホート曝露変数</strong> によって、ある政策の影響が後になって現れる構造をモデル化している</li>
+</ul>
+<p>同時に、この論文をめぐる論争は、重回帰で大きな主張をするときには</p>
+<ul>
+<li>仕様のわずかな違い</li>
+<li>変数の定義</li>
+<li>コーディング</li>
+<li>per-capita で測るか total で測るか</li>
+</ul>
+<p>が結論を大きく左右しうることも示している。</p>
+<div class="callout callout-style-simple callout-important callout-titled" title="ここから後半の主題">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>ここから後半の主題
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>後半では、「回帰式が書けること」と「その係数を因果効果と読めること」は別問題だ、という点をはっきり区別する。ここが今後の DiD・IV・RDD につながる出発点である。</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="因果推論とは何を識別することなのか" class="level1">
+<h1>因果推論とは何を識別することなのか</h1>
+<p>ここまで見てきたように、重回帰を使うと</p>
+<ul>
+<li>対数変数</li>
+<li>二次項</li>
+<li>交差項</li>
+<li>ダミー変数</li>
+<li>固定効果</li>
+</ul>
+<p>などを通じて、さまざまな経済的関係を表現できる。</p>
+<p>ただし、今まで散々見てきたように、<strong>回帰式を書けること</strong> と、<strong>因果効果がわかること</strong> は同じではない。</p>
+<p>たとえばダミー変数<span class="math inline">D_i</span>を用いて、</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 D_i + u_i
+</span></p>
+<p>という式を書いて、<span class="math inline">D_i</span> が 1 の人のほうが <span class="math inline">Y_i</span> が高かったとしても、それだけでは</p>
+<blockquote class="blockquote">
+<p><span class="math inline">D_i</span> が <span class="math inline">Y_i</span> を変えた</p>
+</blockquote>
+<p>とは言えない。</p>
+<p>なぜなら、<span class="math inline">D_i=1</span> の人と <span class="math inline">D_i=0</span> の人では、もともと別の特徴を持っていて、それが結果の<span class="math inline">Y_i</span>に影響しているかもしれないからである。これは<span class="math inline">E[u_i\mid D_i] = 0</span>という仮定をおかないと、本当に知りたいパラメータは識別できない、という話であった。</p>
+<p>計量経済学において、<strong>因果推論</strong>とは基本的に<strong>回帰式で説明変数として出てくる興味のあるダミー変数にくっついているパラメータを識別すること</strong>を指す。</p>
+<p>このパラメータはもちろん、<span class="math inline">D_i = 0</span>と比べて<span class="math inline">D_i = 1</span>が平均的にどれくらい結果が大きいか、を表すパラメータである。</p>
+<p>正味これだけの話なのだが、実はこの「パラメータ」をもうちょっと深ぼることができる。そしてもうちょっと深ぼると、なんでこれがわざわざ<strong>因果推論</strong>と呼ばれうるのかがわかる。</p>
+<p>まずはこの問題をふかぼるための道具である<strong>潜在アウトカム</strong>を導入する。</p>
+<section id="潜在アウトカム" class="level2">
+<h2 class="anchored" data-anchor-id="潜在アウトカム">潜在アウトカム</h2>
+<div class="callout callout-style-simple callout-note callout-titled" title="この記法で見たいこと">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この記法で見たいこと
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">Y_i(1)</span> と <span class="math inline">Y_i(0)</span> は、「同じ個体が処置を受けた世界」と「受けなかった世界」を並べて考えるための記法である。実際には片方しか観測できないので、その欠けている側をどう埋めるかが因果推論の中心問題になる。</p>
+</div>
+</div>
+<p>この考え方を厳密に書くために、<strong>潜在アウトカム</strong> を導入する。</p>
+<p>各個体 <span class="math inline">i</span> について、</p>
+<ul>
+<li><span class="math inline">Y_i(1)</span>：個体 <span class="math inline">i</span> が処置を受けたときのアウトカム</li>
+<li><span class="math inline">Y_i(0)</span>：個体 <span class="math inline">i</span> が処置を受けなかったときのアウトカム</li>
+</ul>
+<p>を考える。</p>
+<p>ここで「処置」とは、たとえば</p>
+<ul>
+<li>政策の対象になること</li>
+<li>補助金を受けること</li>
+<li>新制度が導入されること</li>
+<li>ある学校に進学すること</li>
+</ul>
+<p>など、分析したい介入一般を表している。この処置が行われたときに<span class="math inline">1</span>になるダミー変数が<span class="math inline">D_i</span>である。</p>
+<p>世界には同一の個体は一つしか存在しない。なので、なんらかの処置が実行された時、<strong>実際に観測されるのは、このうち片方だけである。</strong></p>
+<p>このように考えると、我々は常に一つの変数について観測できていないということになる。<span class="math inline">D_i = 0</span>の <span class="math inline">i</span>については<span class="math inline">Y_i(0)</span>が観測され、逆に<span class="math inline">D_i = 1</span>の人<span class="math inline">i</span>については<span class="math inline">Y_i(0)</span>が観測されていない。</p>
+<p>このような欠損値があるがゆえに処置の効果が直接にはわからない、という考え方をする。これが潜在アウトカムの考え方である。</p>
+<p>具体的に書く。処置変数を</p>
+<p><span class="math display">
+D_i =
+\begin{cases}
+1 &amp; \text{if individual } i \text{ is treated} \\
+0 &amp; \text{if individual } i \text{ is untreated}
+\end{cases}
+</span></p>
+<p>と書くと、観測アウトカム <span class="math inline">Y_i</span> は</p>
+<p><span class="math display">
+Y_i = D_i Y_i(1) + (1-D_i)Y_i(0)
+</span></p>
+<p>と表せる。</p>
+<p>この式はとても重要である。<br>
+なぜなら、各個体について</p>
+<ul>
+<li>処置を受けたなら <span class="math inline">Y_i(1)</span> だけが観測され</li>
+<li>処置を受けなかったなら <span class="math inline">Y_i(0)</span> だけが観測される</li>
+</ul>
+<p>ことを意味しているからである。</p>
+<p>したがって、各個体についての因果効果</p>
+<p><span class="math display">
+Y_i(1)-Y_i(0)
+</span></p>
+<p>は定義できるが、<strong>同じ個体について両方を同時に観測することはできない</strong>。</p>
+<p>これを因果推論の根本問題という。</p>
+</section>
+<section id="因果推論で知りたいパラメータ" class="level2">
+<h2 class="anchored" data-anchor-id="因果推論で知りたいパラメータ">因果推論で知りたいパラメータ</h2>
+<p>では、因果推論で知りたい量とは何だろうか。</p>
+<p>もっとも基本的なのは、個体ごとの因果効果</p>
+<p><span class="math display">
+Y_i(1)-Y_i(0)
+</span></p>
+<p>である。<br>
+しかし、これは各個体について直接は観測できないので、通常はその平均を考える。</p>
+<section id="平均処置効果" class="level3">
+<h3 class="anchored" data-anchor-id="平均処置効果">平均処置効果</h3>
+<p>母集団全体での平均処置効果は</p>
+<p><span class="math display">
+ATE = E[Y_i(1)-Y_i(0)]
+</span></p>
+<p>である。</p>
+<p>これは、</p>
+<blockquote class="blockquote">
+<p>ランダムに1人取り出したとき、その人を処置した場合としなかった場合で、平均してアウトカムがどれだけ変わるか</p>
+</blockquote>
+<p>を表している。</p>
+</section>
+<section id="処置群に対する平均処置効果" class="level3">
+<h3 class="anchored" data-anchor-id="処置群に対する平均処置効果">処置群に対する平均処置効果</h3>
+<p>一方、実証研究ではしばしば</p>
+<p><span class="math display">
+ATT = E[Y_i(1)-Y_i(0)\mid D_i=1]
+</span></p>
+<p>を知りたい。</p>
+<p>これは <strong>Average Treatment effect on the Treated</strong> の略で、</p>
+<blockquote class="blockquote">
+<p>実際に処置を受けた人たちにとって、処置は平均してどれだけの効果を持ったか</p>
+</blockquote>
+<p>を表している。</p>
+<p>たとえば政策評価では、</p>
+<ul>
+<li>政策対象となった地域</li>
+<li>補助金を受けた企業</li>
+<li>実際に制度変更の影響を受けた世代</li>
+</ul>
+<p>に対する効果が知りたいことが多いので、<span class="math inline">ATT</span> が重要になる。</p>
+</section>
+<section id="なぜこれが難しいのか" class="level3">
+<h3 class="anchored" data-anchor-id="なぜこれが難しいのか">なぜこれが難しいのか</h3>
+<p><span class="math inline">ATT</span> を書き下すと、</p>
+<p><span class="math display">
+ATT
+=
+E[Y_i(1)\mid D_i=1] - E[Y_i(0)\mid D_i=1]
+</span></p>
+<p>である。</p>
+<p>ここで、第一項</p>
+<p><span class="math display">
+E[Y_i(1)\mid D_i=1]
+</span></p>
+<p>は観測できる。<br>
+なぜなら、処置群について実際に観測されるアウトカムがこれだからである。</p>
+<p>しかし、第二項</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=1]
+</span></p>
+<p>は観測できない。<br>
+これは</p>
+<blockquote class="blockquote">
+<p>処置群が、もし処置を受けなかったならどうなっていたか</p>
+</blockquote>
+<p>という反実仮想だからである。</p>
+<p>ここが因果推論の核心で、要するにこれをどうにかしようということをみんな頑張っている。</p>
+</section>
+</section>
+<section id="なぜ単純な平均差ではだめなのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜ単純な平均差ではだめなのか">なぜ単純な平均差ではだめなのか</h2>
+<p>処置群と非処置群の観測平均の差は</p>
+<p><span class="math display">
+E[Y_i\mid D_i=1] - E[Y_i\mid D_i=0]
+</span></p>
+<p>である。</p>
+<p>観測アウトカムの式を使うと、これは</p>
+<p><span class="math display">
+E[Y_i(1)\mid D_i=1] - E[Y_i(0)\mid D_i=0]
+</span></p>
+<p>と書ける。</p>
+<p>一方で知りたいのは</p>
+<p><span class="math display">
+ATT
+=
+E[Y_i(1)\mid D_i=1] - E[Y_i(0)\mid D_i=1]
+</span></p>
+<p>であった。</p>
+<p>両者の差を比べると、</p>
+<p><span class="math display">
+E[Y_i\mid D_i=1] - E[Y_i\mid D_i=0]
+=
+ATT
++
+\Bigl(
+E[Y_i(0)\mid D_i=1] - E[Y_i(0)\mid D_i=0]
+\Bigr)
+</span></p>
+<p>となる。</p>
+<p>右端の</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=1] - E[Y_i(0)\mid D_i=0]
+</span></p>
+<p>は、<strong>処置がなかったとしても両群に平均差がある部分</strong> である。</p>
+<p>つまり、単純な平均差は</p>
+<ul>
+<li>本当の因果効果</li>
+<li>もともとの群の違い</li>
+</ul>
+<p>を両方含んでいる。</p>
+<p>だから、単純な平均差をそのまま因果効果と呼ぶことはできない。</p>
+<div class="callout callout-style-simple callout-warning callout-titled" title="ここでいちばん大事な区別">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">警告</span>ここでいちばん大事な区別
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>識別</strong>とは、データと仮定から知りたいパラメータを一意に結びつけられることを指す。回帰係数が計算できること自体は、まだ因果効果が分かったことを意味しない。</p>
+</div>
+</div>
+</section>
+<section id="識別とは何か" class="level2">
+<h2 class="anchored" data-anchor-id="識別とは何か">識別とは何か</h2>
+<p>ここで「識別」という言葉をはっきりさせておこう。</p>
+<p>因果推論で知りたいパラメータは、たとえば</p>
+<p><span class="math display">
+ATT = E[Y_i(1)-Y_i(0)\mid D_i=1]
+</span></p>
+<p>のような <strong>潜在アウトカムで定義された量</strong> である。</p>
+<p>しかし、このままでは <span class="math inline">Y_i(0)</span> の反実仮想が含まれているので、そのままでは観測データから計算できない。</p>
+<p>そこで、何らかの仮定を使って、このパラメータを <strong>観測可能な量だけで書き直す</strong> 必要がある。</p>
+<p>これが因果推論の文脈で言われる<strong>識別</strong>である。</p>
+<p>たとえば、もし</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=1] = E[Y_i(0)\mid D_i=0]
+</span></p>
+<p>が成り立つなら、</p>
+<p><span class="math display">
+ATT
+=
+E[Y_i(1)\mid D_i=1] - E[Y_i(0)\mid D_i=0]
+</span></p>
+<p>となる。</p>
+<p>さらに観測データでは</p>
+<p><span class="math display">
+E[Y_i(1)\mid D_i=1] = E[Y_i\mid D_i=1]
+</span></p>
+<p>および</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=0] = E[Y_i\mid D_i=0]
+</span></p>
+<p>だから、</p>
+<p><span class="math display">
+ATT
+=
+E[Y_i\mid D_i=1] - E[Y_i\mid D_i=0]
+</span></p>
+<p>と書ける。</p>
+<p>このとき初めて、観測データの平均差が因果効果を表す。</p>
+<p>つまり、識別とは</p>
+<blockquote class="blockquote">
+<p><strong>見えない反実仮想を、仮定を使って見える量に置き換えること</strong></p>
+</blockquote>
+<p>である。</p>
+<p>そして、</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=1] = E[Y_i(0)\mid D_i=0]
+</span></p>
+<p>これは</p>
+<blockquote class="blockquote">
+<p>処置<span class="math inline">D_i</span>が処置されない時の結果と平均的には関係がない</p>
+</blockquote>
+<p>ということを意味している。このような状況を<strong>ランダムアサインメント</strong>と呼ぶ。</p>
+<p>お気づきの通り、これは我々が今まで<strong>実験</strong>と読んできた状況である。このような実験を<strong>Randomized Controlled Trial (RCT)</strong>と呼ぶ。</p>
+<p><strong>「RCTができるなら、回帰すればいい。」</strong>というこの講義の最初から言い続けてきたことがここでも表れている。</p>
+<p>そして同時に、<strong>「実験ができない時は識別戦略を慎重に考えなくてはならない」</strong>という、これまた今まで言い続けてきたことがここでも成り立っている。</p>
+</section>
+<section id="回帰は何をしているのか" class="level2">
+<h2 class="anchored" data-anchor-id="回帰は何をしているのか">回帰は何をしているのか</h2>
+<p>この観点から見ると、回帰分析の役割もはっきりする。</p>
+<p>回帰は、たとえば</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 D_i + X_i'\gamma + u_i
+</span></p>
+<p>のような形で、処置変数 <span class="math inline">D_i</span> と他の変数 <span class="math inline">X_i</span> を同時に入れて推定する。</p>
+<p>ここで <span class="math inline">X_i</span> は年齢、教育、地域、性別などのコントロール変数である。</p>
+<p>このとき <span class="math inline">\beta_1</span> を因果効果として読みたければ、</p>
+<blockquote class="blockquote">
+<p><span class="math inline">X_i</span> を一定にしたとき、処置の有無は潜在アウトカムと独立である</p>
+</blockquote>
+<p>というような仮定が必要になる。</p>
+<p>つまり、回帰そのものが因果効果を自動的に生み出すわけではない。<br>
+<strong>回帰は、識別仮定のもとで因果パラメータを推定するための道具</strong> である。</p>
+<p>この意味で、</p>
+<ul>
+<li>どんな回帰式を書くか</li>
+<li>その係数を何として解釈するか</li>
+<li>その解釈にどんな仮定が必要か</li>
+</ul>
+<p>は必ずセットで考えなければならない。</p>
+</section>
+<section id="今後の講義で何をするのか" class="level2">
+<h2 class="anchored" data-anchor-id="今後の講義で何をするのか">今後の講義で何をするのか</h2>
+<p>今後の講義では、因果推論の代表的な作戦として</p>
+<ul>
+<li>Difference-in-Differencess</li>
+<li>Fixed Effect Model</li>
+<li>Instrumental Variables</li>
+<li>Regression Discontinuity</li>
+</ul>
+<p>などを学んでいく。</p>
+<p>これらはすべて、違う見た目をしているようでいて、本質的には同じことをしている。</p>
+<p>つまり、</p>
+<ol type="1">
+<li>まず潜在アウトカムで知りたい因果パラメータを定義する<br>
+</li>
+<li>そのままでは観測できない反実仮想がどこにあるかを確認する<br>
+</li>
+<li>ある仮定のもとで、そのパラメータを観測データで書ける形にする<br>
+</li>
+<li>最後に回帰や平均差などの統計量で推定する</li>
+</ol>
+<p>という流れである。</p>
+<p>因果推論を学ぶときに本当に重要なのは、テクニックの名前を覚えることではない。</p>
+<p><strong>何を知りたいのか。そのために、どの反実仮想を、どんな仮定で埋めているのか。</strong></p>
+<p>これを明確に言えるようになることが重要である。</p>
+</section>
+<section id="まとめ-3" class="level2">
+<h2 class="anchored" data-anchor-id="まとめ-3">まとめ</h2>
+<p>このセクションのポイントは次の通りである。</p>
+<ul>
+<li>因果推論で知りたいのは、処置があった世界となかった世界の差である</li>
+<li>その差は潜在アウトカム <span class="math display">
+Y_i(1),\;Y_i(0)
+</span> を使って書ける</li>
+<li>しかし各個体について両方を同時に観測することはできない</li>
+<li>そこで <span class="math display">
+ATE,\quad ATT
+</span> のような平均因果効果を定義する</li>
+<li>さらに、見えない反実仮想を観測可能な量で書けるようにすることが識別である</li>
+<li>回帰は、その識別仮定のもとでパラメータを推定するための道具である</li>
+</ul>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="lecture6_revised_files/libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Lecture 4：OLS の推論と回帰表の読み方</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="lecture4_revised_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture4_revised_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture4_revised_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture4_revised_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture4_revised_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture4_revised_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture4_revised_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture4_revised_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture4_revised_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture4_revised_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture4_revised_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture4_revised_files/libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<style>html{ scroll-behavior: smooth; }</style>
+<style>
+  body {
+    line-height: 1.8;
+  }
+  .lead {
+    font-size: 1.08rem;
+    color: #495057;
+    margin-bottom: 1.2rem;
+  }
+  h1, h2, h3 {
+    margin-top: 1.6rem;
+  }
+  .callout {
+    margin: 1.2rem 0;
+  }
+  table {
+    font-size: 0.96rem;
+  }
+  .small-muted {
+    color: #6c757d;
+    font-size: 0.95rem;
+  }
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+</style>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#仮説検定係数がゼロではないと言えるか" id="toc-仮説検定係数がゼロではないと言えるか" class="nav-link active" data-scroll-target="#仮説検定係数がゼロではないと言えるか">仮説検定：係数が「ゼロではない」と言えるか？</a>
+  <ul class="collapse">
+  <li><a href="#帰無仮説と対立仮説" id="toc-帰無仮説と対立仮説" class="nav-link" data-scroll-target="#帰無仮説と対立仮説">帰無仮説と対立仮説</a></li>
+  <li><a href="#t統計量推定値を標準化する" id="toc-t統計量推定値を標準化する" class="nav-link" data-scroll-target="#t統計量推定値を標準化する">t統計量：推定値を“標準化”する</a></li>
+  <li><a href="#p値の意味" id="toc-p値の意味" class="nav-link" data-scroll-target="#p値の意味">p値の意味</a></li>
+  <li><a href="#信頼区間効果のありそうな範囲を出す" id="toc-信頼区間効果のありそうな範囲を出す" class="nav-link" data-scroll-target="#信頼区間効果のありそうな範囲を出す">信頼区間：効果の“ありそうな範囲”を出す</a></li>
+  <li><a href="#シミュレーションで実感しよう" id="toc-シミュレーションで実感しよう" class="nav-link" data-scroll-target="#シミュレーションで実感しよう">シミュレーションで実感しよう</a>
+  <ul class="collapse">
+  <li><a href="#実験a帰無仮説が真のときt統計量はどう分布するか" id="toc-実験a帰無仮説が真のときt統計量はどう分布するか" class="nav-link" data-scroll-target="#実験a帰無仮説が真のときt統計量はどう分布するか">実験A：帰無仮説が真のとき、t統計量はどう分布するか？</a></li>
+  <li><a href="#実験b95信頼区間は本当に95の確率で真値を含むか" id="toc-実験b95信頼区間は本当に95の確率で真値を含むか" class="nav-link" data-scroll-target="#実験b95信頼区間は本当に95の確率で真値を含むか">実験B：95%信頼区間は本当に95%の確率で真値を含むか？</a></li>
+  <li><a href="#実験cサンプルサイズ-n-を変えると推論はどう変わるか" id="toc-実験cサンプルサイズ-n-を変えると推論はどう変わるか" class="nav-link" data-scroll-target="#実験cサンプルサイズ-n-を変えると推論はどう変わるか">実験C：サンプルサイズ <span class="math inline">n</span> を変えると、推論はどう変わるか？</a></li>
+  <li><a href="#実験dノイズ-sigma-が大きいと推論はどう変わるか" id="toc-実験dノイズ-sigma-が大きいと推論はどう変わるか" class="nav-link" data-scroll-target="#実験dノイズ-sigma-が大きいと推論はどう変わるか">実験D：ノイズ <span class="math inline">\sigma</span> が大きいと、推論はどう変わるか？</a></li>
+  </ul></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ">まとめ</a></li>
+  </ul></li>
+  <li><a href="#robust-inference" id="toc-robust-inference" class="nav-link" data-scroll-target="#robust-inference">Robust Inference</a>
+  <ul class="collapse">
+  <li><a href="#何が壊れるのか" id="toc-何が壊れるのか" class="nav-link" data-scroll-target="#何が壊れるのか">何が壊れるのか</a></li>
+  <li><a href="#同分散が崩れるとはどういうことか" id="toc-同分散が崩れるとはどういうことか" class="nav-link" data-scroll-target="#同分散が崩れるとはどういうことか">同分散が崩れるとはどういうことか</a></li>
+  <li><a href="#相関なしが崩れるとはどういうことか" id="toc-相関なしが崩れるとはどういうことか" class="nav-link" data-scroll-target="#相関なしが崩れるとはどういうことか">相関なしが崩れるとはどういうことか</a></li>
+  <li><a href="#robust-standard-error-の考え方" id="toc-robust-standard-error-の考え方" class="nav-link" data-scroll-target="#robust-standard-error-の考え方">Robust standard error の考え方</a></li>
+  <li><a href="#robust-な-t-統計量" id="toc-robust-な-t-統計量" class="nav-link" data-scroll-target="#robust-な-t-統計量">robust な t 統計量</a></li>
+  <li><a href="#実務上どう考えるべきか" id="toc-実務上どう考えるべきか" class="nav-link" data-scroll-target="#実務上どう考えるべきか">実務上どう考えるべきか</a></li>
+  <li><a href="#ただしrobust-なら何でも解決するわけではない" id="toc-ただしrobust-なら何でも解決するわけではない" class="nav-link" data-scroll-target="#ただしrobust-なら何でも解決するわけではない">ただし、robust なら何でも解決するわけではない</a></li>
+  <li><a href="#単回帰での-robust-standard-error-を実際に計算" id="toc-単回帰での-robust-standard-error-を実際に計算" class="nav-link" data-scroll-target="#単回帰での-robust-standard-error-を実際に計算">単回帰での robust standard error を実際に計算</a>
+  <ul class="collapse">
+  <li><a href="#同分散のとき" id="toc-同分散のとき" class="nav-link" data-scroll-target="#同分散のとき">同分散のとき</a></li>
+  <li><a href="#異分散のとき" id="toc-異分散のとき" class="nav-link" data-scroll-target="#異分散のとき">異分散のとき</a></li>
+  <li><a href="#ではどう推定するのか" id="toc-ではどう推定するのか" class="nav-link" data-scroll-target="#ではどう推定するのか">ではどう推定するのか</a></li>
+  </ul></li>
+  <li><a href="#robust-t-統計量" id="toc-robust-t-統計量" class="nav-link" data-scroll-target="#robust-t-統計量">robust t 統計量</a></li>
+  <li><a href="#実験e異分散があるとき通常の標準誤差と-robust-standard-error-はどう違うか" id="toc-実験e異分散があるとき通常の標準誤差と-robust-standard-error-はどう違うか" class="nav-link" data-scroll-target="#実験e異分散があるとき通常の標準誤差と-robust-standard-error-はどう違うか">実験E：異分散があるとき、通常の標準誤差と robust standard error はどう違うか？</a>
+  <ul class="collapse">
+  <li><a href="#標準誤差の分布を比べる" id="toc-標準誤差の分布を比べる" class="nav-link" data-scroll-target="#標準誤差の分布を比べる">標準誤差の分布を比べる</a></li>
+  <li><a href="#t統計量の分布を比べる" id="toc-t統計量の分布を比べる" class="nav-link" data-scroll-target="#t統計量の分布を比べる">t統計量の分布を比べる</a></li>
+  <li><a href="#帰無仮説が真のときのサイズを比べる" id="toc-帰無仮説が真のときのサイズを比べる" class="nav-link" data-scroll-target="#帰無仮説が真のときのサイズを比べる">帰無仮説が真のときのサイズを比べる</a></li>
+  <li><a href="#この実験から何を学ぶか" id="toc-この実験から何を学ぶか" class="nav-link" data-scroll-target="#この実験から何を学ぶか">この実験から何を学ぶか</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#回帰表の読み方" id="toc-回帰表の読み方" class="nav-link" data-scroll-target="#回帰表の読み方">回帰表の読み方</a>
+  <ul class="collapse">
+  <li><a href="#具体例" id="toc-具体例" class="nav-link" data-scroll-target="#具体例">具体例</a></li>
+  </ul></li>
+  <li><a href="#宿題" id="toc-宿題" class="nav-link" data-scroll-target="#宿題">宿題</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Lecture 4：OLS の推論と回帰表の読み方</h1>
+<p class="subtitle lead">仮説検定・信頼区間・robust inference</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-simple callout-important callout-titled" title="この講義で押さえたいこと">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>この講義で押さえたいこと
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>t 統計量・p 値・信頼区間</strong>は、係数の不確実性を読むための道具である。</li>
+<li>標準誤差が変われば、<strong>同じ係数推定値でも結論が変わりうる</strong>。</li>
+<li><strong>robust standard error</strong> は、係数を変えるのではなく、推論のしかたを調整する。</li>
+</ul>
+</div>
+</div>
+<div class="lead">
+<p>今回は、OLS を使った推論を学ぶ。まずは古典的仮定の下で仮説検定と信頼区間を整理し、そのあとで robust inference を導入する。最後に、論文でよく見る回帰表の読み方までつなげる。</p>
+</div>
+<div class="callout callout-style-simple callout-note callout-titled" title="この lecture の流れ">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この lecture の流れ
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>仮説検定と信頼区間の考え方を、シミュレーションで直感的につかむ。<br>
+</li>
+<li>次に、同分散が崩れたときに <strong>何が壊れるのか</strong> を見る。<br>
+</li>
+<li>最後に、回帰表をどう読むかを具体例で確認する。</li>
+</ol>
+</div>
+</div>
+<section id="仮説検定係数がゼロではないと言えるか" class="level1">
+<h1>仮説検定：係数が「ゼロではない」と言えるか？</h1>
+<ul>
+<li><span class="math inline">E[u_i \mid x_i] = 0</span></li>
+<li><span class="math inline">\mathrm{Var}(u_i\mid x_i)=\sigma^2</span>（同分散）</li>
+<li><span class="math inline">\mathrm{Cov}(u_i,u_j\mid x)=0 \ (i\neq j)</span>（相関なし）</li>
+</ul>
+<p>を仮定する。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="まずはここから">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>まずはここから
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>この節では、まず <strong>外生性・同分散・誤差の無相関</strong> が成り立つ標準的な世界から話を始める。<br>
+robust inference は、このうち後ろ2つが崩れたときの修正だと考えると位置づけやすい。</p>
+</div>
+</div>
+<p>単回帰で</p>
+<p><span class="math display">
+y_i=\beta_0+\beta_1 x_i+u_i
+</span></p>
+<p>を推定し、係数の推定値 <span class="math inline">\hat\beta_1</span> が得られたとする。</p>
+<p>ここで一番よくやる問いはこれだ：</p>
+<blockquote class="blockquote">
+<p><strong><span class="math inline">x</span> の効果は本当にあるのか？</strong><br>
+つまり、真の係数 <span class="math inline">\beta_1</span> はゼロではないと言えるのか？</p>
+</blockquote>
+<p>これを統計的に言い換えると、<strong>仮説検定</strong>になる。</p>
+<section id="帰無仮説と対立仮説" class="level2">
+<h2 class="anchored" data-anchor-id="帰無仮説と対立仮説">帰無仮説と対立仮説</h2>
+<p>典型的には<strong>両側検定</strong>といい、次を検定する</p>
+<ul>
+<li>帰無仮説（効果なし）：<span class="math display">H_0:\beta_1=0</span></li>
+<li>対立仮説（効果あり）：<span class="math display">H_1:\beta_1\neq 0</span></li>
+</ul>
+<p>「効果が正だと主張したい」など方向がある場合は<strong>片側検定</strong></p>
+<ul>
+<li><span class="math display">H_1:\beta_1&gt;0</span></li>
+</ul>
+<p>も使う。</p>
+</section>
+<section id="t統計量推定値を標準化する" class="level2">
+<h2 class="anchored" data-anchor-id="t統計量推定値を標準化する">t統計量：推定値を“標準化”する</h2>
+<p>推定値 <span class="math inline">\hat\beta_1</span> はサンプルによってブレる。そのブレの大きさを標準誤差で表す：</p>
+<p><span class="math display">
+\mathrm{se}(\hat\beta_1)
+=\sqrt{\widehat{\mathrm{Var}}(\hat\beta_1)}.
+</span></p>
+<p>この標準誤差はOLSのケースでは簡単に計算できることは前回見た。</p>
+<p>そこで、推定値が「ゼロから何標準誤差ぶん離れているか」を測るために</p>
+<p><span class="math display">
+t
+=\frac{\hat\beta_1-0}{\mathrm{se}(\hat\beta_1)}
+</span></p>
+<p>を作る。これが <strong>t統計量</strong> である。</p>
+<p>直感はシンプルで、</p>
+<ul>
+<li><span class="math inline">|t|</span> が大きいほど、「偶然でこうなった」とは言いにくい<br>
+</li>
+<li><span class="math inline">|t|</span> が小さいほど、「たまたまこう見えただけかも」が残る</li>
+</ul>
+<p>となる。</p>
+<div class="callout callout-style-simple callout-tip callout-titled" title="p 値の読み違いに注意">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>p 値の読み違いに注意
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>p 値は、<strong>「帰無仮説が正しい確率」</strong>ではない。<br>
+あくまで、<strong>帰無仮説の下で今みたいな結果がどれくらい珍しいか</strong> を表している。</p>
+</div>
+</div>
+</section>
+<section id="p値の意味" class="level2">
+<h2 class="anchored" data-anchor-id="p値の意味">p値の意味</h2>
+<p>p値とは、帰無仮説 <span class="math inline">H_0</span> が正しいと仮定したときに、</p>
+<blockquote class="blockquote">
+<p><strong>今観測された <span class="math inline">t</span> 統計量と同じくらい（またはそれ以上に）極端な値が出る確率</strong></p>
+</blockquote>
+<p>のこと。</p>
+<ul>
+<li>p値が小さい<br>
+→ 「<span class="math inline">H_0</span> が正しいなら、こんな結果は起きにくい」<br>
+→ <span class="math inline">H_0</span> を棄却しやすい</li>
+<li>p値が大きい<br>
+→ 「<span class="math inline">H_0</span> が正しくても、これくらいは起きそう」<br>
+→ <span class="math inline">H_0</span> を棄却しにくい</li>
+</ul>
+<p><strong>注意</strong>：p値は「<span class="math inline">H_0</span> が正しい確率」ではない。</p>
+</section>
+<section id="信頼区間効果のありそうな範囲を出す" class="level2">
+<h2 class="anchored" data-anchor-id="信頼区間効果のありそうな範囲を出す">信頼区間：効果の“ありそうな範囲”を出す</h2>
+<p>検定は0か1かの判断になりやすいので、実務では信頼区間が重要になる。</p>
+<p>95%信頼区間は</p>
+<p><span class="math display">
+\hat\beta_1 \pm t_{0.975,\;n-2}\cdot \mathrm{se}(\hat\beta_1)
+</span></p>
+<p>で与えられる。</p>
+<p>読み方は：</p>
+<blockquote class="blockquote">
+<p>「同じ手順で何度もサンプルを取り直してこの区間を作ると、95%の割合で真の <span class="math inline">\beta_1</span> を含む」</p>
+</blockquote>
+</section>
+<section id="シミュレーションで実感しよう" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションで実感しよう">シミュレーションで実感しよう</h2>
+<p>ここでは、OLSの推論をRでのシミュレーションで目に見える形にする。 やることはシンプルで、次のデータ生成過程（DGP）を何度も繰り返す：</p>
+<p><span class="math display">
+y_i=\beta_0+\beta_1 x_i + u_i,\qquad
+x_i\sim N(0,1),\quad u_i\sim N(0,\sigma^2),\quad x_i\perp u_i.
+</span></p>
+<section id="実験a帰無仮説が真のときt統計量はどう分布するか" class="level3">
+<h3 class="anchored" data-anchor-id="実験a帰無仮説が真のときt統計量はどう分布するか">実験A：帰無仮説が真のとき、t統計量はどう分布するか？</h3>
+<p>帰無仮説 <span class="math inline">H_0:\beta_1=0</span> が本当に正しい世界で、サンプルを何度も取り直してOLSを回す。<br>
+そのたびに t統計量</p>
+<p><span class="math display">
+t=\frac{\hat\beta_1-0}{\mathrm{se}(\hat\beta_1)}
+</span></p>
+<p>を計算し、ヒストグラムにする。</p>
+<p>さらに、両側5%検定の臨界値 <span class="math inline">\pm t_{0.975,\;n-2}</span> で線を引き、 「帰無仮説が本当でも、5%くらいは棄却される」という現象を確認する。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">7</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- settings ----</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>R     <span class="ot">&lt;-</span> <span class="dv">5000</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>n     <span class="ot">&lt;-</span> <span class="dv">50</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>beta0 <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>beta1 <span class="ot">&lt;-</span> <span class="dv">0</span>     <span class="co"># H0 true</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>sigma <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- simulate t-stats ----</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>tvals <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R) {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> sigma)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  tvals[r] <span class="ot">&lt;-</span> <span class="fu">summary</span>(fit)<span class="sc">$</span>coefficients[<span class="st">"x"</span>, <span class="st">"t value"</span>]</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>df   <span class="ot">&lt;-</span> n <span class="sc">-</span> <span class="dv">2</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>crit <span class="ot">&lt;-</span> <span class="fu">qt</span>(<span class="fl">0.975</span>, df)</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(tvals, <span class="at">breaks =</span> <span class="dv">60</span>,</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"t-stat under H0: beta1=0 (n="</span>, n, <span class="st">", R="</span>, R, <span class="st">")</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>                   <span class="st">"critical values ±t(0.975, df="</span>, df, <span class="st">") ≈ ±"</span>, <span class="fu">round</span>(crit, <span class="dv">2</span>)),</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"t-statistic"</span>)</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="fu">c</span>(<span class="sc">-</span>crit, crit), <span class="at">lty =</span> <span class="dv">2</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture4_revised_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># rejection rate</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>rej_rate <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(tvals) <span class="sc">&gt;</span> crit)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>rej_rate</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.0514</code></pre>
+</div>
+</div>
+<p>上の <code>rej_rate</code> が、両側5%検定の棄却率（シミュレーション平均）である。 帰無仮説が真なら、これは理論上おおむね 0.05 になる。</p>
+</section>
+<section id="実験b95信頼区間は本当に95の確率で真値を含むか" class="level3">
+<h3 class="anchored" data-anchor-id="実験b95信頼区間は本当に95の確率で真値を含むか">実験B：95%信頼区間は本当に95%の確率で真値を含むか？</h3>
+<p>次に、<span class="math inline">\beta_1</span> がゼロではない世界（例：<span class="math inline">\beta_1=2</span>）で、95%信頼区間</p>
+<p><span class="math display">
+\hat\beta_1 \pm t_{0.975,\;n-2}\cdot \mathrm{se}(\hat\beta_1)
+</span></p>
+<p>を毎回作り、「真の <span class="math inline">\beta_1</span> を含む割合（coverage）」を数える。 これがだいたい 0.95 になるのが、信頼区間の基本的な性質である。</p>
+<p>さらに、信頼区間をたくさん並べて描くと、「含む／含まない」が視覚的に分かる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">11</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>R     <span class="ot">&lt;-</span> <span class="dv">2000</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>n     <span class="ot">&lt;-</span> <span class="dv">50</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>beta0 <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>beta1 <span class="ot">&lt;-</span> <span class="dv">2</span>     <span class="co"># true effect</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>sigma <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>df   <span class="ot">&lt;-</span> n <span class="sc">-</span> <span class="dv">2</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>crit <span class="ot">&lt;-</span> <span class="fu">qt</span>(<span class="fl">0.975</span>, df)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>b1hat <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>se1   <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>lo    <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>hi    <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>cover <span class="ot">&lt;-</span> <span class="fu">logical</span>(R)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R) {</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> sigma)</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  summ <span class="ot">&lt;-</span> <span class="fu">summary</span>(fit)<span class="sc">$</span>coefficients</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  b1hat[r] <span class="ot">&lt;-</span> summ[<span class="st">"x"</span>, <span class="st">"Estimate"</span>]</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  se1[r]   <span class="ot">&lt;-</span> summ[<span class="st">"x"</span>, <span class="st">"Std. Error"</span>]</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  lo[r]    <span class="ot">&lt;-</span> b1hat[r] <span class="sc">-</span> crit <span class="sc">*</span> se1[r]</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>  hi[r]    <span class="ot">&lt;-</span> b1hat[r] <span class="sc">+</span> crit <span class="sc">*</span> se1[r]</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  cover[r] <span class="ot">&lt;-</span> (lo[r] <span class="sc">&lt;=</span> beta1) <span class="sc">&amp;</span> (beta1 <span class="sc">&lt;=</span> hi[r])</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>coverage_rate <span class="ot">&lt;-</span> <span class="fu">mean</span>(cover)</span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>coverage_rate</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.962</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualize first m confidence intervals as horizontal segments</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">120</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="cn">NULL</span>, <span class="at">xlim =</span> <span class="fu">range</span>(<span class="fu">c</span>(lo[<span class="dv">1</span><span class="sc">:</span>m], hi[<span class="dv">1</span><span class="sc">:</span>m], beta1)),</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">1</span>, m),</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="fu">expression</span>(beta[<span class="dv">1</span>]),</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="st">"simulation draw (index)"</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"95% confidence intervals (first "</span>, m, <span class="st">" of R="</span>, R, <span class="st">"), n="</span>, n,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>                   <span class="st">"</span><span class="sc">\n</span><span class="st">vertical line = true beta1 = "</span>, beta1))</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> beta1, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>m) {</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">segments</span>(lo[j], j, hi[j], j)</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture4_revised_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="実験cサンプルサイズ-n-を変えると推論はどう変わるか" class="level3">
+<h3 class="anchored" data-anchor-id="実験cサンプルサイズ-n-を変えると推論はどう変わるか">実験C：サンプルサイズ <span class="math inline">n</span> を変えると、推論はどう変わるか？</h3>
+<p>直感は：</p>
+<ul>
+<li><span class="math inline">n</span> が大きいほど標準誤差が小さくなる</li>
+<li>その結果、信頼区間が狭くなり、同じ効果でも「検出」しやすくなる</li>
+</ul>
+<p>ここでは <span class="math inline">n=30</span> と <span class="math inline">n=300</span> を比べ、<span class="math inline">\hat\beta_1</span> と t統計量のばらつきを見てみる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>simulate_summary <span class="ot">&lt;-</span> <span class="cf">function</span>(R, n, beta0, beta1, sigma, seed) {</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set.seed</span>(seed)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  b1hat <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  se1   <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  tval  <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R) {</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> sigma)</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    summ <span class="ot">&lt;-</span> <span class="fu">summary</span>(fit)<span class="sc">$</span>coefficients</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    b1hat[r] <span class="ot">&lt;-</span> summ[<span class="st">"x"</span>, <span class="st">"Estimate"</span>]</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    se1[r]   <span class="ot">&lt;-</span> summ[<span class="st">"x"</span>, <span class="st">"Std. Error"</span>]</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    tval[r]  <span class="ot">&lt;-</span> summ[<span class="st">"x"</span>, <span class="st">"t value"</span>]</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">b1hat =</span> b1hat, <span class="at">se =</span> se1, <span class="at">t =</span> tval)</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>R     <span class="ot">&lt;-</span> <span class="dv">4000</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>beta0 <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>beta1 <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>sigma <span class="ot">&lt;-</span> <span class="dv">2</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>out30  <span class="ot">&lt;-</span> <span class="fu">simulate_summary</span>(R, <span class="dv">30</span>,  beta0, beta1, sigma, <span class="at">seed =</span> <span class="dv">21</span>)</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>out300 <span class="ot">&lt;-</span> <span class="fu">simulate_summary</span>(R, <span class="dv">300</span>, beta0, beta1, sigma, <span class="at">seed =</span> <span class="dv">22</span>)</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>old_par <span class="ot">&lt;-</span> <span class="fu">par</span>(<span class="at">no.readonly =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>))</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. beta1_hat のヒストグラムを重ねる</span></span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>breaks_b1 <span class="ot">&lt;-</span> <span class="fu">seq</span>(</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">min</span>(<span class="fu">c</span>(out30<span class="sc">$</span>b1hat, out300<span class="sc">$</span>b1hat)),</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">max</span>(<span class="fu">c</span>(out30<span class="sc">$</span>b1hat, out300<span class="sc">$</span>b1hat)),</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">length.out =</span> <span class="dv">50</span></span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(out30<span class="sc">$</span>b1hat,</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>     <span class="at">breaks =</span> breaks_b1,</span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>     <span class="at">freq =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>),</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="fu">expression</span>(<span class="st">"Distribution of "</span> <span class="sc">*</span> <span class="fu">hat</span>(beta)[<span class="dv">1</span>]),</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="fu">expression</span>(<span class="fu">hat</span>(beta)[<span class="dv">1</span>]),</span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlim =</span> <span class="fu">range</span>(breaks_b1))</span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(out300<span class="sc">$</span>b1hat,</span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>     <span class="at">breaks =</span> breaks_b1,</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>     <span class="at">freq =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>),</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>     <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> beta1, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topright"</span>,</span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"n = 30"</span>, <span class="st">"n = 300"</span>, <span class="st">"true beta1"</span>),</span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a>       <span class="at">fill =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>), <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>), <span class="cn">NA</span>),</span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="fu">c</span>(<span class="st">"white"</span>, <span class="st">"white"</span>, <span class="cn">NA</span>),</span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a>       <span class="at">lty =</span> <span class="fu">c</span>(<span class="cn">NA</span>, <span class="cn">NA</span>, <span class="dv">2</span>),</span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a>       <span class="at">lwd =</span> <span class="fu">c</span>(<span class="cn">NA</span>, <span class="cn">NA</span>, <span class="dv">2</span>),</span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. t-stat のヒストグラムを重ねる</span></span>
+<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a>breaks_t <span class="ot">&lt;-</span> <span class="fu">seq</span>(</span>
+<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a>  <span class="fu">min</span>(<span class="fu">c</span>(out30<span class="sc">$</span>t, out300<span class="sc">$</span>t)),</span>
+<span id="cb7-72"><a href="#cb7-72" aria-hidden="true" tabindex="-1"></a>  <span class="fu">max</span>(<span class="fu">c</span>(out30<span class="sc">$</span>t, out300<span class="sc">$</span>t)),</span>
+<span id="cb7-73"><a href="#cb7-73" aria-hidden="true" tabindex="-1"></a>  <span class="at">length.out =</span> <span class="dv">50</span></span>
+<span id="cb7-74"><a href="#cb7-74" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-75"><a href="#cb7-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-76"><a href="#cb7-76" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(out30<span class="sc">$</span>t,</span>
+<span id="cb7-77"><a href="#cb7-77" aria-hidden="true" tabindex="-1"></a>     <span class="at">breaks =</span> breaks_t,</span>
+<span id="cb7-78"><a href="#cb7-78" aria-hidden="true" tabindex="-1"></a>     <span class="at">freq =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb7-79"><a href="#cb7-79" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>),</span>
+<span id="cb7-80"><a href="#cb7-80" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb7-81"><a href="#cb7-81" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Distribution of t-statistic"</span>,</span>
+<span id="cb7-82"><a href="#cb7-82" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"t-statistic"</span>,</span>
+<span id="cb7-83"><a href="#cb7-83" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlim =</span> <span class="fu">range</span>(breaks_t))</span>
+<span id="cb7-84"><a href="#cb7-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-85"><a href="#cb7-85" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(out300<span class="sc">$</span>t,</span>
+<span id="cb7-86"><a href="#cb7-86" aria-hidden="true" tabindex="-1"></a>     <span class="at">breaks =</span> breaks_t,</span>
+<span id="cb7-87"><a href="#cb7-87" aria-hidden="true" tabindex="-1"></a>     <span class="at">freq =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb7-88"><a href="#cb7-88" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>),</span>
+<span id="cb7-89"><a href="#cb7-89" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb7-90"><a href="#cb7-90" aria-hidden="true" tabindex="-1"></a>     <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb7-91"><a href="#cb7-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-92"><a href="#cb7-92" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topright"</span>,</span>
+<span id="cb7-93"><a href="#cb7-93" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"n = 30"</span>, <span class="st">"n = 300"</span>),</span>
+<span id="cb7-94"><a href="#cb7-94" aria-hidden="true" tabindex="-1"></a>       <span class="at">fill =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>), <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>)),</span>
+<span id="cb7-95"><a href="#cb7-95" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb7-96"><a href="#cb7-96" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture4_revised_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(old_par)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">c</span>(<span class="fu">mean</span>(out30<span class="sc">$</span>se), <span class="fu">mean</span>(out300<span class="sc">$</span>se))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.3779124 0.1158108</code></pre>
+</div>
+</div>
+<p><span class="math inline">n</span> を増やすと何が起きているのか？</p>
+<p>このコードは、同じ真のモデル（<span class="math inline">\beta_1=0.5</span>、ノイズの大きさ <span class="math inline">\sigma=2</span>）のもとで、</p>
+<ul>
+<li>サンプルサイズが小さい場合（<span class="math inline">n=30</span>）</li>
+<li>サンプルサイズが大きい場合（<span class="math inline">n=300</span>）</li>
+</ul>
+<p>を比べている。</p>
+<hr>
+<section id="hatbeta_1-のヒストグラム推定値のブレが小さくなる" class="level4">
+<h4 class="anchored" data-anchor-id="hatbeta_1-のヒストグラム推定値のブレが小さくなる">1) <span class="math inline">\hat\beta_1</span> のヒストグラム：推定値のブレが小さくなる</h4>
+<p><code>hist(out30$b1hat)</code> と <code>hist(out300$b1hat)</code> を比べると、</p>
+<ul>
+<li><span class="math inline">n=30</span>：<span class="math inline">\hat\beta_1</span> がかなり広い範囲に散らばる（ブレが大きい）</li>
+<li><span class="math inline">n=300</span>：<span class="math inline">\hat\beta_1</span> が真の値 <span class="math inline">0.5</span> の近くに集中する（ブレが小さい）</li>
+</ul>
+<p>となるはずである。</p>
+<p>これは「サンプルが増えると平均を取る力が強くなり、ノイズの影響が相殺されやすくなる」ためで、<br>
+推定の精度が上がっている（= 一致性のイメージ）と考えてよい。</p>
+<hr>
+</section>
+<section id="標準誤差平均すると小さくなる" class="level4">
+<h4 class="anchored" data-anchor-id="標準誤差平均すると小さくなる">2) 標準誤差：平均すると小さくなる</h4>
+<p>最後の行 <code>c(mean(out30$se), mean(out300$se))</code> は、</p>
+<ul>
+<li><span class="math inline">n=30</span> のときの平均標準誤差</li>
+<li><span class="math inline">n=300</span> のときの平均標準誤差</li>
+</ul>
+<p>を返す。ここでは</p>
+<blockquote class="blockquote">
+<p><strong><span class="math inline">n=300</span> のほうが標準誤差が明らかに小さい</strong></p>
+</blockquote>
+<p>はずである。</p>
+<p>直感は、単回帰の標準誤差の公式 <span class="math display">
+\mathrm{se}(\hat\beta_1)=\sqrt{\frac{\hat\sigma^2}{\sum_{i=1}^n (x_i-\bar x)^2}}
+</span> から分かる：</p>
+<ul>
+<li>分母の <span class="math inline">\sum (x_i-\bar x)^2</span> は、だいたい <span class="math inline">n</span> に比例して大きくなる<br>
+→ だから標準誤差はだいたい <strong><span class="math inline">1/\sqrt{n}</span></strong> のオーダーで小さくなる</li>
+</ul>
+<hr>
+</section>
+<section id="t統計量のヒストグラムn-が大きいほど検出しやすい" class="level4">
+<h4 class="anchored" data-anchor-id="t統計量のヒストグラムn-が大きいほど検出しやすい">3) t統計量のヒストグラム：<span class="math inline">n</span> が大きいほど「検出しやすい」</h4>
+<p><code>t = \hat\beta_1 / \mathrm{se}(\hat\beta_1)</code> なので、</p>
+<ul>
+<li><span class="math inline">\hat\beta_1</span> が真値 <span class="math inline">0.5</span> 周りに集まる（分子が安定）</li>
+<li>標準誤差が小さくなる（分母が小さくなる）</li>
+</ul>
+<p>という2つが同時に起きると、結果として</p>
+<blockquote class="blockquote">
+<p><strong>t統計量の絶対値 <span class="math inline">|t|</span> が大きくなりやすい</strong></p>
+</blockquote>
+<p>つまり、同じ真の効果 <span class="math inline">\beta_1=0.5</span> があったとしても、</p>
+<ul>
+<li><span class="math inline">n=30</span> だと「たまたま」と区別しにくいことが多い（有意になりにくい）</li>
+<li><span class="math inline">n=300</span> だと「偶然では説明しにくい」結果が出やすい（有意になりやすい）</li>
+</ul>
+<p>という違いが生まれる。</p>
+<p>この実験が示しているのは次の一文に尽きる：</p>
+<blockquote class="blockquote">
+<p><strong>データが増えると、推定値のブレが小さくなり（標準誤差↓）、同じ効果でも検出しやすくなる（|t|↑）。</strong></p>
+</blockquote>
+<p>逆に言えば、</p>
+<blockquote class="blockquote">
+<p><strong>「有意じゃない」ことは、必ずしも「効果がゼロ」を意味しない。</strong><br>
+サンプルが小さくて検出力（power）が低いだけ、という場合も普通にある。</p>
+</blockquote>
+<p>この点は、回帰表を読むときに一番大事な注意点のひとつである。</p>
+</section>
+</section>
+<section id="実験dノイズ-sigma-が大きいと推論はどう変わるか" class="level3">
+<h3 class="anchored" data-anchor-id="実験dノイズ-sigma-が大きいと推論はどう変わるか">実験D：ノイズ <span class="math inline">\sigma</span> が大きいと、推論はどう変わるか？</h3>
+<p>同じ <span class="math inline">n</span> と同じ真の効果 <span class="math inline">\beta_1</span> でも、ノイズ（誤差の大きさ）<span class="math inline">\sigma</span> が大きいほど標準誤差が大きくなる。 その結果、信頼区間は広がり、t統計量は小さくなりやすい（＝有意になりにくい）。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>R     <span class="ot">&lt;-</span> <span class="dv">4000</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>n     <span class="ot">&lt;-</span> <span class="dv">80</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>beta0 <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>beta1 <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>out_s1 <span class="ot">&lt;-</span> <span class="fu">simulate_summary</span>(R, n, beta0, beta1, <span class="at">sigma =</span> <span class="dv">1</span>, <span class="at">seed =</span> <span class="dv">31</span>)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>out_s5 <span class="ot">&lt;-</span> <span class="fu">simulate_summary</span>(R, n, beta0, beta1, <span class="at">sigma =</span> <span class="dv">5</span>, <span class="at">seed =</span> <span class="dv">32</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>breaks_t <span class="ot">&lt;-</span> <span class="fu">seq</span>(</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">min</span>(<span class="fu">c</span>(out_s1<span class="sc">$</span>t, out_s5<span class="sc">$</span>t)),</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">max</span>(<span class="fu">c</span>(out_s1<span class="sc">$</span>t, out_s5<span class="sc">$</span>t)),</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">length.out =</span> <span class="dv">50</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(out_s1<span class="sc">$</span>t,</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>     <span class="at">breaks =</span> breaks_t,</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>     <span class="at">freq =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>),</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Distribution of t-statistic"</span>,</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"t-statistic"</span>,</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlim =</span> <span class="fu">range</span>(breaks_t))</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(out_s5<span class="sc">$</span>t,</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>     <span class="at">breaks =</span> breaks_t,</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>     <span class="at">freq =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>),</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>     <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topright"</span>,</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="fu">expression</span>(sigma <span class="sc">==</span> <span class="dv">1</span>), <span class="fu">expression</span>(sigma <span class="sc">==</span> <span class="dv">5</span>)),</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>       <span class="at">fill =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>), <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>)),</span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture4_revised_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">c</span>(<span class="fu">mean</span>(out_s1<span class="sc">$</span>se), <span class="fu">mean</span>(out_s5<span class="sc">$</span>se))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.1131230 0.5659632</code></pre>
+</div>
+</div>
+<p>含意として、<strong>ノイズは小さい方がいい</strong>という当たり前のことが挙げられる。</p>
+<p>今は1変数のみを説明変数としているので、実際のデータでこのような1変数のOLSをやると、この一つの変数で捉えられない要因は全て<strong>ノイズ</strong>に押し込まれる。要するにノイズは大きくなりがちである。</p>
+<p>これを抑えるために多変量回帰、すなわち複数の説明変数を一気に入れる回帰分析が有効である。これは次回以降見ていく。</p>
+</section>
+</section>
+<section id="まとめ" class="level2">
+<h2 class="anchored" data-anchor-id="まとめ">まとめ</h2>
+<ul>
+<li>帰無仮説が正しいとき、t統計量は「だいたいt分布っぽく」振る舞う</li>
+<li>その結果、5%検定は本当にだいたい5%の確率で（偶然に）棄却してしまう</li>
+<li>95%信頼区間は、繰り返すとだいたい95%の頻度で真の値を含む</li>
+<li><span class="math inline">n</span> が増えると推定は精密になり（標準誤差↓）、信頼区間は狭くなる</li>
+<li>ノイズ <span class="math inline">\sigma</span> が増えると推定は粗くなり（標準誤差↑）、信頼区間は広くなる</li>
+</ul>
+<div class="callout callout-style-simple callout-warning callout-titled" title="ここから先で何が変わるのか">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">警告</span>ここから先で何が変わるのか
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>robust inference では <strong>係数推定値は変わらない</strong>。<br>
+変わるのは、標準誤差・t 値・p 値・信頼区間である。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="robust-inference" class="level1">
+<h1>Robust Inference</h1>
+<p>ここまでの推論では、冒頭で置いた</p>
+<ul>
+<li><span class="math inline">E[u_i \mid x_i] = 0</span></li>
+<li><span class="math inline">\mathrm{Var}(u_i\mid x_i)=\sigma^2</span>（同分散）</li>
+<li><span class="math inline">\mathrm{Cov}(u_i,u_j\mid x)=0 \ (i\neq j)</span>（相関なし）</li>
+</ul>
+<p>という3つの仮定を使っていた。</p>
+<p>このうち、いちばん上の</p>
+<p><span class="math display">
+E[u_i \mid x_i] = 0
+</span></p>
+<p>は、OLS が平均的に正しい係数を狙うための仮定であり、識別のために重要である。 これが崩れると、そもそも <span class="math inline">\hat\beta_1</span> が真の <span class="math inline">\beta_1</span> を狙わなくなる。</p>
+<p>一方で、下の2つ</p>
+<ul>
+<li>同分散</li>
+<li>誤差どうしの無相関</li>
+</ul>
+<p>は、<strong>OLS の推定値そのもの</strong>というより、<strong>標準誤差の計算</strong>に関わる仮定である。</p>
+<p>したがって、これらが崩れても、外生性さえ保たれていれば OLS の係数推定値 <span class="math inline">\hat\beta_1</span> 自体は依然として意味を持つことが多い。</p>
+<p>ただし、そのとき<strong>いつもの標準誤差はもう正しくない</strong>。</p>
+<p>つまり問題は</p>
+<blockquote class="blockquote">
+<p><strong>係数の推定値ではなく、その不確実性の測り方が変わる</strong></p>
+</blockquote>
+<p>ということである。</p>
+<section id="何が壊れるのか" class="level2">
+<h2 class="anchored" data-anchor-id="何が壊れるのか">何が壊れるのか</h2>
+<p>これまで単回帰では、標準誤差を</p>
+<p><span class="math display">
+\mathrm{se}(\hat\beta_1)=\sqrt{
+\frac{\hat\sigma^2}{\sum_{i=1}^n (x_i-\bar x)^2}
+}
+</span></p>
+<p>の形で計算していた。 ここで <span class="math inline">\hat\sigma^2</span> は残差平方和から作る誤差分散の推定量である。</p>
+<p>この公式は便利だが、</p>
+<ul>
+<li>各観測の誤差分散が同じ</li>
+<li>異なる観測の誤差が互いに相関しない</li>
+</ul>
+<p>という仮定の上に乗っている。</p>
+<p>したがって、もし現実には</p>
+<ul>
+<li>ある観測では誤差が大きく、別の観測では小さい</li>
+<li>同じグループに属する観測どうしの誤差が似ている</li>
+<li>時系列で前期のショックが今期にも残る</li>
+</ul>
+<p>といったことが起きているなら、上の公式で出した標準誤差はずれる。</p>
+<p>その結果、</p>
+<ul>
+<li>t統計量</li>
+<li>p値</li>
+<li>信頼区間</li>
+</ul>
+<p>もずれてしまう。</p>
+</section>
+<section id="同分散が崩れるとはどういうことか" class="level2">
+<h2 class="anchored" data-anchor-id="同分散が崩れるとはどういうことか">同分散が崩れるとはどういうことか</h2>
+<p>同分散とは、</p>
+<p><span class="math display">
+\mathrm{Var}(u_i \mid x_i)=\sigma^2
+</span></p>
+<p>がすべての <span class="math inline">i</span> で同じ、という仮定である。</p>
+<p>これが崩れる状況は珍しくない。たとえば、</p>
+<ul>
+<li>所得が大きい人ほど結果のばらつきも大きい</li>
+<li>規模の大きい企業ほど成績の変動も大きい</li>
+<li>学力の高い層ほどテスト結果の散らばり方が違う</li>
+</ul>
+<p>といった状況では、誤差分散は観測によって違ってきそうである。</p>
+<p>このように</p>
+<p><span class="math display">
+\mathrm{Var}(u_i \mid x_i)
+</span></p>
+<p>が <span class="math inline">i</span> ごとに異なる状況を、<strong>heteroskedasticity</strong>という。日本語はよくわからないので異分散と呼ぶ。</p>
+<p>異分散があると、OLS の係数推定値はそのままでも、通常の標準誤差は信用できなくなる。</p>
+</section>
+<section id="相関なしが崩れるとはどういうことか" class="level2">
+<h2 class="anchored" data-anchor-id="相関なしが崩れるとはどういうことか">相関なしが崩れるとはどういうことか</h2>
+<p>次に、</p>
+<p><span class="math display">
+\mathrm{Cov}(u_i,u_j\mid x)=0 \qquad (i\neq j)
+</span></p>
+<p>という仮定が崩れる場合を考える。</p>
+<p>これも現実にはよく起こる。たとえば、</p>
+<ul>
+<li>同じ学校の生徒どうし</li>
+<li>同じ企業の従業員どうし</li>
+<li>同じ地域の観測どうし</li>
+<li>同じ個人を何期にもわたって追うパネルデータ</li>
+</ul>
+<p>では、誤差が互いに似ていることがある。</p>
+<p>この場合も、OLS の係数推定値そのものが即座にダメになるとは限らないが、通常の標準誤差は過小評価されやすい。 すると、本当はそれほど確かでない効果を「有意だ」と言ってしまう危険がある。</p>
+</section>
+<section id="robust-standard-error-の考え方" class="level2">
+<h2 class="anchored" data-anchor-id="robust-standard-error-の考え方">Robust standard error の考え方</h2>
+<p>そこで使うのが <strong>robust standard error</strong> である。 日本語では <strong>頑健標準誤差</strong> などと言う。</p>
+<p>考え方はシンプルで、</p>
+<blockquote class="blockquote">
+<p><strong>同分散を仮定しない形で、標準誤差を計算し直す</strong></p>
+</blockquote>
+<p>ということである。</p>
+<p>重要なのは、robust standard error を使っても</p>
+<ul>
+<li>OLS の係数推定値 <span class="math inline">\hat\beta_1</span></li>
+<li>回帰直線そのもの</li>
+</ul>
+<p>は変わらないという点だ。</p>
+<p>変わるのはあくまで</p>
+<ul>
+<li>標準誤差</li>
+<li>t統計量</li>
+<li>p値</li>
+<li>信頼区間</li>
+</ul>
+<p>である。</p>
+<p>つまり robust inference とは、</p>
+<blockquote class="blockquote">
+<p><strong>同じ回帰係数に対して、より現実的な不確実性評価を与える方法</strong></p>
+</blockquote>
+<p>だと理解すればよい。</p>
+</section>
+<section id="robust-な-t-統計量" class="level2">
+<h2 class="anchored" data-anchor-id="robust-な-t-統計量">robust な t 統計量</h2>
+<p>通常の t 統計量は</p>
+<p><span class="math display">
+t = \frac{\hat\beta_1-0}{\mathrm{se}(\hat\beta_1)}
+</span></p>
+<p>であった。</p>
+<p>robust inference でも形は同じで、分母の標準誤差を robust 版に置き換えるだけである：</p>
+<p><span class="math display">
+t_{\mathrm{robust}} = \frac{\hat\beta_1-0}{\mathrm{se}_{\mathrm{robust}}(\hat\beta_1)}.
+</span></p>
+<p>したがって、係数の推定値 <span class="math inline">\hat\beta_1</span> は同じでも、標準誤差の出し方が変われば t 値も変わる。</p>
+<p>よくあるのは、</p>
+<ul>
+<li>通常の標準誤差では有意</li>
+<li>robust standard error では有意でない</li>
+</ul>
+<p>というケースである。</p>
+<p>これは「係数が変わった」のではなく、 <strong>最初の推論が楽観的すぎた</strong>ということである。</p>
+</section>
+<section id="実務上どう考えるべきか" class="level2">
+<h2 class="anchored" data-anchor-id="実務上どう考えるべきか">実務上どう考えるべきか</h2>
+<p>実務では、少なくとも異分散はかなり起こりやすい。 そのため、回帰では、まずは robust standard error を使うのがかなり一般的である。</p>
+<p>つまり、</p>
+<ul>
+<li>係数は OLS で推定する</li>
+<li>ただし標準誤差は robust にする</li>
+</ul>
+<p>という形で結果を報告することが多い。</p>
+<p>回帰表でも、脚注に</p>
+<blockquote class="blockquote">
+<p>robust standard errors in parentheses</p>
+</blockquote>
+<p>のように書かれていることがよくある。</p>
+<p>これは「かっこの中の標準誤差は、同分散を仮定しない頑健なものです」という意味である。</p>
+</section>
+<section id="ただしrobust-なら何でも解決するわけではない" class="level2">
+<h2 class="anchored" data-anchor-id="ただしrobust-なら何でも解決するわけではない">ただし、robust なら何でも解決するわけではない</h2>
+<p>ここで大事な注意がある。 robust standard error は、<strong>標準誤差の計算を頑健にする</strong>だけであって、外生性の問題を直してくれるわけではない。</p>
+<p>つまり先ほどの三つの仮定のうちで最初の仮定は常に満たされないといけない。</p>
+<p>その場合、robust standard error を使っても、間違った係数に対して“丁寧に推論している”だけになってしまう。</p>
+<p>したがって robust inference は重要だが、</p>
+<blockquote class="blockquote">
+<p><strong>「標準誤差の問題」と「識別の問題」は別である</strong></p>
+</blockquote>
+<p>という点は必ず区別しなければならない。</p>
+</section>
+<section id="単回帰での-robust-standard-error-を実際に計算" class="level2">
+<h2 class="anchored" data-anchor-id="単回帰での-robust-standard-error-を実際に計算">単回帰での robust standard error を実際に計算</h2>
+<p>復習がてら、同分散のときのケースから見る。</p>
+<p>単回帰モデル</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 x_i + u_i
+</span></p>
+<p>を考える。</p>
+<p>OLS の傾き推定量は</p>
+<p><span class="math display">
+\hat{\beta}_1 = \frac{\sum_{i=1}^n (x_i-\bar{x})y_i}
+{\sum_{i=1}^n (x_i-\bar{x})^2}
+</span></p>
+<p>であった。 ここで</p>
+<p><span class="math display">
+y_i = \beta_0 + \beta_1 x_i + u_i
+</span></p>
+<p>を代入すると、</p>
+<p><span class="math display">
+\hat{\beta}_1 - \beta_1 = \frac{\sum_{i=1}^n (x_i-\bar{x})u_i}
+{\sum_{i=1}^n (x_i-\bar{x})^2}
+</span></p>
+<p>と書ける。</p>
+<p>したがって、<span class="math inline">x_1,\dots,x_n</span> を与えたもとでの分散は</p>
+<p><span class="math display">
+\mathrm{Var}(\hat{\beta}_1 \mid x_1,\dots,x_n)
+=
+\mathrm{Var}\!\left(
+\frac{\sum_{i=1}^n (x_i-\bar{x})u_i}
+{\sum_{i=1}^n (x_i-\bar{x})^2}
+\;\middle|\;
+x_1,\dots,x_n
+\right)
+</span></p>
+<p>となる。</p>
+<p>分母は定数なので外に出せて、</p>
+<p><span class="math display">
+\mathrm{Var}(\hat{\beta}_1 \mid x_1,\dots,x_n) = \frac{
+\mathrm{Var}\left(\sum_{i=1}^n (x_i-\bar{x})u_i \mid x_1,\dots,x_n\right)
+}{
+\left(\sum_{i=1}^n (x_i-\bar{x})^2\right)^2
+}
+</span></p>
+<p>である。</p>
+<section id="同分散のとき" class="level3">
+<h3 class="anchored" data-anchor-id="同分散のとき">同分散のとき</h3>
+<p>まず、これまで仮定していたように</p>
+<ul>
+<li><span class="math inline">\mathrm{Var}(u_i\mid x_i)=\sigma^2</span></li>
+<li><span class="math inline">\mathrm{Cov}(u_i,u_j\mid x)=0 \ (i\neq j)</span></li>
+</ul>
+<p>が成り立つとしよう。</p>
+<p>このとき、</p>
+<p><span class="math display">
+\mathrm{Var}\left(\sum_{i=1}^n (x_i-\bar{x})u_i \mid x_1,\dots,x_n\right) = \sum_{i=1}^n (x_i-\bar{x})^2 \sigma^2
+</span></p>
+<p>なので、</p>
+<p><span class="math display">
+\mathrm{Var}(\hat{\beta}_1 \mid x_1,\dots,x_n) = \frac{\sigma^2}{\sum_{i=1}^n (x_i-\bar{x})^2}
+</span></p>
+<p>となる。</p>
+<p>したがって通常の標準誤差は</p>
+<p><span class="math display">
+\mathrm{se}(\hat{\beta}_1) = \sqrt{
+\frac{\hat{\sigma}^2}{\sum_{i=1}^n (x_i-\bar{x})^2}
+}
+</span></p>
+<p>で計算できる。</p>
+</section>
+<section id="異分散のとき" class="level3">
+<h3 class="anchored" data-anchor-id="異分散のとき">異分散のとき</h3>
+<p>しかし、もし誤差分散が観測ごとに違っていて</p>
+<p><span class="math display">
+\mathrm{Var}(u_i \mid x_i)=\sigma_i^2
+</span></p>
+<p>であるなら、先ほどの計算は変わる。</p>
+<p>このとき、誤差どうしは相関しないとすると、</p>
+<p><span class="math display">
+\mathrm{Var}\left(\sum_{i=1}^n (x_i-\bar{x})u_i \mid x_1,\dots,x_n\right)= \sum_{i=1}^n (x_i-\bar{x})^2 \sigma_i^2
+</span></p>
+<p>となるので、</p>
+<p><span class="math display">
+\mathrm{Var}(\hat{\beta}_1 \mid x_1,\dots,x_n) =
+\frac{
+\sum_{i=1}^n (x_i-\bar{x})^2 \sigma_i^2
+}{
+\left(\sum_{i=1}^n (x_i-\bar{x})^2\right)^2
+}
+</span></p>
+<p>となる。</p>
+<p>これが、異分散を許したときの単回帰の分散公式である。</p>
+<p>重要なのは、同分散のときのように <span class="math inline">\sigma^2</span> を外に出して簡単な形にはもうならない、という点である。</p>
+</section>
+<section id="ではどう推定するのか" class="level3">
+<h3 class="anchored" data-anchor-id="ではどう推定するのか">ではどう推定するのか</h3>
+<p>問題は、各 <span class="math inline">\sigma_i^2</span> は未知だということである。 そこで実際には、真の誤差 <span class="math inline">u_i</span> の代わりに OLS 残差</p>
+<p><span class="math display">
+\hat{u}_i = y_i - \hat{\beta}_0 - \hat{\beta}_1 x_i
+</span></p>
+<p>を使う。</p>
+<p>つまり、</p>
+<p><span class="math display">
+\sigma_i^2
+</span></p>
+<p>の代わりに</p>
+<p><span class="math display">
+\hat{u}_i^2
+</span></p>
+<p>を入れて分散を推定する。</p>
+<p>こうして得られるのが、単回帰での heteroskedasticity-robust variance estimator である：</p>
+<p><span class="math display">
+\widehat{\mathrm{Var}}_{\mathrm{robust}}(\hat{\beta}_1) = \frac{
+\sum_{i=1}^n (x_i-\bar{x})^2 \hat{u}_i^2
+}{
+\left(\sum_{i=1}^n (x_i-\bar{x})^2\right)^2
+}
+</span></p>
+<p>したがって、robust standard error は</p>
+<p><span class="math display">
+\mathrm{se}_{\mathrm{robust}}(\hat{\beta}_1) = \sqrt{
+\frac{
+\sum_{i=1}^n (x_i-\bar{x})^2 \hat{u}_i^2
+}{
+\left(\sum_{i=1}^n (x_i-\bar{x})^2\right)^2
+}
+}
+</span></p>
+<p>で与えられる。</p>
+<p>これが、単回帰における基本的な robust standard error の式である。</p>
+</section>
+</section>
+<section id="robust-t-統計量" class="level2">
+<h2 class="anchored" data-anchor-id="robust-t-統計量">robust t 統計量</h2>
+<p>robust standard error を使うときも、t 統計量の形そのものは同じである。</p>
+<p>帰無仮説</p>
+<p><span class="math display">
+H_0:\beta_1=0
+</span></p>
+<p>を検定するなら、</p>
+<p><span class="math display">
+t_{\mathrm{robust}} = \frac{\hat{\beta}_1}{\mathrm{se}_{\mathrm{robust}}(\hat{\beta}_1)}
+</span></p>
+<p>を使えばよい。</p>
+<p>したがって、<strong>係数推定値は同じでも、標準誤差の計算方法が変わることで、t 値や p 値や信頼区間が変わる</strong>。</p>
+</section>
+<section id="実験e異分散があるとき通常の標準誤差と-robust-standard-error-はどう違うか" class="level2">
+<h2 class="anchored" data-anchor-id="実験e異分散があるとき通常の標準誤差と-robust-standard-error-はどう違うか">実験E：異分散があるとき、通常の標準誤差と robust standard error はどう違うか？</h2>
+<p>ここでは、誤差分散が <span class="math inline">x_i</span> に応じて変化するデータを作る。 たとえば</p>
+<p><span class="math display">
+y_i=\beta_0+\beta_1 x_i+u_i
+</span></p>
+<p>で、誤差を</p>
+<p><span class="math display">
+u_i \sim N(0,\sigma_i^2), \qquad \sigma_i = 0.5 + 1.5|x_i|
+</span></p>
+<p>のように発生させる。 すると、<span class="math inline">|x_i|</span> が大きい観測ほど誤差のばらつきも大きくなるので、同分散の仮定は崩れている。</p>
+<p>この状況で毎回 OLS を回し、</p>
+<ul>
+<li>通常の標準誤差</li>
+<li>robust standard error</li>
+</ul>
+<p>をそれぞれ計算して比べる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># install.packages(c("sandwich", "lmtest"))  # 必要なら最初に実行</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sandwich)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lmtest)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>R     <span class="ot">&lt;-</span> <span class="dv">3000</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>n     <span class="ot">&lt;-</span> <span class="dv">100</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>beta0 <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>beta1 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>b1hat      <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>se_usual   <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>se_robust  <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>t_usual    <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>t_robust   <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R)</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>cover_usual  <span class="ot">&lt;-</span> <span class="fu">logical</span>(R)</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>cover_robust <span class="ot">&lt;-</span> <span class="fu">logical</span>(R)</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R) {</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 異分散: x の絶対値が大きいほど誤差分散が大きい</span></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>  sigma_i <span class="ot">&lt;-</span> <span class="fl">0.5</span> <span class="sc">+</span> <span class="fl">1.5</span> <span class="sc">*</span> <span class="fu">abs</span>(x)</span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>  u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> sigma_i)</span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>  y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>  fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>  <span class="co"># usual SE</span></span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>  summ <span class="ot">&lt;-</span> <span class="fu">summary</span>(fit)<span class="sc">$</span>coefficients</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>  b1hat[r]    <span class="ot">&lt;-</span> summ[<span class="st">"x"</span>, <span class="st">"Estimate"</span>]</span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>  se_usual[r] <span class="ot">&lt;-</span> summ[<span class="st">"x"</span>, <span class="st">"Std. Error"</span>]</span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>  t_usual[r]  <span class="ot">&lt;-</span> summ[<span class="st">"x"</span>, <span class="st">"t value"</span>]</span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>  <span class="co"># robust SE (HC1)</span></span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>  rob <span class="ot">&lt;-</span> <span class="fu">coeftest</span>(fit, <span class="at">vcov. =</span> <span class="fu">vcovHC</span>(fit, <span class="at">type =</span> <span class="st">"HC1"</span>))</span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>  se_robust[r] <span class="ot">&lt;-</span> rob[<span class="st">"x"</span>, <span class="st">"Std. Error"</span>]</span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>  t_robust[r]  <span class="ot">&lt;-</span> rob[<span class="st">"x"</span>, <span class="st">"t value"</span>]</span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 95% CI coverage</span></span>
+<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a>  cover_usual[r]  <span class="ot">&lt;-</span> (b1hat[r] <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> se_usual[r]  <span class="sc">&lt;=</span> beta1) <span class="sc">&amp;</span> (beta1 <span class="sc">&lt;=</span> b1hat[r] <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> se_usual[r])</span>
+<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a>  cover_robust[r] <span class="ot">&lt;-</span> (b1hat[r] <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> se_robust[r] <span class="sc">&lt;=</span> beta1) <span class="sc">&amp;</span> (beta1 <span class="sc">&lt;=</span> b1hat[r] <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> se_robust[r])</span>
+<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a><span class="co"># 平均を確認</span></span>
+<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a><span class="fu">c</span>(<span class="at">mean_b1hat =</span> <span class="fu">mean</span>(b1hat),</span>
+<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_se_usual =</span> <span class="fu">mean</span>(se_usual),</span>
+<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_se_robust =</span> <span class="fu">mean</span>(se_robust),</span>
+<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a>  <span class="at">coverage_usual =</span> <span class="fu">mean</span>(cover_usual),</span>
+<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a>  <span class="at">coverage_robust =</span> <span class="fu">mean</span>(cover_robust))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     mean_b1hat   mean_se_usual  mean_se_robust  coverage_usual coverage_robust 
+      0.9993842       0.1908667       0.2897336       0.7690000       0.9236667 </code></pre>
+</div>
+</div>
+<p>この結果では、典型的には次のようなことが起きる。</p>
+<ul>
+<li><code>mean_b1hat</code> は真の値 1 にかなり近い → OLS の係数推定値そのものは大きくは崩れていない</li>
+<li><code>mean_se_usual</code> と <code>mean_se_robust</code> は違う → 標準誤差の評価が変わる</li>
+<li><code>coverage_usual</code> は 0.95 からずれやすい → 通常の信頼区間は正しい被覆率を持たなくなる</li>
+<li><code>coverage_robust</code> は 0.95 により近いことが多い → robust standard error の方が推論として信頼しやすい</li>
+</ul>
+<section id="標準誤差の分布を比べる" class="level3">
+<h3 class="anchored" data-anchor-id="標準誤差の分布を比べる">標準誤差の分布を比べる</h3>
+<p>次に、通常の標準誤差と robust standard error の分布を重ねて見てみる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>breaks_se <span class="ot">&lt;-</span> <span class="fu">seq</span>(</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">min</span>(<span class="fu">c</span>(se_usual, se_robust)),</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">max</span>(<span class="fu">c</span>(se_usual, se_robust)),</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">length.out =</span> <span class="dv">50</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(se_usual,</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>     <span class="at">breaks =</span> breaks_se,</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>     <span class="at">freq =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>),</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Standard errors under heteroskedasticity"</span>,</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"standard error"</span>,</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlim =</span> <span class="fu">range</span>(breaks_se))</span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(se_robust,</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>     <span class="at">breaks =</span> breaks_se,</span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>     <span class="at">freq =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>),</span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>     <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topright"</span>,</span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"usual SE"</span>, <span class="st">"robust SE"</span>),</span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>       <span class="at">fill =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>), <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>)),</span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture4_revised_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>この図では、</p>
+<ul>
+<li>赤：同分散を仮定した通常の標準誤差</li>
+<li>青：heteroskedasticity-robust standard error</li>
+</ul>
+<p>を表している。</p>
+<p>異分散がある世界では、通常の標準誤差は正しくないので、青の robust standard error の方を信用すべきである。</p>
+</section>
+<section id="t統計量の分布を比べる" class="level3">
+<h3 class="anchored" data-anchor-id="t統計量の分布を比べる">t統計量の分布を比べる</h3>
+<p>標準誤差が違えば、t 統計量の分布も変わる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>breaks_t <span class="ot">&lt;-</span> <span class="fu">seq</span>(</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">min</span>(<span class="fu">c</span>(t_usual, t_robust)),</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">max</span>(<span class="fu">c</span>(t_usual, t_robust)),</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">length.out =</span> <span class="dv">50</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(t_usual,</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>     <span class="at">breaks =</span> breaks_t,</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>     <span class="at">freq =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>),</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"t-statistics under heteroskedasticity"</span>,</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"t-statistic"</span>,</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlim =</span> <span class="fu">range</span>(breaks_t))</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(t_robust,</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>     <span class="at">breaks =</span> breaks_t,</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>     <span class="at">freq =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>     <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>),</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>     <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>     <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topright"</span>,</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"usual t"</span>, <span class="st">"robust t"</span>),</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>       <span class="at">fill =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.4</span>), <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.4</span>)),</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture4_revised_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>通常の標準誤差が過小評価されていると、通常の t 値は過大になりやすい。 すると、本当はそれほど確かでない効果を「有意だ」と言ってしまう危険がある。</p>
+</section>
+<section id="帰無仮説が真のときのサイズを比べる" class="level3">
+<h3 class="anchored" data-anchor-id="帰無仮説が真のときのサイズを比べる">帰無仮説が真のときのサイズを比べる</h3>
+<p>さらに、真の係数を <span class="math inline">\beta_1=0</span> にして、5% 検定の棄却率を比べるともっとはっきりする。 異分散があるのに通常の標準誤差を使うと、<strong>本来 5% のはずの検定が 5% を大きく上回ってしまう</strong>ことがある。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">456</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>R     <span class="ot">&lt;-</span> <span class="dv">5000</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>n     <span class="ot">&lt;-</span> <span class="dv">100</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>beta0 <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>beta1 <span class="ot">&lt;-</span> <span class="dv">0</span>   <span class="co"># H0 is true</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>rej_usual  <span class="ot">&lt;-</span> <span class="fu">logical</span>(R)</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>rej_robust <span class="ot">&lt;-</span> <span class="fu">logical</span>(R)</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R) {</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>  sigma_i <span class="ot">&lt;-</span> <span class="fl">0.5</span> <span class="sc">+</span> <span class="fl">1.5</span> <span class="sc">*</span> <span class="fu">abs</span>(x)</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>  u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> sigma_i)</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>  y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>  fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># usual p-value</span></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>  p_usual <span class="ot">&lt;-</span> <span class="fu">summary</span>(fit)<span class="sc">$</span>coefficients[<span class="st">"x"</span>, <span class="st">"Pr(&gt;|t|)"</span>]</span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>  <span class="co"># robust p-value</span></span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>  rob <span class="ot">&lt;-</span> <span class="fu">coeftest</span>(fit, <span class="at">vcov. =</span> <span class="fu">vcovHC</span>(fit, <span class="at">type =</span> <span class="st">"HC1"</span>))</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>  p_robust <span class="ot">&lt;-</span> rob[<span class="st">"x"</span>, <span class="st">"Pr(&gt;|t|)"</span>]</span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a>  rej_usual[r]  <span class="ot">&lt;-</span> (p_usual <span class="sc">&lt;</span> <span class="fl">0.05</span>)</span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a>  rej_robust[r] <span class="ot">&lt;-</span> (p_robust <span class="sc">&lt;</span> <span class="fl">0.05</span>)</span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a><span class="fu">c</span>(<span class="at">rejection_rate_usual =</span> <span class="fu">mean</span>(rej_usual),</span>
+<span id="cb17-31"><a href="#cb17-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">rejection_rate_robust =</span> <span class="fu">mean</span>(rej_robust))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> rejection_rate_usual rejection_rate_robust 
+               0.2190                0.0622 </code></pre>
+</div>
+</div>
+<p>ここでは、</p>
+<ul>
+<li><code>rejection_rate_usual</code> → 通常の標準誤差を使った 5% 検定の実際の棄却率</li>
+<li><code>rejection_rate_robust</code> → robust standard error を使った 5% 検定の実際の棄却率</li>
+</ul>
+<p>を見ている。</p>
+<p>理想的にはどちらも 0.05 に近いべきだが、異分散があると通常の方は 0.05 からずれやすい。 一方で robust の方は 0.05 に比較的近づきやすい。</p>
+</section>
+<section id="この実験から何を学ぶか" class="level3">
+<h3 class="anchored" data-anchor-id="この実験から何を学ぶか">この実験から何を学ぶか</h3>
+<p>この実験のポイントは次の通りである。</p>
+<ul>
+<li>異分散があっても、OLS の係数推定値そのものは大きくは変わらないことがある</li>
+<li>しかし、<strong>通常の標準誤差は正しくなくなる</strong></li>
+<li>その結果、通常の t 値・p 値・信頼区間も信用できなくなる</li>
+<li>heteroskedasticity-robust standard error を使うと、こうした問題により適切に対応できる</li>
+</ul>
+<p>要するに、</p>
+<blockquote class="blockquote">
+<p><strong>robust inference の役割は、係数を変えることではなく、推論をまともにすること</strong></p>
+</blockquote>
+<p>である。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="余談：推論の現場ではこんな問題もある">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>余談：推論の現場ではこんな問題もある
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>計量経済学は大人気なので、それにまつわる俳句が英語でたくさん作られている。<a href="https://keihirano.github.io/haiku.html">こちら</a> にまとまっている。</p>
+<p>その中に、こんなものがある。</p>
+<blockquote class="blockquote">
+<p>T-stat looks too good.<br>
+Use robust standard errors—<br>
+significance gone.</p>
+</blockquote>
+<p>実証屋さんの悲哀がよく出ている。robust standard error を使うと、ちょっと有意っぽいぐらいの結果は大体消えてしまう。そして、有意な結果しか論文にならないと、<strong>publication bias</strong> という深刻な問題が生じる。</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="pub_bias.png" class="img-fluid figure-img"></p>
+<figcaption>bias</figcaption>
+</figure>
+</div>
+<p>これは <strong>Star Wars: The Empirics Strike Back</strong>（スターウォーズ：実証の逆襲）という、かなり攻めたタイトルの論文に出てくる有名なグラフである。<br>
+経済学の実証論文に出てくる回帰結果が、どの程度「有意」だったのかをヒストグラムにしたものだ。</p>
+<p>明らかに、<strong>|t| = 1.96</strong> 付近に不自然な山がある。1.96 は、5% 水準の両側検定で有意と判断されるための一つの目安である。<br>
+そのため、研究者が「5% 水準で有意でない結果はどうせみんな面白がってくれないから論文にしない」と行動している可能性を示唆している。</p>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip callout-titled" title="回帰表を見るときの基本姿勢">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>回帰表を見るときの基本姿勢
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>まず <strong>係数が何を表しているか</strong> を確認し、そのあとで <strong>標準誤差・t 値・p 値</strong> を読む。<br>
+「有意かどうか」だけを見ると読み違えやすい。</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="回帰表の読み方" class="level1">
+<h1>回帰表の読み方</h1>
+<p>論文に出てくる回帰分析の結果をそのまま鵜呑みにするわけにはいかないが、議論のツールとしては依然として重要である。ここでは、回帰の結果をまとめた回帰表の読み方を解説する。</p>
+<p>回帰表にはだいたい次が載る：</p>
+<ul>
+<li>係数推定値（Estimate）：<span class="math inline">\hat\beta_1</span></li>
+<li>標準誤差（Std. Error）：<span class="math inline">\mathrm{se}(\hat\beta_1)</span></li>
+<li>t値（t value）：<span class="math inline">t=\hat\beta_1/\mathrm{se}(\hat\beta_1)</span></li>
+<li>p値（Pr(&gt;|t|)）：p-value</li>
+<li>（ときどき）信頼区間</li>
+</ul>
+<p>そして「星（<span class="math inline">*, **, ***</span>）」はたいてい</p>
+<ul>
+<li><span class="math inline">*</span> : p &lt; 0.10</li>
+<li>** : p &lt; 0.05</li>
+<li>*** : p &lt; 0.01</li>
+</ul>
+<p>のような有意水準を表している</p>
+<section id="具体例" class="level2">
+<h2 class="anchored" data-anchor-id="具体例">具体例</h2>
+<p>実際の回帰表を見てみる。</p>
+<p>また Angrist and Krueger (1991) に登場してもらう。今度は論文中のTable VIII。これは基本的には賃金に対する教育年数の効果を見るための回帰の結果をまとめた表である。</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="AK_table8.png" class="img-fluid figure-img"></p>
+<figcaption>AK table VIII</figcaption>
+</figure>
+</div>
+<p>列は大体において別の設定で回帰を回すごとに追加される。この設定のことを英語で<strong>specification</strong>と呼ぶ。つまりこのテーブルには8つの specificationについての結果がまとまっている。</p>
+<p>OLSと書いてある列が回帰分析で、TSLSと書いてある部分が以前に見たWald統計量と同値の2SLS 推定量を用いた結果である。</p>
+<p>一番左の列を見てみよう</p>
+<p>これはOLSで、賃金を教育年数（years of education）に回帰した結果である。<strong>0.0672</strong>がくっついている係数の推定値でありその下の<strong>(0.013)</strong>がstandard errorである。</p>
+<p>この表では<span class="math inline">*</span>はついていない。これも良くある。先ほど述べた通り、人類は<span class="math inline">*</span>の有無で結果の重要性を判断してしまう愚かな生き物なので、だったら最初から付けなけりゃいいじゃんという流派である</p>
+<p>ただ、一番左の列では推定値がstandard errorの<span class="math inline">60</span>倍ぐらいあるので、かなり有意っぽい結果である</p>
+<hr>
+<p>さて、この表の3列目以降を見てみよう。</p>
+<p><strong>Age</strong>と書かれた行や、<strong>Age-squared</strong>、<strong>SMSA</strong>, <strong>Married</strong>などの行にも同様に推定値とstandard errorが書かれている。</p>
+<p>つまりこれらの変数についてもOLSやらTSLSでその係数が推定されていて、その結果がレポートされているということのようである。</p>
+<p>これはどういうモデルを想定しているのだろうか。</p>
+<p>一列目は大体 <span class="math display">
+\mathrm{wage}_i = \beta_0 + \beta_1 \mathrm{Education}_i + u_i
+</span></p>
+<p>のはず。これと同じように、</p>
+<p><span class="math display">
+\mathrm{wage}_i = \beta_0 + \beta_1 \mathrm{Age}_i + u_i
+</span></p>
+<p>とかやっているのか？</p>
+<p><strong>違う</strong></p>
+<p>実は、列3では以下のようなモデルに対して回帰分析を行っている。</p>
+<p><span class="math display">
+\mathrm{wage}_i = \beta_0 + \beta_1 \mathrm{Education}_i + \beta_2 \mathrm{Age}_i + \beta_3 \mathrm{Age}_i^2 + u_i
+</span></p>
+<p>つまり説明変数が複数あるようなモデルである。</p>
+<p>表で報告されているのはこの中の<span class="math inline">\beta_1,\beta_2,\beta_3</span>の推定値とstandard errorである。</p>
+<p>これを<strong>重回帰</strong>と呼ぶ。</p>
+<p>次回以降この重回帰の話をしていく。</p>
+</section>
+</section>
+<section id="宿題" class="level1">
+<h1>宿題</h1>
+<ul>
+<li>仮説検定も結構複雑な処理だと思うので、忘れてた人は基礎統計の復習をしよう</li>
+<li>p-valueの解釈については100年ぐらい論争が続いていて、今も続いている。気になる人はp-valueの解釈についてどのような論争が繰り広げられているのかをchat gptに聞いてみよう</li>
+<li>今回もsimulationのコードを一行ずつよんでみよう</li>
+</ul>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="lecture4_revised_files/libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

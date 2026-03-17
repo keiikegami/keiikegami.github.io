@@ -1,0 +1,624 @@
+---
+title: "M推定"
+subtitle: "計量経済学大学院講義ノート"
+lang: ja
+number-sections: true
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+  pdf:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    documentclass: scrartcl
+execute:
+  echo: false
+  warning: false
+  error: false
+---
+
+
+
+::: {.callout-note}
+## この章の到達目標
+
+この章の目的は次の 4 点である。
+
+1. 滑らかな M 推定量について、
+   $$
+   \sqrt{n}(\hat\theta-\theta_0)\overset{d}{\to} N(0,H^{-1}\Sigma H^{-1})
+   $$
+   という基本形を導く。
+2. $\Sigma$ の形が、i.i.d.、マルチンゲール差分列、一般の依存データでどう変わるかを理解する。
+3. 標準誤差をどう推定するか、特に **plug-in 推定量** と **sandwich 推定量** の意味を理解する。
+4. 最尤法を M 推定の代表例として捉え、正しく特定された場合の情報行列等式と、誤指定下でのロバスト推論を整理する。
+:::
+
+::: {.callout-important}
+## 記法の確認
+
+この章では、M 推定量の目的関数を
+$$
+Q_n(\theta)=\frac1n\sum_{t=1}^n m(X_t;\theta)
+$$
+と書く。さらに、$m$ が $\theta$ について十分滑らかであるとき、
+$$
+s(X_t;\theta)=\frac{\partial m(X_t;\theta)}{\partial\theta},
+\qquad
+D(X_t;\theta)=\frac{\partial^2 m(X_t;\theta)}{\partial\theta\partial\theta'}
+$$
+を用いる。
+
+また、真の値 $\theta_0$ のまわりで
+$$
+Z_n=\frac1{\sqrt n}\sum_{t=1}^n s(X_t;\theta_0),
+\qquad
+H=-E[D(X_t;\theta_0)]
+$$
+とおく。
+
+- $s(X_t;\theta)$：**score**（勾配）
+- $D(X_t;\theta)$：**Hessian**（ヘッセ行列）
+- $H$：母目的関数の局所的な曲率
+- $\Sigma$：$Z_n$ の漸近分散
+
+である。
+:::
+
+# 導入
+
+前章では、極値推定量の一致性は
+
+- 母目的関数が $\theta_0$ で clean maximum をもつこと
+- 標本目的関数が一様収束すること
+
+で保証されることを見た。この章ではその次の段階として、**推論** のために必要な漸近正規性を扱う。
+
+M 推定量では、目的関数が標本平均の形をしているため、微分可能性を仮定すると一階条件を線形化できる。すると、推定誤差は
+
+1. score の標本平均の揺らぎ
+2. 母目的関数の曲率
+
+の 2 つの要素で近似される。これが
+$$
+\sqrt n(\hat\theta-\theta_0)\approx H^{-1}Z_n
+$$
+という基本表現につながる。
+
+::: {.callout-tip}
+## 直観
+
+M 推定の漸近理論は、ほぼ次の一行に尽きる。
+
+> 一階条件を $\theta_0$ のまわりでテイラー展開すると、推定量のずれは「score の平均的なノイズ」を「曲率」で割ったものになる。
+
+したがって、
+
+- $H$ が大きい（目的関数が急峻）ほど推定量は精密になり、
+- $\Sigma$ が大きい（score の揺らぎが大きい）ほど推定量は不精密になる。
+:::
+
+# 漸近正規性の詳細
+
+## 基本定理
+
+まず、滑らかな M 推定量の漸近正規性を与える基本結果を述べる。数値最適化誤差を許すため、厳密な一階条件ではなく、近似的一階条件を仮定する。
+
+::: {#thm-m-asymp-normal}
+## M 推定量の漸近正規性
+
+$\hat\theta$ が
+$$
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
+$$ {#eq-approx-foc}
+を満たすとする。さらに次を仮定する。
+
+1. $X_1,\ldots,X_n$ は厳密定常かつエルゴード的である。
+2. $\hat\theta\overset{p}{\to}\theta_0$.
+3. $\theta_0$ は $\Theta$ の内部点である。
+4. 任意の $X_t$ に対して $m(X_t;\theta)$ は $\theta$ について 2 回連続微分可能である。
+5. 
+   $$
+   Z_n=\frac1{\sqrt n}\sum_{t=1}^n s(X_t;\theta_0)\overset{d}{\to} N(0,\Sigma),
+   $$
+   ただし $\Sigma$ は正定値である。
+6. $\theta_0$ のある凸・コンパクト近傍 $N$ が存在して
+   $$
+   E[\sup_{\theta\in N}\|D(X_t;\theta)\| ]<\infty.
+   $$
+7. 
+   $$
+   H=-E[D(X_t;\theta_0)]
+   $$
+   は正定値である。
+
+このとき
+$$
+\sqrt n(\hat\theta-\theta_0)\overset{d}{\to} N(0,H^{-1}\Sigma H^{-1}).
+$$
+:::
+
+::: {.proof}
+@eq-approx-foc を $\theta_0$ のまわりで平均値展開すると、ある $\tilde\theta$（$\hat\theta$ と $\theta_0$ を結ぶ線分上の点）を用いて
+$$
+o_p(1)=Z_n+\frac{\partial^2 Q_n(\tilde\theta)}{\partial\theta\partial\theta'}\sqrt n(\hat\theta-\theta_0)
+$$
+が得られる。
+
+したがって、ヘッセ行列の標本平均が
+$$
+\frac{\partial^2 Q_n(\tilde\theta)}{\partial\theta\partial\theta'}\overset{p}{\to} -H
+$$
+を満たせば、
+$$
+\sqrt n(\hat\theta-\theta_0)=H^{-1}Z_n+o_p(1)
+$$
+となる。
+
+残る点はヘッセ行列の一様収束である。仮定 4 と 6 により、各成分について関数族
+$$
+\{D_{ij}(X_t;\theta):\theta\in N\}
+$$
+は前章と同様の一様大数法則を満たす。さらに $E[D(X_t;\theta)]$ は $\theta_0$ で連続である。仮定 2 により $\tilde\theta\overset{p}{\to}\theta_0$ だから
+$$
+\frac{\partial^2 Q_n(\tilde\theta)}{\partial\theta\partial\theta'}\overset{p}{\to} -H.
+$$
+よって Slutsky の定理から結論が従う。
+:::
+
+::: {.callout-note}
+## なぜ一致性が先に必要なのか
+
+上の定理では $\hat\theta\overset{p}{\to}\theta_0$ を仮定している。これは、テイラー展開で現れる $\tilde\theta$ が $\theta_0$ の近くにあることを保証し、ヘッセ行列の標本平均を $-H$ に置き換えるために必要である。
+
+つまり、
+
+- 前章では **どこに収束するか** を示し、
+- この章では **どの速度・どの分布で揺らぐか** を示している。
+:::
+
+## 漸近分散 $\Sigma$ の形
+
+@thm-m-asymp-normal の中で最もデータ依存なのは、
+$$
+Z_n=\frac1{\sqrt n}\sum_{t=1}^n s(X_t;\theta_0)
+$$
+の極限定理である。したがって $\Sigma$ の形はサンプリング構造によって変わる。
+
+### i.i.d. データ
+
+$X_1,\ldots,X_n$ が i.i.d. で、
+$$
+E\bigl[\|s(X_t;\theta_0)\|^2\bigr]<\infty
+$$
+なら、中心極限定理より
+$$
+Z_n\overset{d}{\to} N(0,\Sigma),
+\qquad
+\Sigma=E[s(X_t;\theta_0)s(X_t;\theta_0)'].
+$$
+この場合、分散は単純な score の二次モーメントで与えられる。
+
+### 厳密定常・エルゴード的なマルチンゲール差分列
+
+$\mathcal F_t=\sigma(X_t,X_{t-1},\ldots)$ とし、
+$$
+E[s(X_{t+1};\theta_0)\mid \mathcal F_t]=0
+$$
+が a.s. に成り立つとき、$(s(X_t;\theta_0),\mathcal F_t)$ は **マルチンゲール差分列**（martingale difference sequence; m.d.s.）であるという。
+
+このとき、$k\ge 1$ に対して
+$$
+E[s(X_{t+k};\theta_0)s(X_t;\theta_0)']
+=E\{E[s(X_{t+k};\theta_0)\mid \mathcal F_{t+k-1}]s(X_t;\theta_0)']
+=0
+$$
+となるので、score は全ての lead・lag で無相関である。したがって、適当な m.d.s. 用中心極限定理の下で
+$$
+Z_n\overset{d}{\to} N(0,\Sigma),
+\qquad
+\Sigma=E[s(X_t;\theta_0)s(X_t;\theta_0)']
+$$
+が再び成り立つ。
+
+::: {.callout-tip}
+## いつ m.d.s. になるか
+
+条件付き最尤法では、正しく特定されたモデルのもとで score の条件付き期待値が 0 になることが多い。したがって、動学モデルやマルコフ過程でも m.d.s. 構造が自然に現れる。
+:::
+
+### 一般の依存データ
+
+score が m.d.s. でない場合、現在の score と過去・未来の score の共分散も漸近分散に効いてくる。そこで
+$$
+C_j=E[s(X_t;\theta_0)s(X_{t-j};\theta_0)']
+$$
+とおく。和が収束するとき、長期分散（long-run variance）は
+$$
+\Sigma=
+\sum_{j=-\infty}^{\infty} C_j
+= C_0+\sum_{j=1}^{\infty}(C_j+C_j').
+$$ {#eq-long-run-var}
+で与えられる。
+
+i.i.d. や m.d.s. は、単に $C_j=0$（$j\neq 0$）という特殊ケースにすぎない。
+
+::: {.callout-note}
+## 実務上の含意
+
+系列相関があるときに
+$$
+\hat\Sigma=\frac1n\sum_{t=1}^n s(X_t;\hat\theta)s(X_t;\hat\theta)'
+$$
+だけで済ませると、標準誤差を過小評価する危険がある。その場合は HAC 型の長期分散推定が必要になる。
+:::
+
+# 標準誤差の推定
+
+## plug-in 推定量
+
+i.i.d. もしくは m.d.s. の場合には、
+$$
+H=-E[D(X_t;\theta_0)],
+\qquad
+\Sigma=E[s(X_t;\theta_0)s(X_t;\theta_0)']
+$$
+であった。未知なのは
+
+1. 真のパラメータ $\theta_0$
+2. 母集団分布に関する期待値
+
+の 2 つである。最も自然な方法は、$\theta_0$ を $\hat\theta$ に置き換え、期待値を標本平均で置き換えることである。つまり
+$$
+\hat H=-\frac1n\sum_{t=1}^n D(X_t;\hat\theta),
+\qquad
+\hat\Sigma=\frac1n\sum_{t=1}^n s(X_t;\hat\theta)s(X_t;\hat\theta)'
+$$ {#eq-plugin-H-Sigma}
+と定義する。
+
+このとき、漸近分散の推定量として
+$$
+\hat\Omega=\hat H^{-1}\hat\Sigma\hat H^{-1}
+$$ {#eq-sandwich-estimator}
+を用いる。これが **sandwich 推定量** である。
+
+## 一貫性
+
+::: {#lem-plugin-consistency}
+## 標準誤差推定量の一貫性
+
+@thm-m-asymp-normal の仮定に加えて、さらに
+$$
+E[\sup_{\theta\in N}\|s(X_t;\theta)\|^2 ]<\infty
+$$
+を仮定する。このとき
+$$
+\hat H\overset{p}{\to} H,
+\qquad
+\hat\Sigma\overset{p}{\to} \Sigma,
+\qquad
+\hat H^{-1}\hat\Sigma\hat H^{-1}\overset{p}{\to} H^{-1}\Sigma H^{-1}
+$$
+が成り立つ。
+:::
+
+::: {.proof}
+$\hat H\overset{p}{\to} H$ の証明は、漸近正規性の証明で行ったヘッセ行列の一様収束をそのまま使えばよい。つまり、$\hat\theta$ が確率 1 に近い形で近傍 $N$ に入ることを使い、
+$$
+-\frac1n\sum_{t=1}^n D(X_t;\hat\theta)-H
+$$
+を
+
+- 標本平均と期待値の差
+- 期待値の連続性による差
+
+に分解して抑える。
+
+$\hat\Sigma\overset{p}{\to}\Sigma$ も同様で、関数族
+$$
+\{s(X_t;\theta)s(X_t;\theta)':\theta\in N\}
+$$
+に一様大数法則を適用する。最後は行列の逆写像の連続性と Slutsky の定理で
+$$
+\hat H^{-1}\hat\Sigma\hat H^{-1}\overset{p}{\to} H^{-1}\Sigma H^{-1}
+$$
+が従う。
+:::
+
+::: {.callout-important}
+## どの分散推定量を使うべきか
+
+正しく特定された最尤法では $H=\Sigma$ となるため、
+
+- $\hat H^{-1}$
+- $\hat\Sigma^{-1}$
+- $\hat H^{-1}\hat\Sigma\hat H^{-1}$
+
+のどれも極限では同じになる。しかし有限標本では一致しないことが多い。さらに誤指定の可能性を考えると、一般には **常に sandwich 形を使う** のが安全である。
+:::
+
+## 依存データの場合の補足
+
+一般の依存データでは、@eq-plugin-H-Sigma の $\hat\Sigma$ はそのままでは不十分である。必要なのは @eq-long-run-var に対応する長期分散の推定であり、実務では HAC（heteroskedasticity and autocorrelation consistent）型推定量を用いる。
+
+したがって、一般の時系列 M 推定では
+$$
+\hat\Omega=\hat H^{-1}\hat\Sigma_{\mathrm{LR}}\hat H^{-1}
+$$
+とするのが基本である。ここで $\hat\Sigma_{\mathrm{LR}}$ は long-run variance の推定量である。
+
+# 最尤法をもう少し詳しく
+
+最尤法は M 推定の最も重要な例である。この節では、
+
+- 最尤法が M 推定にどう埋め込まれるか
+- 正しく特定された場合に何が特別か
+- 誤指定のもとでは何が変わるか
+
+を整理する。
+
+## 条件付き最尤法
+
+::: {.callout-note}
+## 例：条件付き最尤法
+
+$i.i.d.$ データ $X_t=(Y_t,Z_t)$ を考える。モデルが
+$$
+f(X_t;\theta)=f(Y_t\mid Z_t;\theta)f(Z_t)
+$$
+と分解でき、$f(Z_t)$ は $\theta$ に依存しないとする。このとき平均対数尤度は
+$$
+\frac1n\sum_{t=1}^n \log f(X_t;\theta)
+=\frac1n\sum_{t=1}^n \log f(Y_t\mid Z_t;\theta)
++\frac1n\sum_{t=1}^n \log f(Z_t)
+$$
+だから、第 2 項は最適化に無関係である。したがって
+$$
+Q_n(\theta)=\frac1n\sum_{t=1}^n \log f(Y_t\mid Z_t;\theta)
+$$ {#eq-conditional-ml-criterion}
+を最大化すればよい。
+
+母目的関数は
+$$
+Q(\theta)=E[\log f(Y_t\mid Z_t;\theta)]
+$$
+である。
+:::
+
+この例では
+$$
+m(X_t;\theta)=\log f(Y_t\mid Z_t;\theta)
+$$
+だから、最尤法はそのまま M 推定量である。
+
+## 漸近分布
+
+::: {#thm-ml-asymp}
+## 最尤推定量の漸近正規性
+
+$Q_n(\theta)$ を @eq-conditional-ml-criterion で定義する。$\hat\theta$ が極値推定量であり、さらに近似的一階条件 @eq-approx-foc を満たすとする。次を仮定する。
+
+1. $X_1,\ldots,X_n$ は i.i.d. である。
+2. $\Theta$ はコンパクトである。
+3. $\log f(Y_t\mid Z_t;\theta)$ は $\theta$ について 2 回連続微分可能である。
+4. 
+   $$
+   E[\sup_{\theta\in\Theta}|\log f(Y_t\mid Z_t;\theta)| ]<\infty.
+   $$
+5. $Q(\theta)$ は $\theta_0$ で一意に最大化される。
+6. $\theta_0$ は $\Theta$ の内部点である。
+7. 
+   $$
+   E[\|s(X_t;\theta_0)\|^2]<\infty.
+   $$
+8. $\theta_0$ のある近傍 $N$ について
+   $$
+   E[\sup_{\theta\in N}\|D(X_t;\theta)\| ]<\infty.
+   $$
+
+このとき
+$$
+\sqrt n(\hat\theta-\theta_0)
+\overset{d}{\to}
+N\left(0,
+E[D(X_t;\theta_0)]^{-1}
+E[s(X_t;\theta_0)s(X_t;\theta_0)']
+E[D(X_t;\theta_0)]^{-1}
+\right).
+$$
+:::
+
+::: {.proof}
+一致性は前章の M 推定量の一般理論から従う。さらに i.i.d. 性と score の 2 乗可積分性により
+$$
+Z_n=\frac1{\sqrt n}\sum_{t=1}^n s(X_t;\theta_0)
+\overset{d}{\to} N(0,E[s(X_t;\theta_0)s(X_t;\theta_0)'])
+$$
+である。したがって @thm-m-asymp-normal をそのまま適用すればよい。
+:::
+
+## 正しく特定された場合
+
+最尤法が特別なのは、モデルが正しく特定されているときに **情報行列等式**（information matrix equality）が成り立つことである。
+
+### 情報行列等式
+
+各 $z$ を固定すると、$f(y\mid z;\theta)$ は密度だから
+$$
+\int f(y\mid z;\theta)dy=1
+$$
+である。これを $\theta$ で 2 回微分し、積分と微分の交換が正当化できるとすると、
+$$
+E\left[
+\frac{\partial^2 \log f(Y_t\mid Z_t;\theta_0)}{\partial\theta\partial\theta'}
++
+\frac{\partial \log f(Y_t\mid Z_t;\theta_0)}{\partial\theta}
+\frac{\partial \log f(Y_t\mid Z_t;\theta_0)}{\partial\theta'}
+\,
+\middle|
+Z_t
+\right]=0
+$$
+が得られる。反復期待値をとると
+$$
+-E[D(X_t;\theta_0)] = E[s(X_t;\theta_0)s(X_t;\theta_0)']
+$$ {#eq-information-equality}
+となる。
+
+右辺と左辺の共通の値を **情報行列** と呼び、しばしば
+$$
+I(\theta_0)
+$$
+と書く。したがって正しく特定された最尤法では
+$$
+H=\Sigma=I(\theta_0)
+$$
+であり、漸近分散は
+$$
+I(\theta_0)^{-1}
+$$
+に簡約される。
+
+### 効率性
+
+Cramér-Rao の下界は、十分正則な不偏推定量について
+$$
+\mathrm{Var}(\hat\theta)\succeq \frac1n I(\theta_0)^{-1}
+$$
+を与える。最尤推定量は一般に有限標本で不偏とは限らないが、正しく特定された正則なパラメトリックモデルでは、漸近分散がちょうど
+$$
+I(\theta_0)^{-1}
+$$
+となる。したがって最尤法は **漸近的に効率的** である。
+
+::: {.callout-tip}
+## なぜ ML は精密なのか
+
+最尤法は、モデルが与える確率分布の情報を全面的に使う。そのため、同じ正則パラメトリックモデルの中では、通常は最も小さい漸近分散を達成する。
+:::
+
+## 誤指定下の最尤法
+
+モデルが誤指定されている場合、真の分布 $g(x)$ はどの $\theta\in\Theta$ に対しても $f(x;\theta)$ と一致しない。それでも最尤法は意味を失うわけではなく、
+$$
+Q(\theta)=E[\log f(X_t;\theta)]
+$$
+を最大化する点を推定していると解釈できる。
+
+真の密度を $g(x)$ とすると、
+$$
+Q(\theta)-E[\log g(X_t)]
+=E\left[\log \frac{f(X_t;\theta)}{g(X_t)}\right]
+$$
+である。右辺は Kullback-Leibler divergence の符号反転に等しいから、$\theta_0$ は
+
+> モデル族 $\{f(\cdot;\theta):\theta\in\Theta\}$ の中で、真の分布 $g$ に最も近い密度を選ぶパラメータ
+
+として解釈される。この $\theta_0$ を **pseudo-true parameter** と呼ぶ。
+
+### 何が変わるか
+
+誤指定下では @eq-information-equality は一般に成立しない。したがって
+$$
+H\neq \Sigma
+$$
+であり、漸近分散はもはや $I(\theta_0)^{-1}$ ではなく
+$$
+H^{-1}\Sigma H^{-1}
+$$
+である。
+
+このため、誤指定の可能性があるときは
+$$
+\hat H^{-1}\hat\Sigma\hat H^{-1}
+$$
+という sandwich 推定量を使う必要がある。応用研究でいう **robust standard errors** は、まさにこの考え方に対応している。
+
+::: {.callout-important}
+## 実務上の推奨
+
+最尤法であっても、
+
+- 正しく特定されていると強く信じられる場合を除き、
+- 基本的には sandwich 型の分散推定量を報告する
+
+のが安全である。正しく特定されていれば sandwich でも正しいし、誤指定があっても破綻しにくいからである。
+:::
+
+## 準最尤法（QML）の例
+
+最後に、モデルの周辺分布だけを使う **準最尤法**（quasi-maximum likelihood; QML）の典型例を見ておく。
+
+$X_1,\ldots,X_n$ が厳密定常かつエルゴード的で、各 $X_t$ の周辺密度 $f(X_t;\theta)$ は分かっているが、真の条件付き密度
+$$
+f(X_t\mid X_{t-1},X_{t-2},\ldots;\theta)
+$$
+は複雑すぎて扱えないとする。このとき
+$$
+Q_n(\theta)=\frac1n\sum_{t=1}^n \log f(X_t;\theta)
+$$ {#eq-qml-criterion}
+を最大化して $\theta$ を推定できる。
+
+これはサンプル全体の真の対数尤度ではないが、M 推定量としては正当であり、適当な条件の下で
+$$
+\sqrt n(\hat\theta-\theta_0)\overset{d}{\to} N(0,H^{-1}\Sigma H^{-1})
+$$
+が成り立つ。ここで
+$$
+H=-E\left[\frac{\partial^2 \log f(X_t;\theta_0)}{\partial\theta\partial\theta'}\right]
+$$
+であり、$\Sigma$ は score の長期分散である。
+
+重要なのは、モデルがある意味で「正しい」としても、@eq-qml-criterion は真の尤度ではないため、一般には情報行列等式が成立しないことである。したがって、QML では最初から sandwich 形を使うのが自然である。
+
+### 例：AR(1) の周辺尤度と条件付き尤度
+
+$X_t=\rho X_{t-1}+\sigma u_t$（$u_t\sim N(0,1)$ i.i.d.）を考える。
+
+- 条件付き分布 $X_t\mid X_{t-1}$ は $N(\rho X_{t-1},\sigma^2)$ なので、条件付き尤度からは $\rho$ と $\sigma^2$ の両方が識別される。
+- 一方、周辺分布は $N\bigl(0,\sigma^2/(1-\rho^2)\bigr)$ なので、周辺尤度から識別されるのは
+  $$
+  \frac{\sigma^2}{1-\rho^2}
+  $$
+  だけである。
+
+したがって、使う尤度の形によって識別されるパラメータが変わりうる。
+
+# まとめ
+
+この章の要点は次の通りである。
+
+1. 滑らかな M 推定量では、近似的一階条件を $\theta_0$ のまわりで展開することで
+   $$
+   \sqrt n(\hat\theta-\theta_0)\overset{d}{\to} N(0,H^{-1}\Sigma H^{-1})
+   $$
+   が得られる。
+2. $H$ は曲率、$\Sigma$ は score の揺らぎを表す。
+3. i.i.d. や m.d.s. では $\Sigma=E[ss']$、一般の依存データでは long-run variance を使う。
+4. 標準誤差は
+   $$
+   \hat\Omega=\hat H^{-1}\hat\Sigma\hat H^{-1}
+   $$
+   という sandwich 形で推定するのが基本である。
+5. 最尤法は M 推定の代表例であり、正しく特定されていれば情報行列等式により効率性が得られるが、誤指定下では robust な sandwich 推定が必要になる。
+
+::: {.callout-note}
+## 次章への接続
+
+次の GMM 章では、M 推定での
+$$
+H=-E[D(X_t;\theta_0)],
+\qquad
+\Sigma=\text{score の漸近分散}
+$$
+に対応する量が
+$$
+H=G'WG,
+\qquad
+\Sigma=G'WSWG
+$$
+として現れる。つまり、M 推定で見た「曲率とノイズの分解」は、GMM でもそのまま引き継がれる。
+:::

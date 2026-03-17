@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>極値推定</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="02-extremum-estimation-ja_files/libs/clipboard/clipboard.min.js"></script>
+<script src="02-extremum-estimation-ja_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="02-extremum-estimation-ja_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="02-extremum-estimation-ja_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="02-extremum-estimation-ja_files/libs/quarto-html/popper.min.js"></script>
+<script src="02-extremum-estimation-ja_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="02-extremum-estimation-ja_files/libs/quarto-html/anchor.min.js"></script>
+<link href="02-extremum-estimation-ja_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="02-extremum-estimation-ja_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="02-extremum-estimation-ja_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="02-extremum-estimation-ja_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="02-extremum-estimation-ja_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a>
+  <ul class="collapse">
+  <li><a href="#極値推定の代表例" id="toc-極値推定の代表例" class="nav-link" data-scroll-target="#極値推定の代表例"><span class="header-section-number">1.1</span> 極値推定の代表例</a>
+  <ul class="collapse">
+  <li><a href="#m-推定" id="toc-m-推定" class="nav-link" data-scroll-target="#m-推定"><span class="header-section-number">1.1.1</span> M 推定</a></li>
+  <li><a href="#gmm" id="toc-gmm" class="nav-link" data-scroll-target="#gmm"><span class="header-section-number">1.1.2</span> GMM</a></li>
+  <li><a href="#smm" id="toc-smm" class="nav-link" data-scroll-target="#smm"><span class="header-section-number">1.1.3</span> SMM</a></li>
+  <li><a href="#minimum-distance" id="toc-minimum-distance" class="nav-link" data-scroll-target="#minimum-distance"><span class="header-section-number">1.1.4</span> Minimum Distance</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#一致性" id="toc-一致性" class="nav-link" data-scroll-target="#一致性"><span class="header-section-number">2</span> 一致性</a>
+  <ul class="collapse">
+  <li><a href="#clean-maximum-の検証" id="toc-clean-maximum-の検証" class="nav-link" data-scroll-target="#clean-maximum-の検証"><span class="header-section-number">2.1</span> clean maximum の検証</a></li>
+  <li><a href="#m-推定量における-uniform-convergence" id="toc-m-推定量における-uniform-convergence" class="nav-link" data-scroll-target="#m-推定量における-uniform-convergence"><span class="header-section-number">2.2</span> M 推定量における uniform convergence</a>
+  <ul class="collapse">
+  <li><a href="#ブラケット数" id="toc-ブラケット数" class="nav-link" data-scroll-target="#ブラケット数"><span class="header-section-number">2.2.1</span> ブラケット数</a></li>
+  <li><a href="#コンパクト性連続性支配条件からの有限ブラケット数" id="toc-コンパクト性連続性支配条件からの有限ブラケット数" class="nav-link" data-scroll-target="#コンパクト性連続性支配条件からの有限ブラケット数"><span class="header-section-number">2.2.2</span> コンパクト性・連続性・支配条件からの有限ブラケット数</a></li>
+  </ul></li>
+  <li><a href="#m-推定量の一致性" id="toc-m-推定量の一致性" class="nav-link" data-scroll-target="#m-推定量の一致性"><span class="header-section-number">2.3</span> M 推定量の一致性</a></li>
+  <li><a href="#gmm-の一致性" id="toc-gmm-の一致性" class="nav-link" data-scroll-target="#gmm-の一致性"><span class="header-section-number">2.4</span> GMM の一致性</a></li>
+  <li><a href="#smm-の一致性" id="toc-smm-の一致性" class="nav-link" data-scroll-target="#smm-の一致性"><span class="header-section-number">2.5</span> SMM の一致性</a></li>
+  <li><a href="#minimum-distance-の一致性" id="toc-minimum-distance-の一致性" class="nav-link" data-scroll-target="#minimum-distance-の一致性"><span class="header-section-number">2.6</span> Minimum Distance の一致性</a></li>
+  </ul></li>
+  <li><a href="#漸近正規性" id="toc-漸近正規性" class="nav-link" data-scroll-target="#漸近正規性"><span class="header-section-number">3</span> 漸近正規性</a>
+  <ul class="collapse">
+  <li><a href="#ols-との類似" id="toc-ols-との類似" class="nav-link" data-scroll-target="#ols-との類似"><span class="header-section-number">3.1</span> OLS との類似</a></li>
+  <li><a href="#一般形" id="toc-一般形" class="nav-link" data-scroll-target="#一般形"><span class="header-section-number">3.2</span> 一般形</a></li>
+  <li><a href="#この定理がどこで使われるか" id="toc-この定理がどこで使われるか" class="nav-link" data-scroll-target="#この定理がどこで使われるか"><span class="header-section-number">3.3</span> この定理がどこで使われるか</a></li>
+  <li><a href="#非微分可能な目的関数について" id="toc-非微分可能な目的関数について" class="nav-link" data-scroll-target="#非微分可能な目的関数について"><span class="header-section-number">3.4</span> 非微分可能な目的関数について</a></li>
+  </ul></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ"><span class="header-section-number">4</span> まとめ</a></li>
+  <li><a href="#参考文献" id="toc-参考文献" class="nav-link" data-scroll-target="#参考文献"><span class="header-section-number">5</span> 参考文献</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>その他のフォーマット</h2><ul><li><a href="../../../../../../東京大学マーケットデザインセンター Dropbox/ikegami kei/横市/授業/大学院計量/02-extremum-estimation-ja.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">極値推定</h1>
+<p class="subtitle lead">計量経済学大学院講義ノート</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<blockquote class="blockquote">
+<p><strong>原ノートとの対応</strong><br>
+この講義ノートは Tim Christensen, <em>Econometrics II</em> の Chapter 2 “Extremum estimation” をもとに、日本語の大学院向けノートとして再構成したものである。後続の M 推定、GMM、SMM、Minimum Distance、仮説検定の章への橋渡しになるよう、定義・直観・一致性・漸近正規性を統一的に整理する。</p>
+</blockquote>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この章の到達目標
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>この章の目的は次の4点である。</p>
+<ol type="1">
+<li>M 推定、GMM、SMM、MD を <strong>極値推定</strong> という一つの枠組みで理解する。</li>
+<li>極値推定量の一致性を保証する 2 つの鍵、すなわち <strong>clean maximum</strong> と <strong>uniform convergence</strong> を理解する。</li>
+<li>漸近正規性の基本表現 <span class="math display">\[
+o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
+\]</span> を理解し、推論に必要な分散行列の構造を見る。</li>
+<li>後続章で各推定法ごとの <span class="math inline">\(H\)</span> と <span class="math inline">\(\Sigma\)</span> を具体化する準備を整える。</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>記法の確認
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>本章では以下の記法を用いる。</p>
+<ul>
+<li><span class="math inline">\(\theta_0\)</span>：真のパラメータ</li>
+<li><span class="math inline">\(\Theta \subseteq \mathbb{R}^p\)</span>：パラメータ空間</li>
+<li><span class="math inline">\(Q_n(\theta)\)</span>：標本目的関数</li>
+<li><span class="math inline">\(Q(\theta)\)</span>：母目的関数</li>
+<li><span class="math inline">\(\|\cdot\|\)</span>：ユークリッドノルム</li>
+<li><span class="math inline">\(\to_p\)</span>：確率収束、<span class="math inline">\(\to_d\)</span>：分布収束</li>
+<li><span class="math inline">\(o_p(1)\)</span>：0 への確率収束、<span class="math inline">\(O_p(1)\)</span>：確率的有界</li>
+</ul>
+<p>また、必要に応じてデータは i.i.d.、もしくは厳密定常かつエルゴード的であると仮定する。</p>
+</div>
+</div>
+<section id="導入" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 導入</h1>
+<p>構造モデルや半構造モデルの多くでは、まずデータからある目的関数 <span class="math inline">\(Q_n(\theta)\)</span> を作り、その目的関数を最大化あるいは最小化することでパラメータを推定する。最小化問題も符号を反転させれば最大化問題として書けるので、本章では最大化に統一する。</p>
+<div id="def-extremum" class="theorem definition">
+<p><span class="theorem-title"><strong>定義 1 (極値推定量)</strong></span> <span class="math inline">\(\hat\theta\)</span> を <span class="math inline">\(\Theta\)</span> 値の可測関数とする。<span class="math inline">\(\hat\theta\)</span> が <span id="eq-extremum-def"><span class="math display">\[
+Q_n(\hat\theta) \geq \sup_{\theta\in\Theta} Q_n(\theta)-\eta_n,
+\tag{1}\]</span></span> を満たし、かつ <span class="math inline">\(\eta_n=o_p(1)\)</span> であるとき、<span class="math inline">\(\hat\theta\)</span> を <strong>極値推定量</strong> と呼ぶ。</p>
+</div>
+<p>式 <a href="#eq-extremum-def" class="quarto-xref">式&nbsp;1</a> の <span class="math inline">\(\eta_n\)</span> は、数値最適化の誤差を許すための項である。実際の応用では、特にシミュレーションを含む推定法では目的関数を厳密に最大化することは難しい。そのため、</p>
+<ul>
+<li>理論上の最大値に十分近い値を達成していればよい</li>
+<li>その誤差が漸近的に無視できればよい</li>
+</ul>
+<p>という立場をとる。</p>
+<p>母目的関数 <span class="math inline">\(Q: \Theta \to \mathbb{R}\)</span> は、標本目的関数の確率極限に対応する。真のパラメータ <span class="math inline">\(\theta_0\)</span> は、通常 <span class="math display">\[
+Q(\theta_0) \geq Q(\theta) \qquad (\forall\theta\in\Theta)
+\]</span> を満たす点として定義される。さらに <span class="math display">\[
+Q(\theta_0)&gt;Q(\theta) \qquad (\forall\theta\neq \theta_0)
+\]</span> が成り立つとき、<span class="math inline">\(\theta_0\)</span> は識別されているという。</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>直観
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>極値推定の基本発想は単純である。</p>
+<ul>
+<li>有限標本では <span class="math inline">\(Q_n\)</span> を最大化して <span class="math inline">\(\hat\theta\)</span> を得る。</li>
+<li>標本が大きくなると <span class="math inline">\(Q_n\)</span> は <span class="math inline">\(Q\)</span> に近づく。</li>
+<li>したがって、<span class="math inline">\(Q_n\)</span> の最大化点は <span class="math inline">\(Q\)</span> の最大化点 <span class="math inline">\(\theta_0\)</span> に近づくはずである。</li>
+</ul>
+<p>本章の一致性理論は、この素朴な直観を厳密にしたものである。</p>
+</div>
+</div>
+<section id="極値推定の代表例" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="極値推定の代表例"><span class="header-section-number">1.1</span> 極値推定の代表例</h2>
+<p>この章では後続章で詳しく扱う 4 種類の推定量を、極値推定という観点からまとめておく。</p>
+<section id="m-推定" class="level3" data-number="1.1.1">
+<h3 data-number="1.1.1" class="anchored" data-anchor-id="m-推定"><span class="header-section-number">1.1.1</span> M 推定</h3>
+<p>M 推定では標本目的関数が <span class="math display">\[
+Q_n(\theta)=\frac{1}{n}\sum_{t=1}^n m(X_t;\theta)
+\]</span> という標本平均の形をとる。したがって、厳密定常かつエルゴード的なデータのもとでは <span class="math display">\[
+Q_n(\theta) \to_p E[m(X_t;\theta)] \equiv Q(\theta)
+\]</span> が各固定された <span class="math inline">\(\theta\)</span> について成り立つ。</p>
+<p>代表例は次の通りである。</p>
+<ol type="1">
+<li><p><strong>最尤法</strong><br>
+<span class="math inline">\(m(X_t;\theta)=\log f(X_t;\theta)\)</span> とおけば、最尤法は M 推定量になる。</p></li>
+<li><p><strong>マルコフ過程の条件付き最尤法</strong><br>
+<span class="math inline">\(X_t=(Y_t,Y_{t-1})\)</span> として <span class="math display">\[
+m(X_t;\theta)=\log f(Y_t\mid Y_{t-1};\theta)
+\]</span> と置けばよい。</p></li>
+<li><p><strong>非線形最小二乗法</strong><br>
+条件付き平均が <span class="math inline">\(E[Y_t\mid Z_t]=\varphi(Z_t;\theta_0)\)</span> であれば <span class="math display">\[
+Q_n(\theta)=-\frac1n\sum_{t=1}^n\bigl(Y_t-\varphi(Z_t;\theta)\bigr)^2
+\]</span> を最大化することで推定できる。</p></li>
+</ol>
+</section>
+<section id="gmm" class="level3" data-number="1.1.2">
+<h3 data-number="1.1.2" class="anchored" data-anchor-id="gmm"><span class="header-section-number">1.1.2</span> GMM</h3>
+<p>GMM ではモーメント条件 <span class="math display">\[
+E[g(X_t;\theta_0)]=0
+\]</span> を用いる。標本モーメントを <span class="math display">\[
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+\]</span> とすると、標本目的関数は <span class="math display">\[
+Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n g_n(\theta)
+\]</span> で与えられる。ここで <span class="math inline">\(\widehat W_n\)</span> は正定値対称な重み行列である。母目的関数は <span class="math display">\[
+Q(\theta)=-\frac12 g(\theta)'Wg(\theta),
+\qquad g(\theta)=E[g(X_t;\theta)]
+\]</span> となる。</p>
+</section>
+<section id="smm" class="level3" data-number="1.1.3">
+<h3 data-number="1.1.3" class="anchored" data-anchor-id="smm"><span class="header-section-number">1.1.3</span> SMM</h3>
+<p>SMM は、データから得られるターゲット・モーメント <span class="math inline">\(g_n\)</span> と、モデルからシミュレーションで得られるモーメント <span class="math inline">\(\gamma_m(\theta)\)</span> を一致させる推定法である。標本目的関数は <span class="math display">\[
+Q_n(\theta)=-\frac12\bigl(g_n-\gamma_m(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma_m(\theta)\bigr)
+\]</span> である。</p>
+</section>
+<section id="minimum-distance" class="level3" data-number="1.1.4">
+<h3 data-number="1.1.4" class="anchored" data-anchor-id="minimum-distance"><span class="header-section-number">1.1.4</span> Minimum Distance</h3>
+<p>Minimum Distance では、ある縮約形統計量 <span class="math inline">\(g_n\)</span> と、その構造モデル上の対応物 <span class="math inline">\(\gamma(\theta)\)</span> の距離を最小化する。目的関数は <span class="math display">\[
+Q_n(\theta)=-\frac12\bigl(g_n-\gamma(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma(\theta)\bigr)
+\]</span> である。</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この章と後続章の関係
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>この章では、M 推定・GMM・SMM・MD に共通する <strong>抽象的な極値推定理論</strong> を扱う。<br>
+後続章では、それぞれの推定法に固有の</p>
+<ul>
+<li>目的関数の曲率</li>
+<li>漸近分散の推定方法</li>
+<li>効率性</li>
+<li>実装上の注意</li>
+</ul>
+<p>を具体的に掘り下げる。</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="一致性" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 一致性</h1>
+<p>推定量 <span class="math inline">\(\hat\theta\)</span> が <strong>一致</strong> するとは <span class="math display">\[
+\hat\theta \to_p \theta_0
+\]</span> が成り立つことである。これは、標本サイズが大きくなるにつれて、<span class="math inline">\(\hat\theta\)</span> が真の値 <span class="math inline">\(\theta_0\)</span> に高い確率で近づくことを意味する。</p>
+<p>極値推定量の一致性の本質は、</p>
+<ol type="1">
+<li>母目的関数 <span class="math inline">\(Q\)</span> が <span class="math inline">\(\theta_0\)</span> で十分きれいに最大化されていること</li>
+<li>標本目的関数 <span class="math inline">\(Q_n\)</span> が <span class="math inline">\(Q\)</span> に一様に近づくこと</li>
+</ol>
+<p>の 2 点に尽きる。</p>
+<div id="thm-extremum-consistency" class="theorem">
+<p><span class="theorem-title"><strong>定理 1 (極値推定量の一致性)</strong></span> 次を仮定する。</p>
+<ol type="1">
+<li><strong>clean maximum</strong>：任意の <span class="math inline">\(\delta&gt;0\)</span> に対して <span class="math display">\[
+\sup_{\theta\in\Theta:\,\|\theta-\theta_0\|\geq \delta} Q(\theta) &lt; Q(\theta_0).
+\]</span></li>
+<li><strong>uniform convergence</strong>： <span class="math display">\[
+\sup_{\theta\in\Theta} |Q_n(\theta)-Q(\theta)| = o_p(1).
+\]</span></li>
+</ol>
+<p>このとき、<a href="#def-extremum" class="quarto-xref">定義&nbsp;1</a> の意味で定義された任意の極値推定量 <span class="math inline">\(\hat\theta\)</span> は一致する。すなわち <span class="math display">\[
+\hat\theta \to_p \theta_0.
+\]</span></p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>任意の <span class="math inline">\(\delta&gt;0\)</span> を固定する。clean maximum より <span class="math display">\[
+\varepsilon
+=Q(\theta_0)-\sup_{\theta\in\Theta:\,\|\theta-\theta_0\|\geq \delta}Q(\theta)
+&gt;0
+\]</span> である。</p>
+<p>次の事象を考える。 <span class="math display">\[
+S_n=
+\left\{
+|\eta_n|&lt;\frac{\varepsilon}{3},\
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|&lt;\frac{\varepsilon}{3}
+\right\}.
+\]</span> 仮定より <span class="math inline">\(P(S_n)\to 1\)</span>。</p>
+<p><span class="math inline">\(S_n\)</span> 上では <span class="math display">\[
+Q(\hat\theta)
+\ge Q_n(\hat\theta)-\frac{\varepsilon}{3}
+\ge Q_n(\theta_0)-\eta_n-\frac{\varepsilon}{3}
+\ge Q_n(\theta_0)-\frac{2\varepsilon}{3}
+\ge Q(\theta_0)-\varepsilon.
+\]</span> したがって <span class="math display">\[
+Q(\hat\theta) &gt; \sup_{\theta\in\Theta:\,\|\theta-\theta_0\|\ge \delta} Q(\theta).
+\]</span> よって <span class="math inline">\(S_n\)</span> 上では必ず <span class="math inline">\(\|\hat\theta-\theta_0\|&lt;\delta\)</span> である。ゆえに <span class="math display">\[
+P(\|\hat\theta-\theta_0\|&lt;\delta)\ge P(S_n)\to 1.
+\]</span> <span class="math inline">\(\delta&gt;0\)</span> は任意だから、<span class="math inline">\(\hat\theta\to_p\theta_0\)</span> が従う。</p>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>clean maximum と識別の違い
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>識別は通常 <span class="math display">\[
+Q(\theta_0)&gt;Q(\theta) \qquad (\theta\neq\theta_0)
+\]</span> という一点ごとの比較で表される。他方、clean maximum は</p>
+<blockquote class="blockquote">
+<p><span class="math inline">\(\theta_0\)</span> から一定距離以上離れた点では、<span class="math inline">\(Q\)</span> が一様に低い</p>
+</blockquote>
+<p>ことを要求する。したがって clean maximum は識別より少し強い条件であり、“遠く離れたところで <span class="math inline">\(Q(\theta)\)</span> が <span class="math inline">\(Q(\theta_0)\)</span> に限りなく近づく” ような病的な状況を排除する。</p>
+</div>
+</div>
+<section id="clean-maximum-の検証" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="clean-maximum-の検証"><span class="header-section-number">2.1</span> clean maximum の検証</h2>
+<p>clean maximum を直接検証する代わりに、より使いやすい十分条件を使うことが多い。</p>
+<div id="lem-clean-maximum" class="theorem lemma">
+<p><span class="theorem-title"><strong>補題 1 (clean maximum の十分条件)</strong></span> 次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(\Theta\)</span> はコンパクトである。</li>
+<li><span class="math inline">\(Q:\Theta\to\mathbb{R}\)</span> は連続である。</li>
+<li><span class="math inline">\(Q(\theta_0)&gt;Q(\theta)\)</span> がすべての <span class="math inline">\(\theta\neq\theta_0\)</span> について成り立つ。</li>
+</ol>
+<p>このとき clean maximum が成り立つ。</p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>任意の <span class="math inline">\(\delta&gt;0\)</span> を固定する。集合 <span class="math display">\[
+A_\delta=\{\theta\in\Theta:\|\theta-\theta_0\|\ge \delta\}
+\]</span> はコンパクトである。<span class="math inline">\(Q\)</span> は連続だから、Weierstrass の定理より <span class="math inline">\(A_\delta\)</span> 上で最大値をとる点 <span class="math inline">\(\theta_\delta^*\in A_\delta\)</span> が存在する。すると <span class="math display">\[
+\sup_{\theta\in A_\delta}Q(\theta)=Q(\theta_\delta^*).
+\]</span> しかし <span class="math inline">\(\theta_\delta^*\neq\theta_0\)</span> なので、仮定 3 より <span class="math display">\[
+Q(\theta_\delta^*)&lt;Q(\theta_0).
+\]</span> したがって clean maximum が従う。</p>
+</div>
+</section>
+<section id="m-推定量における-uniform-convergence" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="m-推定量における-uniform-convergence"><span class="header-section-number">2.2</span> M 推定量における uniform convergence</h2>
+<p>M 推定では <span class="math display">\[
+Q_n(\theta)=\frac1n\sum_{t=1}^n m(X_t;\theta),
+\qquad
+Q(\theta)=E[m(X_t;\theta)]
+\]</span> であるから、必要なのは <span class="math display">\[
+\sup_{\theta\in\Theta}
+\left|
+\frac1n\sum_{t=1}^n m(X_t;\theta)-E[m(X_t;\theta)]
+\right|=o_p(1)
+\]</span> を示すことである。</p>
+<p>点ごとの大数法則だけでは不十分である。各固定された <span class="math inline">\(\theta\)</span> で収束していても、<span class="math inline">\(\theta\)</span> を動かしたときに目的関数に「動き回る谷」や「スパイク」が残る可能性があるからである。これを排除するのが一様収束である。</p>
+<section id="ブラケット数" class="level3" data-number="2.2.1">
+<h3 data-number="2.2.1" class="anchored" data-anchor-id="ブラケット数"><span class="header-section-number">2.2.1</span> ブラケット数</h3>
+<p>一様収束を示すために、関数族の複雑さを測る <strong>ブラケット数</strong> を使う。</p>
+<div id="def-bracketing" class="theorem definition">
+<p><span class="theorem-title"><strong>定義 2 (ブラケット数)</strong></span> <span class="math inline">\(L_1=\{f(X_t):E|f(X_t)|&lt;\infty\}\)</span> とし、<span class="math inline">\(\mathcal F\subseteq L_1\)</span> を関数族とする。関数の組 <span class="math display">\[
+\{(\ell_{\varepsilon,1},u_{\varepsilon,1}),\ldots,(\ell_{\varepsilon,N},u_{\varepsilon,N})\}
+\]</span> が <span class="math inline">\(\mathcal F\)</span> をレベル <span class="math inline">\(\varepsilon\)</span> で <strong>ブラケットする</strong> とは、任意の <span class="math inline">\(f\in\mathcal F\)</span> に対してある <span class="math inline">\(i\)</span> が存在し <span class="math display">\[
+\ell_{\varepsilon,i}\le f\le u_{\varepsilon,i},
+\qquad
+E[u_{\varepsilon,i}-\ell_{\varepsilon,i}]\le \varepsilon
+\]</span> が成り立つことをいう。</p>
+<p>このようなブラケットの最小個数を <span class="math inline">\(N_{[]} (\mathcal F,\varepsilon)\)</span> と書き、すべての <span class="math inline">\(\varepsilon&gt;0\)</span> に対して有限なら、<span class="math inline">\(\mathcal F\)</span> は有限ブラケット数をもつという。</p>
+</div>
+<p>ブラケット数が有限であるとは、関数族全体を有限個の「上下からの挟み込み」で近似できるという意味である。これにより、無限個の関数に対する supremum を、有限個のブラケット上の maximum に帰着できる。</p>
+<div id="lem-ulln-bracketing" class="theorem lemma">
+<p><span class="theorem-title"><strong>補題 2 (ブラケット数による一様収束)</strong></span> <span class="math inline">\(\mathcal M=\{m(\cdot;\theta):\theta\in\Theta\}\)</span> とする。次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(X_1,\ldots,X_n\)</span> は厳密定常かつエルゴード的である。</li>
+<li>任意の <span class="math inline">\(\varepsilon&gt;0\)</span> に対して <span class="math inline">\(N_{[]}(\mathcal M,\varepsilon)&lt;\infty\)</span> である。</li>
+</ol>
+<p>このとき <span class="math display">\[
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|=o_p(1)
+\]</span> が成り立つ。実際にはより強く、almost surely の収束まで示せる。</p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>要点だけ示す。任意の有理数 <span class="math inline">\(\varepsilon&gt;0\)</span> をとる。仮定より、<span class="math inline">\(\mathcal M\)</span> をレベル <span class="math inline">\(\varepsilon\)</span> でブラケットする有限個の関数対 <span class="math display">\[
+(\ell_{\varepsilon,1},u_{\varepsilon,1}),\ldots,(\ell_{\varepsilon,N},u_{\varepsilon,N})
+\]</span> が存在する。</p>
+<p>任意の <span class="math inline">\(\theta\)</span> について、ある <span class="math inline">\(i(\theta)\)</span> が存在して <span class="math display">\[
+\ell_{\varepsilon,i(\theta)}(X_t)
+\le m(X_t;\theta)
+\le u_{\varepsilon,i(\theta)}(X_t)
+\]</span> かつ <span class="math display">\[
+E\bigl[u_{\varepsilon,i(\theta)}(X_t)-\ell_{\varepsilon,i(\theta)}(X_t)\bigr]\le \varepsilon.
+\]</span> したがって <span class="math display">\[
+Q_n(\theta)-Q(\theta)
+\le \frac1n\sum_{t=1}^n u_{\varepsilon,i(\theta)}(X_t)-E[u_{\varepsilon,i(\theta)}(X_t)] + \varepsilon.
+\]</span> ここで右辺第1項は有限個のブラケット上の最大値で抑えられるので、エルゴード定理より <span class="math display">\[
+\max_{1\le i\le N}
+\left\{
+\frac1n\sum_{t=1}^n u_{\varepsilon,i}(X_t)-E[u_{\varepsilon,i}(X_t)]
+\right\}
+\to 0
+\]</span> almost surely である。同様に下側ブラケットから <span class="math display">\[
+\inf_{\theta\in\Theta}(Q_n(\theta)-Q(\theta))\ge -\varepsilon+o_{a.s.}(1)
+\]</span> が従う。よって <span class="math display">\[
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|\le \varepsilon+o_{a.s.}(1).
+\]</span> <span class="math inline">\(\varepsilon&gt;0\)</span> は任意だから結論が得られる。</p>
+</div>
+</section>
+<section id="コンパクト性連続性支配条件からの有限ブラケット数" class="level3" data-number="2.2.2">
+<h3 data-number="2.2.2" class="anchored" data-anchor-id="コンパクト性連続性支配条件からの有限ブラケット数"><span class="header-section-number">2.2.2</span> コンパクト性・連続性・支配条件からの有限ブラケット数</h3>
+<p>ブラケット数の有限性を直接示すのは難しいことが多い。実務上は次の十分条件が最も使いやすい。</p>
+<div id="lem-finite-bracketing" class="theorem lemma">
+<p><span class="theorem-title"><strong>補題 3 (コンパクト性・連続性・支配条件による有限ブラケット数)</strong></span> 次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(\Theta\)</span> はコンパクトである。</li>
+<li><span class="math inline">\(m(X_t;\theta)\)</span> は任意の <span class="math inline">\(X_t\)</span> に対して <span class="math inline">\(\theta\)</span> で連続である。</li>
+<li><span class="math display">\[
+E[\sup_{\theta\in\Theta}|m(X_t;\theta)|]&lt;\infty.
+\]</span></li>
+</ol>
+<p>このとき、<span class="math inline">\(\mathcal M=\{m(\cdot;\theta):\theta\in\Theta\}\)</span> は有限ブラケット数をもつ。</p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>任意の <span class="math inline">\(\delta&gt;0\)</span> をとる。<span class="math inline">\(\Theta\)</span> がコンパクトなので、有限個の半径 <span class="math inline">\(\delta\)</span> の開球で被覆できる。中心を <span class="math inline">\(\theta_1,\ldots,\theta_J\)</span> とする。</p>
+<p>各 <span class="math inline">\(j\)</span> に対して <span class="math display">\[
+\ell_{\delta,j}(x)=\inf_{\|\theta-\theta_j\|\le\delta}m(x;\theta),
+\qquad
+u_{\delta,j}(x)=\sup_{\|\theta-\theta_j\|\le\delta}m(x;\theta)
+\]</span> と置く。連続性とコンパクト性により、これらはよく定義される。</p>
+<p>任意の <span class="math inline">\(\theta\)</span> はどれか一つの球に属するので、対応する <span class="math inline">\(j\)</span> について <span class="math display">\[
+\ell_{\delta,j}(x)\le m(x;\theta)\le \nu_{\delta,j}(x)
+\]</span> が成り立つ。したがって、<span class="math inline">\(J\)</span> 個のブラケットで <span class="math inline">\(\mathcal M\)</span> を被覆できる。</p>
+<p>残るのは、ブラケット幅の期待値が <span class="math inline">\(\delta\downarrow 0\)</span> とともに 0 に行くことを示すことである。連続関数はコンパクト集合上で一様連続だから、各 <span class="math inline">\(x\)</span> に対して <span class="math display">\[
+\max_{1\le j\le J}\bigl(\nu_{\delta,j}(x)-\ell_{\delta,j}(x)\bigr)\to 0.
+\]</span> さらに <span class="math display">\[
+\max_{1\le j\le J}\bigl|\nu_{\delta,j}(X_t)-\ell_{\delta,j}(X_t)\bigr|
+\le 2\sup_{\theta\in\Theta}|m(X_t;\theta)|,
+\]</span> であり、右辺は仮定 3 により可積分である。よって優収束定理からブラケット幅の期待値は 0 に収束する。したがって任意の <span class="math inline">\(\varepsilon&gt;0\)</span> に対して有限個の <span class="math inline">\(\varepsilon\)</span>-ブラケットが構成できる。</p>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>何が本質か
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>M 推定量の一致性で重要なのは、目的関数の具体形そのものではなく、</p>
+<ul>
+<li><span class="math inline">\(\theta\)</span> を動かしたときに関数族が複雑すぎないこと</li>
+<li>その結果、標本平均が一様に収束すること</li>
+</ul>
+<p>である。コンパクト性・連続性・支配条件は、そのための便利な十分条件にすぎない。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="m-推定量の一致性" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="m-推定量の一致性"><span class="header-section-number">2.3</span> M 推定量の一致性</h2>
+<p>ここまでの結果をまとめると、M 推定量について次が得られる。</p>
+<div id="thm-m-consistency" class="theorem">
+<p><span class="theorem-title"><strong>定理 2 (M 推定量の一致性)</strong></span> <span class="math inline">\(\hat\theta\)</span> が <span class="math display">\[
+Q_n(\hat\theta)\ge \sup_{\theta\in\Theta}Q_n(\theta)-\eta_n,
+\qquad \eta_n=o_p(1)
+\]</span> を満たし、 <span class="math display">\[
+Q_n(\theta)=\frac1n\sum_{t=1}^n m(X_t;\theta)
+\]</span> とする。次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(X_1,\ldots,X_n\)</span> は厳密定常かつエルゴード的である。</li>
+<li><span class="math inline">\(\Theta\)</span> はコンパクトである。</li>
+<li><span class="math inline">\(m(X_t;\theta)\)</span> は <span class="math inline">\(\theta\)</span> で連続である。</li>
+<li><span class="math display">\[
+E[\sup_{\theta\in\Theta}|m(X_t;\theta)|]&lt;\infty.
+\]</span></li>
+<li>母目的関数 <span class="math inline">\(Q(\theta)=E[m(X_t;\theta)]\)</span> は <span class="math inline">\(\theta_0\)</span> で一意に最大化される。</li>
+</ol>
+<p>このとき <span class="math display">\[
+\hat\theta\to_p\theta_0.
+\]</span></p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>仮定 2, 3, 5 と <a href="#lem-clean-maximum" class="quarto-xref">補題&nbsp;1</a> より clean maximum が成り立つ。仮定 2–4 と <a href="#lem-finite-bracketing" class="quarto-xref">補題&nbsp;3</a> より関数族 <span class="math inline">\(\mathcal M\)</span> は有限ブラケット数をもち、仮定 1 と <a href="#lem-ulln-bracketing" class="quarto-xref">補題&nbsp;2</a> より uniform convergence が成り立つ。したがって <a href="#thm-extremum-consistency" class="quarto-xref">定理&nbsp;1</a> を適用すればよい。</p>
+</div>
+</section>
+<section id="gmm-の一致性" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="gmm-の一致性"><span class="header-section-number">2.4</span> GMM の一致性</h2>
+<p>GMM では、一様収束の対象は標本モーメント <span class="math inline">\(g_n(\theta)\)</span> である。</p>
+<div id="thm-gmm-consistency" class="theorem">
+<p><span class="theorem-title"><strong>定理 3 (GMM 推定量の一致性)</strong></span> GMM の標本目的関数を <span class="math display">\[
+Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n g_n(\theta),
+\qquad
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+\]</span> とする。さらに <span class="math display">\[
+g(\theta)=E[g(X_t;\theta)]
+\]</span> とおく。次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(X_1,\ldots,X_n\)</span> は厳密定常かつエルゴード的である。</li>
+<li><span class="math inline">\(\Theta\)</span> はコンパクトである。</li>
+<li><span class="math inline">\(g(\theta)\)</span> は連続である。</li>
+<li><span class="math inline">\(\widehat W_n\to_p W\)</span>。ただし <span class="math inline">\(W\)</span> は正定値対称行列である。</li>
+<li><span class="math inline">\(g(\theta)=0\)</span> であることと <span class="math inline">\(\theta=\theta_0\)</span> であることが同値である。</li>
+<li><span class="math display">\[
+\mathcal G=\{g_k(\cdot;\theta):\theta\in\Theta,\ 1\le k\le K\}
+\]</span> は有限ブラケット数をもつ。</li>
+</ol>
+<p>このとき GMM 推定量 <span class="math inline">\(\hat\theta\)</span> は一致し、 <span class="math display">\[
+\hat\theta\to_p\theta_0.
+\]</span></p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>証明の骨格は <a href="#thm-extremum-consistency" class="quarto-xref">定理&nbsp;1</a> の適用である。</p>
+<p>まず仮定 3–5 より <span class="math display">\[
+Q(\theta)=-\frac12 g(\theta)'Wg(\theta)
+\]</span> は <span class="math inline">\(\theta_0\)</span> で一意に最大化され、かつ連続である。したがって <a href="#lem-clean-maximum" class="quarto-xref">補題&nbsp;1</a> により clean maximum が成り立つ。</p>
+<p>次に、仮定 6 と <a href="#lem-ulln-bracketing" class="quarto-xref">補題&nbsp;2</a> を各成分 <span class="math inline">\(g_k(X_t;\theta)\)</span> に適用すると <span class="math display">\[
+\sup_{\theta\in\Theta}\|g_n(\theta)-g(\theta)\|\to_p 0
+\]</span> が得られる。これを用いて <span class="math display">\[
+2\{Q(\theta)-Q_n(\theta)\}
+= g_n(\theta)'(\widehat W_n-W)g_n(\theta)
++\bigl(g_n(\theta)-g(\theta)\bigr)'W\bigl(g_n(\theta)+g(\theta)\bigr)
+\]</span> と分解すれば、右辺第 1 項も第 2 項も <span class="math inline">\(o_p(1)\)</span> であることがわかる。したがって uniform convergence が成立する。</p>
+<p>以上より <a href="#thm-extremum-consistency" class="quarto-xref">定理&nbsp;1</a> から結論が従う。</p>
+</div>
+</section>
+<section id="smm-の一致性" class="level2" data-number="2.5">
+<h2 data-number="2.5" class="anchored" data-anchor-id="smm-の一致性"><span class="header-section-number">2.5</span> SMM の一致性</h2>
+<p>SMM では標本側の不確実性に加えて、シミュレーション側の不確実性が入る。そのため、モデル・モーメントのシミュレーション近似 <span class="math inline">\(\gamma_m(\theta)\)</span> が <strong>一様に</strong> 真の <span class="math inline">\(\gamma(\theta)\)</span> に近づくことが必要になる。</p>
+<div id="thm-smm-consistency" class="theorem">
+<p><span class="theorem-title"><strong>定理 4 (SMM 推定量の一致性)</strong></span> SMM の標本目的関数を <span class="math display">\[
+Q_n(\theta)=-\frac12\bigl(g_n-\gamma_m(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma_m(\theta)\bigr)
+\]</span> とし、母目的関数を <span class="math display">\[
+Q(\theta)=-\frac12\bigl(g_0-\gamma(\theta)\bigr)'W\bigl(g_0-\gamma(\theta)\bigr)
+\]</span> とする。次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(\Theta\)</span> はコンパクトである。</li>
+<li><span class="math inline">\(\gamma(\theta)\)</span> は <span class="math inline">\(\theta\)</span> で連続である。</li>
+<li><span class="math display">\[
+\sup_{\theta\in\Theta}\|\gamma_m(\theta)-\gamma(\theta)\|=o_p(1).
+\]</span></li>
+<li><span class="math inline">\(g_n\to_p g_0\)</span> かつ <span class="math inline">\(\widehat W_n\to_p W\)</span>。ただし <span class="math inline">\(W\)</span> は正定値対称行列である。</li>
+<li><span class="math inline">\(\gamma(\theta)=g_0\)</span> であることと <span class="math inline">\(\theta=\theta_0\)</span> であることが同値である。</li>
+</ol>
+<p>このとき SMM 推定量 <span class="math inline">\(\hat\theta\)</span> は一致する。</p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>仮定 1, 2, 5 と <a href="#lem-clean-maximum" class="quarto-xref">補題&nbsp;1</a> より clean maximum が成り立つ。仮定 3, 4 を使って <span class="math display">\[
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|=o_p(1)
+\]</span> を示せばよい。実際、 <span class="math display">\[
+2\{Q(\theta)-Q_n(\theta)
+\}
+=(g_n-\gamma_m(\theta))'(\widehat W_n-W)(g_n-\gamma_m(\theta))
+\]</span> <span class="math display">\[
+\qquad +\bigl(g_n-g_0+\gamma(\theta)-\gamma_m(\theta)\bigr)'W
+\bigl(g_n-\gamma_m(\theta)+g_0-\gamma(\theta)\bigr)
+\]</span> と分解できる。仮定 3 によりシミュレーション誤差が一様に消え、仮定 4 により標本モーメントと重み行列も収束するので、右辺全体が <span class="math inline">\(o_p(1)\)</span> となる。よって <a href="#thm-extremum-consistency" class="quarto-xref">定理&nbsp;1</a> が適用できる。</p>
+</div>
+<div class="callout callout-style-default callout-caution callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">注意</span>SMM の実装上の注意
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>SMM を数値的に実装する際は、異なる <span class="math inline">\(\theta\)</span> の間で <strong>同じ乱数系列</strong> を使うことが重要である。乱数系列を毎回変えてしまうと、同じ <span class="math inline">\(\theta\)</span> でも評価される目的関数値がぶれ、最適化が不安定になる。</p>
+</div>
+</div>
+</section>
+<section id="minimum-distance-の一致性" class="level2" data-number="2.6">
+<h2 data-number="2.6" class="anchored" data-anchor-id="minimum-distance-の一致性"><span class="header-section-number">2.6</span> Minimum Distance の一致性</h2>
+<p>Minimum Distance は SMM からシミュレーション誤差を取り除いた形になっている。</p>
+<div id="thm-md-consistency" class="theorem">
+<p><span class="theorem-title"><strong>定理 5 (Minimum Distance 推定量の一致性)</strong></span> 標本目的関数を <span class="math display">\[
+Q_n(\theta)=-\frac12\bigl(g_n-\gamma(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma(\theta)\bigr)
+\]</span> とする。次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(\Theta\)</span> はコンパクトである。</li>
+<li><span class="math inline">\(\gamma(\theta)\)</span> は <span class="math inline">\(\theta\)</span> で連続である。</li>
+<li><span class="math inline">\(g_n\to_p g_0\)</span> かつ <span class="math inline">\(\widehat W_n\to_p W\)</span>。ただし <span class="math inline">\(W\)</span> は正定値対称行列である。</li>
+<li><span class="math inline">\(\gamma(\theta)=g_0\)</span> であることと <span class="math inline">\(\theta=\theta_0\)</span> であることが同値である。</li>
+</ol>
+<p>このとき Minimum Distance 推定量 <span class="math inline">\(\hat\theta\)</span> は一致する。</p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>SMM の場合の証明から、シミュレーション近似 <span class="math inline">\(\gamma_m(\theta)\)</span> を真の <span class="math inline">\(\gamma(\theta)\)</span> に置き換えればよい。clean maximum と uniform convergence が同様に確認できるので、<a href="#thm-extremum-consistency" class="quarto-xref">定理&nbsp;1</a> が適用できる。</p>
+</div>
+</section>
+</section>
+<section id="漸近正規性" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 漸近正規性</h1>
+<p>一致性だけでは推論はできない。標準誤差、信頼区間、Wald 検定などを行うには、<span class="math inline">\(\hat\theta\)</span> の漸近分布が必要である。本章ではその最も一般的な形を与える。</p>
+<section id="ols-との類似" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="ols-との類似"><span class="header-section-number">3.1</span> OLS との類似</h2>
+<p>極値推定の漸近正規性は、実は OLS の議論と非常によく似ている。線形回帰 <span class="math display">\[
+y_t=x_t'\beta_0+u_t
+\]</span> を考えると、OLS の目的関数は <span class="math display">\[
+Q_n(\beta)=-\frac{1}{2n}\sum_{t=1}^n (y_t-x_t'\beta)^2
+\]</span> である。FOC を <span class="math inline">\(\hat\beta\)</span> で評価すると <span class="math display">\[
+0=
+-\left(\frac1n\sum_{t=1}^n x_tx_t'\right)(\hat\beta-\beta_0)
++\left(\frac1n\sum_{t=1}^n x_tu_t\right).
+\]</span> 両辺に <span class="math inline">\(\sqrt{n}\)</span> を掛ければ <span class="math display">\[
+0=H_n\sqrt{n}(\hat\beta-\beta_0)-Z_n
+\]</span> と書ける。ここで <span class="math display">\[
+H_n=\frac1n\sum_{t=1}^n x_tx_t',
+\qquad
+Z_n=\frac1{\sqrt n}\sum_{t=1}^n x_tu_t.
+\]</span> 一般の極値推定でも、適切な正則性条件の下でほぼ同じ構造が現れる。</p>
+</section>
+<section id="一般形" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="一般形"><span class="header-section-number">3.2</span> 一般形</h2>
+<p>目的関数が十分滑らかで、かつ数値最適化誤差が十分小さいとする。すると、近似的一階条件 <span class="math display">\[
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
+\]</span> を <span class="math inline">\(\theta_0\)</span> のまわりで展開することで、しばしば <span id="eq-master-linearization"><span class="math display">\[
+o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
+\tag{2}\]</span></span> という表現が得られる。ここで</p>
+<ul>
+<li><span class="math inline">\(H_n\)</span> は目的関数の局所的な曲率を表す行列</li>
+<li><span class="math inline">\(Z_n\)</span> は標本平均の変動を表す確率ベクトル</li>
+</ul>
+<p>である。</p>
+<p>もし <span class="math display">\[
+H_n\to_p H,
+\qquad
+Z_n\to_d N(0,\Sigma),
+\]</span> かつ <span class="math inline">\(H\)</span> が可逆であれば、<a href="#eq-master-linearization" class="quarto-xref">式&nbsp;2</a> から <span class="math display">\[
+\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1})
+\]</span> が従うはずである。次の定理はそれを厳密に述べたものだ。</p>
+<div id="thm-master-an" class="theorem">
+<p><span class="theorem-title"><strong>定理 6 (極値推定量の漸近正規性：基本定理)</strong></span> 次を仮定する。</p>
+<ol type="1">
+<li><span class="math display">\[
+o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n.
+\]</span></li>
+<li><span class="math inline">\(H_n\to_p H\)</span>。ただし <span class="math inline">\(H\)</span> は正定値対称行列である。</li>
+<li><span class="math inline">\(Z_n\to_d N(0,\Sigma)\)</span>。ただし <span class="math inline">\(\Sigma\)</span> は正定値対称行列である。</li>
+</ol>
+<p>このとき <span class="math display">\[
+\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1}).
+\]</span></p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span><span class="math inline">\(H\)</span> は正定値なので可逆である。仮定 1 の両辺に <span class="math inline">\(H^{-1}\)</span> を掛けると <span class="math display">\[
+o_p(1)=H^{-1}H_n\sqrt{n}(\hat\theta-\theta_0)-H^{-1}Z_n.
+\]</span> 仮定 2 より <span class="math inline">\(H^{-1}H_n\to_p I\)</span> であるから <span class="math display">\[
+H^{-1}H_n=I+o_p(1).
+\]</span> また仮定 3 と連続写像定理より <span class="math display">\[
+H^{-1}Z_n\to_d N(0,H^{-1}\Sigma H^{-1}),
+\]</span> したがって <span class="math inline">\(H^{-1}Z_n=O_p(1)\)</span> である。</p>
+<p>よって <span class="math display">\[
+o_p(1)=(I+o_p(1))\sqrt{n}(\hat\theta-\theta_0)-O_p(1)
+\]</span> から <span class="math inline">\(\sqrt{n}(\hat\theta-\theta_0)=O_p(1)\)</span> が従う。これを元の式に戻せば <span class="math display">\[
+\sqrt{n}(\hat\theta-\theta_0)=H^{-1}Z_n+o_p(1).
+\]</span> したがって Slutsky の定理により <span class="math display">\[
+\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1}).
+\]</span></p>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span><span class="math inline">\(H\)</span> と <span class="math inline">\(\Sigma\)</span> の経済学的意味
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>漸近分散 <span class="math display">\[
+\Omega = H^{-1}\Sigma H^{-1}
+\]</span> の中で、</p>
+<ul>
+<li><span class="math inline">\(H\)</span> は目的関数の <strong>曲率</strong> を表す。曲率が大きいほど、最適点の位置はデータの揺らぎに対して頑健になりやすい。</li>
+<li><span class="math inline">\(\Sigma\)</span> は標本平均やスコアの <strong>ばらつき</strong> を表す。</li>
+</ul>
+<p>したがって、推定の精度は「目的関数の鋭さ」と「データのノイズ」のバランスで決まる。</p>
+</div>
+</div>
+</section>
+<section id="この定理がどこで使われるか" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="この定理がどこで使われるか"><span class="header-section-number">3.3</span> この定理がどこで使われるか</h2>
+<p>後続章では、各推定法ごとに <a href="#thm-master-an" class="quarto-xref">定理&nbsp;6</a> の <span class="math inline">\(H_n\)</span> と <span class="math inline">\(Z_n\)</span> を具体化する。</p>
+<ul>
+<li><strong>M 推定</strong>：<span class="math inline">\(H\)</span> は Hessian、<span class="math inline">\(\Sigma\)</span> はスコアの分散または長期分散</li>
+<li><strong>GMM</strong>：<span class="math inline">\(H=G'WG\)</span>、<span class="math inline">\(\Sigma=G'WSWG\)</span></li>
+<li><strong>SMM</strong>：GMM に加えてシミュレーション誤差が入る</li>
+<li><strong>MD</strong>：<span class="math inline">\(H=\Gamma'W\Gamma\)</span>、<span class="math inline">\(\Sigma=\Gamma'WSW\Gamma\)</span></li>
+</ul>
+<p>つまり、後続章の技術的作業は、結局のところ</p>
+<ol type="1">
+<li>近似的一階条件をつくる</li>
+<li><span class="math inline">\(H_n\)</span> の確率極限を求める</li>
+<li><span class="math inline">\(Z_n\)</span> に中心極限定理を適用する</li>
+</ol>
+<p>という 3 ステップに帰着する。</p>
+</section>
+<section id="非微分可能な目的関数について" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="非微分可能な目的関数について"><span class="header-section-number">3.4</span> 非微分可能な目的関数について</h2>
+<p>本章の導出は、暗黙のうちに目的関数の微分可能性を使っている。しかし、量的回帰、maximum score、ある種のシミュレーション推定などでは目的関数が微分可能でないことがある。その場合でも、目的関数が局所的に二次近似できれば、同じ型の漸近正規性が導ける。これは付録で扱う一般結果に対応している。</p>
+</section>
+</section>
+<section id="まとめ" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> まとめ</h1>
+<p>この章で押さえるべき点は次の通りである。</p>
+<ol type="1">
+<li><strong>極値推定は統一的な枠組み</strong> であり、M 推定・GMM・SMM・MD を同じ論理で扱える。</li>
+<li>一致性には
+<ul>
+<li>clean maximum</li>
+<li>uniform convergence の 2 条件が中心である。</li>
+</ul></li>
+<li>M 推定では、uniform convergence は <strong>一様大数法則</strong> の問題に還元される。</li>
+<li>漸近正規性は <span class="math display">\[
+o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
+\]</span> という線形化表現から導かれる。</li>
+<li>後続章では、各推定法ごとに <span class="math inline">\(H\)</span> と <span class="math inline">\(\Sigma\)</span> を具体化し、標準誤差推定と仮説検定に進む。</li>
+</ol>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>次章への接続
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>次の「M 推定」の章では、この章の抽象理論を最尤法・非線形最小二乗法に落とし込み、</p>
+<ul>
+<li>漸近分散の具体式</li>
+<li>sandwich 分散</li>
+<li>正しく指定された最尤法と誤指定最尤法の違い</li>
+</ul>
+<p>を詳しく扱う。</p>
+</div>
+</div>
+</section>
+<section id="参考文献" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> 参考文献</h1>
+<ul>
+<li>Billingsley, P. (2008), <em>Probability and Measure</em>.</li>
+<li>Hayashi, F. (2000), <em>Econometrics</em>, Chapter 7.</li>
+<li>van der Vaart, A. W. and Wellner, J. A. (1996), <em>Weak Convergence and Empirical Processes</em>.</li>
+</ul>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

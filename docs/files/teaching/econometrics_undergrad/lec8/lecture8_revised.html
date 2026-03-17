@@ -1,0 +1,2844 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Lecture 8：固定効果モデル</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="lecture8_revised_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture8_revised_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture8_revised_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture8_revised_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture8_revised_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture8_revised_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture8_revised_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture8_revised_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture8_revised_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture8_revised_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture8_revised_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture8_revised_files/libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<style>html{ scroll-behavior: smooth; }</style>
+<style>
+  body {
+    line-height: 1.8;
+  }
+  .lead {
+    font-size: 1.08rem;
+    color: #495057;
+    margin-bottom: 1.2rem;
+  }
+  h1, h2, h3 {
+    margin-top: 1.6rem;
+  }
+  .callout {
+    margin: 1.2rem 0;
+  }
+  table {
+    font-size: 0.96rem;
+  }
+  .small-muted {
+    color: #6c757d;
+    font-size: 0.95rem;
+  }
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+</style>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#導入固定効果モデルが必要になる場面" id="toc-導入固定効果モデルが必要になる場面" class="nav-link active" data-scroll-target="#導入固定効果モデルが必要になる場面">導入：固定効果モデルが必要になる場面</a></li>
+  <li><a href="#なぜ同じデータを見ても結論が真逆なのか" id="toc-なぜ同じデータを見ても結論が真逆なのか" class="nav-link" data-scroll-target="#なぜ同じデータを見ても結論が真逆なのか">なぜ同じデータを見ても結論が真逆なのか</a></li>
+  <li><a href="#パネルデータ" id="toc-パネルデータ" class="nav-link" data-scroll-target="#パネルデータ">パネルデータ</a>
+  <ul class="collapse">
+  <li><a href="#クロスセクションデータとの違い" id="toc-クロスセクションデータとの違い" class="nav-link" data-scroll-target="#クロスセクションデータとの違い">クロスセクションデータとの違い</a>
+  <ul class="collapse">
+  <li><a href="#クロスセクションデータ" id="toc-クロスセクションデータ" class="nav-link" data-scroll-target="#クロスセクションデータ">クロスセクションデータ</a></li>
+  <li><a href="#時系列データ" id="toc-時系列データ" class="nav-link" data-scroll-target="#時系列データ">時系列データ</a></li>
+  <li><a href="#パネルデータ-1" id="toc-パネルデータ-1" class="nav-link" data-scroll-target="#パネルデータ-1">パネルデータ</a></li>
+  </ul></li>
+  <li><a href="#パネルデータの何がうれしいのか" id="toc-パネルデータの何がうれしいのか" class="nav-link" data-scroll-target="#パネルデータの何がうれしいのか">パネルデータの何がうれしいのか</a></li>
+  </ul></li>
+  <li><a href="#pooled-ols-とは何か" id="toc-pooled-ols-とは何か" class="nav-link" data-scroll-target="#pooled-ols-とは何か">pooled OLS とは何か</a></li>
+  <li><a href="#固定効果モデルの考え方" id="toc-固定効果モデルの考え方" class="nav-link" data-scroll-target="#固定効果モデルの考え方">固定効果モデルの考え方</a>
+  <ul class="collapse">
+  <li><a href="#ダミー変数を入れる方法" id="toc-ダミー変数を入れる方法" class="nav-link" data-scroll-target="#ダミー変数を入れる方法">1. ダミー変数を入れる方法</a>
+  <ul class="collapse">
+  <li><a href="#この回帰は何をしているのか" id="toc-この回帰は何をしているのか" class="nav-link" data-scroll-target="#この回帰は何をしているのか">この回帰は何をしているのか</a></li>
+  <li><a href="#直感" id="toc-直感" class="nav-link" data-scroll-target="#直感">直感</a></li>
+  <li><a href="#ダミー変数法の推定式" id="toc-ダミー変数法の推定式" class="nav-link" data-scroll-target="#ダミー変数法の推定式">ダミー変数法の推定式</a></li>
+  <li><a href="#この方法の長所と短所" id="toc-この方法の長所と短所" class="nav-link" data-scroll-target="#この方法の長所と短所">この方法の長所と短所</a></li>
+  </ul></li>
+  <li><a href="#平均からの差に変換する方法" id="toc-平均からの差に変換する方法" class="nav-link" data-scroll-target="#平均からの差に変換する方法">2. 平均からの差に変換する方法</a>
+  <ul class="collapse">
+  <li><a href="#この変換の意味" id="toc-この変換の意味" class="nav-link" data-scroll-target="#この変換の意味">この変換の意味</a></li>
+  <li><a href="#平均差し引き後の回帰" id="toc-平均差し引き後の回帰" class="nav-link" data-scroll-target="#平均差し引き後の回帰">平均差し引き後の回帰</a></li>
+  </ul></li>
+  <li><a href="#なぜこの二つは同じ推定値になるのか" id="toc-なぜこの二つは同じ推定値になるのか" class="nav-link" data-scroll-target="#なぜこの二つは同じ推定値になるのか">3. なぜこの二つは同じ推定値になるのか</a>
+  <ul class="collapse">
+  <li><a href="#直感的な説明" id="toc-直感的な説明" class="nav-link" data-scroll-target="#直感的な説明">直感的な説明</a></li>
+  <li><a href="#もう少し数式で見る" id="toc-もう少し数式で見る" class="nav-link" data-scroll-target="#もう少し数式で見る">もう少し数式で見る</a></li>
+  <li><a href="#何が一致しているのか" id="toc-何が一致しているのか" class="nav-link" data-scroll-target="#何が一致しているのか">何が一致しているのか</a></li>
+  </ul></li>
+  <li><a href="#固定効果モデルの識別仮定" id="toc-固定効果モデルの識別仮定" class="nav-link" data-scroll-target="#固定効果モデルの識別仮定">4. 固定効果モデルの識別仮定</a></li>
+  <li><a href="#この例で-fixed-effects-がやっていること" id="toc-この例で-fixed-effects-がやっていること" class="nav-link" data-scroll-target="#この例で-fixed-effects-がやっていること">5. この例で fixed effects がやっていること</a></li>
+  </ul></li>
+  <li><a href="#シミュレーションでチェック" id="toc-シミュレーションでチェック" class="nav-link" data-scroll-target="#シミュレーションでチェック">シミュレーションでチェック</a>
+  <ul class="collapse">
+  <li><a href="#まず-pooled-ols-を回す" id="toc-まず-pooled-ols-を回す" class="nav-link" data-scroll-target="#まず-pooled-ols-を回す">1. まず pooled OLS を回す</a></li>
+  <li><a href="#農家ダミーを全部入れた-fixed-effects-回帰" id="toc-農家ダミーを全部入れた-fixed-effects-回帰" class="nav-link" data-scroll-target="#農家ダミーを全部入れた-fixed-effects-回帰">2. 農家ダミーを全部入れた fixed effects 回帰</a></li>
+  <li><a href="#demean-した-within-回帰" id="toc-demean-した-within-回帰" class="nav-link" data-scroll-target="#demean-した-within-回帰">3. demean した within 回帰</a></li>
+  <li><a href="#三つの推定結果を並べて比較する" id="toc-三つの推定結果を並べて比較する" class="nav-link" data-scroll-target="#三つの推定結果を並べて比較する">4. 三つの推定結果を並べて比較する</a></li>
+  <li><a href="#推定結果をどう解釈すればよいか" id="toc-推定結果をどう解釈すればよいか" class="nav-link" data-scroll-target="#推定結果をどう解釈すればよいか">6. 推定結果をどう解釈すればよいか</a></li>
+  </ul></li>
+  <li><a href="#固定効果モデルの諸問題" id="toc-固定効果モデルの諸問題" class="nav-link" data-scroll-target="#固定効果モデルの諸問題">固定効果モデルの諸問題</a>
+  <ul class="collapse">
+  <li><a href="#なぜ-t-が短いと問題なのか" id="toc-なぜ-t-が短いと問題なのか" class="nav-link" data-scroll-target="#なぜ-t-が短いと問題なのか">なぜ <span class="math inline">T</span> が短いと問題なのか</a></li>
+  <li><a href="#short-panel-で起きる実務上の問題" id="toc-short-panel-で起きる実務上の問題" class="nav-link" data-scroll-target="#short-panel-で起きる実務上の問題">short panel で起きる実務上の問題</a>
+  <ul class="collapse">
+  <li><a href="#個体内変動が少ない" id="toc-個体内変動が少ない" class="nav-link" data-scroll-target="#個体内変動が少ない">1. 個体内変動が少ない</a></li>
+  <li><a href="#標準誤差が大きくなりやすい" id="toc-標準誤差が大きくなりやすい" class="nav-link" data-scroll-target="#標準誤差が大きくなりやすい">2. 標準誤差が大きくなりやすい</a></li>
+  <li><a href="#測定誤差に弱くなる" id="toc-測定誤差に弱くなる" class="nav-link" data-scroll-target="#測定誤差に弱くなる">3. 測定誤差に弱くなる</a></li>
+  <li><a href="#動学モデルでは別の問題が出る" id="toc-動学モデルでは別の問題が出る" class="nav-link" data-scroll-target="#動学モデルでは別の問題が出る">4. 動学モデルでは別の問題が出る</a></li>
+  </ul></li>
+  <li><a href="#t2-のときfixed-effects-はどうなるか" id="toc-t2-のときfixed-effects-はどうなるか" class="nav-link" data-scroll-target="#t2-のときfixed-effects-はどうなるか"><span class="math inline">T=2</span> のとき、fixed effects はどうなるか</a></li>
+  </ul></li>
+  <li><a href="#差分回帰" id="toc-差分回帰" class="nav-link" data-scroll-target="#差分回帰">差分回帰</a>
+  <ul class="collapse">
+  <li><a href="#差分回帰の直感" id="toc-差分回帰の直感" class="nav-link" data-scroll-target="#差分回帰の直感">差分回帰の直感</a></li>
+  <li><a href="#fixed-effects-と差分回帰の関係" id="toc-fixed-effects-と差分回帰の関係" class="nav-link" data-scroll-target="#fixed-effects-と差分回帰の関係">fixed effects と差分回帰の関係</a></li>
+  <li><a href="#どちらが良いのか" id="toc-どちらが良いのか" class="nav-link" data-scroll-target="#どちらが良いのか">どちらが良いのか</a></li>
+  <li><a href="#差分回帰の弱点" id="toc-差分回帰の弱点" class="nav-link" data-scroll-target="#差分回帰の弱点">差分回帰の弱点</a></li>
+  <li><a href="#short-panel-のもとで何を考えるべきか" id="toc-short-panel-のもとで何を考えるべきか" class="nav-link" data-scroll-target="#short-panel-のもとで何を考えるべきか">short panel のもとで何を考えるべきか</a></li>
+  <li><a href="#シミュレーションでshort-panelを実感する" id="toc-シミュレーションでshort-panelを実感する" class="nav-link" data-scroll-target="#シミュレーションでshort-panelを実感する">シミュレーションでshort panelを実感する</a>
+  <ul class="collapse">
+  <li><a href="#シミュレーションの設定" id="toc-シミュレーションの設定" class="nav-link" data-scroll-target="#シミュレーションの設定">シミュレーションの設定</a></li>
+  <li><a href="#t-を変えながら何度も推定する" id="toc-t-を変えながら何度も推定する" class="nav-link" data-scroll-target="#t-を変えながら何度も推定する"><span class="math inline">T</span> を変えながら何度も推定する</a></li>
+  <li><a href="#推定値の平均と標準誤差の平均を確認する" id="toc-推定値の平均と標準誤差の平均を確認する" class="nav-link" data-scroll-target="#推定値の平均と標準誤差の平均を確認する">推定値の平均と標準誤差の平均を確認する</a></li>
+  <li><a href="#推定値のばらつきを図で見る" id="toc-推定値のばらつきを図で見る" class="nav-link" data-scroll-target="#推定値のばらつきを図で見る">推定値のばらつきを図で見る</a></li>
+  <li><a href="#標準誤差がどう変わるかを見る" id="toc-標準誤差がどう変わるかを見る" class="nav-link" data-scroll-target="#標準誤差がどう変わるかを見る">標準誤差がどう変わるかを見る</a></li>
+  <li><a href="#推定値のばらつきそのものも確認する" id="toc-推定値のばらつきそのものも確認する" class="nav-link" data-scroll-target="#推定値のばらつきそのものも確認する">推定値のばらつきそのものも確認する</a></li>
+  <li><a href="#このシミュレーションから分かること" id="toc-このシミュレーションから分かること" class="nav-link" data-scroll-target="#このシミュレーションから分かること">このシミュレーションから分かること</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#ashenfelter-and-krueger-1994-estimates-of-the-economic-return-to-schooling-from-a-new-sample-of-twins" id="toc-ashenfelter-and-krueger-1994-estimates-of-the-economic-return-to-schooling-from-a-new-sample-of-twins" class="nav-link" data-scroll-target="#ashenfelter-and-krueger-1994-estimates-of-the-economic-return-to-schooling-from-a-new-sample-of-twins">Ashenfelter and Krueger (1994) : Estimates of the Economic Return to Schooling from a New Sample of Twins</a>
+  <ul class="collapse">
+  <li><a href="#問題意識" id="toc-問題意識" class="nav-link" data-scroll-target="#問題意識">問題意識</a></li>
+  <li><a href="#双子データの発想" id="toc-双子データの発想" class="nav-link" data-scroll-target="#双子データの発想">双子データの発想</a></li>
+  <li><a href="#測定誤差の問題" id="toc-測定誤差の問題" class="nav-link" data-scroll-target="#測定誤差の問題">測定誤差の問題</a></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ">まとめ</a></li>
+  </ul></li>
+  <li><a href="#two-way-fixed-effects-モデル" id="toc-two-way-fixed-effects-モデル" class="nav-link" data-scroll-target="#two-way-fixed-effects-モデル">Two-way Fixed Effects モデル</a>
+  <ul class="collapse">
+  <li><a href="#基本の回帰式" id="toc-基本の回帰式" class="nav-link" data-scroll-target="#基本の回帰式">基本の回帰式</a></li>
+  <li><a href="#何を使って-beta-を識別しているのか" id="toc-何を使って-beta-を識別しているのか" class="nav-link" data-scroll-target="#何を使って-beta-を識別しているのか">何を使って <span class="math inline">\beta</span> を識別しているのか</a></li>
+  <li><a href="#なぜこの形になるのか" id="toc-なぜこの形になるのか" class="nav-link" data-scroll-target="#なぜこの形になるのか">なぜこの形になるのか</a></li>
+  <li><a href="#どういう意味での差分なのか" id="toc-どういう意味での差分なのか" class="nav-link" data-scroll-target="#どういう意味での差分なのか">どういう意味での「差分」なのか</a>
+  <ul class="collapse">
+  <li><a href="#個人固定効果だけの-fe" id="toc-個人固定効果だけの-fe" class="nav-link" data-scroll-target="#個人固定効果だけの-fe">個人固定効果だけの FE</a></li>
+  <li><a href="#時間固定効果も入れた-twfe" id="toc-時間固定効果も入れた-twfe" class="nav-link" data-scroll-target="#時間固定効果も入れた-twfe">時間固定効果も入れた TWFE</a></li>
+  </ul></li>
+  <li><a href="#最小の例で実感する" id="toc-最小の例で実感する" class="nav-link" data-scroll-target="#最小の例で実感する">最小の例で実感する</a>
+  <ul class="collapse">
+  <li><a href="#x" id="toc-x" class="nav-link" data-scroll-target="#x"><span class="math inline">x</span></a></li>
+  <li><a href="#y" id="toc-y" class="nav-link" data-scroll-target="#y"><span class="math inline">y</span></a></li>
+  <li><a href="#x-の平均" id="toc-x-の平均" class="nav-link" data-scroll-target="#x-の平均"><span class="math inline">x</span> の平均</a></li>
+  <li><a href="#y-の平均" id="toc-y-の平均" class="nav-link" data-scroll-target="#y-の平均"><span class="math inline">y</span> の平均</a></li>
+  <li><a href="#tilde-x" id="toc-tilde-x" class="nav-link" data-scroll-target="#tilde-x"><span class="math inline">\tilde x</span></a></li>
+  <li><a href="#tilde-y" id="toc-tilde-y" class="nav-link" data-scroll-target="#tilde-y"><span class="math inline">\tilde y</span></a></li>
+  </ul></li>
+  <li><a href="#この最小例で何が起きているのか" id="toc-この最小例で何が起きているのか" class="nav-link" data-scroll-target="#この最小例で何が起きているのか">この最小例で何が起きているのか</a></li>
+  <li><a href="#two-way-fixed-effectの入れ方は色々ある" id="toc-two-way-fixed-effectの入れ方は色々ある" class="nav-link" data-scroll-target="#two-way-fixed-effectの入れ方は色々ある">Two-way Fixed effectの入れ方は色々ある</a>
+  <ul class="collapse">
+  <li><a href="#例1労働者固定効果-企業固定効果" id="toc-例1労働者固定効果-企業固定効果" class="nav-link" data-scroll-target="#例1労働者固定効果-企業固定効果">例1：労働者固定効果 + 企業固定効果</a></li>
+  <li><a href="#例2送り手固定効果-受け手固定効果" id="toc-例2送り手固定効果-受け手固定効果" class="nav-link" data-scroll-target="#例2送り手固定効果-受け手固定効果">例2：送り手固定効果 + 受け手固定効果</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#akm-分解" id="toc-akm-分解" class="nav-link" data-scroll-target="#akm-分解">AKM 分解</a>
+  <ul class="collapse">
+  <li><a href="#基本の回帰式-1" id="toc-基本の回帰式-1" class="nav-link" data-scroll-target="#基本の回帰式-1">基本の回帰式</a></li>
+  <li><a href="#それぞれの固定効果は何を意味するのか" id="toc-それぞれの固定効果は何を意味するのか" class="nav-link" data-scroll-target="#それぞれの固定効果は何を意味するのか">それぞれの固定効果は何を意味するのか</a>
+  <ul class="collapse">
+  <li><a href="#労働者固定効果-alpha_i" id="toc-労働者固定効果-alpha_i" class="nav-link" data-scroll-target="#労働者固定効果-alpha_i">労働者固定効果 <span class="math inline">\alpha_i</span></a></li>
+  <li><a href="#企業固定効果-psi_j" id="toc-企業固定効果-psi_j" class="nav-link" data-scroll-target="#企業固定効果-psi_j">企業固定効果 <span class="math inline">\psi_j</span></a></li>
+  </ul></li>
+  <li><a href="#akm-分解で何を知りたいのか" id="toc-akm-分解で何を知りたいのか" class="nav-link" data-scroll-target="#akm-分解で何を知りたいのか">AKM 分解で何を知りたいのか</a></li>
+  <li><a href="#最も単純な形" id="toc-最も単純な形" class="nav-link" data-scroll-target="#最も単純な形">最も単純な形</a></li>
+  <li><a href="#なぜ-one-way-fixed-effect-では足りないのか" id="toc-なぜ-one-way-fixed-effect-では足りないのか" class="nav-link" data-scroll-target="#なぜ-one-way-fixed-effect-では足りないのか">なぜ one-way fixed effect では足りないのか</a></li>
+  <li><a href="#識別の直感なぜ-job-mover-が重要なのか" id="toc-識別の直感なぜ-job-mover-が重要なのか" class="nav-link" data-scroll-target="#識別の直感なぜ-job-mover-が重要なのか">識別の直感：なぜ job mover が重要なのか</a></li>
+  <li><a href="#小さい例で直感をつかむ" id="toc-小さい例で直感をつかむ" class="nav-link" data-scroll-target="#小さい例で直感をつかむ">小さい例で直感をつかむ</a></li>
+  <li><a href="#ただし水準はそのままでは一意に決まらない" id="toc-ただし水準はそのままでは一意に決まらない" class="nav-link" data-scroll-target="#ただし水準はそのままでは一意に決まらない">ただし水準はそのままでは一意に決まらない</a></li>
+  <li><a href="#connected-set-という考え方" id="toc-connected-set-という考え方" class="nav-link" data-scroll-target="#connected-set-という考え方">connected set という考え方</a></li>
+  <li><a href="#akm-分解でよく見る結果" id="toc-akm-分解でよく見る結果" class="nav-link" data-scroll-target="#akm-分解でよく見る結果">AKM 分解でよく見る結果</a></li>
+  <li><a href="#ここでの注意" id="toc-ここでの注意" class="nav-link" data-scroll-target="#ここでの注意">ここでの注意</a></li>
+  <li><a href="#akmの後続研究" id="toc-akmの後続研究" class="nav-link" data-scroll-target="#akmの後続研究">AKMの後続研究</a></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Lecture 8：固定効果モデル</h1>
+<p class="subtitle lead">パネルデータ・within 変換・差分回帰・TWFE</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-simple callout-important callout-titled" title="この講義で押さえたいこと">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>この講義で押さえたいこと
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>固定効果モデル</strong>は、観測されないが時間を通じて不変な要因を取り除くための基本ツールである。</li>
+<li>識別に使うのは個体間の差ではなく、<strong>同じ個体の中での変化</strong>である。</li>
+<li><strong>within 変換・差分回帰・TWFE</strong> は、同じ発想を別の形で表したものとして読むと整理しやすい。</li>
+</ul>
+</div>
+</div>
+<div class="lead">
+<pre><code>今回は農家の例から入り、なぜ pooled OLS が誤るのかを見たうえで、fixed effects が何をしているのかを数式とシミュレーションの両方から理解する。後半では short panel、差分回帰、two-way fixed effects、AKM 分解へと進む。</code></pre>
+</div>
+<div class="callout callout-style-simple callout-note callout-titled" title="この lecture の流れ">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この lecture の流れ
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>まず、パネルデータとは何か、そして pooled OLS がなぜ危ういのかを確認する。</li>
+<li>次に、固定効果モデルをダミー変数法と within 変換の両方から理解する。</li>
+<li>そのうえで、short panel、差分回帰、TWFE、AKM 分解へと話を広げる。</li>
+</ol>
+</div>
+</div>
+<section id="導入固定効果モデルが必要になる場面" class="level1">
+<h1>導入：固定効果モデルが必要になる場面</h1>
+<p>今回は重回帰を利用した代表的な識別戦略である<strong>固定効果モデル</strong>という作戦を取り上げる。</p>
+<p>まずは fixed effects の必要性を理解するために、以下のような状況を考えよう。</p>
+<p>あなたは農林水産庁の職員である。</p>
+<p>ある朝出勤すると、上司から以下のような仕事を投げられた。</p>
+<blockquote class="blockquote">
+<p>昨年度、新しい肥料が開発され、今農業関係者の間で話題沸騰である。 我が省としてもこれに乗じて、どんどん利用を推進したい。 これにあたり、補助金制度を設けることとなった。 ついては、実際にこの肥料がどれだけ農業収穫量を増やすのかを調べてくれ。</p>
+</blockquote>
+<p>ということで早速関係各所に連絡をとり、100軒の農家ごとの</p>
+<ul>
+<li>肥料投入量</li>
+<li>農作物収穫量</li>
+</ul>
+<p>のデータ 10 ヶ月分を一通り揃えることができた。</p>
+<p>さて、散布図にしてみると以下の通りである。</p>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture8_revised_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>なんと<strong>肥料投入量が多いほど農作物の収穫量が低い</strong>のである。</p>
+<p>これは大発見。肥料の性能は企業が補助金をくすねるためのマーケティング戦略だったのだ。早速君はこの散布図を上司に持っていき、補助金なんて出す必要はありませんと進言する。</p>
+<p>君の報告をまに受けた上司は、補助金制度を撤廃した。</p>
+<p>しかし、真っ当な教育を受けた別の国の官僚は「この肥料の効果はものすごい」ことを同じデータから発見することができた。</p>
+<p>結果、日本に見限られたと感じた開発企業はその国の企業に身売り、君の報告により日本の食料自給率はまた低迷するのであった。</p>
+</section>
+<section id="なぜ同じデータを見ても結論が真逆なのか" class="level1">
+<h1>なぜ同じデータを見ても結論が真逆なのか</h1>
+<p>わかりやすくするために上記のデータから<span class="math inline">10</span>軒分のデータを抽出して農家ごとに色分けして散布図を描いてみよう</p>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture8_revised_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>この図を見てわかることは</p>
+<ul>
+<li>色を一つ固定してみると、肥料投入量が増えると生産量は増えてる</li>
+<li>生産量が低い農家ほど肥料の投入量が多い</li>
+</ul>
+<p>の二点である。</p>
+<p>すなわち</p>
+<blockquote class="blockquote">
+<p>そもそも農地には個別の生産性の差があり、持っている農地の生産性が低い農家ほど、この肥料に頼ったために、「肥料投入量が大きいほど生産量が少ない」という観測が生まれた</p>
+</blockquote>
+<p>ということであった。</p>
+<p>別国官僚は<strong>農地個別の生産性をコントロールすれば、肥料は生産量を上げる</strong>ということに気づいたのである。</p>
+<p>問題は「農地の生産性」は観測できない変数であるという点である。すなわち</p>
+<p><span class="math display">
+y_{it} = \beta_0 + \beta_1 x_{it} + \beta_2 \mathrm{Productivity}_i + u_i
+</span></p>
+<p>というような回帰分析はできない。</p>
+<p>ではどうやって別国官僚は確信を持って「肥料は生産量を増やす」と分かったのであろうか。</p>
+<p>ここで登場するのが<strong>固定効果モデル</strong>である。</p>
+<p>しかし固定効果モデルの紹介の前に、まずはこの分析を可能にする<strong>パネルデータ</strong>というデータ構造について説明する。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="まずデータ構造を押さえる">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>まずデータ構造を押さえる
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>fixed effects を理解するには、<strong>同じ個体を繰り返し観測している</strong> ことが決定的に重要である。ここではまず、クロスセクション・時系列・パネルデータの違いを整理する。</p>
+</div>
+</div>
+</section>
+<section id="パネルデータ" class="level1">
+<h1>パネルデータ</h1>
+<p>ここまでの例では、各農家について1回だけ観測しているのではなく、<strong>同じ農家を何度も観測している</strong>ことが重要であった。</p>
+<p>今回のデータでは、100軒の農家それぞれについて、10ヶ月分の</p>
+<ul>
+<li>肥料投入量</li>
+<li>農作物収穫量</li>
+</ul>
+<p>が記録されていた。 つまり、「ある1か月における100軒の農家の比較」だけではなく、<strong>同じ農家が時間とともにどう変化したか</strong>も見えるデータになっている。</p>
+<p>このように、</p>
+<ul>
+<li>個体（農家、企業、個人、学校など）</li>
+<li>時間（年、月、四半期、日など）</li>
+</ul>
+<p>の二つの軸を持つデータを<strong>パネルデータ</strong>という。</p>
+<p>農家 <span class="math inline">i</span> を時点 <span class="math inline">t</span> で観測したデータを</p>
+<p><span class="math display">
+(y_{it}, x_{it})
+</span></p>
+<p>と書くことにすると、</p>
+<ul>
+<li><span class="math inline">i</span> は「誰か」を表す添字</li>
+<li><span class="math inline">t</span> は「いつか」を表す添字</li>
+</ul>
+<p>である。</p>
+<p>今回の例では、</p>
+<ul>
+<li><span class="math inline">i=1,\dots,100</span></li>
+<li><span class="math inline">t=1,\dots,10</span></li>
+</ul>
+<p>となる。</p>
+<p>たとえば <span class="math inline">y_{it}</span> は農家 <span class="math inline">i</span> の <span class="math inline">t</span> 月における収穫量、 <span class="math inline">x_{it}</span> は農家 <span class="math inline">i</span> の <span class="math inline">t</span> 月における肥料投入量である。</p>
+<section id="クロスセクションデータとの違い" class="level2">
+<h2 class="anchored" data-anchor-id="クロスセクションデータとの違い">クロスセクションデータとの違い</h2>
+<p>パネルデータの意味を理解するには、まず他の代表的なデータ構造と比べるのが分かりやすい。</p>
+<section id="クロスセクションデータ" class="level3">
+<h3 class="anchored" data-anchor-id="クロスセクションデータ">クロスセクションデータ</h3>
+<p>ある一時点だけを切り取って、たくさんの個体を観測したデータである。 たとえば「2025年1月時点での100軒の農家のデータ」だけがあるなら、それはクロスセクションデータである。</p>
+<p>この場合、比較できるのは農家どうしだけである。 同じ農家が時間とともにどう変化したかは見えない。</p>
+</section>
+<section id="時系列データ" class="level3">
+<h3 class="anchored" data-anchor-id="時系列データ">時系列データ</h3>
+<p>一つの対象について、時間を通じて繰り返し観測したデータである。 たとえば「日本全体の米の生産量を毎月10年間観測したデータ」である。</p>
+<p>この場合、時間変化は見えるが、複数の個体の比較はできない。</p>
+</section>
+<section id="パネルデータ-1" class="level3">
+<h3 class="anchored" data-anchor-id="パネルデータ-1">パネルデータ</h3>
+<p>複数の個体を、複数時点にわたって繰り返し観測したデータである。</p>
+<p>今回のように、<strong>複数の農家を複数ヶ月にわたって観測する</strong>と、農家間の違いも、同じ農家の中の時間変化も、両方見ることができる。</p>
+<p>この「同じ個体を繰り返し観測している」という点が、固定効果モデルを可能にしている。</p>
+</section>
+</section>
+<section id="パネルデータの何がうれしいのか" class="level2">
+<h2 class="anchored" data-anchor-id="パネルデータの何がうれしいのか">パネルデータの何がうれしいのか</h2>
+<p>パネルデータの最大の利点は、<strong>同じ個体の中の変化</strong>を追えることである。</p>
+<p>今回の肥料の例では、知りたいのは</p>
+<blockquote class="blockquote">
+<p>ある農家が普段より多く肥料を投入したとき、普段より収穫量が増えるのか</p>
+</blockquote>
+<p>という関係であった。</p>
+<p>これを知るためには、同じ農家を複数回観測していなければならない。 もし各農家を1回ずつしか観測していなければ、「その農家にとって普段より多いかどうか」はそもそも分からない。</p>
+<p>したがって、固定効果モデルは<strong>パネルデータだからこそ使える識別戦略</strong>なのである。</p>
+<div class="callout callout-style-simple callout-important callout-titled" title="ここでの比較対象に注意">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>ここでの比較対象に注意
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>pooled OLS が主に使うのは <strong>個体どうしの差</strong> である。ところが、その個体差の中に観測できない固定的な違いが含まれていると、係数は簡単に歪んでしまう。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="pooled-ols-とは何か" class="level1">
+<h1>pooled OLS とは何か</h1>
+<p>固定効果モデルを理解するためには、その比較対象として <strong>pooled OLS</strong> を知っておく必要がある。</p>
+<p>パネルデータがあるとき、もっとも素朴なやり方は、すべての観測を<strong>ただ全部まとめて</strong>一本の回帰式を推定することである。 これを <strong>pooled OLS</strong> という。</p>
+<p>たとえば今回の例なら、</p>
+<p><span class="math display">
+y_{it} = \beta_0 + \beta_1 x_{it} + u_{it}
+</span></p>
+<p>という式を、そのまま全ての <span class="math inline">(i,t)</span> の観測に対して OLS で推定する。</p>
+<p>ここで pooled というのは、<strong>全部をひとつの大きなサンプルとしてプールしている</strong>という意味である。</p>
+<p>つまり、pooled OLS は</p>
+<ul>
+<li>農家1の1月の観測</li>
+<li>農家1の2月の観測</li>
+<li>農家2の1月の観測</li>
+<li>農家2の2月の観測</li>
+</ul>
+<p>を全部横並びの観測として扱い、「同じ構造のデータだ」とみなして回帰している。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="fixed effects の発想">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>fixed effects の発想
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>fixed effects の核心は、各個体に固有の定数項を持たせること、あるいは同じ個体の平均からのズレだけを見ることで、<strong>時間不変の欠落変数を差し引く</strong> ところにある。</p>
+</div>
+</div>
+</section>
+<section id="固定効果モデルの考え方" class="level1">
+<h1>固定効果モデルの考え方</h1>
+<p>さきほどの例で問題だったのは、農家ごとに</p>
+<ul>
+<li>土地の質</li>
+<li>日当たり</li>
+<li>水はけ</li>
+<li>その農家自身の技術力</li>
+<li>もともとの設備の良さ</li>
+</ul>
+<p>のような、<strong>観測されていないが、その農家に固有の要因</strong>があることであった。</p>
+<p>これらは肥料投入量にも生産量にも影響しうる。 したがって、これらを無視して</p>
+<p><span class="math display">
+y_{it} = \beta_0 + \beta_1 x_{it} + u_{it}
+</span></p>
+<p>のような単純回帰をすると、<span class="math inline">\beta_1</span> は肥料の因果効果を表さなくなる。</p>
+<p>そこで、農家 <span class="math inline">i</span> に固有の、時間を通じてあまり変わらない要因をひとまとめにして</p>
+<p><span class="math display">
+\alpha_i
+</span></p>
+<p>と書くことにする。 すると、モデルは</p>
+<p><span class="math display">
+y_{it} = \beta x_{it} + \alpha_i + u_{it}
+</span></p>
+<p>と表せる。</p>
+<p>ここで</p>
+<ul>
+<li><span class="math inline">y_{it}</span> は農家 <span class="math inline">i</span> の時点 <span class="math inline">t</span> における生産量</li>
+<li><span class="math inline">x_{it}</span> は農家 <span class="math inline">i</span> の時点 <span class="math inline">t</span> における肥料投入量</li>
+<li><span class="math inline">\alpha_i</span> は農家 <span class="math inline">i</span> に固有の、時間を通じて変わらない要因</li>
+<li><span class="math inline">u_{it}</span> は時点ごとの一時的なショック</li>
+</ul>
+<p>である。</p>
+<p>この <span class="math inline">\alpha_i</span> が、先ほど文章で説明していた「農地の質」や「農家の基礎的な生産性」に対応する。</p>
+<p>固定効果モデルの核心は、</p>
+<blockquote class="blockquote">
+<p><span class="math inline">\alpha_i</span> が観測できなくても、パネルデータで同じ農家を何回も観測していれば、その影響を取り除ける</p>
+</blockquote>
+<p>という点にある。</p>
+<p>固定効果モデルが見ているのは、農家どうしの違いではない。 見ているのは、</p>
+<blockquote class="blockquote">
+<p><strong>同じ農家の中で、いつもより肥料を多く入れたときに、いつもより生産量が増えるか</strong></p>
+</blockquote>
+<p>である。</p>
+<p>つまり、固定効果モデルは<strong>個体間比較</strong>ではなく、<strong>個体内比較</strong>を使う。</p>
+<p>先ほどの散布図で言えば、</p>
+<ul>
+<li>「農家Aは農家Bより肥料を多く使っている」</li>
+<li>「でも農家Aの方が生産量が低い」</li>
+</ul>
+<p>という比較は危ない。なぜなら、農地の質が違うからである。</p>
+<p>その代わりに固定効果モデルは、</p>
+<ul>
+<li>農家Aの中で、今月は普段より肥料を多く使った</li>
+<li>そのとき農家Aの生産量は普段より増えたか</li>
+</ul>
+<p>を見る。</p>
+<p>この考え方なら、農家Aがもともと良い土地を持っているか悪い土地を持っているかは固定なので、比較の邪魔をしにくい。</p>
+<section id="ダミー変数を入れる方法" class="level2">
+<h2 class="anchored" data-anchor-id="ダミー変数を入れる方法">1. ダミー変数を入れる方法</h2>
+<p>固定効果モデルの一つ目の実装方法は、<strong>各農家ごとのダミー変数を入れる方法</strong>である。 これを LSDV (least squares dummy variable) と呼ぶこともある。</p>
+<p>農家が <span class="math inline">N</span> 軒あるとすると、例えば農家1を基準にして、</p>
+<p><span class="math display">
+D_{2i}, D_{3i}, \dots, D_{Ni}
+</span></p>
+<p>というダミー変数を作る。 ここで <span class="math inline">D_{ji}=1</span> は「農家 <span class="math inline">i</span> が農家 <span class="math inline">j</span> である」ことを表す。</p>
+<p>すると回帰式は</p>
+<p><span class="math display">
+y_{it} = \beta x_{it}
++
+\gamma_2 D_{2i}
++
+\gamma_3 D_{3i}
++
+\cdots
++
+\gamma_N D_{Ni}
++
+u_{it}
+</span></p>
+<p>となる。</p>
+<p>これは見かけ上はただの重回帰である。 違いは、説明変数の中に<strong>個体ごとの切片の違いを表すダミー変数</strong>を大量に入れている点だけである。</p>
+<section id="この回帰は何をしているのか" class="level3">
+<h3 class="anchored" data-anchor-id="この回帰は何をしているのか">この回帰は何をしているのか</h3>
+<p>この回帰では、各農家ごとに異なる切片を許している。</p>
+<p>つまり、</p>
+<ul>
+<li>農家Aはもともと生産量が高い</li>
+<li>農家Bはもともと生産量が低い</li>
+</ul>
+<p>という違いを、ダミー変数が吸収してくれる。</p>
+<p>したがって、<span class="math inline">\beta</span> は</p>
+<blockquote class="blockquote">
+<p>農家ごとの平均的な生産性の違いを一定としたとき、肥料投入量が増えると生産量がどれだけ変わるか</p>
+</blockquote>
+<p>を表す。</p>
+<p>先ほどの問題で言えば、</p>
+<ul>
+<li>土地が良い農家</li>
+<li>土地が悪い農家</li>
+</ul>
+<p>の違いによる切片のズレを全部ダミー変数で吸収し、その上で肥料の効果を見ているのである。</p>
+</section>
+<section id="直感" class="level3">
+<h3 class="anchored" data-anchor-id="直感">直感</h3>
+<p>ダミー変数を入れる方法の直感は単純で、</p>
+<blockquote class="blockquote">
+<p>「農家ごとに別々の基準線を持たせて、その上で肥料の効果を測る」</p>
+</blockquote>
+<p>ということである。</p>
+<p>単純回帰では全農家に一本の共通切片しかなかった。 それでは、もともとの土地の質の違いを無視してしまう。 そこで各農家に専用の切片を持たせるのである。</p>
+</section>
+<section id="ダミー変数法の推定式" class="level3">
+<h3 class="anchored" data-anchor-id="ダミー変数法の推定式">ダミー変数法の推定式</h3>
+<p>定数項も含めて丁寧に書くと、</p>
+<p><span class="math display">
+y_{it} = \beta_0 + \beta_1 x_{it} + \gamma_2 D_{2i} + \cdots + \gamma_N D_{Ni} + u_{it}
+  </span></p>
+<p>である。</p>
+<p>ここで基準となる農家1についてはダミーを入れない。 これは完全多重共線性を避けるためである。</p>
+<p>このとき</p>
+<ul>
+<li><span class="math inline">\beta_0</span> は基準農家の切片</li>
+<li><span class="math inline">\gamma_j</span> は農家 <span class="math inline">j</span> の切片が基準農家とどれだけ違うか</li>
+</ul>
+<p>を表す。</p>
+<p>そして <span class="math inline">\beta_1</span> が、知りたい肥料の効果である。</p>
+</section>
+<section id="この方法の長所と短所" class="level3">
+<h3 class="anchored" data-anchor-id="この方法の長所と短所">この方法の長所と短所</h3>
+<p>この方法の長所は、<strong>固定効果が何を意味しているかが見やすい</strong>ことである。 各農家にダミーを入れているので、「農家ごとの違いをコントロールしている」ということが式から直接分かる。</p>
+<p>一方で、個体数が非常に多いとダミー変数の数も膨大になる。 農家が100軒ならまだよいが、企業が10万社あるようなデータでは、毎回大量のダミーを明示的に入れるのは計算上も見た目上もあまりきれいではない。</p>
+<p>そこでよく使われるのが、次の<strong>平均差し引き法</strong>である。</p>
+</section>
+</section>
+<section id="平均からの差に変換する方法" class="level2">
+<h2 class="anchored" data-anchor-id="平均からの差に変換する方法">2. 平均からの差に変換する方法</h2>
+<p>固定効果モデルの二つ目の実装方法は、各農家の平均を引いてしまう方法である。 これを <strong>within transformation</strong> や <strong>demeaning</strong> と呼ぶ。</p>
+<p>もとのモデルは</p>
+<p><span class="math display">
+y_{it} = \beta x_{it} + \alpha_i + u_{it}
+</span></p>
+<p>であった。</p>
+<p>ここで農家 <span class="math inline">i</span> について、時間平均を取る。 時点数を <span class="math inline">T</span> とすると、</p>
+<p><span class="math display">
+\bar y_i = \frac{1}{T}\sum_{t=1}^T y_{it},
+\qquad
+\bar x_i = \frac{1}{T}\sum_{t=1}^T x_{it},
+\qquad
+\bar u_i = \frac{1}{T}\sum_{t=1}^T u_{it}
+</span></p>
+<p>である。</p>
+<p><span class="math inline">\alpha_i</span> は時間を通じて一定なので、その平均も <span class="math inline">\alpha_i</span> のままである。 したがって元の式を時間平均すると、</p>
+<p><span class="math display">
+\bar y_i = \beta \bar x_i + \alpha_i + \bar u_i
+</span></p>
+<p>となる。</p>
+<p>ここでこの式を元の式から引くと、</p>
+<p><span class="math display">
+y_{it} - \bar y_i = \beta (x_{it} - \bar x_i)
++
+(\alpha_i - \alpha_i)
++
+(u_{it} - \bar u_i)
+</span></p>
+<p>すなわち</p>
+<p><span class="math display">
+y_{it} - \bar y_i = \beta (x_{it} - \bar x_i)
++
+(u_{it} - \bar u_i)
+</span></p>
+<p>となる。</p>
+<p>ここで重要なのは、<strong><span class="math inline">\alpha_i</span> が完全に消えている</strong>ことである。</p>
+<p>これが固定効果モデルの最重要ポイントである。</p>
+<section id="この変換の意味" class="level3">
+<h3 class="anchored" data-anchor-id="この変換の意味">この変換の意味</h3>
+<p>この変換は、各農家について</p>
+<ul>
+<li>その農家のいつもの生産量からどれだけズレたか</li>
+<li>その農家のいつもの肥料投入量からどれだけズレたか</li>
+</ul>
+<p>だけを見る、という操作である。</p>
+<p>たとえば農家Aについて、</p>
+<ul>
+<li>今月の肥料投入量がその農家の平均より2だけ大きい</li>
+<li>今月の生産量がその農家の平均より1.5だけ大きい</li>
+</ul>
+<p>という情報だけを使う。</p>
+<p>すると、農家Aがもともと良い土地を持っているか悪い土地を持っているかは、平均との差を取った時点で消えてしまう。</p>
+<p>固定効果モデルは、まさにこの「平均との差で比較する」という考え方に基づいている。</p>
+</section>
+<section id="平均差し引き後の回帰" class="level3">
+<h3 class="anchored" data-anchor-id="平均差し引き後の回帰">平均差し引き後の回帰</h3>
+<p>新しい変数を</p>
+<p><span class="math display">
+\tilde y_{it} = y_{it} - \bar y_i,
+\qquad
+\tilde x_{it} = x_{it} - \bar x_i
+</span></p>
+<p>と書けば、推定すべき式は</p>
+<p><span class="math display">
+\tilde y_{it} = \beta \tilde x_{it} + \tilde u_{it}
+</span></p>
+<p>となる。 ここで <span class="math inline">\tilde u_{it}=u_{it}-\bar u_i</span> である。</p>
+<p>つまり、各農家の平均を引いた後のデータに対して、単純回帰をすればよい。</p>
+<p>この方法では農家ダミーを明示的に作らなくてよい。 そのため、固定効果推定の理論を考えるときにも、実務で高速に計算するときにも非常に便利である。</p>
+</section>
+</section>
+<section id="なぜこの二つは同じ推定値になるのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜこの二つは同じ推定値になるのか">3. なぜこの二つは同じ推定値になるのか</h2>
+<p>ここまでで、固定効果モデルの推定法として</p>
+<ol type="1">
+<li>農家ダミーを入れる方法</li>
+<li>各農家平均を引く方法</li>
+</ol>
+<p>の二つを見た。</p>
+<p>見た目はかなり違うが、実はこの二つは<strong>同じ <span class="math inline">\beta</span> を推定する</strong>。 これが固定効果モデルの重要な事実である。</p>
+<section id="直感的な説明" class="level3">
+<h3 class="anchored" data-anchor-id="直感的な説明">直感的な説明</h3>
+<p>ダミー変数法は、各農家ごとに別々の切片を持たせる方法だった。 平均差し引き法は、各農家ごとの平均を引いて切片の違いを消す方法だった。</p>
+<p>どちらもやっていることは同じである。 それは</p>
+<blockquote class="blockquote">
+<p>農家ごとに固定的な違いを取り除いた上で、農家内の変動だけを使って <span class="math inline">\beta</span> を推定する</p>
+</blockquote>
+<p>ということである。</p>
+<p>したがって、どちらの方法でも最終的に使っている情報は同じになる。 すなわち、</p>
+<ul>
+<li>農家間の違いは捨てる</li>
+<li>農家内の変化だけを使う</li>
+</ul>
+<p>のである。</p>
+</section>
+<section id="もう少し数式で見る" class="level3">
+<h3 class="anchored" data-anchor-id="もう少し数式で見る">もう少し数式で見る</h3>
+<p>ダミー変数法で推定している式は</p>
+<p><span class="math display">
+y_{it} = \beta x_{it}
++
+\alpha_i
++
+u_{it}
+</span></p>
+<p>と同じ意味である。</p>
+<p>このモデルでは、各農家ごとの切片 <span class="math inline">\alpha_i</span> が自由に選ばれる。 OLS は、<span class="math inline">\beta</span> をある値に固定したとき、各農家の切片として最適なものを選ぶが、それは結局</p>
+<p><span class="math display">
+\hat\alpha_i = \bar y_i - \beta \bar x_i
+</span></p>
+<p>になる。</p>
+<p>つまり、各農家の平均にぴったり合うように切片が決まるのである。</p>
+<p>これを元の式に代入すると、</p>
+<p><span class="math display">
+y_{it} = \beta x_{it}
++
+(\bar y_i - \beta \bar x_i)
++
+u_{it}
+</span></p>
+<p>整理すると</p>
+<p><span class="math display">
+y_{it} - \bar y_i = \beta (x_{it} - \bar x_i)
++
+u_{it}
+</span></p>
+<p>となる。</p>
+<p>これはまさに、平均差し引き法で推定していた式そのものである。</p>
+<p>したがって、ダミー変数法で <span class="math inline">\beta</span> を求めても、平均との差し引き法で <span class="math inline">\beta</span> を求めても、結果は一致する。</p>
+</section>
+<section id="何が一致しているのか" class="level3">
+<h3 class="anchored" data-anchor-id="何が一致しているのか">何が一致しているのか</h3>
+<p>一致するのは、<strong>説明変数の係数</strong>である。</p>
+<p>つまり、</p>
+<ul>
+<li>ダミー変数を入れた回帰の <span class="math inline">\hat\beta</span></li>
+<li>平均差し引き後の回帰の <span class="math inline">\hat\beta</span></li>
+</ul>
+<p>は同じになる。</p>
+<p>一方で、切片の見え方は同じではない。 平均との差し引き後の回帰では各個体平均を引いているため、もはや元の意味での切片は前面に出てこない。 しかし、知りたいのは通常 <span class="math inline">\beta</span> なので、そこが一致していれば十分である。</p>
+</section>
+</section>
+<section id="固定効果モデルの識別仮定" class="level2">
+<h2 class="anchored" data-anchor-id="固定効果モデルの識別仮定">4. 固定効果モデルの識別仮定</h2>
+<p>固定効果モデルは強力だが、万能ではない。 成り立ってほしい仮定は、</p>
+<p><span class="math display">
+E[u_{it} \mid x_{i1}, x_{i2}, \dots, x_{iT}, \alpha_i] = 0
+</span></p>
+<p>である。</p>
+<p>これは、農家固有の固定的な要因 <span class="math inline">\alpha_i</span> をコントロールしたうえで、各時点の誤差項 <span class="math inline">u_{it}</span> が説明変数と相関しない、という条件である。</p>
+<p>直感的には、</p>
+<ul>
+<li>時間を通じて変わらない omitted variable は fixed effects で除去できる</li>
+<li>しかし時間とともに変化する omitted variable は除去できない</li>
+</ul>
+<p>ということである。</p>
+<p>たとえば、</p>
+<ul>
+<li>今年だけ異常気象が起きた</li>
+<li>その年は肥料投入量も増え、生産量にも影響した</li>
+</ul>
+<p>という場合、その異常気象がコントロールされていなければ、固定効果モデルでもバイアスが残りうる。</p>
+<p>したがって固定効果モデルは、</p>
+<blockquote class="blockquote">
+<p>時間不変の omitted variable に強い</p>
+</blockquote>
+<p>が、</p>
+<blockquote class="blockquote">
+<p>時間変動する omitted variable まで自動的に消してくれるわけではない</p>
+</blockquote>
+<p>という点を理解する必要がある。</p>
+</section>
+<section id="この例で-fixed-effects-がやっていること" class="level2">
+<h2 class="anchored" data-anchor-id="この例で-fixed-effects-がやっていること">5. この例で fixed effects がやっていること</h2>
+<p>今回の肥料の例に戻ると、固定効果モデルは</p>
+<ul>
+<li>各農家のもともとの土地の質</li>
+<li>各農家の固定的な技術力</li>
+<li>固定的な設備の差</li>
+</ul>
+<p>のような<strong>時間不変の違い</strong>を <span class="math inline">\alpha_i</span> として吸収する。</p>
+<p>その上で、</p>
+<blockquote class="blockquote">
+<p>同じ農家の中で、普段より肥料を多く入れた月には、普段より収穫量が増えているか</p>
+</blockquote>
+<p>を使って肥料の効果を推定する。</p>
+<p>そのため、全体の散布図では負の相関が見えていても、固定効果回帰では正の係数が出ることがある。 これは矛盾ではない。 見ている比較対象が違うからである。</p>
+<ul>
+<li>単純回帰は農家どうしの違いまで拾ってしまう</li>
+<li>固定効果回帰は同じ農家の中の変動だけを使う</li>
+</ul>
+<p>この違いが、結論を真逆にする。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="理屈と結果をつなぐ">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>理屈と結果をつなぐ
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>ここでは pooled OLS、ダミー変数法、within 回帰を並べて、fixed effects が何を回収しているのかを数値で確認する。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="シミュレーションでチェック" class="level1">
+<h1>シミュレーションでチェック</h1>
+<p>まずは先ほどのデータのシミュレーションコードを載せる。</p>
+<p>農地の生産性が低いところほどたくさんの肥料を投下するようになっていることに注意しよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 農家数と年数</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>N <span class="ot">&lt;-</span> <span class="dv">100</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>Tt <span class="ot">&lt;-</span> <span class="dv">10</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の肥料効果（本当はプラス）</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>beta <span class="ot">&lt;-</span> <span class="fl">0.8</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co"># 農家ごとの固定的な土地の質</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>farm_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">farm_id =</span> <span class="dv">1</span><span class="sc">:</span>N,</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">land_quality =</span> <span class="fu">rnorm</span>(N, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">4</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co"># パネルデータ生成</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">expand_grid</span>(</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">farm_id =</span> <span class="dv">1</span><span class="sc">:</span>N,</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">year =</span> <span class="dv">1</span><span class="sc">:</span>Tt</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(farm_df, <span class="at">by =</span> <span class="st">"farm_id"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 土地の質が低いほど肥料を多く使う</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">fertilizer =</span> <span class="dv">12</span> <span class="sc">-</span> <span class="fl">1.8</span> <span class="sc">*</span> land_quality <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">n</span>(), <span class="at">sd =</span> <span class="fl">1.0</span>),</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 一時的ショック</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">shock =</span> <span class="fu">rnorm</span>(<span class="fu">n</span>(), <span class="at">sd =</span> <span class="fl">1.5</span>),</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 収穫量：肥料の真の効果は正だが、土地の質の影響がかなり大きい</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">output =</span> beta <span class="sc">*</span> fertilizer <span class="sc">+</span> <span class="fl">2.5</span> <span class="sc">*</span> land_quality <span class="sc">+</span> shock</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df, <span class="fu">aes</span>(<span class="at">x =</span> fertilizer, <span class="at">y =</span> output)) <span class="sc">+</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.45</span>, <span class="at">size =</span> <span class="fl">1.8</span>) <span class="sc">+</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Fertilizer input"</span>,</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Agricultural output"</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">16</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture8_revised_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>まず、比較のために単純な pooled OLS を回す。 これは農家ごとの固定的な生産性の違いを無視して、</p>
+<p><span class="math display">
+y_{it} = \beta_0 + \beta_1 x_{it} + u_{it}
+</span></p>
+<p>をそのまま推定するものである。</p>
+<p>その次に、</p>
+<ul>
+<li>農家ごとのダミー変数を全部入れた fixed effects 回帰</li>
+<li>各農家の平均を引いた demean 回帰</li>
+</ul>
+<p>を順に回す。</p>
+<p>理論上は、後ろの二つの <span class="math inline">\hat\beta_1</span> は一致するはずである。</p>
+<section id="まず-pooled-ols-を回す" class="level2">
+<h2 class="anchored" data-anchor-id="まず-pooled-ols-を回す">1. まず pooled OLS を回す</h2>
+<p>以下では、収穫量を肥料投入量に単純回帰する。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>pooled_fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(output <span class="sc">~</span> fertilizer, <span class="at">data =</span> df)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(pooled_fit)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = output ~ fertilizer, data = df)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-7.1023 -1.5046  0.0454  1.3622  7.1748 
+
+Coefficients:
+            Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept) 16.20238    0.13229   122.5   &lt;2e-16 ***
+fertilizer  -0.54326    0.01004   -54.1   &lt;2e-16 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 2.113 on 998 degrees of freedom
+Multiple R-squared:  0.7457,    Adjusted R-squared:  0.7454 
+F-statistic:  2926 on 1 and 998 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+</div>
+<p>この回帰は、農家ごとの土地の質の違いを無視している。 したがって、推定された係数は肥料の真の効果ではなく、</p>
+<ul>
+<li>肥料の効果</li>
+<li>土地の質の違い</li>
+</ul>
+<p>が混ざったものになってしまう。</p>
+<p>このシミュレーションでは、土地の質が悪い農家ほど肥料を多く投入するようにデータを作っていた。 そのため、pooled OLS の係数は負になったり、少なくとも真の値よりかなり下に歪むはずである。</p>
+</section>
+<section id="農家ダミーを全部入れた-fixed-effects-回帰" class="level2">
+<h2 class="anchored" data-anchor-id="農家ダミーを全部入れた-fixed-effects-回帰">2. 農家ダミーを全部入れた fixed effects 回帰</h2>
+<p>次に、各農家ごとのダミー変数を入れた回帰を行う。</p>
+<p>推定式は</p>
+<p><span class="math display">
+y_{it} = \beta_0 + \beta_1 x_{it} + \alpha_2 D_{2i} + \cdots + \alpha_N D_{Ni} + u_{it}
+</span></p>
+<p>である。 R では <code>factor(farm_id)</code> を入れればよい。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>fe_dummy_fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(output <span class="sc">~</span> fertilizer <span class="sc">+</span> <span class="fu">factor</span>(farm_id), <span class="at">data =</span> df)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fe_dummy_fit)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = output ~ fertilizer + factor(farm_id), data = df)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-4.8800 -1.0038 -0.0128  1.0081  4.8336 
+
+Coefficients:
+                    Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)         -7.77972    0.89940  -8.650  &lt; 2e-16 ***
+fertilizer           0.91226    0.04902  18.608  &lt; 2e-16 ***
+factor(farm_id)2     4.39643    0.67446   6.518 1.18e-10 ***
+factor(farm_id)3    23.29518    0.99042  23.521  &lt; 2e-16 ***
+factor(farm_id)4     7.20844    0.69483  10.374  &lt; 2e-16 ***
+factor(farm_id)5     7.75208    0.70943  10.927  &lt; 2e-16 ***
+factor(farm_id)6    24.83397    1.02310  24.273  &lt; 2e-16 ***
+factor(farm_id)7    11.17632    0.74093  15.084  &lt; 2e-16 ***
+factor(farm_id)8    -7.47605    0.71774 -10.416  &lt; 2e-16 ***
+factor(farm_id)9    -1.17206    0.66800  -1.755 0.079673 .  
+factor(farm_id)10    2.21022    0.66581   3.320 0.000938 ***
+factor(farm_id)11   19.87044    0.89244  22.265  &lt; 2e-16 ***
+factor(farm_id)12    9.30646    0.73571  12.650  &lt; 2e-16 ***
+factor(farm_id)13   10.45051    0.73786  14.163  &lt; 2e-16 ***
+factor(farm_id)14    7.32736    0.70078  10.456  &lt; 2e-16 ***
+factor(farm_id)15    0.92072    0.66507   1.384 0.166576    
+factor(farm_id)16   26.07541    1.04587  24.932  &lt; 2e-16 ***
+factor(farm_id)17   12.54612    0.74883  16.754  &lt; 2e-16 ***
+factor(farm_id)18  -14.46353    0.84816 -17.053  &lt; 2e-16 ***
+factor(farm_id)19   12.76079    0.78639  16.227  &lt; 2e-16 ***
+factor(farm_id)20    1.90653    0.66526   2.866 0.004256 ** 
+factor(farm_id)21   -5.51258    0.69106  -7.977 4.55e-15 ***
+factor(farm_id)22    4.06336    0.67169   6.049 2.13e-09 ***
+factor(farm_id)23   -4.35633    0.69370  -6.280 5.27e-10 ***
+factor(farm_id)24   -2.00199    0.66858  -2.994 0.002825 ** 
+factor(farm_id)25   -0.88663    0.66623  -1.331 0.183585    
+factor(farm_id)26  -11.84782    0.78130 -15.164  &lt; 2e-16 ***
+factor(farm_id)27   16.31838    0.81051  20.134  &lt; 2e-16 ***
+factor(farm_id)28    7.41508    0.70707  10.487  &lt; 2e-16 ***
+factor(farm_id)29   -5.86767    0.70210  -8.357 2.42e-16 ***
+factor(farm_id)30   20.25181    0.92115  21.985  &lt; 2e-16 ***
+factor(farm_id)31   11.07551    0.74802  14.806  &lt; 2e-16 ***
+factor(farm_id)32    3.68227    0.66989   5.497 5.04e-08 ***
+factor(farm_id)33   16.54762    0.81448  20.317  &lt; 2e-16 ***
+factor(farm_id)34   15.19541    0.82725  18.369  &lt; 2e-16 ***
+factor(farm_id)35   14.93311    0.82241  18.158  &lt; 2e-16 ***
+factor(farm_id)36   15.05410    0.78092  19.277  &lt; 2e-16 ***
+factor(farm_id)37   12.54526    0.75247  16.672  &lt; 2e-16 ***
+factor(farm_id)38    4.59850    0.68136   6.749 2.67e-11 ***
+factor(farm_id)39    3.99568    0.66656   5.995 2.95e-09 ***
+factor(farm_id)40    2.78174    0.66622   4.175 3.26e-05 ***
+factor(farm_id)41   -0.53783    0.66649  -0.807 0.419906    
+factor(farm_id)42    4.24069    0.67411   6.291 4.93e-10 ***
+factor(farm_id)43   -7.31634    0.72219 -10.131  &lt; 2e-16 ***
+factor(farm_id)44   30.47927    1.14562  26.605  &lt; 2e-16 ***
+factor(farm_id)45   19.97000    0.89290  22.365  &lt; 2e-16 ***
+factor(farm_id)46   -6.07863    0.70007  -8.683  &lt; 2e-16 ***
+factor(farm_id)47    2.10713    0.66592   3.164 0.001607 ** 
+factor(farm_id)48    1.14834    0.66516   1.726 0.084614 .  
+factor(farm_id)49   14.85786    0.81479  18.235  &lt; 2e-16 ***
+factor(farm_id)50    5.09297    0.68303   7.456 2.09e-13 ***
+factor(farm_id)51    9.72458    0.72274  13.455  &lt; 2e-16 ***
+factor(farm_id)52    6.42359    0.68873   9.327  &lt; 2e-16 ***
+factor(farm_id)53    7.05023    0.68492  10.294  &lt; 2e-16 ***
+factor(farm_id)54   21.06967    0.95124  22.150  &lt; 2e-16 ***
+factor(farm_id)55    3.90365    0.67131   5.815 8.42e-09 ***
+factor(farm_id)56   22.15443    0.97751  22.664  &lt; 2e-16 ***
+factor(farm_id)57   -9.90590    0.76878 -12.885  &lt; 2e-16 ***
+factor(farm_id)58   13.33417    0.78554  16.975  &lt; 2e-16 ***
+factor(farm_id)59    7.43104    0.70746  10.504  &lt; 2e-16 ***
+factor(farm_id)60    8.60419    0.71036  12.112  &lt; 2e-16 ***
+factor(farm_id)61   10.92187    0.74160  14.727  &lt; 2e-16 ***
+factor(farm_id)62    1.13287    0.66527   1.703 0.088934 .  
+factor(farm_id)63    1.90609    0.66888   2.850 0.004476 ** 
+factor(farm_id)64   -4.46718    0.69458  -6.431 2.05e-10 ***
+factor(farm_id)65   -5.07253    0.70612  -7.184 1.42e-12 ***
+factor(farm_id)66    9.92601    0.72283  13.732  &lt; 2e-16 ***
+factor(farm_id)67   11.29057    0.73741  15.311  &lt; 2e-16 ***
+factor(farm_id)68    7.21862    0.69522  10.383  &lt; 2e-16 ***
+factor(farm_id)69   16.59443    0.84957  19.533  &lt; 2e-16 ***
+factor(farm_id)70   28.52511    1.11210  25.650  &lt; 2e-16 ***
+factor(farm_id)71    1.06832    0.66512   1.606 0.108580    
+factor(farm_id)72  -18.44644    0.90727 -20.332  &lt; 2e-16 ***
+factor(farm_id)73   17.66553    0.86949  20.317  &lt; 2e-16 ***
+factor(farm_id)74   -1.63877    0.66915  -2.449 0.014514 *  
+factor(farm_id)75   -1.39830    0.67030  -2.086 0.037254 *  
+factor(farm_id)76   17.77158    0.85069  20.891  &lt; 2e-16 ***
+factor(farm_id)77    3.51387    0.66861   5.255 1.84e-07 ***
+factor(farm_id)78   -6.01302    0.72220  -8.326 3.09e-16 ***
+factor(farm_id)79    8.36959    0.70854  11.812  &lt; 2e-16 ***
+factor(farm_id)80    5.08077    0.67689   7.506 1.47e-13 ***
+factor(farm_id)81    6.44353    0.68656   9.385  &lt; 2e-16 ***
+factor(farm_id)82   11.05704    0.72951  15.157  &lt; 2e-16 ***
+factor(farm_id)83    2.14535    0.66538   3.224 0.001309 ** 
+factor(farm_id)84   12.85690    0.78472  16.384  &lt; 2e-16 ***
+factor(farm_id)85    4.71297    0.67430   6.989 5.38e-12 ***
+factor(farm_id)86   10.48765    0.73160  14.335  &lt; 2e-16 ***
+factor(farm_id)87   18.23201    0.87524  20.831  &lt; 2e-16 ***
+factor(farm_id)88   11.35031    0.75604  15.013  &lt; 2e-16 ***
+factor(farm_id)89    3.32316    0.66693   4.983 7.52e-07 ***
+factor(farm_id)90   18.67189    0.88813  21.024  &lt; 2e-16 ***
+factor(farm_id)91   17.02900    0.85218  19.983  &lt; 2e-16 ***
+factor(farm_id)92   12.38551    0.74832  16.551  &lt; 2e-16 ***
+factor(farm_id)93    9.35103    0.70670  13.232  &lt; 2e-16 ***
+factor(farm_id)94   -0.19635    0.66635  -0.295 0.768320    
+factor(farm_id)95   20.70188    0.94054  22.011  &lt; 2e-16 ***
+factor(farm_id)96    0.40165    0.66631   0.603 0.546792    
+factor(farm_id)97   29.90382    1.14814  26.046  &lt; 2e-16 ***
+factor(farm_id)98   22.25247    0.98761  22.532  &lt; 2e-16 ***
+factor(farm_id)99    2.71259    0.67299   4.031 6.03e-05 ***
+factor(farm_id)100  -4.88459    0.69327  -7.046 3.67e-12 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 1.487 on 899 degrees of freedom
+Multiple R-squared:  0.8866,    Adjusted R-squared:  0.874 
+F-statistic:  70.3 on 100 and 899 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+</div>
+<p>この回帰では、各農家ごとに異なる切片を持たせている。 したがって、農家ごとの固定的な土地の質の違いはダミー変数が吸収してくれる。</p>
+<p>その結果、<code>fertilizer</code> の係数は</p>
+<blockquote class="blockquote">
+<p>同じ農家の中で肥料投入量が増えたときに、生産量がどれだけ増えるか</p>
+</blockquote>
+<p>を表すようになる。</p>
+<p>今度はちゃんと正の値になっていることを確認しよう。</p>
+</section>
+<section id="demean-した-within-回帰" class="level2">
+<h2 class="anchored" data-anchor-id="demean-した-within-回帰">3. demean した within 回帰</h2>
+<p>今度は、各農家について平均を引いたデータを作り、その上で回帰を行う。</p>
+<p>農家 <span class="math inline">i</span> について、</p>
+<p><span class="math display">
+\tilde y_{it} = y_{it} - \bar y_i,
+\qquad
+\tilde x_{it} = x_{it} - \bar x_i
+</span></p>
+<p>を定義すると、fixed effects モデルは</p>
+<p><span class="math display">
+\tilde y_{it} = \beta_1 \tilde x_{it} + \tilde u_{it}
+</span></p>
+<p>と書ける。</p>
+<p>これをそのまま実装すると以下のようになる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>df_demeaned <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(farm_id) <span class="sc">%&gt;%</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">output_dm =</span> output <span class="sc">-</span> <span class="fu">mean</span>(output),</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">fertilizer_dm =</span> fertilizer <span class="sc">-</span> <span class="fu">mean</span>(fertilizer)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>within_fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(output_dm <span class="sc">~</span> fertilizer_dm <span class="sc">-</span> <span class="dv">1</span>, <span class="at">data =</span> df_demeaned)</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(within_fit)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = output_dm ~ fertilizer_dm - 1, data = df_demeaned)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-4.8800 -1.0038 -0.0128  1.0081  4.8336 
+
+Coefficients:
+              Estimate Std. Error t value Pr(&gt;|t|)    
+fertilizer_dm  0.91226    0.04651   19.62   &lt;2e-16 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 1.41 on 999 degrees of freedom
+Multiple R-squared:  0.2781,    Adjusted R-squared:  0.2773 
+F-statistic: 384.8 on 1 and 999 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+</div>
+<p>ここで <code>- 1</code> を入れているのは、平均との差を取った後のデータには切片が不要だからである。 この回帰は、農家内の変動だけを使って肥料の効果を推定している。</p>
+</section>
+<section id="三つの推定結果を並べて比較する" class="level2">
+<h2 class="anchored" data-anchor-id="三つの推定結果を並べて比較する">4. 三つの推定結果を並べて比較する</h2>
+<p>では、pooled OLS、ダミー変数 fixed effects、demean 回帰の係数を並べてみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>result_table <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">model =</span> <span class="fu">c</span>(</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Pooled OLS"</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"FE with farm dummies"</span>,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"FE with demeaning"</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">estimate =</span> <span class="fu">c</span>(</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coef</span>(pooled_fit)[<span class="st">"fertilizer"</span>],</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coef</span>(fe_dummy_fit)[<span class="st">"fertilizer"</span>],</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coef</span>(within_fit)[<span class="st">"fertilizer_dm"</span>]</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>result_table</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 2
+  model                estimate
+  &lt;chr&gt;                   &lt;dbl&gt;
+1 Pooled OLS             -0.543
+2 FE with farm dummies    0.912
+3 FE with demeaning       0.912</code></pre>
+</div>
+</div>
+<p>この表を見ると、</p>
+<ul>
+<li>pooled OLS の係数は真の値から大きくずれている</li>
+<li>fixed effects を使うと正の効果が回復する</li>
+<li>ダミー変数法と demean 法の係数は一致する</li>
+</ul>
+<p>ことが確認できるはずである。</p>
+<p>このシミュレーションでは真の肥料効果を</p>
+<p><span class="math display">
+\beta = 0.8
+</span></p>
+<p>としてデータを作っていた。 したがって、fixed effects の二つの推定値はこの値に近くなるはずである。</p>
+</section>
+<section id="推定結果をどう解釈すればよいか" class="level2">
+<h2 class="anchored" data-anchor-id="推定結果をどう解釈すればよいか">6. 推定結果をどう解釈すればよいか</h2>
+<p>この結果は、固定効果モデルが何をしているかを非常によく表している。</p>
+<p>pooled OLS は、農家どうしの違いまで使ってしまう。 そのため、</p>
+<ul>
+<li>土地の質が低い農家ほど肥料を多く使う</li>
+<li>しかし土地の質が低いせいで収穫量は低い</li>
+</ul>
+<p>という構造を、あたかも「肥料が悪い」かのように誤って解釈してしまう。</p>
+<p>一方、fixed effects 回帰は農家ごとの固定的な違いを取り除く。 そのため、</p>
+<blockquote class="blockquote">
+<p>同じ農家の中で、普段より肥料を多く入れた月には、普段より収穫量も増えているか</p>
+</blockquote>
+<p>だけを使って推定できる。</p>
+<p>この比較こそが、固定効果モデルの本質である。</p>
+<div class="callout callout-style-simple callout-warning callout-titled" title="fixed effects にも弱点がある">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">警告</span>fixed effects にも弱点がある
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>fixed effects は強力だが万能ではない。特に <span class="math inline">T</span> が短いと、個体内変動の乏しさ・測定誤差・大きな標準誤差といった問題が目立ちやすい。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="固定効果モデルの諸問題" class="level1">
+<h1>固定効果モデルの諸問題</h1>
+<p>実務上、多くのケースで固定効果モデルを推定する際の最大の問題は観測されている期間 <span class="math inline">T</span> が短いことである。</p>
+<p>固定効果モデルは、各個体について</p>
+<ul>
+<li>その個体の平均からどれだけ説明変数がずれたか</li>
+<li>その個体の平均からどれだけ結果変数がずれたか</li>
+</ul>
+<p>を使って識別する方法だった。 したがって、同じ個体を何度も観測していることが本質的に重要である。</p>
+<p>しかし実際のデータでは、個体数 <span class="math inline">N</span> は大きくても、各個体について観測されている時点数 <span class="math inline">T</span> はそれほど大きくないことが多い。 たとえば</p>
+<ul>
+<li>企業を3年分だけ観測したデータ</li>
+<li>家計を2期だけ追ったデータ</li>
+<li>学校を4年分だけ観測したデータ</li>
+</ul>
+<p>などである。</p>
+<p>このように、<span class="math inline">N</span> は大きいが <span class="math inline">T</span> は小さいパネルを<strong>short panel</strong>という。</p>
+<section id="なぜ-t-が短いと問題なのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜ-t-が短いと問題なのか">なぜ <span class="math inline">T</span> が短いと問題なのか</h2>
+<p>固定効果モデルは、個体間の違いを捨てて、<strong>個体内の変化</strong>だけで係数を推定する。</p>
+<p>したがって、<span class="math inline">T</span> が短いと、そもそも各個体の中で利用できる変化があまり多くない。</p>
+<p>たとえば、ある農家について10年分のデータがあれば、</p>
+<ul>
+<li>平年より肥料が多い年</li>
+<li>平年より肥料が少ない年</li>
+<li>かなり多い年</li>
+<li>やや少ない年</li>
+</ul>
+<p>など、個体内の変動をかなり豊かに観察できる。</p>
+<p>しかし2期しかなければ、その農家について見えるのは</p>
+<ul>
+<li>1期目と2期目の差</li>
+</ul>
+<p>だけである。</p>
+<p>つまり、<span class="math inline">T</span> が短いと、固定効果モデルが利用できる情報量がかなり限られる。</p>
+</section>
+<section id="short-panel-で起きる実務上の問題" class="level2">
+<h2 class="anchored" data-anchor-id="short-panel-で起きる実務上の問題">short panel で起きる実務上の問題</h2>
+<section id="個体内変動が少ない" class="level3">
+<h3 class="anchored" data-anchor-id="個体内変動が少ない">1. 個体内変動が少ない</h3>
+<p>固定効果回帰は、時間不変の個体差を取り除く代わりに、個体内変動だけを使う。 したがって、説明変数が個体内であまり動かないと、推定は非常に不安定になる。</p>
+<p>たとえば、</p>
+<ul>
+<li>土地の広さ</li>
+<li>学歴</li>
+<li>性別</li>
+<li>地理的条件</li>
+</ul>
+<p>のように、時間を通じてほとんど変わらない変数は、fixed effects のもとではほとんど識別できない。 <span class="math inline">T</span> が短いとこの問題は特に深刻になる。</p>
+</section>
+<section id="標準誤差が大きくなりやすい" class="level3">
+<h3 class="anchored" data-anchor-id="標準誤差が大きくなりやすい">2. 標準誤差が大きくなりやすい</h3>
+<p>使っている情報が個体内変動だけになるので、pooled OLS に比べて有効な変動が減る。 その結果、推定値のばらつきが大きくなり、標準誤差も大きくなりやすい。</p>
+</section>
+<section id="測定誤差に弱くなる" class="level3">
+<h3 class="anchored" data-anchor-id="測定誤差に弱くなる">3. 測定誤差に弱くなる</h3>
+<p>固定効果や差分回帰は、「変化」に注目する。 そのため、説明変数に測定誤差があると、その影響が強く出やすい。</p>
+<p>たとえば本当はほとんど変化していない変数でも、計測ノイズのせいで期ごとの差が大きく見えてしまうと、推定がかなり不安定になる。</p>
+</section>
+<section id="動学モデルでは別の問題が出る" class="level3">
+<h3 class="anchored" data-anchor-id="動学モデルでは別の問題が出る">4. 動学モデルでは別の問題が出る</h3>
+<p>この講義ではまだ詳しく扱わないが、被説明変数のラグを説明変数に入れるような動学パネルモデルでは、<span class="math inline">T</span> が短いと fixed effects 推定量に特有のバイアスが出る。 これは short panel の代表的な問題の一つである。</p>
+</section>
+</section>
+<section id="t2-のときfixed-effects-はどうなるか" class="level2">
+<h2 class="anchored" data-anchor-id="t2-のときfixed-effects-はどうなるか"><span class="math inline">T=2</span> のとき、fixed effects はどうなるか</h2>
+<p>short panel の極端な例として、各個体が2期しか観測されていない場合を考えよう。</p>
+<p>もとの固定効果モデルは</p>
+<p><span class="math display">
+y_{it} = \beta x_{it} + \alpha_i + u_{it}
+</span></p>
+<p>である。</p>
+<p>ここで <span class="math inline">t=1,2</span> の2期しかないとする。 すると各個体について2本の式がある。</p>
+<p><span class="math display">
+y_{i1} = \beta x_{i1} + \alpha_i + u_{i1}
+</span></p>
+<p><span class="math display">
+y_{i2} = \beta x_{i2} + \alpha_i + u_{i2}
+</span></p>
+<p>この2式を引くと、</p>
+<p><span class="math display">
+y_{i2} - y_{i1} = \beta (x_{i2} - x_{i1}) + (u_{i2} - u_{i1})
+</span></p>
+<p>となる。</p>
+<p>ここで <span class="math inline">\alpha_i</span> は消えている。 つまり、2期しかない場合、fixed effects は<strong>1階差分を取ること</strong>と本質的に同じである。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="T=2 ならどうなるか">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>T=2 ならどうなるか
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>時点が 2 つしかないとき、fixed effects は差分回帰と非常に近い形になる。この対応関係を押さえると、within 変換の意味がかなり見えやすくなる。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="差分回帰" class="level1">
+<h1>差分回帰</h1>
+<p>このように、固定効果モデルの近縁として登場するのが<strong>差分回帰</strong>である。</p>
+<p>差分回帰では、各個体について前期との差を取り、</p>
+<p><span class="math display">
+\Delta y_i = y_{i2} - y_{i1},
+\qquad
+\Delta x_i = x_{i2} - x_{i1}
+</span></p>
+<p>を作る。 すると推定式は</p>
+<p><span class="math display">
+\Delta y_i = \beta \Delta x_i + \Delta u_i
+</span></p>
+<p>となる。</p>
+<p>これを OLS で推定するのが差分回帰である。</p>
+<p>差分を取ることで、時間を通じて一定な個体要因 <span class="math inline">\alpha_i</span> は自動的に消える。 したがって差分回帰も、固定効果モデルと同じく<strong>時間不変の omitted variable を除去する方法</strong>だと理解できる。</p>
+<section id="差分回帰の直感" class="level2">
+<h2 class="anchored" data-anchor-id="差分回帰の直感">差分回帰の直感</h2>
+<p>差分回帰の考え方は非常に単純である。</p>
+<p>各個体について、</p>
+<ul>
+<li>結果変数がどれだけ変わったか</li>
+<li>説明変数がどれだけ変わったか</li>
+</ul>
+<p>だけを見る。</p>
+<p>今回の肥料の例なら、</p>
+<ul>
+<li>今期は前期に比べて肥料投入量がどれだけ増えたか</li>
+<li>それに対応して収穫量がどれだけ増えたか</li>
+</ul>
+<p>を見ることになる。</p>
+<p>このとき、土地の質のような時間不変の個体差は、差を取った時点で消える。</p>
+</section>
+<section id="fixed-effects-と差分回帰の関係" class="level2">
+<h2 class="anchored" data-anchor-id="fixed-effects-と差分回帰の関係">fixed effects と差分回帰の関係</h2>
+<p>差分回帰と fixed effects は非常に似ているが、まったく同じではない。</p>
+<ul>
+<li><span class="math inline">T=2</span> のとき</li>
+</ul>
+<p>2期しかなければ、fixed effects と差分回帰は同じ情報を使うので、本質的に同じになる。</p>
+<ul>
+<li><span class="math inline">T \geq 3</span> のとき</li>
+</ul>
+<p>3期以上あると、fixed effects は<strong>各個体平均からのズレ</strong>を使う一方、差分回帰は<strong>隣り合う時点の差</strong>を使う。</p>
+<p>したがって、どちらも時間不変の個体差を除去するという点では同じだが、使う変動は少し異なる。</p>
+<ul>
+<li>fixed effects は各個体の全期間平均からのズレを使う</li>
+<li>差分回帰は前期との差を使う</li>
+</ul>
+<p>のである。</p>
+</section>
+<section id="どちらが良いのか" class="level2">
+<h2 class="anchored" data-anchor-id="どちらが良いのか">どちらが良いのか</h2>
+<p>これは誤差項の性質に依存する。</p>
+<ul>
+<li>誤差に系列相関があまりない場合</li>
+</ul>
+<p>fixed effects の方が効率的であることが多い。 平均との差を使うことで、全期間の情報をうまく利用するからである。</p>
+<ul>
+<li>誤差がランダムウォーク的に動く場合</li>
+</ul>
+<p>差分回帰の方が自然なこともある。 レベルではなく変化を直接モデル化したい場合にも、差分回帰は解釈しやすい。</p>
+</section>
+<section id="差分回帰の弱点" class="level2">
+<h2 class="anchored" data-anchor-id="差分回帰の弱点">差分回帰の弱点</h2>
+<p>差分回帰にも弱点がある。</p>
+<ol type="1">
+<li>測定誤差を増幅しやすい</li>
+</ol>
+<p>差を取ると、信号だけでなくノイズも差になる。 そのため、説明変数に測定誤差があると、差分回帰ではその影響が特に強く出やすい。</p>
+<ol start="2" type="1">
+<li>長期的な情報を捨てることがある</li>
+</ol>
+<p>差分回帰は隣接時点の変化だけを見るので、長期的な水準の違いに関する情報は使わない。 そのため、<span class="math inline">T</span> が複数あるときには fixed effects の方が情報をうまく活用できることも多い。</p>
+<ol start="3" type="1">
+<li>欠損に弱い</li>
+</ol>
+<p>たとえば <span class="math inline">t=2</span> の観測が欠けると、<span class="math inline">t=1</span> との差も <span class="math inline">t=3</span> との差も作りにくくなる。 差分は欠損の影響を受けやすい。</p>
+</section>
+<section id="short-panel-のもとで何を考えるべきか" class="level2">
+<h2 class="anchored" data-anchor-id="short-panel-のもとで何を考えるべきか">short panel のもとで何を考えるべきか</h2>
+<p>short panel を使うときには、固定効果モデルを機械的に回すだけでは不十分である。 少なくとも次の点を確認する必要がある。</p>
+<ul>
+<li>説明変数に十分な個体内変動があるか</li>
+</ul>
+<p>もし説明変数がほとんど動いていなければ、fixed effects でも差分回帰でも識別は弱い。</p>
+<ul>
+<li>固定効果で落ちてしまう変数は何か</li>
+</ul>
+<p>時間不変の変数は fixed effects では推定できない。 たとえば性別や地域ダミーのような変数は、個体固定効果と完全に重なってしまう。</p>
+<ul>
+<li>誤差構造はどうなっていそうか</li>
+</ul>
+<p>誤差に強い系列相関がありそうか、測定誤差が大きそうかによって、fixed effects と差分回帰のどちらが扱いやすいかが変わる。</p>
+</section>
+<section id="シミュレーションでshort-panelを実感する" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションでshort-panelを実感する">シミュレーションでshort panelを実感する</h2>
+<p>short panel の問題を直感的に理解するために、今度は観測期間 <span class="math inline">T</span> を変えながら fixed effects 回帰を繰り返してみよう。</p>
+<p>考えたいポイントは二つである。</p>
+<ul>
+<li><span class="math inline">T</span> が短いと、各個体について利用できる個体内変動が少ない</li>
+<li>その結果、fixed effects 推定値は不安定になり、標準誤差も大きくなりやすい</li>
+</ul>
+<p>逆に、<span class="math inline">T</span> が長くなると、各個体の中での変化をより多く観察できるようになるので、推定は安定しやすくなる。</p>
+<p>ここでは、真の係数を</p>
+<p><span class="math display">
+\beta = 0.8
+</span></p>
+<p>としてデータを生成し、<span class="math inline">T</span> を少しずつ大きくしながら fixed effects 回帰を何度も行う。</p>
+<section id="シミュレーションの設定" class="level3">
+<h3 class="anchored" data-anchor-id="シミュレーションの設定">シミュレーションの設定</h3>
+<p>以下のコードでは、</p>
+<ul>
+<li>農家数 <span class="math inline">N</span> は固定</li>
+<li>観測期間 <span class="math inline">T</span> を変える</li>
+<li>農家ごとに固定効果 <span class="math inline">\alpha_i</span> を持たせる</li>
+<li>説明変数 <span class="math inline">x_{it}</span> は <span class="math inline">\alpha_i</span> と相関するように作る</li>
+<li>その上で <code>fixest::feols()</code> を使って固定効果回帰を行う</li>
+</ul>
+<p>という設定にしている。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(fixest)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co"># 真のパラメータ</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>beta_true <span class="ot">&lt;-</span> <span class="fl">0.8</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>N <span class="ot">&lt;-</span> <span class="dv">30</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 1回のシミュレーションを行う関数</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>run_one_fe_sim <span class="ot">&lt;-</span> <span class="cf">function</span>(Tt, <span class="at">N =</span> <span class="dv">30</span>, <span class="at">beta_true =</span> <span class="fl">0.8</span>) {</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>  alpha_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">farm_id =</span> <span class="dv">1</span><span class="sc">:</span>N,</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">alpha_i =</span> <span class="fu">rnorm</span>(N, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">4</span>)</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>  df_sim <span class="ot">&lt;-</span> <span class="fu">expand_grid</span>(</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">farm_id =</span> <span class="dv">1</span><span class="sc">:</span>N,</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">year =</span> <span class="dv">1</span><span class="sc">:</span>Tt</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">left_join</span>(alpha_df, <span class="at">by =</span> <span class="st">"farm_id"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>      <span class="at">x =</span> <span class="dv">12</span> <span class="sc">-</span> <span class="fl">1.5</span> <span class="sc">*</span> alpha_i <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">n</span>(), <span class="at">sd =</span> <span class="fl">1.5</span>),</span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>      <span class="at">u =</span> <span class="fu">rnorm</span>(<span class="fu">n</span>(), <span class="at">sd =</span> <span class="fl">2.0</span>),</span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>      <span class="at">y =</span> beta_true <span class="sc">*</span> x <span class="sc">+</span> alpha_i <span class="sc">+</span> u</span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>  fit <span class="ot">&lt;-</span> <span class="fu">feols</span>(y <span class="sc">~</span> x <span class="sc">|</span> farm_id, <span class="at">data =</span> df_sim)</span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">T =</span> Tt,</span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">estimate =</span> <span class="fu">coef</span>(fit)[[<span class="st">"x"</span>]],</span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">se =</span> <span class="fu">se</span>(fit)[[<span class="st">"x"</span>]]</span>
+<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="t-を変えながら何度も推定する" class="level3">
+<h3 class="anchored" data-anchor-id="t-を変えながら何度も推定する"><span class="math inline">T</span> を変えながら何度も推定する</h3>
+<p>次に、<span class="math inline">T=2,3,5,10,20,40</span> のそれぞれについて、同じシミュレーションを何回も繰り返す。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>T_grid <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">40</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>R <span class="ot">&lt;-</span> <span class="dv">300</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>sim_results <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(T_grid, <span class="cf">function</span>(Tt) {</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(<span class="dv">1</span><span class="sc">:</span>R, <span class="cf">function</span>(r) {</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">run_one_fe_sim</span>(<span class="at">Tt =</span> Tt, <span class="at">N =</span> N, <span class="at">beta_true =</span> beta_true)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>sim_results</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1,800 × 3
+       T estimate    se
+   &lt;dbl&gt;    &lt;dbl&gt; &lt;dbl&gt;
+ 1     2    0.723 0.296
+ 2     2    0.806 0.262
+ 3     2    0.653 0.205
+ 4     2    1.13  0.394
+ 5     2    0.813 0.360
+ 6     2    0.707 0.379
+ 7     2    1.03  0.231
+ 8     2    1.08  0.182
+ 9     2    0.557 0.242
+10     2    1.22  0.202
+# ℹ 1,790 more rows</code></pre>
+</div>
+</div>
+</section>
+<section id="推定値の平均と標準誤差の平均を確認する" class="level3">
+<h3 class="anchored" data-anchor-id="推定値の平均と標準誤差の平均を確認する">推定値の平均と標準誤差の平均を確認する</h3>
+<p>まず、各 <span class="math inline">T</span> ごとに推定値の平均と、報告される標準誤差の平均をまとめよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>summary_table <span class="ot">&lt;-</span> sim_results <span class="sc">%&gt;%</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(T) <span class="sc">%&gt;%</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_estimate =</span> <span class="fu">mean</span>(estimate),</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">sd_estimate =</span> <span class="fu">sd</span>(estimate),</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_se =</span> <span class="fu">mean</span>(se),</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>summary_table</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 4
+      T mean_estimate sd_estimate mean_se
+  &lt;dbl&gt;         &lt;dbl&gt;       &lt;dbl&gt;   &lt;dbl&gt;
+1     2         0.805      0.241   0.250 
+2     3         0.802      0.168   0.174 
+3     5         0.793      0.129   0.122 
+4    10         0.799      0.0847  0.0814
+5    20         0.799      0.0558  0.0559
+6    40         0.798      0.0398  0.0390</code></pre>
+</div>
+</div>
+<p>この表で見たいのは次の点である。</p>
+<ul>
+<li><code>mean_estimate</code> が真の値 <span class="math inline">0.8</span> に近いか</li>
+<li><code>sd_estimate</code> が <span class="math inline">T</span> とともに小さくなるか</li>
+<li><code>mean_se</code> も <span class="math inline">T</span> とともに小さくなるか</li>
+</ul>
+<p>通常は、<span class="math inline">T</span> が短いほど推定値のばらつきが大きく、<span class="math inline">T</span> が長いほど安定していく。</p>
+</section>
+<section id="推定値のばらつきを図で見る" class="level3">
+<h3 class="anchored" data-anchor-id="推定値のばらつきを図で見る">推定値のばらつきを図で見る</h3>
+<p>次に、<span class="math inline">T</span> ごとの推定値の分布を図で見てみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(sim_results, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(T), <span class="at">y =</span> estimate)) <span class="sc">+</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>() <span class="sc">+</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> beta_true, <span class="at">linetype =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Number of periods T"</span>,</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Estimated coefficient on x"</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">16</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture8_revised_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>この図では、破線が真の値</p>
+<p><span class="math display">
+\beta = 0.8
+</span></p>
+<p>を表している。</p>
+<p><span class="math inline">T</span> が小さいと、箱ひげ図のばらつきが大きくなりやすい。 これは、各農家の中で利用できる変化が少ないため、fixed effects 推定が不安定になるからである。</p>
+<p>一方、<span class="math inline">T</span> が大きくなると、推定値は真の値のまわりにより集中していくはずである。</p>
+</section>
+<section id="標準誤差がどう変わるかを見る" class="level3">
+<h3 class="anchored" data-anchor-id="標準誤差がどう変わるかを見る">標準誤差がどう変わるかを見る</h3>
+<p>標準誤差の平均も図にしてみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>summary_table <span class="sc">%&gt;%</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> T, <span class="at">y =</span> mean_se)) <span class="sc">+</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="fl">2.5</span>) <span class="sc">+</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Number of periods T"</span>,</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Average standard error"</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">16</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture8_revised_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>この図から、<span class="math inline">T</span> が大きくなるにつれて標準誤差が小さくなっていく様子が確認できる。</p>
+<p>これは直感的にも自然である。 fixed effects 回帰は個体内変動だけを使うので、各個体について観測期間が長いほど、その個体内変動をより多く観察できる。 その結果、係数をより精密に推定できる。</p>
+</section>
+<section id="推定値のばらつきそのものも確認する" class="level3">
+<h3 class="anchored" data-anchor-id="推定値のばらつきそのものも確認する">推定値のばらつきそのものも確認する</h3>
+<p>報告される標準誤差だけでなく、シミュレーションで実際に得られた推定値のばらつきも確認してみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>summary_table <span class="sc">%&gt;%</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> T, <span class="at">y =</span> sd_estimate)) <span class="sc">+</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="fl">2.5</span>) <span class="sc">+</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Number of periods T"</span>,</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Simulation SD of estimates"</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">16</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture8_revised_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>ここでの <code>sd_estimate</code> は、Monte Carlo 的に見た推定値の散らばりである。 これも通常、<span class="math inline">T</span> が大きいほど小さくなる。</p>
+</section>
+<section id="このシミュレーションから分かること" class="level3">
+<h3 class="anchored" data-anchor-id="このシミュレーションから分かること">このシミュレーションから分かること</h3>
+<p>このシミュレーションのメッセージはかなり単純である。</p>
+<p>固定効果モデルは、個体ごとの固定的な違いを取り除ける強力な方法である。 しかしその代わり、使える情報は<strong>個体内変動</strong>だけになる。</p>
+<p>したがって、<span class="math inline">T</span> が短い short panel では</p>
+<ul>
+<li>各個体の中で利用できる変化が少ない</li>
+<li>推定値が不安定になりやすい</li>
+<li>標準誤差が大きくなりやすい</li>
+</ul>
+<p>という問題が起きる。</p>
+<p>逆に、<span class="math inline">T</span> が大きくなると、各個体の中での変化をより多く使えるようになるので、推定値は真の値に安定して近づき、標準誤差も小さくなっていく。</p>
+</section>
+</section>
+</section>
+<section id="ashenfelter-and-krueger-1994-estimates-of-the-economic-return-to-schooling-from-a-new-sample-of-twins" class="level1">
+<h1>Ashenfelter and Krueger (1994) : Estimates of the Economic Return to Schooling from a New Sample of Twins</h1>
+<p>Ashenfelter and Krueger (1994) は、<strong>教育が賃金をどれだけ上げるか</strong>を推定する非常に有名な論文である。特に重要なのは、単純に「教育年数が長い人ほど賃金が高い」という相関を見るのではなく、<strong>一卵性双生児のペアを比較する</strong>ことで、能力や家庭環境のような観測しにくい要因をなるべく取り除こうとした点にある。論文の要約では、著者たちは新しい一卵性双生児サンプルを用いて、教育年数の異なる双子の賃金を比較し、さらに教育年数の複数の測定値を集めることで報告誤差の影響も調べている。その結果、能力の欠落による上方バイアスは大きくない一方で、測定誤差は教育収益率を下方に歪めると結論している。</p>
+<p>この研究の中心にあるのは、固定効果モデルの発想である。双子、とくに一卵性双生児は、遺伝的背景や家庭環境が非常によく似ている。そのため、双子のあいだで教育年数に差があるなら、その差と賃金差を比べることで、普通のクロスセクション回帰よりも「教育の因果効果」に近いものを推定できるのではないか、という考え方である。</p>
+<section id="問題意識" class="level3">
+<h3 class="anchored" data-anchor-id="問題意識">問題意識</h3>
+<p>教育年数と賃金の関係を調べたいとき、もっとも素朴には次のような回帰を書くことができる。</p>
+<p><span class="math display">
+\log w_i = \beta_0 + \beta_1 S_i + u_i
+</span></p>
+<p>ここで、</p>
+<ul>
+<li><span class="math inline">w_i</span> は個人 <span class="math inline">i</span> の賃金</li>
+<li><span class="math inline">S_i</span> は教育年数</li>
+</ul>
+<p>である。</p>
+<p>このとき、<span class="math inline">\beta_1</span> は教育年数が1年増えたときに賃金が何%変わるかを表す。被説明変数が対数なので、<span class="math inline">\beta_1</span> は教育収益率として解釈できる。</p>
+<p>しかし、この式には大きな問題がある。教育年数が長い人は、平均的に見て能力が高かったり、家庭環境が良かったり、学業への意欲が強かったりするかもしれない。そうした要因が賃金にも影響しているなら、<span class="math inline">u_i</span> と <span class="math inline">S_i</span> が相関してしまい、単純な OLS では教育の因果効果をきれいに識別できない。</p>
+</section>
+<section id="双子データの発想" class="level3">
+<h3 class="anchored" data-anchor-id="双子データの発想">双子データの発想</h3>
+<p>Ashenfelter and Krueger (1994) のアイデアは、この問題に対して一卵性双生児データを使うことである。一卵性双生児は遺伝的に同一であり、同じ家庭で育っているので、能力や家庭背景のかなりの部分を共有していると考えられる。そこで、双子ペアごとに固定効果を入れたモデルを考える。</p>
+<p>双子ペアを <span class="math inline">j</span>、そのペアの中の個人を <span class="math inline">k=1,2</span> として、</p>
+<p><span class="math display">
+\log w_{jk} = \alpha_j + \beta S_{jk} + u_{jk}
+</span></p>
+<p>と書く。</p>
+<p>ここで <span class="math inline">\alpha_j</span> は双子ペア <span class="math inline">j</span> に固有の定数項であり、そのペアに共通する能力や家庭環境を表していると考えることができる。この <span class="math inline">\alpha_j</span> が固定効果である。</p>
+<p>この式では、<span class="math inline">\beta</span> は<strong>同じ双子ペアの中で、教育年数が多い方がどれだけ高い賃金を得ているか</strong>によって識別される。つまり、比較の軸が「人と人の比較」ではなく、「同じ家庭・同じ遺伝的背景を持つ双子どうしの比較」に変わる。</p>
+<p>上の式は、双子ペアごとの差をとるとさらにわかりやすくなる。双子1を <span class="math inline">k=1</span>、双子2を <span class="math inline">k=2</span> とすると、</p>
+<p><span class="math display">
+\log w_{j1} - \log w_{j2} = \beta (S_{j1} - S_{j2}) + (u_{j1} - u_{j2})
+</span></p>
+<p>となる。</p>
+<p>ここでは、ペアに共通な固定効果 <span class="math inline">\alpha_j</span> が差をとることで消えている。したがって、能力や家庭環境のような、双子ペアに共通する観測されない要因を除いた上で、教育年数の差と賃金差を比較していることになる。</p>
+<p>この</p>
+<ul>
+<li>固定効果を入れた式</li>
+<li>差分の式</li>
+</ul>
+<p>の入れ替えはよく目にするので覚えておくといい。</p>
+<p>固定効果をそのまま推定するのは何かとしんどいのである（後述）</p>
+</section>
+<section id="測定誤差の問題" class="level3">
+<h3 class="anchored" data-anchor-id="測定誤差の問題">測定誤差の問題</h3>
+<p>真のモデルを</p>
+<p><span class="math display">
+\log w_{jk} = \alpha_j + \beta S_{jk}^\ast + u_{jk}
+</span></p>
+<p>とする。ここで <span class="math inline">S_{jk}^\ast</span> は<strong>真の教育年数</strong>である。</p>
+<p>しかし実際には、真の教育年数 <span class="math inline">S_{jk}^\ast</span> は観測できず、誤差つきの</p>
+<p><span class="math display">
+S_{jk} = S_{jk}^\ast + e_{jk}
+</span></p>
+<p>しか観測できないとする。ここで <span class="math inline">e_{jk}</span> は教育年数の報告誤差である。</p>
+<p>固定効果をとらない単純な回帰では、本当は</p>
+<p><span class="math display">
+\log w_{jk} = \alpha_j + \beta S_{jk}^\ast + u_{jk}
+</span></p>
+<p>なのに、実際には <span class="math inline">S_{jk}</span> を使って</p>
+<p><span class="math display">
+\log w_{jk} = \alpha_j + \beta S_{jk} + \text{誤差}
+</span></p>
+<p>を推定することになる。</p>
+<p>このとき</p>
+<p><span class="math display">
+\log w_{jk}
+= \alpha_j + \beta (S_{jk} - e_{jk}) + u_{jk}
+= \alpha_j + \beta S_{jk} + (u_{jk} - \beta e_{jk})
+</span></p>
+<p>と書ける。</p>
+<p>つまり、回帰の誤差項が</p>
+<p><span class="math display">
+u_{jk} - \beta e_{jk}
+</span></p>
+<p>になってしまう。</p>
+<p>ここで説明変数 <span class="math inline">S_{jk}</span> は</p>
+<p><span class="math display">
+S_{jk} = S_{jk}^\ast + e_{jk}
+</span></p>
+<p>なので、<span class="math inline">S_{jk}</span> の中には <span class="math inline">e_{jk}</span> が入っている。 一方、誤差項の中には <span class="math inline">-\beta e_{jk}</span> が入っている。 したがって、<strong>説明変数と誤差項が相関してしまう</strong>。</p>
+<p>つまり、説明変数と誤差項が負に相関するので、OLS の係数は下に引っ張られる。</p>
+<p>これを<strong>attenuation bias</strong>と呼ぶ。</p>
+<p>Ashenfelter and Krueger (1994) はこの点を意識して、本人が報告した教育年数だけでなく、双子が相手の教育年数を報告した情報も集め、測定誤差の影響を点検している。要約では、測定誤差を調整すると、教育年数が1年増えると賃金はおよそ 12〜16% 上昇するとされている。</p>
+</section>
+<section id="まとめ" class="level3">
+<h3 class="anchored" data-anchor-id="まとめ">まとめ</h3>
+<p>Ashenfelter and Krueger (1994) は、教育の賃金効果を調べるために、一卵性双生児データを使った論文である。分析の中心にあるのは、双子ペアごとの固定効果を入れた重回帰である。</p>
+<p>この論文では、</p>
+<ul>
+<li>通常のクロスセクション回帰では能力や家庭環境が問題になりうること</li>
+<li>双子固定効果を使うと、そうした共通要因を取り除いた比較ができること</li>
+<li>ただし固定効果では測定誤差がむしろ深刻になること</li>
+</ul>
+<p>が明確に示されている。</p>
+<p>この意味で、固定効果モデルは「観測されない不変な要因を吸収する」という発想を理解するのに非常にわかりやすい例になっている。</p>
+<div class="callout callout-style-simple callout-important callout-titled" title="ここからは時点共通ショックも引く">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>ここからは時点共通ショックも引く
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>one-way FE が個体ごとの不変要因を取り除くのに対して、TWFE はさらに <strong>時点共通のショック</strong> も取り除く。DiD とつながる重要な形なので、何を差し引いているのかを丁寧に確認したい。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="two-way-fixed-effects-モデル" class="level1">
+<h1>Two-way Fixed Effects モデル</h1>
+<p>固定効果を二種類入れるといいことがあるというのが <strong>Two-way Fixed Effect モデル</strong> である。 日本語では「<strong>二方向固定効果モデル</strong>」などと呼ばれることが多い。 略して <strong>TWFE</strong> と書く。</p>
+<p>最も頻繁に現れるのは、DiD のところで見た <strong>個人</strong> と <strong>期間</strong> の両方の固定効果を入れるケースである。</p>
+<p>すなわち、個人平均と時間平均の両方を考慮して、それらからの差分を使った回帰分析である。</p>
+<section id="基本の回帰式" class="level2">
+<h2 class="anchored" data-anchor-id="基本の回帰式">基本の回帰式</h2>
+<p>もっとも標準的な TWFE の回帰式は次のように書ける。</p>
+<p><span class="math display">
+y_{it} = \alpha_i + \lambda_t + \beta x_{it} + u_{it}
+</span></p>
+<p>ここで、</p>
+<ul>
+<li><span class="math inline">i</span> は個人や企業、学校、地域などの単位</li>
+<li><span class="math inline">t</span> は時点</li>
+<li><span class="math inline">\alpha_i</span> は <strong>個人固定効果</strong></li>
+<li><span class="math inline">\lambda_t</span> は <strong>時間固定効果</strong></li>
+<li><span class="math inline">x_{it}</span> は関心のある説明変数</li>
+<li><span class="math inline">\beta</span> は推定したい係数</li>
+<li><span class="math inline">u_{it}</span> は誤差項</li>
+</ul>
+<p>である。</p>
+<p>この式の意味はとても明快で、</p>
+<ul>
+<li>各個人に固有の、時間を通じて変わらない要因は <span class="math inline">\alpha_i</span> で吸収する</li>
+<li>全個人に共通して各時点で生じるショックは <span class="math inline">\lambda_t</span> で吸収する</li>
+</ul>
+<p>ということである。</p>
+<p>たとえば賃金を分析しているなら、</p>
+<ul>
+<li>個人固定効果 <span class="math inline">\alpha_i</span> は「能力」「性格」「家庭環境」など、個人ごとに異なるが時間を通じてあまり変わらないもの</li>
+<li>時間固定効果 <span class="math inline">\lambda_t</span> は「景気」「法改正」「インフレ」「全国的ショック」など、同じ時点に全員へ共通してかかるもの</li>
+</ul>
+<p>を表していると考えればよい。</p>
+</section>
+<section id="何を使って-beta-を識別しているのか" class="level2">
+<h2 class="anchored" data-anchor-id="何を使って-beta-を識別しているのか">何を使って <span class="math inline">\beta</span> を識別しているのか</h2>
+<p>このモデルで <span class="math inline">\beta</span> が識別されるのは、単なる個人差や単なる時間差ではない。</p>
+<ul>
+<li>「いつも高い <span class="math inline">y</span> を持つ個人だから高い」</li>
+<li>「その年はみんな高かったから高い」</li>
+</ul>
+<p>という部分を取り除いたうえで、なお残る <strong>個人内・時点内のズレ</strong> を使っている。</p>
+<p>つまり TWFE は、</p>
+<ul>
+<li>個人平均からの差</li>
+<li>時間平均からの差</li>
+</ul>
+<p>の両方を考慮した変動だけで <span class="math inline">\beta</span> を推定している。</p>
+<p>この意味をはっきりさせるために、平均を定義しよう。</p>
+<p>個人 <span class="math inline">i</span> の時間平均を</p>
+<p><span class="math display">
+\bar y_i = \frac{1}{T}\sum_{t=1}^T y_{it}, \qquad
+\bar x_i = \frac{1}{T}\sum_{t=1}^T x_{it}
+</span></p>
+<p>時点 <span class="math inline">t</span> の個人平均を</p>
+<p><span class="math display">
+\bar y_t = \frac{1}{N}\sum_{i=1}^N y_{it}, \qquad
+\bar x_t = \frac{1}{N}\sum_{i=1}^N x_{it}
+</span></p>
+<p>全体平均を</p>
+<p><span class="math display">
+\bar y = \frac{1}{NT}\sum_{i=1}^N\sum_{t=1}^T y_{it}, \qquad
+\bar x = \frac{1}{NT}\sum_{i=1}^N\sum_{t=1}^T x_{it}
+</span></p>
+<p>と書く。</p>
+<p>このとき、TWFE が実質的に使っているのは</p>
+<p><span class="math display">
+\tilde y_{it}
+= y_{it} - \bar y_i - \bar y_t + \bar y
+</span></p>
+<p><span class="math display">
+\tilde x_{it}
+= x_{it} - \bar x_i - \bar x_t + \bar x
+</span></p>
+<p>という変数である。 これを <strong>二重に平均を引いた変数</strong>、あるいは <strong>double-demeaned な変数</strong> と呼ぶ。</p>
+<p>そして、TWFE の <span class="math inline">\beta</span> は本質的には</p>
+<p><span class="math display">
+\tilde y_{it} = \beta \tilde x_{it} + \tilde u_{it}
+</span></p>
+<p>を OLS したものと同じになる。</p>
+</section>
+<section id="なぜこの形になるのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜこの形になるのか">なぜこの形になるのか</h2>
+<p>元のモデル</p>
+<p><span class="math display">
+y_{it} = \alpha_i + \lambda_t + \beta x_{it} + u_{it}
+</span></p>
+<p>から出発する。</p>
+<p>まず個人平均をとると</p>
+<p><span class="math display">
+\bar y_i = \alpha_i + \bar \lambda + \beta \bar x_i + \bar u_i
+</span></p>
+<p>となる。ここで <span class="math inline">\bar \lambda</span> は時間固定効果の平均である。</p>
+<p>次に時点平均をとると</p>
+<p><span class="math display">
+\bar y_t = \bar \alpha + \lambda_t + \beta \bar x_t + \bar u_t
+</span></p>
+<p>さらに全体平均をとると</p>
+<p><span class="math display">
+\bar y = \bar \alpha + \bar \lambda + \beta \bar x + \bar u
+</span></p>
+<p>である。</p>
+<p>ここで元の式から個人平均と時点平均を引き、最後に全体平均を足すと、</p>
+<p><span class="math display">
+\begin{aligned}
+y_{it} - \bar y_i - \bar y_t + \bar y
+&amp;= (\alpha_i + \lambda_t + \beta x_{it} + u_{it}) \\
+&amp;\quad - (\alpha_i + \bar\lambda + \beta \bar x_i + \bar u_i) \\
+&amp;\quad - (\bar\alpha + \lambda_t + \beta \bar x_t + \bar u_t) \\
+&amp;\quad + (\bar\alpha + \bar\lambda + \beta \bar x + \bar u)
+\end{aligned}
+</span></p>
+<p>となるので、<span class="math inline">\alpha_i</span> と <span class="math inline">\lambda_t</span> が消えて</p>
+<p><span class="math display">
+y_{it} - \bar y_i - \bar y_t + \bar y = \beta (x_{it} - \bar x_i - \bar x_t + \bar x)
++
+(u_{it} - \bar u_i - \bar u_t + \bar u)
+</span></p>
+<p>が得られる。</p>
+<p>つまり、個人固定効果と時間固定効果は、二重に平均との差分をとることで消去できる。</p>
+</section>
+<section id="どういう意味での差分なのか" class="level2">
+<h2 class="anchored" data-anchor-id="どういう意味での差分なのか">どういう意味での「差分」なのか</h2>
+<p>ここは直感が大事である。</p>
+<section id="個人固定効果だけの-fe" class="level3">
+<h3 class="anchored" data-anchor-id="個人固定効果だけの-fe">個人固定効果だけの FE</h3>
+<p>個人固定効果だけなら、</p>
+<p><span class="math display">
+y_{it} - \bar y_i
+</span></p>
+<p>を考えるので、「<strong>その人のいつもの水準からどれだけ上か下か</strong>」を見ている。</p>
+</section>
+<section id="時間固定効果も入れた-twfe" class="level3">
+<h3 class="anchored" data-anchor-id="時間固定効果も入れた-twfe">時間固定効果も入れた TWFE</h3>
+<p>TWFE ではさらに、</p>
+<p><span class="math display">
+y_{it} - \bar y_i - \bar y_t + \bar y
+</span></p>
+<p>を考える。これは</p>
+<ul>
+<li>その人のいつもの水準からのズレ</li>
+<li>その時点の全体的な高さからのズレ</li>
+</ul>
+<p>を両方とも差し引いたもの、という意味である。</p>
+<p>言い換えると、</p>
+<blockquote class="blockquote">
+<p>「その人だから高い」という部分も、 「その年だから高い」という部分も取り除いたあとで、 それでもなお残る相対的な上下</p>
+</blockquote>
+<p>を見ている。</p>
+<p>したがって、TWFE が比較しているのは単純な before-after でも単純な個人間比較でもない。 <strong>個人内変化のうち、さらに時点共通ショックも除いた変化</strong> である。</p>
+</section>
+</section>
+<section id="最小の例で実感する" class="level2">
+<h2 class="anchored" data-anchor-id="最小の例で実感する">最小の例で実感する</h2>
+<p>一番小さい例として、個人が 2 人、時点が 2 期のケースを考えよう。</p>
+<p>観測値が次のようになっているとする。</p>
+<section id="x" class="level3">
+<h3 class="anchored" data-anchor-id="x"><span class="math inline">x</span></h3>
+<p><span class="math display">
+\begin{array}{c|cc}
+&amp; t=1 &amp; t=2 \\
+\hline
+i=A &amp; 1 &amp; 3 \\
+i=B &amp; 2 &amp; 2
+\end{array}
+</span></p>
+</section>
+<section id="y" class="level3">
+<h3 class="anchored" data-anchor-id="y"><span class="math inline">y</span></h3>
+<p><span class="math display">
+\begin{array}{c|cc}
+&amp; t=1 &amp; t=2 \\
+\hline
+i=A &amp; 10 &amp; 16 \\
+i=B &amp; 11 &amp; 13
+\end{array}
+</span></p>
+<p>まずそれぞれの平均を計算する。</p>
+</section>
+<section id="x-の平均" class="level3">
+<h3 class="anchored" data-anchor-id="x-の平均"><span class="math inline">x</span> の平均</h3>
+<p>個人平均：</p>
+<p><span class="math display">
+\bar x_A = \frac{1+3}{2}=2,\qquad
+\bar x_B = \frac{2+2}{2}=2
+</span></p>
+<p>時間平均：</p>
+<p><span class="math display">
+\bar x_1 = \frac{1+2}{2}=1.5,\qquad
+\bar x_2 = \frac{3+2}{2}=2.5
+</span></p>
+<p>全体平均：</p>
+<p><span class="math display">
+\bar x = \frac{1+3+2+2}{4}=2
+</span></p>
+<p>したがって double-demeaned した <span class="math inline">x</span> は</p>
+<p><span class="math display">
+\tilde x_{it}=x_{it}-\bar x_i-\bar x_t+\bar x
+</span></p>
+<p>より、</p>
+<p><span class="math display">
+\tilde x_A{}_1 = 1-2-1.5+2 = -0.5
+</span></p>
+<p><span class="math display">
+\tilde x_A{}_2 = 3-2-2.5+2 = 0.5
+</span></p>
+<p><span class="math display">
+\tilde x_B{}_1 = 2-2-1.5+2 = 0.5
+</span></p>
+<p><span class="math display">
+\tilde x_B{}_2 = 2-2-2.5+2 = -0.5
+</span></p>
+<p>同様に <span class="math inline">y</span> について計算する。</p>
+</section>
+<section id="y-の平均" class="level3">
+<h3 class="anchored" data-anchor-id="y-の平均"><span class="math inline">y</span> の平均</h3>
+<p>個人平均：</p>
+<p><span class="math display">
+\bar y_A = \frac{10+16}{2}=13,\qquad
+\bar y_B = \frac{11+13}{2}=12
+</span></p>
+<p>時間平均：</p>
+<p><span class="math display">
+\bar y_1 = \frac{10+11}{2}=10.5,\qquad
+\bar y_2 = \frac{16+13}{2}=14.5
+</span></p>
+<p>全体平均：</p>
+<p><span class="math display">
+\bar y = \frac{10+16+11+13}{4}=12.5
+</span></p>
+<p>よって</p>
+<p><span class="math display">
+\tilde y_A{}_1 = 10-13-10.5+12.5 = -1
+</span></p>
+<p><span class="math display">
+\tilde y_A{}_2 = 16-13-14.5+12.5 = 1
+</span></p>
+<p><span class="math display">
+\tilde y_B{}_1 = 11-12-10.5+12.5 = 1
+</span></p>
+<p><span class="math display">
+\tilde y_B{}_2 = 13-12-14.5+12.5 = -1
+</span></p>
+<p>したがって double-demeaned した表は</p>
+</section>
+<section id="tilde-x" class="level3">
+<h3 class="anchored" data-anchor-id="tilde-x"><span class="math inline">\tilde x</span></h3>
+<p><span class="math display">
+\begin{array}{c|cc}
+&amp; t=1 &amp; t=2 \\
+\hline
+A &amp; -0.5 &amp; 0.5 \\
+B &amp; 0.5 &amp; -0.5
+\end{array}
+</span></p>
+</section>
+<section id="tilde-y" class="level3">
+<h3 class="anchored" data-anchor-id="tilde-y"><span class="math inline">\tilde y</span></h3>
+<p><span class="math display">
+\begin{array}{c|cc}
+&amp; t=1 &amp; t=2 \\
+\hline
+A &amp; -1 &amp; 1 \\
+B &amp; 1 &amp; -1
+\end{array}
+</span></p>
+<p>となる。</p>
+<p>ここでは各セルで</p>
+<p><span class="math display">
+\tilde y_{it} = 2 \tilde x_{it}
+</span></p>
+<p>が成り立っているので、TWFE の係数は</p>
+<p><span class="math display">
+\hat\beta = 2
+</span></p>
+<p>になる。</p>
+</section>
+</section>
+<section id="この最小例で何が起きているのか" class="level2">
+<h2 class="anchored" data-anchor-id="この最小例で何が起きているのか">この最小例で何が起きているのか</h2>
+<p>この 2×2 の例では、TWFE は実は <strong>DiD とまったく同じ構造</strong> を持っている。</p>
+<p><span class="math inline">x</span> の変化を見ると、</p>
+<ul>
+<li>個人 <span class="math inline">A</span> は <span class="math inline">1 \to 3</span> と 2 上がっている</li>
+<li>個人 <span class="math inline">B</span> は <span class="math inline">2 \to 2</span> で変化していない</li>
+</ul>
+<p>なので、個人差だけを見ると <span class="math inline">A</span> のほうが上がっている。</p>
+<p>しかし同時に、時点による全体平均も変わっているかもしれない。 そこで時間平均も引くことで、「全体が動いたから」という部分を除いている。</p>
+<p>結果として残るのは、</p>
+<blockquote class="blockquote">
+<p><span class="math inline">A</span> が時点 2 で相対的に高くなった分と、 <span class="math inline">B</span> が時点 2 で相対的に低くなった分</p>
+</blockquote>
+<p>だけである。</p>
+<p>2×2 の世界では、この「二重に平均を引く」という操作は、まさに</p>
+<p><span class="math display">
+(y_{A2}-y_{A1}) - (y_{B2}-y_{B1})
+</span></p>
+<p>のような差の差に対応している。</p>
+<p>実際、この例では</p>
+<p><span class="math display">
+(16-10) - (13-11) = 6-2 = 4
+</span></p>
+<p>一方で <span class="math inline">x</span> については</p>
+<p><span class="math display">
+(3-1) - (2-2) = 2-0 = 2
+</span></p>
+<p>なので、</p>
+<p><span class="math display">
+\hat\beta = \frac{4}{2}=2
+</span></p>
+<p>となる。</p>
+<p>つまり、最小の 2×2 例では TWFE は「差の差を回帰で一般化したもの」として理解できる。</p>
+</section>
+<section id="two-way-fixed-effectの入れ方は色々ある" class="level2">
+<h2 class="anchored" data-anchor-id="two-way-fixed-effectの入れ方は色々ある">Two-way Fixed effectの入れ方は色々ある</h2>
+<p>別に時間と個人だけがTWFEを入れられる固定効果の次元ではない。他にも色々な「二方向」が存在する。</p>
+<p>ここでは最も典型的に使われる二つの「二方向」の例を載せる。</p>
+<section id="例1労働者固定効果-企業固定効果" class="level3">
+<h3 class="anchored" data-anchor-id="例1労働者固定効果-企業固定効果">例1：労働者固定効果 + 企業固定効果</h3>
+<p>Two-way fixed effect の重要な例として、<strong>労働者固定効果</strong>と<strong>企業固定効果</strong>を同時に入れるモデルがある。 これは賃金分析で特によく知られており、後で見る <strong>AKM 分解</strong> の基本形でもある。</p>
+<p>回帰式は典型的には次のように書かれる。</p>
+<p><span class="math display">
+w_{it} = \alpha_i + \psi_{j(i,t)} + x_{it}'\beta + u_{it}
+</span></p>
+<p>ここで、</p>
+<ul>
+<li><span class="math inline">w_{it}</span> は労働者 <span class="math inline">i</span> の時点 <span class="math inline">t</span> における賃金</li>
+<li><span class="math inline">\alpha_i</span> は労働者固定効果</li>
+<li><span class="math inline">\psi_{j(i,t)}</span> は、その時点で労働者 <span class="math inline">i</span> が所属している企業 <span class="math inline">j(i,t)</span> の固定効果</li>
+<li><span class="math inline">x_{it}</span> は観測可能な属性</li>
+<li><span class="math inline">u_{it}</span> は誤差項</li>
+</ul>
+<p>である。</p>
+<p>このモデルの考え方は単純である。 賃金には少なくとも二種類の恒常的な要因があるかもしれない。</p>
+<p>一つは、<strong>その労働者が誰か</strong>で決まる部分である。 たとえば能力、経験、人的資本、交渉力などである。これを <span class="math inline">\alpha_i</span> で表す。</p>
+<p>もう一つは、<strong>どの企業で働いているか</strong>で決まる部分である。 たとえば企業の賃金プレミアム、労働条件、収益性、労使慣行などである。これを <span class="math inline">\psi_j</span> で表す。</p>
+<p>したがってこのモデルは、賃金を</p>
+<ul>
+<li>労働者に由来する恒常成分</li>
+<li>企業に由来する恒常成分</li>
+<li>観測可能な要因</li>
+<li>それ以外の誤差</li>
+</ul>
+<p>に分けて考えようとしている。</p>
+<p>ここで重要なのは、このモデルは <strong>時間固定効果を含んでいなくても two-way fixed effect の一例である</strong> という点である。 Two-way fixed effect の本質は「時間 FE を入れること」ではなく、<strong>二つの異なる次元に沿った固定効果を同時に入れること</strong>にある。</p>
+<p>この場合の二つの次元は</p>
+<ul>
+<li>worker</li>
+<li>firm</li>
+</ul>
+<p>である。</p>
+<p>このモデルから得たい問いはたとえば次のようなものである。</p>
+<ul>
+<li>高賃金の人は、もともと能力の高い労働者なのか</li>
+<li>それとも高賃金プレミアムを払う企業に勤めているのか</li>
+<li>労働者の企業間移動を通じて、企業プレミアムはどの程度識別できるのか</li>
+</ul>
+<p>後で見る AKM 分解は、まさにこの問いに答えるための代表的な手法である。</p>
+</section>
+<section id="例2送り手固定効果-受け手固定効果" class="level3">
+<h3 class="anchored" data-anchor-id="例2送り手固定効果-受け手固定効果">例2：送り手固定効果 + 受け手固定効果</h3>
+<p>もう一つの重要な例は、<strong>送り手 fixed effect</strong> と <strong>受け手 fixed effect</strong> を同時に入れるモデルである。 これはネットワークデータ、二者間取引データ、マッチングデータなどでよく現れる。</p>
+<p>もっとも一般的には、二者 <span class="math inline">i</span> から <span class="math inline">j</span> への何らかのフローや関係を</p>
+<p><span class="math display">
+y_{ij} = \alpha_i + \gamma_j + \beta x_{ij} + u_{ij}
+</span></p>
+<p>と書く。</p>
+<p>ここで、</p>
+<ul>
+<li><span class="math inline">y_{ij}</span> は <span class="math inline">i</span> から <span class="math inline">j</span> へのアウトカム</li>
+<li><span class="math inline">\alpha_i</span> は送り手 fixed effect</li>
+<li><span class="math inline">\gamma_j</span> は受け手 fixed effect</li>
+<li><span class="math inline">x_{ij}</span> は二者間の特徴</li>
+<li><span class="math inline">u_{ij}</span> は誤差項</li>
+</ul>
+<p>である。</p>
+<p>この形は非常に広く使える。たとえば、</p>
+<ul>
+<li>国 <span class="math inline">i</span> から国 <span class="math inline">j</span> への輸出額</li>
+<li>研究者 <span class="math inline">i</span> から研究者 <span class="math inline">j</span> への共同研究や引用</li>
+<li>学生 <span class="math inline">i</span> が学校 <span class="math inline">j</span> を選ぶ傾向</li>
+<li>買い手 <span class="math inline">i</span> と売り手 <span class="math inline">j</span> の取引量</li>
+<li>プラットフォーム上でのユーザー <span class="math inline">i</span> から商品 <span class="math inline">j</span> への需要</li>
+</ul>
+<p>など、さまざまな状況に対応する。</p>
+<p>このモデルの直感も明快である。 二者間のデータでは、観測される結果はしばしば</p>
+<ul>
+<li>送り手側の「出しやすさ」</li>
+<li>受け手側の「受けやすさ」</li>
+</ul>
+<p>の両方で決まる。</p>
+<p>たとえば貿易なら、</p>
+<ul>
+<li>輸出国ごとの平均的な供給力</li>
+<li>輸入国ごとの平均的な需要の強さ</li>
+</ul>
+<p>がまず重要である。</p>
+<p>共同研究なら、</p>
+<ul>
+<li>共同研究をしやすい研究者</li>
+<li>多くの人に選ばれやすい研究者</li>
+</ul>
+<p>がいるかもしれない。</p>
+<p>学校選択なら、</p>
+<ul>
+<li>そもそも出願行動が活発な学生</li>
+<li>そもそも人気の高い学校</li>
+</ul>
+<p>があるかもしれない。</p>
+<p>こうした「送り手として平均的に強い」「受け手として平均的に人気が高い」という差を固定効果で吸収したうえで、二者間距離や属性の相性などの効果を見たい、というのがこのモデルの目的である。</p>
+<p>このモデルでも、two-way fixed effect の二つの次元は</p>
+<ul>
+<li>sender</li>
+<li>receiver</li>
+</ul>
+<p>である。</p>
+<p>したがってここでも、時間は本質ではない。 本質は、<strong>二者間アウトカムを生む二つの主体の平均的な強さを同時にコントロールすること</strong>である。</p>
+<div class="callout callout-style-simple callout-tip callout-titled" title="応用編としての固定効果">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>応用編としての固定効果
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>AKM 分解は、労働者固定効果と企業固定効果を同時に入れて賃金を分解する代表例である。fixed effects が実証研究でどこまで拡張されるかを見るつもりで読むとよい。</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="akm-分解" class="level1">
+<h1>AKM 分解</h1>
+<p>AKM 分解とは、賃金を</p>
+<ul>
+<li>労働者に固有の成分</li>
+<li>企業に固有の成分</li>
+<li>観測可能な属性に対応する成分</li>
+<li>それ以外の成分</li>
+</ul>
+<p>に分解して考える方法である。</p>
+<p>名前は Abowd, Kramarz, and Margolis に由来する。 労働経済学では非常に有名な two-way fixed effect モデルの応用であり、<strong>労働者固定効果</strong>と<strong>企業固定効果</strong>を同時に入れる代表例である。</p>
+<section id="基本の回帰式-1" class="level2">
+<h2 class="anchored" data-anchor-id="基本の回帰式-1">基本の回帰式</h2>
+<p>AKM の基本形は次のように書かれる。</p>
+<p><span class="math display">
+w_{it} = \alpha_i + \psi_{j(i,t)} + x_{it}'\beta + u_{it}
+</span></p>
+<p>ここで、</p>
+<ul>
+<li><span class="math inline">w_{it}</span> は労働者 <span class="math inline">i</span> の時点 <span class="math inline">t</span> における賃金</li>
+<li><span class="math inline">\alpha_i</span> は労働者固定効果</li>
+<li><span class="math inline">\psi_{j(i,t)}</span> は、その時点で労働者 <span class="math inline">i</span> が所属している企業 <span class="math inline">j(i,t)</span> の固定効果</li>
+<li><span class="math inline">x_{it}</span> は観測可能な属性</li>
+<li><span class="math inline">u_{it}</span> は誤差項</li>
+</ul>
+<p>である。</p>
+<p>企業 <span class="math inline">j(i,t)</span> という書き方は、「労働者 <span class="math inline">i</span> が時点 <span class="math inline">t</span> にどの企業に勤めているか」を表している。</p>
+<p>この式は、賃金が</p>
+<p><span class="math display">
+\text{賃金} = \text{worker成分} + \text{firm成分} + \text{観測可能属性} + \text{残差}
+</span></p>
+<p>に分かれる、という見方をそのまま定式化したものである。</p>
+</section>
+<section id="それぞれの固定効果は何を意味するのか" class="level2">
+<h2 class="anchored" data-anchor-id="それぞれの固定効果は何を意味するのか">それぞれの固定効果は何を意味するのか</h2>
+<section id="労働者固定効果-alpha_i" class="level3">
+<h3 class="anchored" data-anchor-id="労働者固定効果-alpha_i">労働者固定効果 <span class="math inline">\alpha_i</span></h3>
+<p><span class="math inline">\alpha_i</span> は、その労働者がどの企業で働くかにかかわらず持っている、比較的恒常的な賃金成分である。</p>
+<p>たとえば、</p>
+<ul>
+<li>能力</li>
+<li>経験</li>
+<li>人的資本</li>
+<li>交渉力</li>
+<li>観測されない生産性</li>
+</ul>
+<p>のようなものがここに入ると考えられる。</p>
+<p>もちろん、これらを本当にきれいに分離できているとは限らない。 しかし少なくともモデルの上では、「人が違えば平均的な賃金水準が違う」という部分を <span class="math inline">\alpha_i</span> が担っている。</p>
+</section>
+<section id="企業固定効果-psi_j" class="level3">
+<h3 class="anchored" data-anchor-id="企業固定効果-psi_j">企業固定効果 <span class="math inline">\psi_j</span></h3>
+<p><span class="math inline">\psi_j</span> は、その企業で働く人に共通する、企業側の恒常的な賃金成分である。</p>
+<p>たとえば、</p>
+<ul>
+<li>賃金プレミアム</li>
+<li>労働条件</li>
+<li>利潤率</li>
+<li>労使慣行</li>
+<li>組織文化</li>
+<li>福利厚生を含めた雇用条件</li>
+</ul>
+<p>などを反映していると考えられる。</p>
+<p>直感的には、同じような労働者が別の企業に移ったときに賃金が系統的に上がるなら、その差の一部は企業固定効果の差として表現される。</p>
+</section>
+</section>
+<section id="akm-分解で何を知りたいのか" class="level2">
+<h2 class="anchored" data-anchor-id="akm-分解で何を知りたいのか">AKM 分解で何を知りたいのか</h2>
+<p>このモデルで関心があるのは、単に係数 <span class="math inline">\beta</span> だけではない。 むしろ多くの場合、</p>
+<ul>
+<li>労働者間の賃金格差のどれくらいが worker effect によるのか</li>
+<li>企業間の賃金格差のどれくらいが firm effect によるのか</li>
+<li>高賃金労働者が高賃金企業に集まっているのか</li>
+</ul>
+<p>といった点に興味がある。</p>
+<p>つまり AKM は、典型的な因果推論というより、</p>
+<blockquote class="blockquote">
+<p>賃金の異質性を worker 側と firm 側に分解する</p>
+</blockquote>
+<p>ための道具として使われることが多い。</p>
+<p>この意味で、DiD の TWFE とはかなり用途が違う。</p>
+<p>DiD 型の TWFE は「ある変数の効果 <span class="math inline">\beta</span> を知りたい」という目的で使われることが多い。 それに対して AKM は「データに含まれる恒常的な構造を分解したい」という目的で使われることが多い。</p>
+</section>
+<section id="最も単純な形" class="level2">
+<h2 class="anchored" data-anchor-id="最も単純な形">最も単純な形</h2>
+<p>まず観測可能な属性 <span class="math inline">x_{it}</span> を無視すると、</p>
+<p><span class="math display">
+w_{it} = \alpha_i + \psi_{j(i,t)} + u_{it}
+</span></p>
+<p>となる。</p>
+<p>この式はとても単純で、「賃金は worker effect と firm effect の和で説明される」と言っている。</p>
+<p>たとえば、</p>
+<ul>
+<li>もともと高賃金な人がいる</li>
+<li>もともと高賃金を払う企業がある</li>
+</ul>
+<p>という両方の可能性を同時に認めている。</p>
+<p>すると、高賃金の観測値を見たときに、それが</p>
+<ul>
+<li>高い <span class="math inline">\alpha_i</span> によるのか</li>
+<li>高い <span class="math inline">\psi_j</span> によるのか</li>
+<li>両方なのか</li>
+</ul>
+<p>を切り分けたくなる。</p>
+<p>これが AKM 分解の基本発想である。</p>
+</section>
+<section id="なぜ-one-way-fixed-effect-では足りないのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜ-one-way-fixed-effect-では足りないのか">なぜ one-way fixed effect では足りないのか</h2>
+<p>たとえば worker 固定効果だけを入れたとすると、</p>
+<p><span class="math display">
+w_{it} = \alpha_i + x_{it}'\beta + u_{it}
+</span></p>
+<p>となる。</p>
+<p>この場合、企業ごとの賃金プレミアムが存在しても、それは誤差項の側に押し込まれてしまう。 すると、労働者が高賃金企業へ移ることによる賃金変化をうまく整理できない。</p>
+<p>逆に firm 固定効果だけを入れると、</p>
+<p><span class="math display">
+w_{it} = \psi_{j(i,t)} + x_{it}'\beta + u_{it}
+</span></p>
+<p>となり、労働者の能力差を十分に吸収できない。</p>
+<p>実際の賃金データでは、</p>
+<ul>
+<li>誰が働いているか</li>
+<li>どこで働いているか</li>
+</ul>
+<p>の両方が重要そうである。 だからこそ two-way fixed effect が必要になる。</p>
+</section>
+<section id="識別の直感なぜ-job-mover-が重要なのか" class="level2">
+<h2 class="anchored" data-anchor-id="識別の直感なぜ-job-mover-が重要なのか">識別の直感：なぜ job mover が重要なのか</h2>
+<p>AKM で最も大事なポイントの一つは、<strong>企業を移る労働者がいないと worker effect と firm effect を分離できない</strong> ことである。</p>
+<p>直感的に考えてみよう。</p>
+<p>もし各労働者がずっと同じ企業に勤め続けていて、一度も転職しないなら、各観測は</p>
+<p><span class="math display">
+w_{it} = \alpha_i + \psi_{j(i)} + u_{it}
+</span></p>
+<p>である。</p>
+<p>しかしこのとき、労働者 <span class="math inline">i</span> と企業 <span class="math inline">j(i)</span> は常にセットで観測される。 すると、その人の賃金が高いのが</p>
+<ul>
+<li>その人自身が高能力だからなのか</li>
+<li>その企業が高賃金だからなのか</li>
+</ul>
+<p>を分けることができない。</p>
+<p>一方で、ある労働者が企業 A から企業 B に移ると、その人自身は同じでも所属企業が変わる。 すると賃金の変化から、企業固定効果の差 <span class="math inline">\psi_B - \psi_A</span> について情報が得られる。</p>
+<p>同様に、複数の労働者が企業間を移動すると、企業どうしがデータ上でつながっていく。 こうして worker effect と firm effect を別々に推定するための情報が生まれる。</p>
+<p>したがって AKM では、<strong>転職者がつくるネットワーク構造</strong> が識別の鍵になる。</p>
+</section>
+<section id="小さい例で直感をつかむ" class="level2">
+<h2 class="anchored" data-anchor-id="小さい例で直感をつかむ">小さい例で直感をつかむ</h2>
+<p>たとえば 2 人の労働者 <span class="math inline">A,B</span> と 2 社の企業 1,2 を考える。</p>
+<ul>
+<li>時点 1 では、<span class="math inline">A</span> は企業 1、<span class="math inline">B</span> は企業 2 に勤める</li>
+<li>時点 2 では、<span class="math inline">A</span> が企業 2 に移り、<span class="math inline">B</span> は企業 2 に残る</li>
+</ul>
+<p>とする。</p>
+<p>このとき観測は</p>
+<p><span class="math display">
+w_{A1} = \alpha_A + \psi_1 + u_{A1}
+</span></p>
+<p><span class="math display">
+w_{A2} = \alpha_A + \psi_2 + u_{A2}
+</span></p>
+<p><span class="math display">
+w_{B1} = \alpha_B + \psi_2 + u_{B1}
+</span></p>
+<p><span class="math display">
+w_{B2} = \alpha_B + \psi_2 + u_{B2}
+</span></p>
+<p>である。</p>
+<p>ここで <span class="math inline">A</span> の賃金変化をみると</p>
+<p><span class="math display">
+w_{A2} - w_{A1} = \psi_2 - \psi_1 + (u_{A2} - u_{A1})
+</span></p>
+<p>となる。 同じ人なので <span class="math inline">\alpha_A</span> は差分で消える。 したがって、転職した人の賃金変化は企業固定効果の差について情報を与える。</p>
+<p>これが AKM の識別の最も基本的な直感である。</p>
+</section>
+<section id="ただし水準はそのままでは一意に決まらない" class="level2">
+<h2 class="anchored" data-anchor-id="ただし水準はそのままでは一意に決まらない">ただし水準はそのままでは一意に決まらない</h2>
+<p>このモデルには正規化が必要である。</p>
+<p>なぜなら、任意の定数 <span class="math inline">c</span> に対して</p>
+<p><span class="math display">
+(\alpha_i + c) + (\psi_j - c) = \alpha_i + \psi_j
+</span></p>
+<p>だからである。</p>
+<p>つまり worker effect に同じだけ足して、firm effect から同じだけ引いても、予測賃金はまったく変わらない。</p>
+<p>したがって、<span class="math inline">\alpha_i</span> と <span class="math inline">\psi_j</span> の水準はそのままでは一意に決まらない。 そこで実際には、</p>
+<ul>
+<li>firm effect の平均を 0 にする</li>
+<li>ある基準企業の fixed effect を 0 にする</li>
+</ul>
+<p>などの正規化を置く。</p>
+<p>重要なのは、しばしば意味を持つのは水準そのものではなく、<strong>固定効果どうしの差</strong> だということである。</p>
+</section>
+<section id="connected-set-という考え方" class="level2">
+<h2 class="anchored" data-anchor-id="connected-set-という考え方">connected set という考え方</h2>
+<p>さらに、労働者の移動によって企業どうしがつながっていないと、固定効果を比較できない。</p>
+<p>たとえば、</p>
+<ul>
+<li>グループ 1 の労働者は企業 A と B の間でしか移動しない</li>
+<li>グループ 2 の労働者は企業 C と D の間でしか移動しない</li>
+</ul>
+<p>とする。</p>
+<p>もし A,B と C,D のあいだをまたぐ移動が一度もなければ、A,B の firm effect と C,D の firm effect の水準差は比較できない。 この二つのグループはデータ上で切り離されているからである。</p>
+<p>そのため AKM の実証では、しばしば <strong>largest connected set</strong> の上で推定を行う。</p>
+<p>これは「労働者移動を通じて互いに比較可能な企業と労働者からなる最大の連結成分」のことである。</p>
+</section>
+<section id="akm-分解でよく見る結果" class="level2">
+<h2 class="anchored" data-anchor-id="akm-分解でよく見る結果">AKM 分解でよく見る結果</h2>
+<p>AKM の推定結果からは、たとえば次のようなことを調べる。</p>
+<ul>
+<li>worker effect の分散</li>
+</ul>
+<p>労働者間の恒常的な異質性がどれくらい大きいか。</p>
+<ul>
+<li>firm effect の分散</li>
+</ul>
+<p>企業ごとの賃金プレミアムがどれくらい大きいか。</p>
+<ul>
+<li><span class="math inline">\alpha_i</span> と <span class="math inline">\psi_{j(i,t)}</span> の相関</li>
+</ul>
+<p>高能力労働者が高賃金企業にマッチしているかどうか。</p>
+<p>この最後の点はとても重要である。 もし高い <span class="math inline">\alpha_i</span> を持つ労働者ほど高い <span class="math inline">\psi_j</span> の企業に勤めるなら、賃金格差は worker 側と firm 側が独立に決まっているのではなく、<strong>sorting</strong> を通じて拡大している可能性がある。</p>
+</section>
+<section id="ここでの注意" class="level2">
+<h2 class="anchored" data-anchor-id="ここでの注意">ここでの注意</h2>
+<p>AKM の fixed effect をそのまま「因果効果」と読んではいけないことには注意が必要である。</p>
+<p>たとえば firm fixed effect が高いからといって、それが必ずしも「その企業に入れば誰でもその分だけ賃金が上がる」という純粋な因果効果を意味するとは限らない。</p>
+<p>実際には、</p>
+<ul>
+<li>マッチの質</li>
+<li>転職の選択</li>
+<li>観測されない時間変動要因</li>
+</ul>
+<p>などが入りうる。</p>
+<p>したがって AKM はまず第一に、<strong>賃金構造の統計的分解</strong> として理解するのがよい。</p>
+</section>
+<section id="akmの後続研究" class="level2">
+<h2 class="anchored" data-anchor-id="akmの後続研究">AKMの後続研究</h2>
+<p>AKM の元論文のインパクトは、matched employer-employee data を使って、賃金を <strong>worker effect</strong> と <strong>firm effect</strong> に明示的に分解し、それらを単なる nuisance parameter ではなく、分析の中心的な対象として扱った点にある。後続研究のレビューでは、AKM 型の推定から得られる代表的な結論として、企業側の賃金プレミアムは賃金格差にとって無視できず、また worker effect と firm effect の相関は小さい、あるいはときに負ですらある、と要約されている。さらに、業種間賃金差や企業規模プレミアムのかなりの部分が、企業そのものの効果というよりも、どのような労働者がそこに勤めているかという composition の違いで説明される、という見方もこの文脈で大きな影響を持った。こうして AKM は、賃金格差を「人の違い」と「企業の違い」に分けて考えるための標準的な出発点になった。</p>
+<p>しかしその後の文献は、AKM の fixed effect をそのまま大量に推定して解釈するやり方には注意が必要だと強調するようになった。特に、現実の matched data では、多くの worker や firm について利用できる独立な観測数がそれほど多くなく、worker 間・firm 間の移動も十分ではない。このとき、推定された firm effect の分散や worker-firm sorting の強さは大きく歪みうる。実際、後続研究は、AKM 型の固定効果推定では「高賃金 worker が高賃金 firm に並ぶ」という sorting が過小評価されやすく、これは limited mobility bias や incidental parameter problem と関連する問題だと論じている。 ([NBER][1])</p>
+<p>こうした問題意識から、その後の発展では「各 worker、各 firm にそれぞれ別の fixed effect を与える」のではなく、異質性がより低次元の構造を持つと考えて、それを <strong>grouped fixed effects</strong> として近似するアプローチが提案された。代表例は Bonhomme, Lamadon, and Manresa の枠組みで、firm heterogeneity を少数のタイプに離散化し、k-means 的なクラスタリングを使って firm をいくつかの group にまとめたうえで推定を行う。こうすると、推定すべきパラメータ数が大幅に減るため、short panel や mobility が限られたデータでも、worker-firm heterogeneity をより安定的に扱いやすくなる。近年のレビューでも、こうした clustering / grouped FE 型の方法は、leave-one-out 補正と並んで、AKM のバイアス問題に対する重要な発展として位置づけられている。 ([NBER][2])</p>
+<p>したがって、AKM 分解は matched data 分析の出発点としてきわめて重要だが、そのまま unit-by-unit の fixed effect を推定して終わり、という理解では十分ではない。実証上は、データの長さ、worker の移動頻度、connected set の大きさ、そして heterogeneity をどこまで細かく表現できるかが重要であり、その制約のもとで、grouped fixed effects のような低次元化された表現が大きな役割を果たす。</p>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="lecture8_revised_files/libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

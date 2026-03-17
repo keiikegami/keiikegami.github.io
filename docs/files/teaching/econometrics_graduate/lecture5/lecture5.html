@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>lecture5</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="lecture5_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture5_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture5_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture5_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture5_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture5_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture5_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture5_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture5_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture5_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture5_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture5_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">lecture5</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="確率論の基礎概念その4大数の法則とボレルカンテリ" class="level1">
+<h1>確率論の基礎概念その4：大数の法則とボレル・カンテリ</h1>
+<p>今回は<strong>大数の法則</strong>を扱う。</p>
+<p>計量経済学にとって，大数の法則はほとんど空気みたいな存在である。<br>
+推定量の consistency を示すときも，モーメント条件 <span class="math display">\[
+E[g(Z_i,\theta_0)] = 0
+\]</span> を標本平均 <span class="math display">\[
+\frac{1}{n}\sum_{i=1}^n g(Z_i,\theta_0)
+\]</span> で置き換えるときも，OLS で <span class="math display">\[
+\frac{1}{n}\sum_{i=1}^n X_i u_i \to 0
+\]</span> と言いたいときも，後ろで働いているのは大数の法則である。</p>
+<p>ただし「標本平均は母平均に近づく」という日本語だけを聞いていると，何がどの意味で近づくのかが曖昧なまま終わってしまう。<br>
+実際には，</p>
+<ul>
+<li><strong>確率収束</strong>という意味で近づく弱大数の法則（WLLN）</li>
+<li><strong>ほぼ確実収束</strong>という意味で近づく強大数の法則（SLLN）</li>
+</ul>
+<p>の二段階がある。</p>
+<p>さらに，SLLN を理解するには，<br>
+「悪いことが無限回起きる確率」を支配する<strong>ボレル・カンテリの補題</strong>が決定的に重要になる。</p>
+<p>今回の流れは次の通りである。</p>
+<ol type="1">
+<li>まず WLLN を示して，「平均をとるとばらつきが減る」ことを確認する</li>
+<li>次にボレル・カンテリを導入して，「悪い事象が無限回起きるかどうか」を考える</li>
+<li>その上でコルモゴロフの第一定理を示し，有限分散のもとでの SLLN を得る</li>
+<li>最後に，これが計量経済学でどのように使われるかをシミュレーションで見る</li>
+</ol>
+</section>
+<section id="セットアップと収束の意味" class="level1">
+<h1>セットアップと収束の意味</h1>
+<p>以下，確率変数列 <span class="math inline">\(X_1,X_2,\dots\)</span> に対して</p>
+<p><span class="math display">\[
+S_n = \sum_{i=1}^n X_i,\qquad \bar X_n = \frac{1}{n}\sum_{i=1}^n X_i = \frac{S_n}{n}
+\]</span></p>
+<p>と書く。</p>
+<p>大数の法則は，この <span class="math inline">\(\bar X_n\)</span> が何か極限に近づくという主張である。</p>
+<section id="確率収束とほぼ確実収束" class="level2">
+<h2 class="anchored" data-anchor-id="確率収束とほぼ確実収束">確率収束とほぼ確実収束</h2>
+<p>まず用語を揃えておく。</p>
+<p><strong>定義（確率収束）</strong><br>
+確率変数列 <span class="math inline">\(Y_n\)</span> が確率変数 <span class="math inline">\(Y\)</span> に<strong>確率収束</strong>するとは，任意の <span class="math inline">\(\varepsilon&gt;0\)</span> に対して</p>
+<p><span class="math display">\[
+P(|Y_n-Y|&gt;\varepsilon)\to 0
+\qquad (n\to\infty)
+\]</span></p>
+<p>が成り立つことをいう。これを <span class="math display">\[
+Y_n \overset{p}{\to} Y
+\]</span> と書く。</p>
+<p><strong>定義（ほぼ確実収束）</strong><br>
+確率変数列 <span class="math inline">\(Y_n\)</span> が <span class="math inline">\(Y\)</span> に<strong>ほぼ確実収束</strong>するとは，</p>
+<p><span class="math display">\[
+P\left( \omega\in\Omega:\ Y_n(\omega)\to Y(\omega)\right)=1
+\]</span></p>
+<p>が成り立つことをいう。これを <span class="math display">\[
+Y_n \to Y \quad a.s.
+\]</span> と書く。</p>
+<p>この二つの違いは，初学者にはかなり掴みにくい。</p>
+<ul>
+<li>確率収束は，「大きな <span class="math inline">\(n\)</span> では<strong>高い確率で</strong>近い」という主張</li>
+<li>ほぼ確実収束は，「ほとんどすべての標本経路で，<strong>ある時点以降ずっと</strong>近い」という主張</li>
+</ul>
+<p>である。</p>
+<p>したがって，ほぼ確実収束の方が強い。実際， <span class="math display">\[
+Y_n \to Y \quad a.s. \quad \Longrightarrow \quad Y_n \overset{p}{\to} Y
+\]</span> が成り立つ。</p>
+<p>大数の法則で言えば，</p>
+<ul>
+<li>WLLN は <span class="math inline">\(\bar X_n \overset{p}{\to}\mu\)</span></li>
+<li>SLLN は <span class="math inline">\(\bar X_n \to \mu \ a.s.\)</span></li>
+</ul>
+<p>という違いである。</p>
+</section>
+</section>
+<section id="弱大数の法則wlln" class="level1">
+<h1>弱大数の法則（WLLN）</h1>
+<p>まずはいちばん基本的な WLLN から始める。</p>
+<p><strong>定理（弱大数の法則）</strong><br>
+<span class="math inline">\(X_1,X_2,\dots\)</span> を i.i.d. 実数値確率変数列とし， <span class="math display">\[
+E[X_1]=\mu,\qquad \mathrm{Var}(X_1)=\sigma^2&lt;\infty
+\]</span> とする。このとき <span class="math display">\[
+\bar X_n \overset{p}{\to} \mu
+\]</span> が成り立つ。</p>
+<p><strong>証明</strong><br>
+<span class="math inline">\(Y_i=X_i-\mu\)</span> とおくと，<span class="math inline">\(E[Y_i]=0\)</span>，<span class="math inline">\(\mathrm{Var}(Y_i)=\sigma^2\)</span> であり，</p>
+<p><span class="math display">\[
+\bar X_n-\mu = \frac{1}{n}\sum_{i=1}^n Y_i
+\]</span></p>
+<p>である。独立性より</p>
+<p><span class="math display">\[
+\mathrm{Var}\!\left(\frac{1}{n}\sum_{i=1}^n Y_i\right)
+=
+\frac{1}{n^2}\sum_{i=1}^n \mathrm{Var}(Y_i)
+=
+\frac{\sigma^2}{n}.
+\]</span></p>
+<p>したがってチェビシェフの不等式より，任意の <span class="math inline">\(\varepsilon&gt;0\)</span> に対して</p>
+<p><span class="math display">\[
+P(|\bar X_n-\mu|&gt;\varepsilon)
+\le
+\frac{\mathrm{Var}(\bar X_n)}{\varepsilon^2}
+=
+\frac{\sigma^2}{n\varepsilon^2}
+\to 0.
+\]</span></p>
+<p>よって <span class="math inline">\(\bar X_n\overset{p}{\to}\mu\)</span> が示された。<span class="math inline">\(\square\)</span></p>
+<section id="何が起きているのか" class="level2">
+<h2 class="anchored" data-anchor-id="何が起きているのか">何が起きているのか</h2>
+<p>WLLN の本質はとても単純である。</p>
+<p>独立な観測を平均すると，</p>
+<ul>
+<li>平均値は変わらない</li>
+<li>分散が <span class="math inline">\(1/n\)</span> のオーダーで小さくなる</li>
+</ul>
+<p>ので，標本平均はだんだん母平均のまわりに集中していく。</p>
+<p>だから WLLN は「平均をとるとノイズが薄まる」という法則だと思えばよい。</p>
+<p>ただし，ここで言っているのはあくまで<strong>確率的に近い</strong>という話である。<br>
+1本の標本経路を固定して「いずれ絶対に落ち着く」とまではまだ言っていない。</p>
+</section>
+<section id="シミュレーションwlln-は分布が集中すること" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションwlln-は分布が集中すること">シミュレーション：WLLN は「分布が集中する」こと</h2>
+<p>WLLN は確率収束の定理なので，1本の経路だけを見るより，<strong>標本平均の分布が <span class="math inline">\(n\)</span> とともに縮んでいく</strong>様子を見る方が本質に近い。</p>
+<p>ここでは Bernoulli<span class="math inline">\((0.7)\)</span> を 2000 回ずつ繰り返し発生させ，<br>
+<span class="math inline">\(n=10,50,200,1000\)</span> のときの標本平均の分布を boxplot で描いてみる。</p>
+<div class="cell">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="lecture5_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>Bernoulli(0.7) の標本平均の分布。n が大きくなるほど 0.7 の周りに集中していく。</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p><span class="math inline">\(n\)</span> が大きくなるほど箱が細くなり，<span class="math inline">\(\bar X_n\)</span> が 0.7 の近くに集まっていく。<br>
+これがまさに WLLN の絵である。</p>
+</section>
+</section>
+<section id="wlln-だけでは-slln-にならない" class="level1">
+<h1>WLLN だけでは SLLN にならない</h1>
+<p>ここで，強大数の法則に行きたくなる。</p>
+<p>SLLN で言いたいのは，任意の <span class="math inline">\(\varepsilon&gt;0\)</span> に対して</p>
+<p><span class="math display">\[
+|\bar X_n-\mu|&gt;\varepsilon
+\]</span></p>
+<p>という「悪いこと」が<strong>有限回しか起きない</strong>ということである。<br>
+言い換えると，十分大きな <span class="math inline">\(n\)</span> 以降はずっと</p>
+<p><span class="math display">\[
+|\bar X_n-\mu|\le \varepsilon
+\]</span></p>
+<p>になってほしい。</p>
+<p>この「有限回しか起きない」を表すために，事象列 <span class="math inline">\(A_n\)</span> に対して</p>
+<p><span class="math display">\[
+A_n \ \text{i.o.}
+\]</span></p>
+<p>という記法を使う。これは <strong>infinitely often</strong> の略で，「<span class="math inline">\(A_n\)</span> が無限回起きる」という意味である。</p>
+<p>厳密には</p>
+<p><span class="math display">\[
+A_n \ \text{i.o.}
+=
+\bigcap_{m=1}^\infty \ \bigcup_{n\ge m} A_n
+\]</span></p>
+<p>で定義される。<br>
+これは「どれだけ先に進んでも，その先でまた <span class="math inline">\(A_n\)</span> が起きる」という意味になっている。</p>
+<p>したがって，SLLN は実質的には <span class="math display">\[
+P\bigl(|\bar X_n-\mu|&gt;\varepsilon \ \text{i.o.}\bigr)=0
+\qquad (\forall \varepsilon&gt;0)
+\]</span> を示す問題である。</p>
+<p>ここで自然に思いつくのは，WLLN の証明で使ったチェビシェフの評価</p>
+<p><span class="math display">\[
+P(|\bar X_n-\mu|&gt;\varepsilon)\le \frac{\sigma^2}{n\varepsilon^2}
+\]</span></p>
+<p>を足し合わせて，ボレル・カンテリを使う方法である。<br>
+しかし <span class="math display">\[
+\sum_{n=1}^\infty \frac{1}{n} = \infty
+\]</span> なので，このままでは第一ボレル・カンテリ補題を使えない。</p>
+<p>ここが重要なポイントである。</p>
+<blockquote class="blockquote">
+<p>WLLN は「各 <span class="math inline">\(n\)</span> で外れる確率が小さい」ことを言っている。<br>
+SLLN は「外れることが無限回起きない」ことを言っている。</p>
+</blockquote>
+<p>前者から後者へ進むには，無限回の振る舞いを直接支配する補題が必要になる。<br>
+それがボレル・カンテリである。</p>
+</section>
+<section id="ボレルカンテリの補題" class="level1">
+<h1>ボレル・カンテリの補題</h1>
+<section id="第一ボレルカンテリ補題" class="level2">
+<h2 class="anchored" data-anchor-id="第一ボレルカンテリ補題">第一ボレル・カンテリ補題</h2>
+<p><strong>補題（第一ボレル・カンテリ）</strong><br>
+事象列 <span class="math inline">\(A_1,A_2,\dots\)</span> が <span class="math display">\[
+\sum_{n=1}^\infty P(A_n)&lt;\infty
+\]</span> を満たすならば， <span class="math display">\[
+P(A_n\ \text{i.o.})=0
+\]</span> が成り立つ。</p>
+<p><strong>証明</strong><br>
+<span class="math display">\[
+B_m=\bigcup_{n\ge m} A_n
+\]</span> とおくと，<span class="math inline">\(B_m\downarrow\)</span> であり， <span class="math display">\[
+A_n\ \text{i.o.}=\bigcap_{m=1}^\infty B_m
+\]</span> である。</p>
+<p>したがって確率の上からの連続性より <span class="math display">\[
+P(A_n\ \text{i.o.})
+=
+\lim_{m\to\infty} P(B_m).
+\]</span></p>
+<p>一方，和事象の確率の劣加法性より <span class="math display">\[
+P(B_m)
+=
+P\left(\bigcup_{n\ge m}A_n\right)
+\le
+\sum_{n\ge m}P(A_n).
+\]</span></p>
+<p>右辺は仮定より <span class="math inline">\(m\to\infty\)</span> で 0 に収束する。よって <span class="math display">\[
+P(A_n\ \text{i.o.})=0.
+\]</span> <span class="math inline">\(\square\)</span></p>
+<p>この補題の意味はとても素朴である。</p>
+<ul>
+<li>各 <span class="math inline">\(A_n\)</span> の確率が十分速く小さくなって</li>
+<li>その総和が有限なら</li>
+</ul>
+<p>そのような「珍しいこと」が無限回も起きる余地はない，ということである。</p>
+</section>
+<section id="第二ボレルカンテリ補題" class="level2">
+<h2 class="anchored" data-anchor-id="第二ボレルカンテリ補題">第二ボレル・カンテリ補題</h2>
+<p>第一補題の逆は一般には成り立たない。<br>
+しかし<strong>独立性</strong>を仮定すると，逆向きの主張が成り立つ。</p>
+<p><strong>補題（第二ボレル・カンテリ）</strong><br>
+独立な事象列 <span class="math inline">\(A_1,A_2,\dots\)</span> が <span class="math display">\[
+\sum_{n=1}^\infty P(A_n)=\infty
+\]</span> を満たすならば， <span class="math display">\[
+P(A_n\ \text{i.o.})=1
+\]</span> が成り立つ。</p>
+<p><strong>証明</strong><br>
+各 <span class="math inline">\(m\)</span> に対して <span class="math display">\[
+\left(\bigcup_{n\ge m}A_n\right)^c = \bigcap_{n\ge m} A_n^c
+\]</span> である。</p>
+<p>独立性より，任意の <span class="math inline">\(N\ge m\)</span> について <span class="math display">\[
+P\left(\bigcap_{n=m}^N A_n^c\right)
+=
+\prod_{n=m}^N \bigl(1-P(A_n)\bigr).
+\]</span></p>
+<p>ここで <span class="math inline">\(1-x\le e^{-x}\)</span> を用いると <span class="math display">\[
+\prod_{n=m}^N \bigl(1-P(A_n)\bigr)
+\le
+\exp\left(-\sum_{n=m}^N P(A_n)\right).
+\]</span></p>
+<p>仮定より右辺は <span class="math inline">\(N\to\infty\)</span> で 0 に収束するので， <span class="math display">\[
+P\left(\bigcap_{n\ge m} A_n^c\right)=0.
+\]</span></p>
+<p>したがって <span class="math display">\[
+P\left(\bigcup_{n\ge m} A_n\right)=1
+\qquad (\forall m).
+\]</span></p>
+<p>ところが <span class="math display">\[
+A_n\ \text{i.o.}
+=
+\bigcap_{m=1}^\infty \bigcup_{n\ge m}A_n
+\]</span> なので，右辺は確率 1 の事象の可算個の共通部分であり， <span class="math display">\[
+P(A_n\ \text{i.o.})=1.
+\]</span> <span class="math inline">\(\square\)</span></p>
+<p><strong>注意</strong><br>
+第二ボレル・カンテリでは独立性が本質である。<br>
+例えば <span class="math inline">\(A_n=A\)</span> をすべての <span class="math inline">\(n\)</span> で同じ事象にすると，<span class="math inline">\(\sum_n P(A_n)=\infty\)</span> でも <span class="math display">\[
+A_n\ \text{i.o.}=A
+\]</span> だから，その確率は <span class="math inline">\(P(A)\)</span> にしかならない。<br>
+したがって「和が発散するなら無限回起きる」は，独立性なしでは言えない。</p>
+</section>
+<section id="ボレルカンテリと収束の関係" class="level2">
+<h2 class="anchored" data-anchor-id="ボレルカンテリと収束の関係">ボレル・カンテリと収束の関係</h2>
+<p>ボレル・カンテリが収束論に効く理由は，ほぼ確実収束が<br>
+「十分大きな <span class="math inline">\(n\)</span> 以降は，悪い事象が起きない」<br>
+という主張だからである。</p>
+<p>例えば，<span class="math inline">\(Y_n\to Y\)</span> a.s. を示したいとする。<br>
+このとき固定した <span class="math inline">\(\varepsilon&gt;0\)</span> に対して <span class="math display">\[
+A_n(\varepsilon)=\{|Y_n-Y|&gt;\varepsilon\}
+\]</span> とおけば，ほぼ確実収束とは <span class="math display">\[
+P\bigl(A_n(\varepsilon)\ \text{i.o.}\bigr)=0
+\]</span> が各 <span class="math inline">\(\varepsilon&gt;0\)</span> で成り立つことだと理解できる。</p>
+<p>つまり，SLLN を示すとは，</p>
+<ul>
+<li>標本平均が母平均から <span class="math inline">\(\varepsilon\)</span> 以上ずれる事象</li>
+<li>それが無限回起きる確率</li>
+</ul>
+<p>を 0 にすることだと言ってよい。</p>
+</section>
+<section id="シミュレーションボレルカンテリの肌感" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションボレルカンテリの肌感">シミュレーション：ボレル・カンテリの肌感</h2>
+<p>独立な一様乱数 <span class="math inline">\(U_n\sim \mathrm{Unif}(0,1)\)</span> を使って，</p>
+<p><span class="math display">\[
+A_n = \left\{U_n \le \frac{1}{n^2}\right\},
+\qquad
+B_n = \left\{U_n \le \frac{1}{n}\right\}
+\]</span></p>
+<p>を考える。</p>
+<p>このとき</p>
+<p><span class="math display">\[
+\sum_n P(A_n)=\sum_n \frac{1}{n^2}&lt;\infty,
+\qquad
+\sum_n P(B_n)=\sum_n \frac{1}{n}=\infty.
+\]</span></p>
+<p>したがってボレル・カンテリより，</p>
+<ul>
+<li><span class="math inline">\(A_n\)</span> は有限回しか起きない</li>
+<li><span class="math inline">\(B_n\)</span> は無限回起きる</li>
+</ul>
+<p>はずである。</p>
+<div class="cell">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="lecture5_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>独立事象の累積発生回数。1/n^2 のケースは早めに頭打ちになりやすく，1/n のケースは遅いが増え続ける。</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>もちろん有限回のシミュレーションだけで「無限回起きる」ことそのものを確認することはできない。<br>
+それでも，<span class="math inline">\(1/n^2\)</span> のケースでは累積回数がすぐに止まりやすく，<span class="math inline">\(1/n\)</span> のケースではゆっくりでも増え続ける，という違いはかなり見て取れる。</p>
+</section>
+</section>
+<section id="コルモゴロフの最大不等式" class="level1">
+<h1>コルモゴロフの最大不等式</h1>
+<p>SLLN を示すには，ある時点 <span class="math inline">\(n\)</span> だけでなく，<strong>区間の中のどこかで大きく外れる確率</strong>を支配する必要がある。<br>
+そのための基本ツールがコルモゴロフの最大不等式である。</p>
+<p><strong>補題（コルモゴロフの最大不等式）</strong><br>
+<span class="math inline">\(X_1,\dots,X_n\)</span> を独立な実数値確率変数とし， <span class="math display">\[
+E[X_k]=0,\qquad E[X_k^2]&lt;\infty \quad (k=1,\dots,n)
+\]</span> とする。部分和 <span class="math display">\[
+S_k=\sum_{i=1}^k X_i
+\]</span> に対して，任意の <span class="math inline">\(\lambda&gt;0\)</span> について <span class="math display">\[
+P\left(\max_{1\le k\le n}|S_k|\ge \lambda\right)
+\le
+\frac{\mathrm{Var}(S_n)}{\lambda^2}
+=
+\frac{1}{\lambda^2}\sum_{k=1}^n \mathrm{Var}(X_k)
+\]</span> が成り立つ。</p>
+<p><strong>証明</strong><br>
+<span class="math display">\[
+A_k
+=
+\{|S_1|&lt;\lambda,\dots,|S_{k-1}|&lt;\lambda,\ |S_k|\ge \lambda\}
+\qquad (k=1,\dots,n)
+\]</span> とおく。<br>
+すると <span class="math inline">\(A_1,\dots,A_n\)</span> は互いに素であり， <span class="math display">\[
+\bigcup_{k=1}^n A_k
+=
+\left\{\max_{1\le j\le n}|S_j|\ge \lambda\right\}
+\]</span> である。</p>
+<p>各 <span class="math inline">\(A_k\)</span> は <span class="math inline">\(X_1,\dots,X_k\)</span> のみによって決まるので，<span class="math inline">\(A_k\)</span> と <span class="math inline">\(S_k\)</span> は最初の <span class="math inline">\(k\)</span> 個の変数に関して可測である。<br>
+一方， <span class="math display">\[
+S_n-S_k = \sum_{i=k+1}^n X_i
+\]</span> は残りの変数だけから作られているので，独立性と <span class="math inline">\(E[S_n-S_k]=0\)</span> より</p>
+<p><span class="math display">\[
+E\bigl[S_k(S_n-S_k)1_{A_k}\bigr]
+=
+E\!\left[S_k1_{A_k}\,E[S_n-S_k\mid X_1,\dots,X_k]\right]
+=0.
+\]</span></p>
+<p>したがって <span class="math display">\[
+E[S_n^2 1_{A_k}]
+=
+E[S_k^2 1_{A_k}]
++
+E[(S_n-S_k)^2 1_{A_k}]
++
+2E[S_k(S_n-S_k)1_{A_k}]
+\ge
+E[S_k^2 1_{A_k}].
+\]</span></p>
+<p>ところが <span class="math inline">\(A_k\)</span> 上では <span class="math inline">\(|S_k|\ge \lambda\)</span> だから <span class="math display">\[
+E[S_k^2 1_{A_k}] \ge \lambda^2 P(A_k).
+\]</span></p>
+<p>ゆえに <span class="math display">\[
+E[S_n^2 1_{A_k}] \ge \lambda^2 P(A_k).
+\]</span></p>
+<p>これを <span class="math inline">\(k=1,\dots,n\)</span> で足し合わせると，<span class="math inline">\(A_k\)</span> が互いに素であることから</p>
+<p><span class="math display">\[
+E[S_n^2]
+\ge
+\sum_{k=1}^n E[S_n^2 1_{A_k}]
+\ge
+\lambda^2 \sum_{k=1}^n P(A_k)
+=
+\lambda^2 P\left(\max_{1\le k\le n}|S_k|\ge \lambda\right).
+\]</span></p>
+<p>最後に <span class="math inline">\(E[S_n]=0\)</span> だから <span class="math inline">\(E[S_n^2]=\mathrm{Var}(S_n)\)</span> である。以上より <span class="math display">\[
+P\left(\max_{1\le k\le n}|S_k|\ge \lambda\right)
+\le
+\frac{\mathrm{Var}(S_n)}{\lambda^2}.
+\]</span> <span class="math inline">\(\square\)</span></p>
+<p>この不等式の意味は次の通りである。</p>
+<blockquote class="blockquote">
+<p>最後の時点 <span class="math inline">\(n\)</span> までに蓄積された分散が小さければ，<br>
+途中のどこかで部分和が大きく飛び出す確率も小さい。</p>
+</blockquote>
+<p>SLLN では「各時点」ではなく「区間全体」を抑えたいので，この補題がちょうど必要になる。</p>
+</section>
+<section id="コルモゴロフの第一定理" class="level1">
+<h1>コルモゴロフの第一定理</h1>
+<p>教科書によって「コルモゴロフの第一定理」という呼び方には少し揺れがあるが，<br>
+ここでは次の主張をそう呼ぶことにする。</p>
+<p><strong>定理（コルモゴロフの第一定理）</strong><br>
+<span class="math inline">\(X_1,X_2,\dots\)</span> を独立な実数値確率変数列とし， <span class="math display">\[
+E[X_n]=0,\qquad E[X_n^2]&lt;\infty \quad (n\ge 1)
+\]</span> とする。さらに <span class="math display">\[
+\sum_{n=1}^\infty \frac{\mathrm{Var}(X_n)}{n^2}&lt;\infty
+\]</span> が成り立つと仮定する。このとき <span class="math display">\[
+\frac{1}{n}\sum_{i=1}^n X_i \to 0 \qquad a.s.
+\]</span></p>
+<p>これは「平均 0 の独立なノイズを足し合わせても，1/n で割れば消える」という定理である。<br>
+有限分散の i.i.d. 列に対する SLLN は，この定理の直接の系になる。</p>
+<section id="証明のアイデア" class="level2">
+<h2 class="anchored" data-anchor-id="証明のアイデア">証明のアイデア</h2>
+<p>この証明の発想はとてもきれいである。</p>
+<ol type="1">
+<li>まず全ての <span class="math inline">\(n\)</span> を一気に見るのは難しいので，<span class="math inline">\(n=2^m\)</span> という<strong>2 べきの時点</strong>だけを見る<br>
+</li>
+<li>その時点での外れ確率は，チェビシェフで十分速く小さくなるので，第一ボレル・カンテリが使える</li>
+<li>そのあと，<span class="math inline">\(2^m\)</span> と <span class="math inline">\(2^{m+1}\)</span> の間の時点を，コルモゴロフの最大不等式でまとめて抑える</li>
+</ol>
+<p>つまり，</p>
+<ul>
+<li><strong>dyadic subsequence</strong></li>
+<li><strong>Borel-Cantelli</strong></li>
+<li><strong>maximal inequality</strong></li>
+</ul>
+<p>の 3 点セットで SLLN を証明する。</p>
+</section>
+<section id="証明" class="level2">
+<h2 class="anchored" data-anchor-id="証明">証明</h2>
+<p><strong>証明</strong><br>
+<span class="math display">\[
+S_n=\sum_{i=1}^n X_i
+\]</span> とおく。示すべきことは <span class="math display">\[
+\frac{S_n}{n}\to 0 \qquad a.s.
+\]</span> である。</p>
+<section id="ステップ12べきの時点での収束" class="level3">
+<h3 class="anchored" data-anchor-id="ステップ12べきの時点での収束">ステップ1：2べきの時点での収束</h3>
+<p>任意の <span class="math inline">\(\varepsilon&gt;0\)</span> に対してチェビシェフの不等式より <span class="math display">\[
+P\left(\left|S_{2^m}\right|&gt;\varepsilon 2^m\right)
+\le
+\frac{\mathrm{Var}(S_{2^m})}{\varepsilon^2 4^m}
+=
+\frac{1}{\varepsilon^2 4^m}\sum_{k=1}^{2^m}\mathrm{Var}(X_k).
+\]</span></p>
+<p>ここで <span class="math display">\[
+a_k=\mathrm{Var}(X_k)
+\]</span> とおくと，</p>
+<p><span class="math display">\[
+\sum_{m=0}^\infty \frac{1}{4^m}\sum_{k=1}^{2^m}a_k
+=
+\sum_{k=1}^\infty a_k \sum_{m:\,2^m\ge k}\frac{1}{4^m}.
+\]</span></p>
+<p>もし <span class="math inline">\(2^{r-1}&lt;k\le 2^r\)</span> なら <span class="math display">\[
+\sum_{m:\,2^m\ge k}\frac{1}{4^m}
+=
+\sum_{m=r}^\infty \frac{1}{4^m}
+=
+\frac{4}{3}\cdot \frac{1}{4^r}
+\le
+\frac{C}{k^2}
+\]</span> となるような定数 <span class="math inline">\(C&gt;0\)</span> が存在する。したがって <span class="math display">\[
+\sum_{m=0}^\infty \frac{1}{4^m}\sum_{k=1}^{2^m}a_k
+\le
+C\sum_{k=1}^\infty \frac{a_k}{k^2}
+&lt;\infty.
+\]</span></p>
+<p>よって <span class="math display">\[
+\sum_{m=0}^\infty
+P\left(\left|S_{2^m}\right|&gt;\varepsilon 2^m\right)
+&lt;
+\infty.
+\]</span></p>
+<p>第一ボレル・カンテリ補題より <span class="math display">\[
+\frac{S_{2^m}}{2^m}\to 0 \qquad a.s.
+\]</span></p>
+</section>
+<section id="ステップ22べきの間の時点を抑える" class="level3">
+<h3 class="anchored" data-anchor-id="ステップ22べきの間の時点を抑える">ステップ2：2べきの間の時点を抑える</h3>
+<p>次に，各ブロックでのずれの最大値を <span class="math display">\[
+M_m
+=
+\max_{2^m &lt; n\le 2^{m+1}} |S_n-S_{2^m}|
+\]</span> とおく。</p>
+<p>これは <span class="math display">\[
+X_{2^m+1},X_{2^m+2},\dots,X_{2^{m+1}}
+\]</span> というブロックの部分和の最大値である。したがってコルモゴロフの最大不等式をこのブロックに適用すると，</p>
+<p><span class="math display">\[
+P(M_m&gt;\varepsilon 2^m)
+\le
+\frac{1}{\varepsilon^2 4^m}
+\sum_{k=2^m+1}^{2^{m+1}} \mathrm{Var}(X_k).
+\]</span></p>
+<p>ここでも <span class="math inline">\(a_k=\mathrm{Var}(X_k)\)</span> と書けば <span class="math display">\[
+\sum_{m=0}^\infty P(M_m&gt;\varepsilon 2^m)
+\le
+\frac{1}{\varepsilon^2}
+\sum_{m=0}^\infty \frac{1}{4^m}\sum_{k=2^m+1}^{2^{m+1}} a_k.
+\]</span></p>
+<p>各 <span class="math inline">\(k\)</span> はただ一つのブロック <span class="math inline">\((2^m,2^{m+1}]\)</span> に属し，そのとき <span class="math inline">\(k\le 2^{m+1}\)</span> だから <span class="math display">\[
+\frac{1}{4^m}\le \frac{4}{k^2}.
+\]</span></p>
+<p>よって <span class="math display">\[
+\sum_{m=0}^\infty \frac{1}{4^m}\sum_{k=2^m+1}^{2^{m+1}} a_k
+\le
+4\sum_{k=1}^\infty \frac{a_k}{k^2}
+&lt;\infty.
+\]</span></p>
+<p>したがって <span class="math display">\[
+\sum_{m=0}^\infty P(M_m&gt;\varepsilon 2^m)&lt;\infty.
+\]</span></p>
+<p>再び第一ボレル・カンテリ補題より <span class="math display">\[
+\frac{M_m}{2^m}\to 0 \qquad a.s.
+\]</span></p>
+</section>
+<section id="ステップ3任意の-n-に戻る" class="level3">
+<h3 class="anchored" data-anchor-id="ステップ3任意の-n-に戻る">ステップ3：任意の n に戻る</h3>
+<p>いま <span class="math inline">\(\omega\)</span> を，ステップ1,2 の両方の収束が成り立つ確率 1 の集合の中から固定する。</p>
+<p><span class="math inline">\(n\)</span> を十分大きくとり，<span class="math inline">\(2^m&lt;n\le 2^{m+1}\)</span> を満たす <span class="math inline">\(m\)</span> をとると， <span class="math display">\[
+|S_n|
+\le
+|S_{2^m}| + |S_n-S_{2^m}|
+\le
+|S_{2^m}| + M_m.
+\]</span></p>
+<p>しかも <span class="math inline">\(n\ge 2^m\)</span> だから <span class="math display">\[
+\frac{|S_n|}{n}
+\le
+\frac{|S_{2^m}|}{2^m}+\frac{M_m}{2^m}.
+\]</span></p>
+<p>右辺は <span class="math inline">\(m\to\infty\)</span> で 0 に収束するので， <span class="math display">\[
+\frac{S_n}{n}\to 0 \qquad a.s.
+\]</span> が従う。<span class="math inline">\(\square\)</span></p>
+</section>
+</section>
+</section>
+<section id="有限分散-i.i.d.-の強大数の法則" class="level1">
+<h1>有限分散 i.i.d. の強大数の法則</h1>
+<p>コルモゴロフの第一定理から，計量経済学で最もよく使う SLLN がすぐ出る。</p>
+<p><strong>系（有限分散 i.i.d. の強大数の法則）</strong><br>
+<span class="math inline">\(X_1,X_2,\dots\)</span> を i.i.d. 実数値確率変数列とし， <span class="math display">\[
+E[X_1]=\mu,\qquad \mathrm{Var}(X_1)=\sigma^2&lt;\infty
+\]</span> とする。このとき <span class="math display">\[
+\bar X_n \to \mu \qquad a.s.
+\]</span></p>
+<p><strong>証明</strong><br>
+<span class="math inline">\(Y_i=X_i-\mu\)</span> とおくと，<span class="math inline">\(Y_i\)</span> は独立で <span class="math display">\[
+E[Y_i]=0,\qquad \mathrm{Var}(Y_i)=\sigma^2.
+\]</span></p>
+<p>したがって <span class="math display">\[
+\sum_{i=1}^\infty \frac{\mathrm{Var}(Y_i)}{i^2}
+=
+\sigma^2\sum_{i=1}^\infty \frac{1}{i^2}
+&lt;\infty.
+\]</span></p>
+<p>コルモゴロフの第一定理より <span class="math display">\[
+\frac{1}{n}\sum_{i=1}^n Y_i \to 0 \qquad a.s.
+\]</span></p>
+<p>しかし <span class="math display">\[
+\frac{1}{n}\sum_{i=1}^n Y_i
+=
+\frac{1}{n}\sum_{i=1}^n (X_i-\mu)
+=
+\bar X_n-\mu
+\]</span> だから， <span class="math display">\[
+\bar X_n\to\mu \qquad a.s.
+\]</span> が得られる。<span class="math inline">\(\square\)</span></p>
+<section id="コメント" class="level2">
+<h2 class="anchored" data-anchor-id="コメント">コメント</h2>
+<p>これで確かに</p>
+<ul>
+<li>WLLN：<span class="math inline">\(\bar X_n\overset{p}{\to}\mu\)</span></li>
+<li>SLLN：<span class="math inline">\(\bar X_n\to\mu\)</span> a.s.</li>
+</ul>
+<p>の違いが見えたはずである。</p>
+<p>WLLN は，各 <span class="math inline">\(n\)</span> における「ずれる確率」を抑える。<br>
+SLLN は，<strong>無限に何度もずれることはない</strong>ことまで言っている。</p>
+<p>そのために必要だったのが，</p>
+<ul>
+<li>ボレル・カンテリ</li>
+<li>コルモゴロフの最大不等式</li>
+<li>dyadic subsequence のトリック</li>
+</ul>
+<p>であった。</p>
+<p><strong>注意</strong><br>
+i.i.d. の強大数の法則そのものは，実は有限分散より弱い仮定 <span class="math display">\[
+E|X_1|&lt;\infty
+\]</span> のもとで成り立つ。<br>
+ただしその証明は今回より重い。今回の有限分散仮定は，チェビシェフ・ボレルカンテリ・最大不等式という比較的見通しのよい道具だけで SLLN を示せる，という点で教育的に重要である。</p>
+</section>
+</section>
+<section id="シミュレーションslln-は1本の経路が落ち着くこと" class="level1">
+<h1>シミュレーション：SLLN は「1本の経路が落ち着く」こと</h1>
+<p>WLLN の図では「分布の集中」を見た。<br>
+それに対して SLLN は「ほとんどすべての標本経路で，いつかは落ち着く」という主張なので，今度は<strong>1本の長い経路</strong>を見る方がよい。</p>
+<p>ここでは <span class="math inline">\(X_i\sim N(1,2^2)\)</span> を i.i.d. に発生させ，running average <span class="math display">\[
+\bar X_n=\frac{1}{n}\sum_{i=1}^n X_i
+\]</span> を描く。</p>
+<div class="cell">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="lecture5_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>長い標本経路で見た running average。SLLN は，この曲線がほとんど確実に母平均 1 に落ち着くことを言っている。</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>有限のシミュレーションでは「この先もずっと近い」ことまでは見えない。<br>
+それでも，<span class="math inline">\(n\)</span> が大きくなるにつれて曲線が母平均 1 の近くに張り付いていく様子は，SLLN の感覚そのものになっている。</p>
+</section>
+<section id="計量経済学との接続" class="level1">
+<h1>計量経済学との接続</h1>
+<p>計量経済学で大数の法則が現れる典型的な形は</p>
+<p><span class="math display">\[
+\frac{1}{n}\sum_{i=1}^n g(Z_i) \to E[g(Z_i)]
+\]</span></p>
+<p>である。</p>
+<p>特に OLS や GMM の consistency では，母集団のモーメント条件 <span class="math display">\[
+E[X_i u_i]=0
+\]</span> を標本版 <span class="math display">\[
+\frac{1}{n}\sum_{i=1}^n X_i u_i
+\]</span> に落としたい。</p>
+<p>もし <span class="math inline">\((X_i,u_i)\)</span> が i.i.d. で， <span class="math display">\[
+E[X_i u_i]=0,\qquad \mathrm{Var}(X_i u_i)&lt;\infty
+\]</span> なら，今示した SLLN によって <span class="math display">\[
+\frac{1}{n}\sum_{i=1}^n X_i u_i \to 0 \qquad a.s.
+\]</span> が従う。</p>
+<p>これは「標本で計算した直交条件が，標本サイズが大きくなると母集団の直交条件に一致していく」という意味である。<br>
+回帰や GMM の consistency は，ほとんどいつもこの形の議論から始まる。</p>
+<section id="シミュレーションモーメント条件の標本平均" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションモーメント条件の標本平均">シミュレーション：モーメント条件の標本平均</h2>
+<p>簡単のため，<span class="math inline">\(X_i\sim N(0,1)\)</span>，<span class="math inline">\(u_i\sim N(0,1)\)</span> を独立に発生させる。<br>
+このとき <span class="math display">\[
+E[X_i u_i]=E[X_i]E[u_i]=0
+\]</span> であるから， <span class="math display">\[
+\frac{1}{n}\sum_{i=1}^n X_i u_i \to 0
+\]</span> が起きるはずである。</p>
+<div class="cell">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="lecture5_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>モーメント条件 E[X_i u_i]=0 の標本版。OLS や GMM の consistency で本当に使うのはこういう形の SLLN である。</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>この図は，標本モーメントが 0 の近くに落ち着いていく様子を示している。<br>
+計量経済学では，この極限の上に OLS の一貫性や IV/GMM の一貫性が積み上がっていく。</p>
+</section>
+</section>
+<section id="まとめ" class="level1">
+<h1>まとめ</h1>
+<p>今回の内容を一言でまとめるとこうである。</p>
+<ol type="1">
+<li><strong>WLLN</strong> は，標本平均が母平均に<strong>確率収束</strong>することを言う<br>
+</li>
+<li><strong>ボレル・カンテリ</strong> は，「悪い事象が無限回起きるかどうか」を判定する補題であり，SLLN に進むための橋渡しをする<br>
+</li>
+<li><strong>コルモゴロフの第一定理</strong> により，有限分散のもとで標本平均は母平均に<strong>ほぼ確実収束</strong>する<br>
+</li>
+<li>計量経済学では，これが <span class="math display">\[
+\frac{1}{n}\sum_{i=1}^n g(Z_i) \to E[g(Z_i)]
+\]</span> という形で繰り返し使われる</li>
+</ol>
+<p>次の lecture では，この大数の法則を土台にして，中心極限定理へ進むと「標本平均がどれくらいの速さで，どんな分布で揺れるのか」が見えてくる。</p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

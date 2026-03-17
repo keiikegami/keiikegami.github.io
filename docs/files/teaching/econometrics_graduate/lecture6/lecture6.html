@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>lecture6</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="lecture6_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture6_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lecture6_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lecture6_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lecture6_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture6_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lecture6_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lecture6_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture6_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lecture6_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lecture6_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lecture6_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">lecture6</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="確率論の基礎概念その5中心極限定理" class="level1">
+<h1>確率論の基礎概念その5：中心極限定理</h1>
+<p>今回は<strong>中心極限定理</strong>を扱う。</p>
+<p>前回の大数の法則は <span class="math display">\[
+\bar X_n = \frac{1}{n}\sum_{i=1}^n X_i \to \mu
+\]</span> という主張だった。つまり，標本平均は母平均に近づく。</p>
+<p>しかし計量経済学で本当に欲しいのは，それだけではない。 推定量がどのくらいのスケールで揺れるのか，その揺れがどんな分布で近似できるのか，を知りたい。 信頼区間，<span class="math inline">\(t\)</span> 統計量，Wald 検定，GMM の漸近分布などは，全部ここに立っている。</p>
+<p>中心極限定理（CLT）が教えてくれるのは，</p>
+<ul>
+<li>標本平均のズレはだいたい <span class="math inline">\(n^{-1/2}\)</span> の大きさであり</li>
+<li>そのズレを <span class="math inline">\(\sqrt{n}\)</span> 倍すると</li>
+<li>極限では正規分布で近似できる</li>
+</ul>
+<p>という事実である。</p>
+<p>今回は<strong>特性関数は使わない</strong>。<br>
+その代わり，Lindeberg のアイデアに沿って，</p>
+<ol type="1">
+<li>まず i.i.d. の場合の CLT を述べる</li>
+<li>次に三角配列に対する <strong>Lindeberg–Feller の中心極限定理</strong>を述べる</li>
+<li>その十分条件の部分を，<strong>ガウス変数への1個ずつの入れ替え</strong>と Taylor 展開で示す</li>
+<li>最後にシミュレーションで「なぜ正規になるのか」「なぜ 1 個だけ大きいショックがあると壊れるのか」を見る</li>
+</ol>
+<p>という流れで進む。</p>
+</section>
+<section id="何を知りたいのか平均の極限ではなく平均の揺れの極限" class="level1">
+<h1>何を知りたいのか：平均の極限ではなく，平均の揺れの極限</h1>
+<p><span class="math inline">\(X_1,X_2,\dots\)</span> を i.i.d. とし， <span class="math display">\[
+E[X_1]=\mu,\qquad \mathrm{Var}(X_1)=\sigma^2&lt;\infty
+\]</span> とする。</p>
+<p>大数の法則は <span class="math display">\[
+\bar X_n \overset{p}{\to} \mu
+\]</span> を与える。しかし，これだけでは統計的推測はできない。<br>
+たとえば「<span class="math inline">\(\bar X_n\)</span> は <span class="math inline">\(\mu\)</span> の近くにいる」と言われても，その近さが <span class="math inline">\(1/n\)</span> のオーダーなのか，<span class="math inline">\(1/\sqrt{n}\)</span> のオーダーなのか，あるいはもっと遅いのかは，LLN だけではわからない。</p>
+<p>そこで，自然に <span class="math display">\[
+\sqrt{n}(\bar X_n-\mu)
+\]</span> を見る。</p>
+<p>なぜ <span class="math inline">\(\sqrt{n}\)</span> なのか。分散を計算すると， <span class="math display">\[
+\mathrm{Var}\!\left(\sqrt{n}(\bar X_n-\mu)\right)
+=
+\mathrm{Var}\!\left(\frac{1}{\sqrt{n}}\sum_{i=1}^n (X_i-\mu)\right)
+=
+\frac{1}{n}\sum_{i=1}^n \mathrm{Var}(X_i-\mu)
+=
+\sigma^2.
+\]</span> つまり，<span class="math inline">\(\bar X_n-\mu\)</span> 自体は 0 に縮んでいくが，<span class="math inline">\(\sqrt{n}\)</span> 倍すると分散が消えず，ちょうど<strong>非退化な極限</strong>が期待できる。</p>
+<p>この <span class="math display">\[
+\frac{\sqrt{n}(\bar X_n-\mu)}{\sigma}
+\]</span> が極限で <span class="math inline">\(N(0,1)\)</span> になる，というのが CLT の中身である。</p>
+</section>
+<section id="分布収束" class="level1">
+<h1>分布収束</h1>
+<p>CLT は確率収束ではなく，<strong>分布収束</strong>の定理である。</p>
+<p><strong>定義（分布収束）</strong><br>
+確率変数列 <span class="math inline">\(Y_n\)</span> が確率変数 <span class="math inline">\(Y\)</span> に<strong>分布収束</strong>するとは，<span class="math inline">\(Y\)</span> の分布関数 <span class="math inline">\(F_Y\)</span> の連続点 <span class="math inline">\(t\)</span> すべてに対して <span class="math display">\[
+P(Y_n\le t) \to P(Y\le t)
+\qquad (n\to\infty)
+\]</span> が成り立つことをいう。これを <span class="math display">\[
+Y_n \overset{d}{\to} Y
+\]</span> と書く。</p>
+<p>CLT で言いたいのは，たとえば <span class="math display">\[
+\frac{\sqrt{n}(\bar X_n-\mu)}{\sigma} \overset{d}{\to} N(0,1)
+\]</span> である。</p>
+<p>ここで重要なのは，分布収束は「各 <span class="math inline">\(n\)</span> で定義された確率変数の分布が，だんだんある極限分布に近づく」という主張であって，1 本の標本経路の上での収束を言っているわけではない，という点である。</p>
+<p>この講義では，分布収束を<strong>test function</strong>で見る見方も使う。<br>
+直感的には，「十分多くの滑らかな関数 <span class="math inline">\(h\)</span> に対して <span class="math inline">\(E[h(Y_n)]\)</span> が <span class="math inline">\(E[h(Y)]\)</span> に近いなら，<span class="math inline">\(Y_n\)</span> と <span class="math inline">\(Y\)</span> の分布は近い」と考える。</p>
+<p>厳密には，</p>
+<blockquote class="blockquote">
+<p><strong>標準事実</strong>：<span class="math inline">\(Y_n \overset{d}{\to} Y\)</span> であることと，任意の有界 Lipschitz 関数 <span class="math inline">\(h\)</span> に対して <span class="math display">\[
+E[h(Y_n)]\to E[h(Y)]
+\]</span> が成り立つことは同値である。</p>
+</blockquote>
+<p>今回は，まず滑らかな関数について収束を示し，そこから分布収束へ移る。</p>
+</section>
+<section id="古典的な中心極限定理" class="level1">
+<h1>古典的な中心極限定理</h1>
+<p>まずはいちばんよく見る形を述べる。</p>
+<p><strong>定理（Lindeberg–Lévy の中心極限定理）</strong><br>
+<span class="math inline">\(X_1,X_2,\dots\)</span> を i.i.d. 実数値確率変数列とし， <span class="math display">\[
+E[X_1]=\mu,\qquad \mathrm{Var}(X_1)=\sigma^2\in(0,\infty)
+\]</span> とする。このとき <span class="math display">\[
+\frac{\sqrt{n}(\bar X_n-\mu)}{\sigma}
+=
+\frac{1}{\sigma\sqrt{n}}\sum_{i=1}^n (X_i-\mu)
+\overset{d}{\to} N(0,1)
+\]</span> が成り立つ。</p>
+<p>同値な書き方をすれば，<span class="math inline">\(n\)</span> が大きいとき <span class="math display">\[
+\bar X_n \approx N\!\left(\mu,\frac{\sigma^2}{n}\right)
+\]</span> である。</p>
+<p>これは，計量経済学での最初の本格的な漸近近似である。<br>
+母分散 <span class="math inline">\(\sigma^2\)</span> が有限なら，平均の誤差は <span class="math inline">\(n^{-1/2}\)</span> オーダーで，しかも形は正規分布になる。</p>
+<section id="シミュレーションかなり歪んだ分布でも平均は正規に近づく" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションかなり歪んだ分布でも平均は正規に近づく">シミュレーション：かなり歪んだ分布でも平均は正規に近づく</h2>
+<p>CLT のいちばん大事なメッセージは，<strong>元の分布が正規でなくても，平均は正規に近づく</strong>ということである。</p>
+<p>ここでは，かなり歪んでいる Exponential<span class="math inline">\((1)\)</span> 分布を使う。<br>
+この分布は <span class="math display">\[
+E[X_i]=1,\qquad \mathrm{Var}(X_i)=1
+\]</span> なので，CLT の対象は <span class="math display">\[
+Z_n = \sqrt{n}(\bar X_n-1)
+\]</span> である。CLT によれば，<span class="math inline">\(Z_n\)</span> は <span class="math inline">\(N(0,1)\)</span> に近づくはずである。</p>
+<div class="cell">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="lecture6_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="960"></p>
+<figcaption>a</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p><span class="math inline">\(n=1,2\)</span> ではまだかなり右に歪んでいるが，<span class="math inline">\(n=30,100\)</span> くらいになると，かなり正規密度に近い形になる。<br>
+これが CLT の絵である。</p>
+<p>大数の法則が教えるのは「平均が母平均に近づく」ことだった。<br>
+それに対して CLT は，「そのズレを <span class="math inline">\(\sqrt{n}\)</span> 倍して見ると，正規的な揺れが残る」ことを教えている。</p>
+</section>
+</section>
+<section id="なぜ三角配列が出てくるのか" class="level1">
+<h1>なぜ三角配列が出てくるのか</h1>
+<p>古典的な CLT をそのまま証明してもよいのだが，計量経済学ではもう少し一般の形の方が使いやすい。 そこで，<strong>三角配列</strong>という書き方を導入する。</p>
+<section id="三角配列" class="level2">
+<h2 class="anchored" data-anchor-id="三角配列">三角配列</h2>
+<p>三角配列とは， <span class="math display">\[
+\{X_{ni}: i=1,\dots,k_n,\ n=1,2,\dots\}
+\]</span> の形に並んだ確率変数族のことである。<span class="math inline">\(n\)</span> 行目には <span class="math inline">\(k_n\)</span> 個の確率変数がある。</p>
+<p><span class="math inline">\(i.i.d.\)</span> の CLT をこの形で書くと， <span class="math display">\[
+X_{ni}=\frac{X_i-\mu}{\sigma\sqrt{n}},\qquad i=1,\dots,n
+\]</span> であり，<span class="math inline">\(n\)</span> 行目の長さは <span class="math inline">\(n\)</span> である。<br>
+だから CLT の自然な一般化は，実は最初から三角配列で書かれる。</p>
+<p>三角配列を使うと，</p>
+<ul>
+<li>各観測の分散がバラバラでもよい</li>
+<li>行ごとに分布が変わってもよい</li>
+<li>「1 個の観測が支配的でない」という条件をはっきり書ける</li>
+</ul>
+<p>という利点がある。</p>
+</section>
+<section id="lindeberg-条件" class="level2">
+<h2 class="anchored" data-anchor-id="lindeberg-条件">Lindeberg 条件</h2>
+<p>以下では，各 <span class="math inline">\(n\)</span> について <span class="math display">\[
+X_{n1},\dots,X_{nk_n}
+\]</span> は独立， <span class="math display">\[
+E[X_{ni}]=0,
+\qquad
+\sigma_{ni}^2:=\mathrm{Var}(X_{ni}),
+\qquad
+s_n^2:=\sum_{i=1}^{k_n}\sigma_{ni}^2
+\]</span> とする。</p>
+<p>CLT の主役は行和 <span class="math display">\[
+S_n:=\sum_{i=1}^{k_n} X_{ni}
+\]</span> であり，その標準化 <span class="math display">\[
+\frac{S_n}{s_n}
+\]</span> を考える。</p>
+<p><strong>定義（Lindeberg 条件）</strong><br>
+任意の <span class="math inline">\(\varepsilon&gt;0\)</span> に対して <span class="math display">\[
+\frac{1}{s_n^2}
+\sum_{i=1}^{k_n}
+E\Bigl[X_{ni}^2\,1\{|X_{ni}|&gt;\varepsilon s_n\}\Bigr]
+\to 0
+\qquad (n\to\infty)
+\]</span> が成り立つとき，この三角配列は <strong>Lindeberg 条件</strong>を満たすという。</p>
+<p>この条件の意味ははっきりしている。<br>
+全体の分散規模 <span class="math inline">\(s_n^2\)</span> に比べて，<strong>大きすぎるジャンプ</strong>が作る寄与は無視できる，ということである。</p>
+<p>言い換えれば，正規極限が出るためには</p>
+<ul>
+<li>分散はたくさんの小さいショックの和でできていてほしい</li>
+<li>1 個か 2 個の巨大な観測が全部を支配してはいけない</li>
+</ul>
+<p>のである。</p>
+</section>
+</section>
+<section id="lindebergfeller-の中心極限定理" class="level1">
+<h1>Lindeberg–Feller の中心極限定理</h1>
+<p><strong>定理（Lindeberg–Feller CLT：十分条件）</strong><br>
+<span class="math inline">\(\{X_{ni}\}\)</span> を各行で独立な平均 0 の三角配列とし， <span class="math display">\[
+s_n^2 = \sum_{i=1}^{k_n} \mathrm{Var}(X_{ni}) &gt; 0
+\]</span> とする。もし任意の <span class="math inline">\(\varepsilon&gt;0\)</span> に対して <span class="math display">\[
+\frac{1}{s_n^2}
+\sum_{i=1}^{k_n}
+E\Bigl[X_{ni}^2\,1\{|X_{ni}|&gt;\varepsilon s_n\}\Bigr]
+\to 0
+\]</span> が成り立つならば， <span class="math display">\[
+\frac{1}{s_n}\sum_{i=1}^{k_n} X_{ni}
+\overset{d}{\to} N(0,1)
+\]</span> が成り立つ。</p>
+<p>厳密な Lindeberg–Feller 定理は，Feller 条件のもとでこの条件がほぼ必要でもあることを述べるが，ここでは<strong>十分条件の部分</strong>だけを使えば十分である。</p>
+<p>証明に入る前に，この条件が「1 個の観測の支配を禁止している」ことをまず確認しておく。</p>
+<section id="補題lindeberg-条件は最大分散比率が-0-に行くことを含意する" class="level2">
+<h2 class="anchored" data-anchor-id="補題lindeberg-条件は最大分散比率が-0-に行くことを含意する">補題：Lindeberg 条件は「最大分散比率が 0 に行く」ことを含意する</h2>
+<p><strong>補題</strong><br>
+Lindeberg 条件が成り立つならば <span class="math display">\[
+\max_{1\le i\le k_n} \frac{\sigma_{ni}^2}{s_n^2} \to 0
+\]</span> が成り立つ。</p>
+<p><strong>証明</strong><br>
+標準化して <span class="math inline">\(s_n=1\)</span> としてよい。任意の <span class="math inline">\(\varepsilon&gt;0\)</span> に対して <span class="math display">\[
+\sigma_{ni}^2
+=
+E\bigl[X_{ni}^2 1\{|X_{ni}|\le \varepsilon\}\bigr]
++
+E\bigl[X_{ni}^2 1\{|X_{ni}|&gt; \varepsilon\}\bigr]
+\le
+\varepsilon^2 + E\bigl[X_{ni}^2 1\{|X_{ni}|&gt; \varepsilon\}\bigr].
+\]</span> したがって <span class="math display">\[
+\max_i \sigma_{ni}^2
+\le
+\varepsilon^2 + \sum_{i=1}^{k_n} E\bigl[X_{ni}^2 1\{|X_{ni}|&gt;\varepsilon\}\bigr].
+\]</span> 右辺第2項は Lindeberg 条件により 0 に行く。よって <span class="math display">\[
+\limsup_{n\to\infty} \max_i \sigma_{ni}^2 \le \varepsilon^2.
+\]</span> <span class="math inline">\(\varepsilon&gt;0\)</span> は任意だから，<span class="math inline">\(\max_i \sigma_{ni}^2\to 0\)</span> が従う。一般の <span class="math inline">\(s_n\)</span> の場合も，同じ議論を <span class="math inline">\(X_{ni}/s_n\)</span> に適用すればよい。<span class="math inline">\(\square\)</span></p>
+<p>この補題の意味は重要である。<br>
+Lindeberg 条件が成り立つとき，1 個の観測が全体分散の大きな割合を持つことはできない。<br>
+だから極限では「多数の小さいショックの和」という状況が生まれる。</p>
+</section>
+</section>
+<section id="証明の戦略ガウス列に-1-個ずつ入れ替える" class="level1">
+<h1>証明の戦略：ガウス列に 1 個ずつ入れ替える</h1>
+<p>ここからが今回の核心である。</p>
+<p>特性関数を使う代わりに，<span class="math inline">\(X_{ni}\)</span> と同じ分散を持つガウス変数 <span class="math inline">\(Y_{ni}\)</span> を作る。すると <span class="math display">\[
+T_n := \sum_{i=1}^{k_n} Y_{ni}
+\]</span> は<strong>ちょうど正規分布</strong>になる。<br>
+したがって，示したいことは <span class="math display">\[
+S_n = \sum_{i=1}^{k_n} X_{ni}
+\]</span> が，分布の意味で <span class="math inline">\(T_n\)</span> に近い，ということである。</p>
+<p>そのために，<span class="math inline">\(X_{n1},\dots,X_{nk_n}\)</span> を一気に置き換えるのではなく，</p>
+<ul>
+<li>まず <span class="math inline">\(X_{n1}\)</span> を <span class="math inline">\(Y_{n1}\)</span> に置き換える</li>
+<li>次に <span class="math inline">\(X_{n2}\)</span> を <span class="math inline">\(Y_{n2}\)</span> に置き換える</li>
+<li>これを 1 個ずつ繰り返す</li>
+</ul>
+<p>という<strong>telescoping</strong>を使う。</p>
+<p>そして 1 回の置き換えで生じる差を Taylor 展開で評価する。<br>
+1 次と 2 次の項は，平均 0 と分散一致によって打ち消し合う。<br>
+残る 3 次以降の剰余が小さいことを，Lindeberg 条件で押さえる。</p>
+<p>これが Lindeberg の方法である。</p>
+</section>
+<section id="lindebergfeller-の証明" class="level1">
+<h1>Lindeberg–Feller の証明</h1>
+<p>以下，見通しをよくするために，まず <span class="math display">\[
+s_n^2 = \sum_{i=1}^{k_n}\sigma_{ni}^2 = 1
+\]</span> と正規化された場合を示す。一般の場合は最後に <span class="math inline">\(X_{ni}/s_n\)</span> を考えればよい。</p>
+<p>また <span class="math display">\[
+C_b^3(\mathbb R)
+\]</span> を，3 回連続微分可能で，関数自身と 1,2,3 階微分がすべて有界な関数の集合とする。</p>
+<section id="第1段階滑らかな-test-function-に対しては正規極限が出る" class="level2">
+<h2 class="anchored" data-anchor-id="第1段階滑らかな-test-function-に対しては正規極限が出る">第1段階：滑らかな test function に対しては正規極限が出る</h2>
+<p><strong>補題</strong><br>
+<span class="math inline">\(s_n^2=1\)</span> とし，Lindeberg 条件が成り立つとする。このとき任意の <span class="math inline">\(h\in C_b^3(\mathbb R)\)</span> に対して <span class="math display">\[
+E\bigl[h(S_n)\bigr] \to E\bigl[h(Z)\bigr],
+\qquad Z\sim N(0,1)
+\]</span> が成り立つ。</p>
+<p><strong>証明</strong><br>
+各 <span class="math inline">\(n,i\)</span> に対して，<span class="math inline">\(Y_{ni}\sim N(0,\sigma_{ni}^2)\)</span> を独立に取り，さらに <span class="math inline">\(\{X_{ni}\}\)</span> とも独立とする。すると <span class="math display">\[
+T_n := \sum_{i=1}^{k_n} Y_{ni} \sim N(0,1)
+\]</span> である。</p>
+<p>各 <span class="math inline">\(i\)</span> について <span class="math display">\[
+W_{ni} := \sum_{j&lt;i} Y_{nj} + \sum_{j&gt;i} X_{nj}
+\]</span> とおく。すると telescoping により <span class="math display">\[
+E[h(S_n)] - E[h(T_n)]
+=
+\sum_{i=1}^{k_n}
+E\Bigl[h(W_{ni}+X_{ni}) - h(W_{ni}+Y_{ni})\Bigr].
+\]</span></p>
+<p>ここで <span class="math display">\[
+R_h(x,u)
+:=
+h(x+u)-h(x)-h'(x)u-\frac12 h''(x)u^2
+\]</span> とおく。</p>
+<p><span class="math inline">\(W_{ni}\)</span> は <span class="math inline">\(X_{ni},Y_{ni}\)</span> と独立であり， <span class="math display">\[
+E[X_{ni}]=E[Y_{ni}]=0,
+\qquad
+E[X_{ni}^2]=E[Y_{ni}^2]=\sigma_{ni}^2
+\]</span> だから，1 次と 2 次の項は消えて <span class="math display">\[
+E\Bigl[h(W_{ni}+X_{ni}) - h(W_{ni}+Y_{ni})\Bigr]
+=
+E\bigl[R_h(W_{ni},X_{ni})\bigr] - E\bigl[R_h(W_{ni},Y_{ni})\bigr].
+\]</span> したがって <span class="math display">\[
+|E[h(S_n)]-E[h(T_n)]|
+\le
+\sum_{i=1}^{k_n} E\bigl|R_h(W_{ni},X_{ni})\bigr|
++
+\sum_{i=1}^{k_n} E\bigl|R_h(W_{ni},Y_{ni})\bigr|.
+\]</span></p>
+<p>ここで任意の <span class="math inline">\(\eta&gt;0\)</span> を固定する。</p>
+<p>まず <span class="math inline">\(|u|\le \eta\)</span> のとき，Taylor の剰余項評価より <span class="math display">\[
+|R_h(x,u)|
+\le
+\frac{1}{6}\|h'''\|_\infty |u|^3
+\le
+\frac{\eta}{6}\|h'''\|_\infty u^2.
+\]</span></p>
+<p>次に <span class="math inline">\(|u|&gt;\eta\)</span> のときは粗く評価して <span class="math display">\[
+|R_h(x,u)|
+\le
+2\|h\|_\infty + \|h'\|_\infty |u| + \frac12\|h''\|_\infty u^2.
+\]</span> しかも <span class="math inline">\(|u|&gt;\eta\)</span> なら <span class="math inline">\(1\le u^2/\eta^2\)</span>，<span class="math inline">\(|u|\le u^2/\eta\)</span> なので <span class="math display">\[
+|R_h(x,u)|
+\le
+A_h(\eta) u^2,
+\]</span> ただし <span class="math display">\[
+A_h(\eta)
+:=
+\frac{2\|h\|_\infty}{\eta^2}
++
+\frac{\|h'\|_\infty}{\eta}
++
+\frac12\|h''\|_\infty.
+\]</span></p>
+<p>以上を合わせると，すべての <span class="math inline">\(x,u\)</span> に対して <span class="math display">\[
+|R_h(x,u)|
+\le
+\frac{\eta}{6}\|h'''\|_\infty u^2
++
+A_h(\eta) u^2 1\{|u|&gt;\eta\}.
+\]</span> よって <span class="math display">\[
+\sum_{i=1}^{k_n} E\bigl|R_h(W_{ni},X_{ni})\bigr|
+\le
+\frac{\eta}{6}\|h'''\|_\infty \sum_{i=1}^{k_n} E[X_{ni}^2]
++
+A_h(\eta)
+\sum_{i=1}^{k_n} E\bigl[X_{ni}^2 1\{|X_{ni}|&gt;\eta\}\bigr].
+\]</span> 今 <span class="math inline">\(\sum_i E[X_{ni}^2]=1\)</span> だから <span class="math display">\[
+\sum_{i=1}^{k_n} E\bigl|R_h(W_{ni},X_{ni})\bigr|
+\le
+\frac{\eta}{6}\|h'''\|_\infty
++
+A_h(\eta)
+\sum_{i=1}^{k_n} E\bigl[X_{ni}^2 1\{|X_{ni}|&gt;\eta\}\bigr].
+\]</span> Lindeberg 条件より，右辺第2項は <span class="math inline">\(n\to\infty\)</span> で 0 に行く。</p>
+<p>同様に <span class="math display">\[
+\sum_{i=1}^{k_n} E\bigl|R_h(W_{ni},Y_{ni})\bigr|
+\le
+\frac{\eta}{6}\|h'''\|_\infty
++
+A_h(\eta)
+\sum_{i=1}^{k_n} E\bigl[Y_{ni}^2 1\{|Y_{ni}|&gt;\eta\}\bigr].
+\]</span> ここで先ほどの補題より <span class="math display">\[
+\delta_n := \max_i \sigma_{ni} \to 0.
+\]</span> <span class="math inline">\(G\sim N(0,1)\)</span> とおき <span class="math display">\[
+\psi(t):=E\bigl[G^2 1\{|G|&gt;t\}\bigr]
+\]</span> と書くと，<span class="math inline">\(\psi(t)\downarrow 0\)</span> as <span class="math inline">\(t\to\infty\)</span> である。しかも <span class="math display">\[
+E\bigl[Y_{ni}^2 1\{|Y_{ni}|&gt;\eta\}\bigr]
+=
+\sigma_{ni}^2 E\bigl[G^2 1\{|G|&gt;\eta/\sigma_{ni}\}\bigr]
+\le
+\sigma_{ni}^2 \psi(\eta/\delta_n).
+\]</span> したがって <span class="math display">\[
+\sum_{i=1}^{k_n} E\bigl[Y_{ni}^2 1\{|Y_{ni}|&gt;\eta\}\bigr]
+\le
+\psi(\eta/\delta_n)\sum_{i=1}^{k_n}\sigma_{ni}^2
+=
+\psi(\eta/\delta_n)
+\to 0.
+\]</span></p>
+<p>以上より <span class="math display">\[
+\limsup_{n\to\infty}|E[h(S_n)]-E[h(T_n)]|
+\le
+\frac{\eta}{3}\|h'''\|_\infty.
+\]</span> <span class="math inline">\(\eta&gt;0\)</span> は任意なので，右辺を 0 にできる。したがって <span class="math display">\[
+E[h(S_n)]-E[h(T_n)] \to 0.
+\]</span> しかも <span class="math inline">\(T_n\sim N(0,1)\)</span> だから <span class="math display">\[
+E[h(T_n)] = E[h(Z)]
+\qquad (Z\sim N(0,1)).
+\]</span> よって <span class="math display">\[
+E[h(S_n)] \to E[h(Z)]
+\]</span> が示された。<span class="math inline">\(\square\)</span></p>
+<p>ここまでで，「滑らかな関数で見れば <span class="math inline">\(S_n\)</span> は正規に近い」ことが示された。</p>
+</section>
+<section id="第2段階滑らかな-test-function-の収束から分布収束へ" class="level2">
+<h2 class="anchored" data-anchor-id="第2段階滑らかな-test-function-の収束から分布収束へ">第2段階：滑らかな test function の収束から分布収束へ</h2>
+<p>次に，これが本当に CLT を意味することを確認する。</p>
+<p><strong>補題</strong><br>
+確率変数列 <span class="math inline">\(U_n\)</span> と確率変数 <span class="math inline">\(U\)</span> が <span class="math display">\[
+E[h(U_n)]\to E[h(U)]
+\qquad \text{for all } h\in C_b^3(\mathbb R)
+\]</span> を満たすとする。このとき <span class="math display">\[
+U_n \overset{d}{\to} U
+\]</span> が成り立つ。</p>
+<p><strong>証明</strong><br>
+上で述べた標準事実により，有界 Lipschitz 関数について期待値が収束することを示せば十分である。そこで <span class="math inline">\(g\)</span> を任意の有界 Lipschitz 関数とする。</p>
+<p><span class="math inline">\(V\sim N(0,1)\)</span> を <span class="math inline">\(U_n,U\)</span> と独立に取り，<span class="math inline">\(\varepsilon&gt;0\)</span> に対して <span class="math display">\[
+g_\varepsilon(x):=E[g(x+\varepsilon V)]
+\]</span> と定める。これは <span class="math inline">\(g\)</span> をガウス核で平滑化したもので，<span class="math inline">\(g_\varepsilon\in C_b^{\infty}(\mathbb R)\)</span>，したがって特に <span class="math inline">\(g_\varepsilon\in C_b^3(\mathbb R)\)</span> である。</p>
+<p>よって仮定より，固定した <span class="math inline">\(\varepsilon&gt;0\)</span> に対して <span class="math display">\[
+E[g_\varepsilon(U_n)] \to E[g_\varepsilon(U)].
+\]</span></p>
+<p>一方，<span class="math inline">\(g\)</span> が Lipschitz なら <span class="math display">\[
+|g_\varepsilon(x)-g(x)|
+=
+\bigl|E[g(x+\varepsilon V)-g(x)]\bigr|
+\le
+\mathrm{Lip}(g)\,\varepsilon E|V|.
+\]</span> したがって <span class="math display">\[
+|E[g(U_n)]-E[g_\varepsilon(U_n)]|
+\le
+\mathrm{Lip}(g)\,\varepsilon E|V|,
+\]</span> および同様に <span class="math display">\[
+|E[g(U)]-E[g_\varepsilon(U)]|
+\le
+\mathrm{Lip}(g)\,\varepsilon E|V|.
+\]</span> よって <span class="math display">\[
+\limsup_{n\to\infty}
+|E[g(U_n)]-E[g(U)]|
+\le
+2\,\mathrm{Lip}(g)\,\varepsilon E|V|.
+\]</span> <span class="math inline">\(\varepsilon\downarrow 0\)</span> とすれば右辺は 0 に行く。したがって <span class="math display">\[
+E[g(U_n)]\to E[g(U)]
+\qquad \text{for every bounded Lipschitz } g.
+\]</span> ゆえに <span class="math inline">\(U_n\overset{d}{\to} U\)</span> が従う。<span class="math inline">\(\square\)</span></p>
+<p>以上の二つの補題を合わせると，正規化された場合 <span class="math inline">\(s_n=1\)</span> で <span class="math display">\[
+S_n \overset{d}{\to} N(0,1)
+\]</span> が従う。一般の場合は <span class="math inline">\(X_{ni}/s_n\)</span> に適用すれば <span class="math display">\[
+\frac{S_n}{s_n} \overset{d}{\to} N(0,1)
+\]</span> が得られる。これで Lindeberg–Feller CLT の十分条件の証明が終わる。<span class="math inline">\(\square\)</span></p>
+</section>
+</section>
+<section id="i.i.d.-の-clt-は系としてすぐ出る" class="level1">
+<h1>i.i.d. の CLT は系としてすぐ出る</h1>
+<p>上の一般定理から，古典的な i.i.d. CLT はただちに従う。</p>
+<p><strong>系（古典的 CLT）</strong><br>
+<span class="math inline">\(X_1,X_2,\dots\)</span> を i.i.d. とし， <span class="math display">\[
+E[X_1]=\mu,
+\qquad
+\mathrm{Var}(X_1)=\sigma^2\in(0,\infty)
+\]</span> とする。このとき <span class="math display">\[
+\frac{\sqrt{n}(\bar X_n-\mu)}{\sigma}
+\overset{d}{\to} N(0,1).
+\]</span></p>
+<p><strong>証明</strong><br>
+三角配列 <span class="math display">\[
+X_{ni}:=\frac{X_i-\mu}{\sigma\sqrt{n}},
+\qquad i=1,\dots,n
+\]</span> を考える。すると各行で独立，平均 0，しかも <span class="math display">\[
+\sum_{i=1}^n \mathrm{Var}(X_{ni})
+=
+\sum_{i=1}^n \frac{\sigma^2}{\sigma^2 n}
+=1.
+\]</span></p>
+<p>あとは Lindeberg 条件を確認すればよい。任意の <span class="math inline">\(\varepsilon&gt;0\)</span> に対して <span class="math display">\[
+\sum_{i=1}^n E\Bigl[X_{ni}^2 1\{|X_{ni}|&gt;\varepsilon\}\Bigr]
+=
+\frac{1}{\sigma^2}
+E\Bigl[(X_1-\mu)^2 1\{|X_1-\mu|&gt;\varepsilon\sigma\sqrt{n}\}\Bigr].
+\]</span> 右辺の指示関数は <span class="math inline">\(n\to\infty\)</span> で 0 に下がり，かつ被積分関数は <span class="math display">\[
+\frac{(X_1-\mu)^2}{\sigma^2}
+\]</span> で抑えられ，これは可積分である。したがって優収束定理より右辺は 0 に行く。</p>
+<p>よって Lindeberg 条件が成り立ち，定理より <span class="math display">\[
+\frac{1}{\sigma\sqrt{n}}\sum_{i=1}^n (X_i-\mu)
+\overset{d}{\to} N(0,1)
+\]</span> が従う。<span class="math inline">\(\square\)</span></p>
+<p>この証明は，i.i.d. CLT の本質が</p>
+<ul>
+<li>各項が十分小さい</li>
+<li>大きすぎる項の寄与が消える</li>
+<li>ガウス変数と 1 個ずつ入れ替えても全体はあまり変わらない</li>
+</ul>
+<p>という点にあることを，かなりよく見せている。</p>
+</section>
+<section id="lindeberg-条件の意味なぜ1-人勝ちがダメなのか" class="level1">
+<h1>Lindeberg 条件の意味：なぜ「1 人勝ち」がダメなのか</h1>
+<p>CLT の正規極限は，たくさんの小さな独立ショックが足し合わさるから出てくる。<br>
+逆に言えば，1 個の観測がほとんど全部を支配しているときには，正規分布は出ない。</p>
+<p>この点を，三角配列で見ると非常にわかりやすい。</p>
+<section id="良い例分散が薄く分散している配列" class="level2">
+<h2 class="anchored" data-anchor-id="良い例分散が薄く分散している配列">良い例：分散が薄く分散している配列</h2>
+<p><span class="math inline">\(\xi_{ni}\)</span> を i.i.d. の Rademacher 変数（<span class="math inline">\(P(\xi_{ni}=1)=P(\xi_{ni}=-1)=1/2\)</span>）とし， <span class="math display">\[
+X_{ni}=\frac{\xi_{ni}}{\sqrt{n}},\qquad i=1,\dots,n
+\]</span> とおく。このとき <span class="math display">\[
+\sum_{i=1}^n \mathrm{Var}(X_{ni}) = 1,
+\qquad
+\max_i \mathrm{Var}(X_{ni}) = \frac{1}{n}\to 0
+\]</span> であり，Lindeberg 条件も成り立つ。したがって <span class="math display">\[
+\sum_{i=1}^n X_{ni} = \frac{1}{\sqrt{n}}\sum_{i=1}^n \xi_{ni}
+\overset{d}{\to} N(0,1).
+\]</span></p>
+</section>
+<section id="悪い例1-個の観測が全部を支配する配列" class="level2">
+<h2 class="anchored" data-anchor-id="悪い例1-個の観測が全部を支配する配列">悪い例：1 個の観測が全部を支配する配列</h2>
+<p>今度は <span class="math display">\[
+X_{n1}=\xi_n,
+\qquad
+X_{ni}=0 \quad (i=2,\dots,n)
+\]</span> とする。ただし <span class="math inline">\(\xi_n\)</span> は Rademacher 変数である。すると <span class="math display">\[
+\sum_{i=1}^n \mathrm{Var}(X_{ni})=1
+\]</span> ではあるが，分散の 100% を <span class="math inline">\(X_{n1}\)</span> が持っている。したがって Lindeberg 条件は失敗する。 実際，任意の <span class="math inline">\(\varepsilon&lt;1\)</span> に対して <span class="math display">\[
+\sum_{i=1}^n E\bigl[X_{ni}^2 1\{|X_{ni}|&gt;\varepsilon\}\bigr]=1.
+\]</span></p>
+<p>このとき行和は <span class="math display">\[
+\sum_{i=1}^n X_{ni} = \xi_n
+\]</span> であり，いつまで経っても <span class="math inline">\(\pm 1\)</span> の二点分布のままで，正規分布には近づかない。</p>
+<p>ここに Lindeberg 条件の本質がある。<br>
+<strong>正規極限には，多数の微小なショックが必要であって，1 個の大きなショックではダメ</strong>なのである。</p>
+</section>
+<section id="シミュレーションlindeberg-が成り立つとき壊れるとき" class="level2">
+<h2 class="anchored" data-anchor-id="シミュレーションlindeberg-が成り立つとき壊れるとき">シミュレーション：Lindeberg が成り立つとき／壊れるとき</h2>
+<p>次の図では，</p>
+<ul>
+<li>左：<span class="math inline">\(X_{ni}=\xi_{ni}/\sqrt{n}\)</span>（Lindeberg 条件が成り立つ）</li>
+<li>右：<span class="math inline">\(X_{n1}=\xi_n\)</span>, <span class="math inline">\(X_{ni}=0\)</span>（1 個が全部を支配する）</li>
+</ul>
+<p>という二つの配列の行和を比べている。どちらも全体分散は 1 だが，極限の形はまったく違う。</p>
+<div class="cell">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="lecture6_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="960"></p>
+<figcaption>Lindeberg 条件が成り立つとき（左）は行和の経験分布関数が標準正規の分布関数に近づく。1 個の観測が全部を支配する場合（右）は，いつまで経っても正規分布にならない。</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>左では経験分布関数がかなりなめらかで，標準正規の分布関数に近づいている。<br>
+右では分布は <span class="math inline">\(\pm 1\)</span> に質量を持つだけなので，標準正規とは全然違う。</p>
+<p>この図は，Lindeberg 条件を「正規極限のためには<strong>1 個だけ大きいショックがあってはいけない</strong>」という言葉に翻訳したものだと思えばよい。</p>
+</section>
+</section>
+<section id="計量経済学的な読み替え" class="level1">
+<h1>計量経済学的な読み替え</h1>
+<p>CLT は，計量経済学では次の形で使われることが多い。</p>
+<p><span class="math inline">\(Z_1,\dots,Z_n\)</span> が i.i.d. で，ある実数値関数 <span class="math inline">\(g\)</span> に対して <span class="math display">\[
+E[g(Z_i)] = 0,
+\qquad
+\mathrm{Var}(g(Z_i)) = \Omega &lt; \infty
+\]</span> とする。このとき <span class="math display">\[
+\sqrt{n}\,\bar g_n
+:=
+\sqrt{n}\left(\frac{1}{n}\sum_{i=1}^n g(Z_i)\right)
+\overset{d}{\to} N(0,\Omega).
+\]</span></p>
+<p>これは，</p>
+<ul>
+<li>モーメント条件の標本平均は <span class="math inline">\(n^{-1/2}\)</span> オーダーで揺れる</li>
+<li>その極限分布は正規である</li>
+</ul>
+<p>ということを意味する。<br>
+OLS なら <span class="math inline">\(g(Z_i)=x_i u_i\)</span>，GMM なら一般のモーメント条件 <span class="math inline">\(g(Z_i,\theta_0)\)</span>，MLE なら score がこれに対応する。</p>
+<p>つまり CLT は，計量経済学で現れるほとんどすべての「標準誤差」「漸近正規性」の出発点になっている。</p>
+<p>今回は 1 次元だけを扱ったが，多変量版では <span class="math display">\[
+\sqrt{n}\,\bar g_n \overset{d}{\to} N(0,\Omega)
+\qquad (\Omega \text{ は分散共分散行列})
+\]</span> となり，これが実際の推定論にそのままつながる。</p>
+</section>
+<section id="まとめ" class="level1">
+<h1>まとめ</h1>
+<p>今回の要点は次の 4 つである。</p>
+<ol type="1">
+<li>大数の法則は平均そのものの収束を述べるが，中心極限定理は<strong>平均の揺れ</strong>の極限を述べる。</li>
+<li>適切なスケールは <span class="math inline">\(\sqrt{n}\)</span> であり，有限分散のもとでは <span class="math display">\[
+\frac{\sqrt{n}(\bar X_n-\mu)}{\sigma} \overset{d}{\to} N(0,1)
+\]</span> が成り立つ。</li>
+<li>より一般には，三角配列に対する Lindeberg–Feller CLT が成り立ち，その条件は「<strong>大きすぎる 1 個の観測の寄与が消える</strong>」という意味を持つ。</li>
+<li>証明の本質は，和を同じ分散を持つガウス和と比較し，1 個ずつ入れ替えながら Taylor 展開で誤差を押さえることにある。</li>
+</ol>
+<p>次に進むときには，この CLT をもとに</p>
+<ul>
+<li>Slutsky の定理</li>
+<li>Delta method</li>
+<li>multivariate CLT</li>
+<li>t 統計量や Wald 統計量の漸近分布</li>
+</ul>
+<p>へ進むのが自然である。計量経済学で本当に使うのは，そこから先である。</p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

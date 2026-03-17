@@ -1,0 +1,429 @@
+---
+title: "Simulated Method of Moments"
+subtitle: "計量経済学大学院講義ノート"
+lang: ja
+number-sections: true
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+  pdf:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    documentclass: scrartcl
+execute:
+  echo: false
+  warning: false
+  error: false
+---
+
+
+::: {.callout-note}
+## この章の到達目標
+
+この章の目的は次の 5 点である。
+
+1. SMM を「推論可能なキャリブレーション」として理解する。
+2. シミュレーションにより得られるモーメント $\gamma_m(\theta)$ が連続・微分可能でないことがある理由を理解する。
+3. SMM の漸近分布に現れる
+   $$
+   1+\tau,
+   \qquad
+   \tau=\lim_{n\to\infty}\frac{n}{m}
+   $$
+   という効率性コストの意味を理解する。
+4. 数値微分を用いた標準誤差の推定方法を理解する。
+5. シミュレーション回数を増やさずに精度を改善する補助モーメントの考え方を学ぶ。
+:::
+
+::: {.callout-important}
+## 記法の確認
+
+SMM では、データから計算されるターゲット・モーメントを
+$$
+g_n=\frac1n\sum_{t=1}^n g(X_t)
+$$
+と書く。モデルが含意する理論モーメントを $\gamma(\theta)$ とするが、閉形式で計算できないため、シミュレーションにより
+$$
+\gamma_m(\theta)=\frac1m\sum_{s=1}^m \gamma(X_s^\theta;\theta)
+$$
+で近似する。
+
+目的関数は
+$$
+Q_n(\theta)
+=
+-\frac12
+\bigl(g_n-\gamma_m(\theta)\bigr)'
+\widehat W_n
+\bigl(g_n-\gamma_m(\theta)\bigr)
+$$
+である。
+
+また、理論モーメントのヤコビアンを
+$$
+\Gamma(\theta)=\frac{\partial \gamma(\theta)}{\partial\theta'},
+\qquad
+\Gamma=\Gamma(\theta_0)
+$$
+と書く。
+:::
+
+# 導入：SMM とキャリブレーション
+
+計量経済学では、構造モデルは観測可能変数の分布やモーメントに対する制約として現れる。パラメータ推定だけでなく、**その不確実性を定量化すること** が重要である。とりわけ政策実験や counterfactual analysis を行うなら、推定誤差を無視できない。
+
+一方、マクロや構造ミクロでは、モデルから生成されるモーメントをデータのモーメントに近づけるようにパラメータを「合わせる」だけの **calibration** がしばしば用いられる。大きく分けると、キャリブレーションには次の 3 類型がある。
+
+1. 外部研究や既存文献に合わせてパラメータ値を固定する。
+2. モデルをシミュレートして、いくつかのデータ・モーメントに近づくようにパラメータを選ぶ。
+3. 1 と 2 の折衷をとる。
+
+SMM は、特に 2 のタイプを **推定法** として定式化し、さらに標準誤差まで与える方法だと理解できる。
+
+::: {.callout-tip}
+## 重要な実装上の注意
+
+SMM では、$\theta$ が変わっても **同じ乱数系列（同じ seed）** を使って $\gamma_m(\theta)$ を計算するのが基本である。そうしないと、同じ $\theta$ に対しても目的関数値がランダムに揺れ、最適化アルゴリズムが不安定になりやすい。
+:::
+
+# なぜ SMM は GMM より難しいのか
+
+GMM ではモーメント関数 $g(X_t;\theta)$ が滑らかなら、平均値展開で漸近理論を進められた。しかし SMM では、シミュレーション・モーメント $\gamma_m(\theta)$ が必ずしも連続ですらない。
+
+## 不連続性の例
+
+たとえば $X$ が成功確率 $\theta$ の Bernoulli 分布で、$\gamma(X;\theta)=X$ とする。シミュレーションでは $U_s\sim U[0,1]$ を発生させて
+$$
+X_s^\theta=1\{U_s\le\theta\}
+$$
+とおくので、
+$$
+\gamma_m(\theta)=\frac1m\sum_{s=1}^m 1\{U_s\le\theta\}
+$$
+である。これは $\theta$ の階段関数であり、連続でも微分可能でもない。
+
+したがって SMM の漸近理論では、GMM のような「まず一階条件を線形化する」という手法が必ずしも使えない。代わりに、**目的関数全体が $\theta_0$ の近くで二次近似できるか** を見る。
+
+# 漸近正規性
+
+## 局所二次近似の考え方
+
+一般論として、縮小近傍で
+$$
+Q_n(\theta)
+=
+Q_n(\theta_0)
++
+\left(\frac{1}{\sqrt n}Z_n\right)'(\theta-\theta_0)
+-
+\frac12(\theta-\theta_0)'H(\theta-\theta_0)
++
+o_p(\|\theta-\theta_0\|^2)
+$$
+が成り立ち、$H$ が正定値、$Z_n\overset{d}{\to}N(0,\Sigma)$ なら、最大化点 $\hat\theta$ は
+$$
+\sqrt n(\hat\theta-\theta_0)=H^{-1}Z_n+o_p(1)
+$$
+を満たす。SMM ではこの一般結果を使う。
+
+## モデルとシミュレーションの 2 つのノイズ
+
+モデルが正しく特定されていて
+$$
+E[g(X_t)]=\gamma(\theta_0)
+$$
+とする。まず、データ側のノイズとして
+$$
+\sqrt n\bigl(g_n-\gamma(\theta_0)\bigr)\overset{d}{\to}N(0,S)
+$$
+がある。
+
+次に、シミュレーション側にも
+$$
+\sqrt n\bigl(\gamma_m(\theta_0)-\gamma(\theta_0)\bigr)
+$$
+というノイズがある。ここで
+$$
+\frac{n}{m}\to \tau\ge 0
+$$
+と仮定すると、
+$$
+\sqrt n\bigl(\gamma_m(\theta_0)-\gamma(\theta_0)\bigr)
+\overset{d}{\to}
+N(0,\tau S)
+$$
+となる。実データとシミュレーションが独立なら両者は独立に足し合わさるので
+$$
+\sqrt n\bigl(g_n-\gamma_m(\theta_0)\bigr)
+\overset{d}{\to}
+N(0,(1+\tau)S)
+$$ {#eq-smm-sim-noise}
+を得る。
+
+::: {.callout-note}
+## $\tau$ の意味
+
+$\tau=n/m$ は「サンプルサイズに比べてシミュレーション回数がどれだけ少ないか」を表す。
+
+- $m\gg n$ なら $\tau\approx 0$ で、シミュレーション誤差はほぼ無視できる。
+- $m=n$ なら $\tau=1$ で、分散は 2 倍になる。
+- したがって標準誤差はおよそ $\sqrt 2$ 倍、つまり約 41% 増える。
+
+SMM でシミュレーション回数が不足すると、推定量はかなり不精密になりうる。
+:::
+
+## 基本定理
+
+::: {#thm-smm-asymp-normal}
+## SMM 推定量の漸近正規性
+
+次を仮定する。
+
+1. $\hat\theta\overset{p}{\to}\theta_0$.
+2. $n/m\to\tau\ge 0$.
+3. @eq-smm-sim-noise が成り立つ。
+4. $\widehat W_n\overset{p}{\to}W$，ただし $W$ は正定値対称行列である。
+5. $\gamma(\theta)$ は $\theta_0$ の近傍で連続微分可能で、$\Gamma=\partial\gamma(\theta_0)/\partial\theta'$ は full column rank $p$ をもつ。
+6. 目的関数の二次近似
+   $$
+   Q_n(\theta)
+   =
+   Q_n(\theta_0)
+   +
+   \left(\frac{1}{\sqrt n}Z_n\right)'W\Gamma(\theta-\theta_0)
+   -
+   \frac12(\theta-\theta_0)'\Gamma'W\Gamma(\theta-\theta_0)
+   +
+   o_p(\|\theta-\theta_0\|^2)
+   $$
+   が成り立ち、$Z_n\overset{d}{\to}N(0,(1+\tau)S)$.
+
+このとき
+$$
+\sqrt n(\hat\theta-\theta_0)
+\overset{d}{\to}
+N\!\left(
+0,
+(1+\tau)(\Gamma'W\Gamma)^{-1}\Gamma'WSW\Gamma(\Gamma'W\Gamma)^{-1}
+\right).
+$$
+:::
+
+::: {.proof}
+目的関数を
+$$
+Q_n(\theta)
+=
+-\frac12(g_n-\gamma_m(\theta))'\widehat W_n(g_n-\gamma_m(\theta))
+$$
+と書き、$\gamma_m(\theta)-\gamma_m(\theta_0)$ を理論モーメントの差 $\gamma(\theta)-\gamma(\theta_0)$ で近似する。さらに
+$$
+\gamma(\theta)-\gamma(\theta_0)
+=
+\Gamma(\theta-\theta_0)+o(\|\theta-\theta_0\|)
+$$
+を用いれば、局所的に
+$$
+Q_n(\theta)
+=
+Q_n(\theta_0)
++
+\left(\frac1{\sqrt n}Z_n\right)'W\Gamma(\theta-\theta_0)
+-
+\frac12(\theta-\theta_0)'\Gamma'W\Gamma(\theta-\theta_0)
++
+o_p(\|\theta-\theta_0\|^2)
+$$
+が得られる。したがって一般の二次近似定理より
+$$
+\sqrt n(\hat\theta-\theta_0)
+=
+(\Gamma'W\Gamma)^{-1}\Gamma'WZ_n+o_p(1)
+$$
+であり、最後は $Z_n$ の極限定理から従う。
+:::
+
+## 効率的重み付け
+
+over identified モデルでは、やはり最適重みは
+$$
+W=S^{-1}
+$$
+である。このとき漸近分散は
+$$
+(1+\tau)(\Gamma'S^{-1}\Gamma)^{-1}
+$$ {#eq-smm-efficient}
+に簡約される。
+
+注意すべき点は、たとえ重みを最適に選んでも、$\tau>0$ ならなお効率性ロスが残ることである。真に最小の分散
+$$
+(\Gamma'S^{-1}\Gamma)^{-1}
+$$
+を得るには $\tau=0$、つまり $m$ が $n$ に比べて十分大きい必要がある。
+
+::: {.callout-important}
+## SMM の実務的教訓
+
+SMM を使うなら、少なくとも次の 2 点が重要である。
+
+1. over identified なら $W\approx S^{-1}$ を使う。
+2. 可能な限りシミュレーション回数 $m$ を大きくする。
+
+つまり、SMM では「どのモーメントを合わせるか」に加えて、「何回シミュレートするか」も推定精度の本質である。
+:::
+
+# 標準誤差の推定
+
+## $S$ の推定
+
+i.i.d. または m.d.s. の場合、$S$ は
+$$
+S=E[(g(X_t)-\gamma(\theta_0))(g(X_t)-\gamma(\theta_0))']
+$$
+であるが、$\gamma(\theta_0)$ は定数ベクトルなので、実務上は $g(X_t)$ の標本共分散から推定できる。依存データなら GMM と同様に HAC 推定を使う。
+
+## $\Gamma$ の数値微分
+
+理論モーメント $\gamma(\theta)$ を閉形式で書けないことが SMM の前提なので、$\Gamma$ もたいてい解析的には求まらない。そこでシミュレーション・モーメントを用いた数値微分を使う。
+
+第 $i$ 列について、中心差分
+$$
+\widehat\Gamma_{\cdot i}
+=
+\frac{
+\gamma_m(\hat\theta_1,\ldots,\hat\theta_i+\delta,\ldots,\hat\theta_p)
+-
+\gamma_m(\hat\theta_1,\ldots,\hat\theta_i-\delta,\ldots,\hat\theta_p)
+}{2\delta}
+$$
+で近似する。$\delta\to 0$ かつ $m\to\infty$ なら、適当な条件の下で $\widehat\Gamma\overset{p}{\to}\Gamma$ である。
+
+::: {.callout-note}
+## 数値微分のコツ
+
+数値微分では、$\theta_i+\delta$ と $\theta_i-\delta$ の両方で **同じ乱数系列** を使うのが重要である。そうしないと有限差分のばらつきが大きくなり、$\widehat\Gamma$ が極めて不安定になる。
+:::
+
+## 漸近分散の推定
+
+一般形の漸近分散は
+$$
+\Omega
+=
+(1+\tau)(\Gamma'W\Gamma)^{-1}\Gamma'WSW\Gamma(\Gamma'W\Gamma)^{-1}
+$$
+だから、その plug-in 推定量は
+$$
+\widehat\Omega
+=
+\left(1+\frac{n}{m}\right)
+(\widehat\Gamma'\widehat W_n\widehat\Gamma)^{-1}
+\widehat\Gamma'\widehat W_n\widehat S\widehat W_n\widehat\Gamma
+(\widehat\Gamma'\widehat W_n\widehat\Gamma)^{-1}.
+$$
+特に効率的重み $\widehat W_n=\widehat S^{-1}$ を使っていれば
+$$
+\widehat\Omega_{\mathrm{eff}}
+=
+\left(1+\frac{n}{m}\right)
+(\widehat\Gamma'\widehat S^{-1}\widehat\Gamma)^{-1}
+$$
+に簡約される。
+
+この公式により、いわゆる「method 2 の calibration」にも標準誤差を付けられる。
+
+# シミュレーション回数を増やさずに精度を上げる
+
+SMM の弱点は、計算負担が重いモデルでは $m$ を大きくできず、$\tau=n/m$ が大きくなってしまうことである。ここでは、$m$ を増やさなくても精度を改善する方法を考える。
+
+## 補助モーメントの追加
+
+シミュレーションに使う原始ショックを $u_s$ とし、
+$$
+X_s^\theta = X(u_s;\theta)
+$$
+と書く。さらに、期待値が 0 と分かっている関数
+$$
+h(u)\in\mathbb R^L,
+\qquad
+E[h(u)]=0
+$$
+を選ぶ。すると
+$$
+h_m=\frac1m\sum_{s=1}^m h(u_s)
+$$
+も 0 に近いはずであるから、モーメント条件を拡張して
+$$
+\begin{pmatrix}
+g_n-\gamma_m(\theta) \\
+-h_m
+\end{pmatrix}
+$$
+を使うことができる。
+
+拡張された目的関数は
+$$
+Q_n^{\mathrm{full}}(\theta)
+=
+-\frac12
+\begin{pmatrix}
+g_n-\gamma_m(\theta) \\
+-h_m
+\end{pmatrix}'
+\widehat W_n^{\mathrm{full}}
+\begin{pmatrix}
+g_n-\gamma_m(\theta) \\
+-h_m
+\end{pmatrix}.
+$$
+
+## なぜ効くのか
+
+$h_m$ はパラメータには依存しないが、シミュレーション誤差には依存する。したがって、うまく選ばれた $h(u)$ を入れると、$g_n-\gamma_m(\theta)$ に混入している余計なシミュレーション・ノイズを部分的に **射影除去** できる。
+
+理論的には、拡張モーメントの効率的重みを使うと、漸近分散は
+$$
+(\Gamma_{\mathrm{full}}'\Sigma_{\mathrm{full}}^{-1}\Gamma_{\mathrm{full}})^{-1}
+$$
+となり、通常の SMM の分散
+$$
+(1+\tau)(\Gamma'\Sigma_{gg}^{-1}\Gamma)^{-1}
+$$
+よりも小さくなる。
+
+特に $m=n$ で $\tau=1$ でも、補助関数 $h(u)$ を十分豊かに選べば、理想的な効率的分散に近づけることができる。
+
+::: {.callout-tip}
+## 直観
+
+追加した $h_m$ は「シミュレーションがたまたま高かった／低かった」というノイズを測る温度計の役割を果たす。温度計を一緒に使えば、シミュレーション誤差をよりうまく差し引けるので、同じ $m$ でも推定精度を上げられる。
+:::
+
+# まとめ
+
+この章の要点は次の通りである。
+
+1. SMM は、キャリブレーションを推定理論の上に載せた方法として理解できる。
+2. シミュレーション・モーメント $\gamma_m(\theta)$ は不連続なことがあり、GMM のような滑らかな一階条件だけでは理論化できない。
+3. 漸近分散には
+   $$
+   1+\tau,\qquad \tau=\lim n/m
+   $$
+   が現れ、シミュレーション回数不足は標準誤差を押し上げる。
+4. 効率的重みを使えば分散は
+   $$
+   (1+\tau)(\Gamma'S^{-1}\Gamma)^{-1}
+   $$
+   になる。
+5. 標準誤差推定では、$S$ の推定に加えて、$\Gamma$ を数値微分で評価する必要がある。
+6. 補助モーメント $h(u)$ を加えると、シミュレーション回数を増やさずに精度を改善できる。
+
+::: {.callout-note}
+## 次章への接続
+
+次の Minimum Distance 章では、SMM からシミュレーション誤差を取り除いた極限的な場合を扱う。理論モーメント $\gamma(\theta)$ が閉形式で与えられれば、SMM の多くの式はそのまま MD の式に簡約される。
+:::
