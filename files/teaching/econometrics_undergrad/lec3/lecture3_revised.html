@@ -223,8 +223,15 @@ window.Quarto = {
   <li><a href="#標準誤差sigma2-は未知なので推定して代入する" id="toc-標準誤差sigma2-は未知なので推定して代入する" class="nav-link" data-scroll-target="#標準誤差sigma2-は未知なので推定して代入する">2.4 標準誤差：<span class="math inline">\sigma^2</span> は未知なので推定して代入する</a></li>
   <li><a href="#なぜ分母が-n-2-なのか" id="toc-なぜ分母が-n-2-なのか" class="nav-link" data-scroll-target="#なぜ分母が-n-2-なのか">なぜ分母が <span class="math inline">n-2</span> なのか</a></li>
   </ul></li>
-  <li><a href="#一致性サンプルが増えると真値に近づく" id="toc-一致性サンプルが増えると真値に近づく" class="nav-link" data-scroll-target="#一致性サンプルが増えると真値に近づく">3. 一致性（サンプルが増えると真値に近づく）</a></li>
-  <li><a href="#漸近正規性大標本で正規分布っぽくなる" id="toc-漸近正規性大標本で正規分布っぽくなる" class="nav-link" data-scroll-target="#漸近正規性大標本で正規分布っぽくなる">4. 漸近正規性（大標本で正規分布っぽくなる）</a></li>
+  <li><a href="#一致性サンプルが増えると真値に近づく" id="toc-一致性サンプルが増えると真値に近づく" class="nav-link" data-scroll-target="#一致性サンプルが増えると真値に近づく">3. 一致性（サンプルが増えると真値に近づく）</a>
+  <ul class="collapse">
+  <li><a href="#図で見る一致性1サンプルを1つずつ足したときの-ols-の軌跡" id="toc-図で見る一致性1サンプルを1つずつ足したときの-ols-の軌跡" class="nav-link" data-scroll-target="#図で見る一致性1サンプルを1つずつ足したときの-ols-の軌跡">図で見る一致性(1)：サンプルを1つずつ足したときの OLS の軌跡</a></li>
+  <li><a href="#図で見る一致性2その軌跡を何度も重ねる" id="toc-図で見る一致性2その軌跡を何度も重ねる" class="nav-link" data-scroll-target="#図で見る一致性2その軌跡を何度も重ねる">図で見る一致性(2)：その軌跡を何度も重ねる</a></li>
+  </ul></li>
+  <li><a href="#漸近正規性大標本で正規分布っぽくなる" id="toc-漸近正規性大標本で正規分布っぽくなる" class="nav-link" data-scroll-target="#漸近正規性大標本で正規分布っぽくなる">4. 漸近正規性（大標本で正規分布っぽくなる）</a>
+  <ul class="collapse">
+  <li><a href="#図で見る漸近正規性標準化した推定誤差の分布" id="toc-図で見る漸近正規性標準化した推定誤差の分布" class="nav-link" data-scroll-target="#図で見る漸近正規性標準化した推定誤差の分布">図で見る漸近正規性：標準化した推定誤差の分布</a></li>
+  </ul></li>
   </ul></li>
   <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ">まとめ</a></li>
   <li><a href="#宿題" id="toc-宿題" class="nav-link" data-scroll-target="#宿題">宿題</a></li>
@@ -2117,6 +2124,102 @@ E[\tilde\sigma^2\mid x]=\frac{n-2}{n}\sigma^2
 </ul>
 <p>というイメージで理解してよい。</p>
 <p>今の知識で一致性の主張を正確に理解することは無理なので、<strong>データがいっぱいあると平均的にどころか、確実に真のパラメータの値に近くなる</strong>と思っておこう。</p>
+<section id="図で見る一致性1サンプルを1つずつ足したときの-ols-の軌跡" class="level3">
+<h3 class="anchored" data-anchor-id="図で見る一致性1サンプルを1つずつ足したときの-ols-の軌跡">図で見る一致性(1)：サンプルを1つずつ足したときの OLS の軌跡</h3>
+<p>まずは1回の標本抽出について、サンプルを1つずつ追加しながら、そのたびに OLS の傾き推定量 <span class="math inline">\hat\beta_1^{(n)}</span> を計算してみる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>n_path <span class="ot">&lt;-</span> <span class="dv">200</span></span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>x_path <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_path)</span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>u_path <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_path)</span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>y_path <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x_path <span class="sc">+</span> u_path</span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a>n_seq <span class="ot">&lt;-</span> <span class="dv">3</span><span class="sc">:</span>n_path</span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a>b_path <span class="ot">&lt;-</span> <span class="fu">numeric</span>(<span class="fu">length</span>(n_seq))</span>
+<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-11"><a href="#cb36-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (j <span class="cf">in</span> <span class="fu">seq_along</span>(n_seq)) {</span>
+<span id="cb36-12"><a href="#cb36-12" aria-hidden="true" tabindex="-1"></a>  nn <span class="ot">&lt;-</span> n_seq[j]</span>
+<span id="cb36-13"><a href="#cb36-13" aria-hidden="true" tabindex="-1"></a>  b_path[j] <span class="ot">&lt;-</span> <span class="fu">coef</span>(<span class="fu">lm</span>(y_path[<span class="dv">1</span><span class="sc">:</span>nn] <span class="sc">~</span> x_path[<span class="dv">1</span><span class="sc">:</span>nn]))[<span class="dv">2</span>]</span>
+<span id="cb36-14"><a href="#cb36-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb36-15"><a href="#cb36-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-16"><a href="#cb36-16" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(n_seq, b_path, <span class="at">type =</span> <span class="st">"l"</span>, <span class="at">lwd =</span> <span class="dv">2</span>,</span>
+<span id="cb36-17"><a href="#cb36-17" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Sample size n"</span>,</span>
+<span id="cb36-18"><a href="#cb36-18" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="fu">expression</span>(<span class="fu">hat</span>(beta)[<span class="dv">1</span>]<span class="sc">^</span>{(n)}),</span>
+<span id="cb36-19"><a href="#cb36-19" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Consistency: one sample path"</span>)</span>
+<span id="cb36-20"><a href="#cb36-20" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">h =</span> beta1, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb36-21"><a href="#cb36-21" aria-hidden="true" tabindex="-1"></a><span class="fu">text</span>(<span class="dv">170</span>, beta1 <span class="sc">+</span> <span class="fl">0.07</span>,</span>
+<span id="cb36-22"><a href="#cb36-22" aria-hidden="true" tabindex="-1"></a>     <span class="at">labels =</span> <span class="fu">bquote</span>(<span class="st">"true value: "</span> <span class="sc">*</span> beta[<span class="dv">1</span>] <span class="sc">==</span> .(beta1)),</span>
+<span id="cb36-23"><a href="#cb36-23" aria-hidden="true" tabindex="-1"></a>     <span class="at">pos =</span> <span class="dv">4</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid figure-img" width="768"></p>
+<figcaption>一致性のイメージ：サンプルを1つずつ追加したときの OLS 推定量の軌跡</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>この図では、最初のうちは推定量がかなり大きく動く。しかし <span class="math inline">n</span> が増えるにつれて、推定量は真の値 <span class="math inline">\beta_1</span> の近くで落ち着いていく。これが一致性の一番素朴なイメージである。</p>
+</section>
+<section id="図で見る一致性2その軌跡を何度も重ねる" class="level3">
+<h3 class="anchored" data-anchor-id="図で見る一致性2その軌跡を何度も重ねる">図で見る一致性(2)：その軌跡を何度も重ねる</h3>
+<p>次に、上と同じことを何度も繰り返して、たくさんのサンプルパスを重ねてみる。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>R_path <span class="ot">&lt;-</span> <span class="dv">80</span></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>n_path <span class="ot">&lt;-</span> <span class="dv">200</span></span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>n_min_plot <span class="ot">&lt;-</span> <span class="dv">10</span></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>n_seq <span class="ot">&lt;-</span> n_min_plot<span class="sc">:</span>n_path</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>paths <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="cn">NA_real_</span>, <span class="at">nrow =</span> R_path, <span class="at">ncol =</span> <span class="fu">length</span>(n_seq))</span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R_path) {</span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a>  x_now <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_path)</span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>  u_now <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_path)</span>
+<span id="cb37-12"><a href="#cb37-12" aria-hidden="true" tabindex="-1"></a>  y_now <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x_now <span class="sc">+</span> u_now</span>
+<span id="cb37-13"><a href="#cb37-13" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb37-14"><a href="#cb37-14" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="fu">seq_along</span>(n_seq)) {</span>
+<span id="cb37-15"><a href="#cb37-15" aria-hidden="true" tabindex="-1"></a>    nn <span class="ot">&lt;-</span> n_seq[j]</span>
+<span id="cb37-16"><a href="#cb37-16" aria-hidden="true" tabindex="-1"></a>    paths[r, j] <span class="ot">&lt;-</span> <span class="fu">coef</span>(<span class="fu">lm</span>(y_now[<span class="dv">1</span><span class="sc">:</span>nn] <span class="sc">~</span> x_now[<span class="dv">1</span><span class="sc">:</span>nn]))[<span class="dv">2</span>]</span>
+<span id="cb37-17"><a href="#cb37-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb37-18"><a href="#cb37-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb37-19"><a href="#cb37-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-20"><a href="#cb37-20" aria-hidden="true" tabindex="-1"></a>mean_path <span class="ot">&lt;-</span> <span class="fu">colMeans</span>(paths)</span>
+<span id="cb37-21"><a href="#cb37-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-22"><a href="#cb37-22" aria-hidden="true" tabindex="-1"></a>plot_limits <span class="ot">&lt;-</span> <span class="fu">quantile</span>(<span class="fu">as.vector</span>(paths), <span class="at">probs =</span> <span class="fu">c</span>(<span class="fl">0.005</span>, <span class="fl">0.995</span>), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb37-23"><a href="#cb37-23" aria-hidden="true" tabindex="-1"></a>y_lim <span class="ot">&lt;-</span> <span class="fu">range</span>(plot_limits, beta1)</span>
+<span id="cb37-24"><a href="#cb37-24" aria-hidden="true" tabindex="-1"></a>y_lim <span class="ot">&lt;-</span> y_lim <span class="sc">+</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">*</span> <span class="fl">0.08</span> <span class="sc">*</span> <span class="fu">diff</span>(y_lim)</span>
+<span id="cb37-25"><a href="#cb37-25" aria-hidden="true" tabindex="-1"></a>paths_for_plot <span class="ot">&lt;-</span> paths</span>
+<span id="cb37-26"><a href="#cb37-26" aria-hidden="true" tabindex="-1"></a>paths_for_plot[paths_for_plot <span class="sc">&lt;</span> y_lim[<span class="dv">1</span>] <span class="sc">|</span> paths_for_plot <span class="sc">&gt;</span> y_lim[<span class="dv">2</span>]] <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb37-27"><a href="#cb37-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-28"><a href="#cb37-28" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">range</span>(n_seq), y_lim, <span class="at">type =</span> <span class="st">"n"</span>,</span>
+<span id="cb37-29"><a href="#cb37-29" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Sample size n"</span>,</span>
+<span id="cb37-30"><a href="#cb37-30" aria-hidden="true" tabindex="-1"></a>     <span class="at">ylab =</span> <span class="fu">expression</span>(<span class="fu">hat</span>(beta)[<span class="dv">1</span>]<span class="sc">^</span>{(n)}),</span>
+<span id="cb37-31"><a href="#cb37-31" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Consistency: many sample paths"</span>)</span>
+<span id="cb37-32"><a href="#cb37-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-33"><a href="#cb37-33" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R_path) {</span>
+<span id="cb37-34"><a href="#cb37-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lines</span>(n_seq, paths_for_plot[r, ], <span class="at">col =</span> <span class="fu">rgb</span>(<span class="fl">0.2</span>, <span class="fl">0.5</span>, <span class="fl">0.9</span>, <span class="fl">0.15</span>), <span class="at">lwd =</span> <span class="dv">1</span>)</span>
+<span id="cb37-35"><a href="#cb37-35" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb37-36"><a href="#cb37-36" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(n_seq, mean_path, <span class="at">lwd =</span> <span class="dv">3</span>, <span class="at">col =</span> <span class="st">"blue4"</span>)</span>
+<span id="cb37-37"><a href="#cb37-37" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">h =</span> beta1, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">col =</span> <span class="st">"blue4"</span>)</span>
+<span id="cb37-38"><a href="#cb37-38" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topright"</span>,</span>
+<span id="cb37-39"><a href="#cb37-39" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"replication"</span>, <span class="st">"mean"</span>, <span class="st">"true value"</span>),</span>
+<span id="cb37-40"><a href="#cb37-40" aria-hidden="true" tabindex="-1"></a>       <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">2</span>),</span>
+<span id="cb37-41"><a href="#cb37-41" aria-hidden="true" tabindex="-1"></a>       <span class="at">lwd =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">2</span>),</span>
+<span id="cb37-42"><a href="#cb37-42" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="fl">0.2</span>, <span class="fl">0.5</span>, <span class="fl">0.9</span>, <span class="fl">0.35</span>), <span class="st">"blue4"</span>, <span class="st">"blue4"</span>),</span>
+<span id="cb37-43"><a href="#cb37-43" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" width="768"></p>
+<figcaption>一致性のイメージ：多数の反復でみた OLS 推定量の軌跡</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>たくさんの反復を重ねると、初期にはかなりバラついていた軌跡が、<span class="math inline">n</span> が大きくなるにつれて真の値の近くに集まっていく。これが「確率的に真値へ近づく」という一致性の意味である。なお、図を見やすくするため、ここでは <span class="math inline">n=10</span> 以降を表示し、上下に極端な一部の線分は表示から外している。</p>
+</section>
 </section>
 <section id="漸近正規性大標本で正規分布っぽくなる" class="level2">
 <h2 class="anchored" data-anchor-id="漸近正規性大標本で正規分布っぽくなる">4. 漸近正規性（大標本で正規分布っぽくなる）</h2>
@@ -2132,6 +2235,69 @@ E[\tilde\sigma^2\mid x]=\frac{n-2}{n}\sigma^2
 </ul>
 <p>といった推論（inference）ができる。</p>
 <p>今の知識で漸近正規性の主張を正確に理解することは無理なので、<strong>データがいっぱいあるとOLSと真のパラメータのズレは正規分布に従う</strong>と思っておこう。</p>
+<section id="図で見る漸近正規性標準化した推定誤差の分布" class="level3">
+<h3 class="anchored" data-anchor-id="図で見る漸近正規性標準化した推定誤差の分布">図で見る漸近正規性：標準化した推定誤差の分布</h3>
+<p>漸近正規性を見るには、<span class="math inline">\hat\beta_1</span> そのものではなく、</p>
+<p><span class="math display">
+Z_n = \sqrt{n}(\hat\beta_1-\beta_1)
+</span></p>
+<p>を何度も計算して、その分布を見るのが自然である。下の図では、標本サイズを大きくしながら、分布の形が正規分布に近づいていく様子を並べている。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">202</span>)</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>R_asym <span class="ot">&lt;-</span> <span class="dv">2000</span></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>n_grid <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">20</span>, <span class="dv">80</span>, <span class="dv">400</span>)</span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>z_list <span class="ot">&lt;-</span> <span class="fu">vector</span>(<span class="st">"list"</span>, <span class="fu">length</span>(n_grid))</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (k <span class="cf">in</span> <span class="fu">seq_along</span>(n_grid)) {</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a>  n_asym <span class="ot">&lt;-</span> n_grid[k]</span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a>  z_now <span class="ot">&lt;-</span> <span class="fu">numeric</span>(R_asym)</span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>R_asym) {</span>
+<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a>    x_now <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_asym)</span>
+<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a>    u_now <span class="ot">&lt;-</span> <span class="fu">rexp</span>(n_asym, <span class="at">rate =</span> <span class="dv">1</span>) <span class="sc">-</span> <span class="dv">1</span></span>
+<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a>    y_now <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x_now <span class="sc">+</span> u_now</span>
+<span id="cb38-15"><a href="#cb38-15" aria-hidden="true" tabindex="-1"></a>    b_hat_now <span class="ot">&lt;-</span> <span class="fu">coef</span>(<span class="fu">lm</span>(y_now <span class="sc">~</span> x_now))[<span class="dv">2</span>]</span>
+<span id="cb38-16"><a href="#cb38-16" aria-hidden="true" tabindex="-1"></a>    z_now[r] <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(n_asym) <span class="sc">*</span> (b_hat_now <span class="sc">-</span> beta1)</span>
+<span id="cb38-17"><a href="#cb38-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb38-18"><a href="#cb38-18" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb38-19"><a href="#cb38-19" aria-hidden="true" tabindex="-1"></a>  z_list[[k]] <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">scale</span>(z_now))</span>
+<span id="cb38-20"><a href="#cb38-20" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb38-21"><a href="#cb38-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-22"><a href="#cb38-22" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">2</span>), <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">3</span>, <span class="dv">1</span>))</span>
+<span id="cb38-23"><a href="#cb38-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-24"><a href="#cb38-24" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (k <span class="cf">in</span> <span class="fu">seq_along</span>(n_grid)) {</span>
+<span id="cb38-25"><a href="#cb38-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">hist</span>(z_list[[k]], <span class="at">breaks =</span> <span class="dv">35</span>, <span class="at">freq =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb38-26"><a href="#cb38-26" aria-hidden="true" tabindex="-1"></a>       <span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">4</span>, <span class="dv">4</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.45</span>),</span>
+<span id="cb38-27"><a href="#cb38-27" aria-hidden="true" tabindex="-1"></a>       <span class="at">main =</span> <span class="fu">paste0</span>(<span class="st">"n = "</span>, n_grid[k]),</span>
+<span id="cb38-28"><a href="#cb38-28" aria-hidden="true" tabindex="-1"></a>       <span class="at">xlab =</span> <span class="st">"standardized estimation error"</span>)</span>
+<span id="cb38-29"><a href="#cb38-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">curve</span>(<span class="fu">dnorm</span>(x), <span class="at">from =</span> <span class="sc">-</span><span class="dv">4</span>, <span class="at">to =</span> <span class="dv">4</span>, <span class="at">add =</span> <span class="cn">TRUE</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb38-30"><a href="#cb38-30" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="lecture3_revised_files/figure-html/unnamed-chunk-23-1.png" class="img-fluid figure-img" width="960"></p>
+<figcaption>漸近正規性のイメージ：標本サイズが大きくなるにつれて標準化した推定誤差の分布が正規分布に近づく</figcaption>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>左上から右下に向かって <span class="math inline">n</span> が大きくなる。小さい <span class="math inline">n</span> では歪みや裾の厚さが残るが、<span class="math inline">n</span> が大きくなるにつれて、ヒストグラムが重ねた正規分布の曲線に近づいていく。これが「大標本では正規分布で近似できる」という漸近正規性のイメージである。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="補足">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>補足
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>ここでは分かりやすさのために、各 <span class="math inline">n</span> でシミュレーションした <span class="math inline">Z_n = \sqrt{n}(\hat\beta_1-\beta_1)</span> の平均と標準偏差をそろえてから図示している。実際の推論では、推定した標準誤差で割った統計量を使って信頼区間や検定を行う。</p>
+</div>
+</div>
+</section>
 </section>
 </section>
 <section id="まとめ" class="level1">
