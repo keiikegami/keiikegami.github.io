@@ -173,7 +173,7 @@ $$
 さらに正規分布のモーメント公式より，任意の $p\ge1$ に対して
 
 $$
-E[|X_n|^p] = C_p, n^{-p/2}
+E[|X_n|^p] = C_p n^{-p/2}
 \to 0
 $$
 
@@ -210,6 +210,56 @@ $$
 
 したがってこの例でも，適切に同じ確率空間上に構成すれば，4つの収束概念がすべて成り立つ。
 
+##### 図示と simulation
+
+$n$ が大きくなるにつれて，$N(0,1/n)$ の分布が 0 の近くに鋭く集中していく様子を描いてみる。
+
+```{r}
+set.seed(123)
+
+n_vec <- c(1, 2, 5, 10, 50, 100, 500)
+B <- 5000
+
+oldpar <- par(no.readonly = TRUE)
+par(mfrow = c(3, 3))
+
+for (n in n_vec) {
+  x <- rnorm(B, mean = 0, sd = 1 / sqrt(n))
+  hist(x, breaks = 40,
+       main = paste0("n = ", n),
+       xlab = "X_n",
+       probability = TRUE)
+}
+
+par(oldpar)
+```
+
+さらに
+
+$$
+P(|X_n|>\varepsilon)
+$$
+
+を実際に推定してみると，0 に近づくことが確認できる。
+
+```{r}
+set.seed(123)
+
+n_grid <- seq(1, 300, by = 5)
+B <- 10000
+eps <- 0.5
+
+prob_est <- sapply(n_grid, function(n) {
+  x <- rnorm(B, mean = 0, sd = 1 / sqrt(n))
+  mean(abs(x) > eps)
+})
+
+plot(n_grid, prob_est, type = "b",
+     xlab = "n",
+     ylab = paste0("Estimated P(|X_n| > ", eps, ")"),
+     main = "For X_n ~ N(0, 1/n), tail probability goes to 0")
+```
+
 #### 例3：確率収束するが，概収束しない例
 
 収束概念の違いが初めて見える典型例として，いわゆる \textbf{typewriter sequence} を考える。
@@ -222,18 +272,36 @@ $$
 $$
 n = 2^m + k
 \qquad
-(m\ge 0,; 0\le k\le 2^m-1)
+(m\ge 0,\; 0\le k\le 2^m-1)
 $$
 
 と書き，そのとき
 
 $$
-X_n(\omega) = \mathbf 1_{\left[k/2^m,,(k+1)/2^m\right)}(\omega)
+X_n(\omega) = \mathbf 1_{\left[k/2^m,\,(k+1)/2^m\right)}(\omega)
 $$
 
 とする。
 
 つまり，長さ $2^{-m}$ の区間を左から順に走査するように 1 と 0 が現れる列になっている。
+
+小さい $n$ で具体的に書くと，次のようになる。
+
+$$
+\begin{aligned}
+X_1(\omega) &= \mathbf 1_{[0,1)}(\omega),\\
+X_2(\omega) &= \mathbf 1_{[0,1/2)}(\omega),&
+X_3(\omega) &= \mathbf 1_{[1/2,1)}(\omega),\\
+X_4(\omega) &= \mathbf 1_{[0,1/4)}(\omega),&
+X_5(\omega) &= \mathbf 1_{[1/4,1/2)}(\omega),\\
+X_6(\omega) &= \mathbf 1_{[1/2,3/4)}(\omega),&
+X_7(\omega) &= \mathbf 1_{[3/4,1)}(\omega),\\
+X_8(\omega) &= \mathbf 1_{[0,1/8)}(\omega),&
+X_9(\omega) &= \mathbf 1_{[1/8,1/4)}(\omega).
+\end{aligned}
+$$
+
+つまり第 $m$ ブロックでは，幅 $2^{-m}$ の窓が $[0,1)$ の上を左から右に動く。ブロックが進むと窓は細くなるが，固定した $\omega$ から見ると各ブロックで一度はその窓が自分の上を通る。
 
 このとき各 $n$ について
 
@@ -281,6 +349,74 @@ X_n\not\to 0 \text{ a.s.}
 $$
 
 となる代表例である。
+
+##### 図示と simulation
+
+まず，最初のいくつかの $X_n$ を関数として描く。
+
+```{r}
+typewriter_interval <- function(n) {
+  m <- floor(log2(n))
+  k <- n - 2^m
+  c(left = k / 2^m, right = (k + 1) / 2^m, m = m, k = k)
+}
+
+typewriter_value <- function(n, omega) {
+  interval <- typewriter_interval(n)
+  as.numeric(omega >= interval["left"] & omega < interval["right"])
+}
+
+xgrid <- seq(0, 1, length.out = 1000)
+n_show <- 1:12
+
+oldpar <- par(no.readonly = TRUE)
+par(mfrow = c(4, 3), mar = c(3, 3, 2, 1))
+
+for (n in n_show) {
+  y <- typewriter_value(n, xgrid)
+  interval <- typewriter_interval(n)
+  plot(xgrid, y, type = "l", lwd = 2,
+       ylim = c(0, 1.1),
+       main = paste0("n=", n, " [",
+                     interval["left"], ", ", interval["right"], ")"),
+       xlab = "", ylab = "")
+}
+
+par(oldpar)
+```
+
+次に，固定した $\omega$ ごとに $X_n(\omega)$ を見る。各 $\omega$ について，0 に落ち着くのではなく，1 が何度も現れる。
+
+```{r}
+N <- 64
+omega_list <- c(0.12, 0.37, 0.63)
+
+mat <- sapply(omega_list, function(w) {
+  sapply(1:N, function(n) typewriter_value(n, w))
+})
+
+matplot(1:N, mat, type = "s", lty = 1, lwd = 2,
+        xlab = "n", ylab = "X_n(omega)",
+        main = "Typewriter sequence for fixed omega")
+legend("topright",
+       legend = paste0("omega = ", omega_list),
+       lty = 1, lwd = 2, bty = "n")
+```
+
+一方で，$P(X_n=1)$ はブロックが進むほど小さくなる。
+
+```{r}
+n_grid <- 1:200
+
+prob_one <- sapply(n_grid, function(n) {
+  interval <- typewriter_interval(n)
+  interval["right"] - interval["left"]
+})
+
+plot(n_grid, prob_one, type = "s",
+     xlab = "n", ylab = "P(X_n = 1)",
+     main = "In the typewriter sequence, P(X_n=1) goes to 0")
+```
 
 #### 例4：法則収束するが，確率収束しない例
 
@@ -335,6 +471,51 @@ $$
 
 このことから，法則収束は非常に弱い収束概念であり，分布の形が近づくことしか言っていないことがわかる。
 
+##### 小さい $n$ での見え方と simulation
+
+この例では，$n$ が変わっても各 $X_n$ の分布はずっと同じである。たとえば $n=1,2,3,4$ についても
+
+$$
+P(X_n=0)=P(X_n=1)=\frac12
+$$
+
+であり，分布表はすべて
+
+| value | 0 | 1 |
+|---:|---:|---:|
+| probability | $1/2$ | $1/2$ |
+
+である。したがって分布だけを見ると $X_1,X_2,X_3,\dots$ は全く変わっていない。しかし同じ $\omega$ に沿って実現値を見ると，0 と 1 が不規則に現れ続ける。
+
+```{r}
+set.seed(123)
+
+N <- 200
+x <- rbinom(N, size = 1, prob = 0.5)
+y <- rbinom(N, size = 1, prob = 0.5)
+
+plot(1:N, x, type = "s", ylim = c(-0.1, 1.1),
+     xlab = "n", ylab = "value",
+     main = "Two Bernoulli(1/2) sequences")
+lines(1:N, y, type = "s", lty = 2)
+legend("topright", legend = c("X_n", "X"),
+       lty = c(1, 2), bty = "n")
+```
+
+両者は同じ分布を持つので，分布の意味では全く同じである。しかし実現値としては一致し続けるわけではない。
+
+```{r}
+set.seed(123)
+
+B <- 100000
+x <- rbinom(B, size = 1, prob = 0.5)
+y <- rbinom(B, size = 1, prob = 0.5)
+
+mean(abs(x - y) > 0.5)
+```
+
+この値は $P(X_n\neq X)=1/2$ のシミュレーション近似であり，0 に近づくものではない。
+
 #### 例5：確率収束するが $L^1$ 収束しない例
 
 次に，確率収束はするが平均の意味では収束しない例を挙げる。
@@ -380,6 +561,65 @@ $$
 
 この例は，大きな値を取る確率は小さいが，たまに非常に大きな値を取るために，平均の意味では消えてくれない状況を表している。
 
+##### 小さい $n$ での見え方と simulation
+
+具体的には，
+
+$$
+\begin{array}{c|cc}
+n & X_n=0 & X_n=n\\
+\hline
+2 & 1/2 & 1/2\\
+3 & 2/3 & 1/3\\
+4 & 3/4 & 1/4\\
+5 & 4/5 & 1/5\\
+10 & 9/10 & 1/10
+\end{array}
+$$
+
+である。$n$ が大きいほど 0 を取る確率は高くなるので，確率収束の意味では 0 に近づいている。しかし，非ゼロになったときの値も $n$ に大きくなるので，期待値は消えない。
+
+```{r}
+set.seed(123)
+
+sample_Xn <- function(n, B = 10000) {
+  u <- runif(B)
+  ifelse(u <= 1/n, n, 0)
+}
+
+n_grid <- c(2, 5, 10, 20, 50, 100, 200)
+prob_nonzero <- numeric(length(n_grid))
+mean_abs <- numeric(length(n_grid))
+
+for (i in seq_along(n_grid)) {
+  n <- n_grid[i]
+  x <- sample_Xn(n)
+  prob_nonzero[i] <- mean(x != 0)
+  mean_abs[i] <- mean(abs(x))
+}
+
+oldpar <- par(no.readonly = TRUE)
+par(mfrow = c(1, 2))
+
+plot(n_grid, prob_nonzero, type = "b",
+     xlab = "n", ylab = "P(X_n != 0)",
+     main = "Probability of nonzero value")
+
+plot(n_grid, mean_abs, type = "b",
+     xlab = "n", ylab = "E[|X_n|] (simulated)",
+     main = "Mean absolute value stays around 1")
+abline(h = 1, lty = 2)
+
+par(oldpar)
+```
+
+この例では
+
+* $P(X_n\neq 0)=1/n\to 0$ なので確率収束はする
+* しかし $E|X_n|=1$ のままなので $L^1$ 収束はしない
+
+という違いがはっきり見える。
+
 #### 例6：$L^p$ 収束すれば確率収束することの直感
 
 最後に，$L^p$ 収束がかなり強い条件であることを確認しておく。
@@ -408,192 +648,56 @@ $$
 
 この含意は一般に成り立つが，逆は例5で見たように成り立たない。
 
+##### 具体例と simulation
 
-### simulation で見てみる
-
-以下では，上の例のうち simulation しやすいものをいくつか実際に描いてみる。
-
-#### 例2の simulation：$N(0,1/n)$ は 0 に集中していく
-
-```{r}
-set.seed(123)
-
-n_vec <- c(1, 2, 5, 10, 50, 100, 500)
-B <- 5000
-
-par(mfrow = c(3, 3))
-
-for (n in n_vec) {
-  x <- rnorm(B, mean = 0, sd = 1 / sqrt(n))
-  hist(x, breaks = 40,
-       main = paste0("n = ", n),
-       xlab = "X_n",
-       probability = TRUE)
-}
-```
-
-$n$ が大きくなるにつれて，分布が 0 の近くに鋭く集中していく様子が見える。
-これは少なくとも確率収束や法則収束の直感に対応している。
-
-さらに
+たとえば
 
 $$
-P(|X_n|>\varepsilon)
+X_n =
+\begin{cases}
+1 & \text{確率 } 1/n^2,\\
+0 & \text{確率 } 1-1/n^2
+\end{cases}
 $$
 
-を実際に推定してみると，0 に近づくことが確認できる。
+とおく。このとき
+
+$$
+E[|X_n|^p]=\frac{1}{n^2}\to 0
+$$
+
+なので，任意の $p\ge 1$ について $X_n\xrightarrow{L^p}0$ である。小さい $n$ では，
+
+$$
+\begin{array}{c|cc}
+n & X_n=0 & X_n=1\\
+\hline
+1 & 0 & 1\\
+2 & 3/4 & 1/4\\
+3 & 8/9 & 1/9\\
+4 & 15/16 & 1/16\\
+5 & 24/25 & 1/25
+\end{array}
+$$
+
+となる。非ゼロの値そのものは 1 のままだが，その確率が十分速く小さくなるので，平均的な大きさも確率的なずれも同時に消える。
 
 ```{r}
-set.seed(123)
+n_grid <- 1:100
+lp_moment <- 1 / n_grid^2
+tail_prob <- 1 / n_grid^2
+markov_bound <- lp_moment / 0.5
 
-n_grid <- seq(1, 300, by = 5)
-B <- 10000
-eps <- 0.5
-
-prob_est <- sapply(n_grid, function(n) {
-  x <- rnorm(B, mean = 0, sd = 1 / sqrt(n))
-  mean(abs(x) > eps)
-})
-
-plot(n_grid, prob_est, type = "b",
-     xlab = "n",
-     ylab = paste0("Estimated P(|X_n| > ", eps, ")"),
-     main = "For X_n ~ N(0, 1/n), tail probability goes to 0")
-```
-
-
-#### 例3の simulation：確率収束するが概収束しない例
-
-typewriter sequence を少し可視化してみる。
-
-```{r}
-typewriter_value <- function(n, omega) {
-  m <- floor(log2(n))
-  k <- n - 2^m
-  left <- k / 2^m
-  right <- (k + 1) / 2^m
-  as.numeric(omega >= left & omega < right)
-}
-
-N <- 64
-omega_list <- c(0.12, 0.37, 0.63)
-
-mat <- sapply(omega_list, function(w) {
-  sapply(1:N, function(n) typewriter_value(n, w))
-})
-
-matplot(1:N, mat, type = "s", lty = 1, lwd = 2,
-        xlab = "n", ylab = "X_n(omega)",
-        main = "Typewriter sequence for fixed omega")
+plot(n_grid, tail_prob, type = "l", lwd = 2,
+     xlab = "n", ylab = "probability / bound",
+     main = "L^1 control implies probability control")
+lines(n_grid, markov_bound, lty = 2, lwd = 2)
 legend("topright",
-       legend = paste0("omega = ", omega_list),
-       lty = 1, lwd = 2, bty = "n")
+       legend = c("P(|X_n| > 0.5)", "E|X_n| / 0.5"),
+       lty = c(1, 2), lwd = 2, bty = "n")
 ```
 
-各 $\omega$ について，列 $X_n(\omega)$ は 0 に落ち着くのではなく，0 と 1 を行き来し続ける。
-したがって概収束はしない。
-
-一方で，$P(X_n=1)$ は小さくなっていくので，確率収束は成り立つ。これも数値的に確認できる。
-
-```{r}
-n_grid <- 1:200
-
-prob_one <- sapply(n_grid, function(n) {
-  m <- floor(log2(n))
-  1 / (2^m)
-})
-
-plot(n_grid, prob_one, type = "s",
-     xlab = "n", ylab = "P(X_n = 1)",
-     main = "In the typewriter sequence, P(X_n=1) goes to 0")
-```
-
-
-#### 例4の simulation：法則収束するが確率収束しない例
-
-各 $X_n$ が毎回 Bernoulli$(1/2)$ で，同じ分布を持つ例を見る。
-
-```{r}
-set.seed(123)
-
-N <- 200
-x <- rbinom(N, size = 1, prob = 0.5)
-y <- rbinom(N, size = 1, prob = 0.5)
-
-plot(1:N, x, type = "s", ylim = c(-0.1, 1.1),
-     xlab = "n", ylab = "value",
-     main = "Two Bernoulli(1/2) sequences")
-lines(1:N, y, type = "s", lty = 2)
-legend("topright", legend = c("X_n", "X"),
-       lty = c(1, 2), bty = "n")
-```
-
-両者は同じ分布を持つので，分布の意味では全く同じである。しかし実現値としては一致し続けるわけではない。
-
-実際，
-
-$$
-P(X_n\neq X)=\frac12
-$$
-
-なので，たとえば $\varepsilon=1/2$ に対して
-
-$$
-P(|X_n-X|>\varepsilon)=\frac12
-$$
-
-であり，確率収束はしない。
-
-```{r}
-set.seed(123)
-
-B <- 100000
-x <- rbinom(B, size = 1, prob = 0.5)
-y <- rbinom(B, size = 1, prob = 0.5)
-
-mean(abs(x - y) > 0.5)
-```
-
-
-#### 例5の simulation：確率収束するが $L^1$ 収束しない例
-
-```{r}
-set.seed(123)
-
-sample_Xn <- function(n, B = 10000) {
-  u <- runif(B)
-  ifelse(u <= 1/n, n, 0)
-}
-
-n_grid <- c(2, 5, 10, 20, 50, 100, 200)
-prob_nonzero <- numeric(length(n_grid))
-mean_abs <- numeric(length(n_grid))
-
-for (i in seq_along(n_grid)) {
-  n <- n_grid[i]
-  x <- sample_Xn(n)
-  prob_nonzero[i] <- mean(x != 0)
-  mean_abs[i] <- mean(abs(x))
-}
-
-par(mfrow = c(1, 2))
-
-plot(n_grid, prob_nonzero, type = "b",
-     xlab = "n", ylab = "P(X_n != 0)",
-     main = "Probability of nonzero value")
-
-plot(n_grid, mean_abs, type = "b",
-     xlab = "n", ylab = "E[|X_n|] (simulated)",
-     main = "Mean absolute value stays around 1")
-abline(h = 1, lty = 2)
-```
-
-この例では
-
-* $P(X_n\neq 0)=1/n\to 0$ なので確率収束はする
-* しかし $E|X_n|=1$ のままなので $L^1$ 収束はしない
-
-という違いがはっきり見える。
+この図では，実際の tail probability と Markov の不等式による上界がどちらも 0 に向かっている。
 
 
 ## ここまでの例からわかること
@@ -777,10 +881,6 @@ $$
 $$
 
 である。したがって $X_n\xrightarrow{P}X$ が従う。$\square$
-
-
-以下，そのままコピペできる形で，**元の文章に図と simulation を自然に差し込んだ版**をまとめて出す。
-
 
 ## 逆は一般には成り立たない
 
