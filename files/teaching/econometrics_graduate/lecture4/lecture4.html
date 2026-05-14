@@ -20,6 +20,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -99,8 +134,8 @@ window.Quarto = {
 <p>特に条件付き期待値なんて簡単なオブジェクトだと思われているのではないだろうか。</p>
 <p>それは以下の素朴な定義で十分な状況しか見たことがないからである。</p>
 <p><strong>素朴な定義</strong></p>
-<p>確率空間 <span class="math inline">\((\Omega, \mathcal F, P)\)</span>に対して、事象 <span class="math inline">\(A,B\in \mathcal F\)</span> を取ってきて、 - <strong>事象Bに条件つけた事象Aの条件付き確率</strong>を <span class="math inline">\(P(A\mid B)\)</span>とかく。この値を <span class="math display">\[
-P(A\mid B) = \frac{P(A\bigcap B)}{B}
+<p>確率空間 <span class="math inline">\((\Omega, \mathcal F, P)\)</span>に対して、事象 <span class="math inline">\(A,B\in \mathcal F\)</span> を取ってきて、<span class="math inline">\(P(B)&gt;0\)</span> とする。 - <strong>事象Bに条件つけた事象Aの条件付き確率</strong>を <span class="math inline">\(P(A\mid B)\)</span>とかく。この値を <span class="math display">\[
+P(A\mid B) = \frac{P(A\bigcap B)}{P(B)}
 \]</span></p>
 <p>と定義する</p>
 <ul>
@@ -340,28 +375,877 @@ Y=g(X_1,X_2,\ldots,X_i)
 </section>
 <section id="条件付き期待値" class="level1">
 <h1>条件付き期待値</h1>
-<p>まずは天下り的に条件付き期待値のフォーマルな定義を与える。直後に確認するように、この定義は最初に書いた「素朴な定義」と特定の条件下では一致する。</p>
-<p>混乱しそうな点を注意しておくと、</p>
+<p>ここからは条件付き期待値を厳密に導入する。</p>
+<p>以下では，実数値確率変数 <span class="math inline">\(X\)</span> は<strong>可積分</strong>，つまり</p>
+<p><span class="math display">\[
+E[|X|] &lt; \infty
+\]</span></p>
+<p>を満たすとする。条件付き期待値は <span class="math inline">\(L^1\)</span> の世界で定義できる。後で見るように，計量経済学的には二乗誤差を扱うので，特に <span class="math inline">\(L^2\)</span> の中での射影として理解することが重要になる。</p>
+<p>混乱しそうな点を注意しておくと，</p>
 <blockquote class="blockquote">
 <p>素朴な定義では「条件付き確率」を定義してからそれを使って「条件付き期待値」を定義していた。</p>
 </blockquote>
 <blockquote class="blockquote">
-<p>フォーマルな定義では逆で、「条件付き期待値」を定義してからそれを使って「条件付き確率」を定義している。</p>
+<p>フォーマルな定義では逆で，「条件付き期待値」を定義してからそれを使って「条件付き確率」を定義している。</p>
 </blockquote>
+<section id="フォーマルな定義" class="level2">
+<h2 class="anchored" data-anchor-id="フォーマルな定義">フォーマルな定義</h2>
+<p>まず，条件をつける対象は「事象」ではなく，「情報」を表す部分 <span class="math inline">\(\sigma\)</span>-加法族 <span class="math inline">\(\mathcal G \subseteq \mathcal F\)</span> である。</p>
 <p><strong>定義(条件付き期待値)</strong></p>
-<p><strong>補題（素朴な定義との一致）</strong></p>
-<section id="参考なぜこの定義存在するのか一意なのか" class="level2">
-<h2 class="anchored" data-anchor-id="参考なぜこの定義存在するのか一意なのか">（参考）なぜこの定義？存在するのか？一意なのか？</h2>
-<p>ラドンニコディムを使う</p>
+<p><span class="math inline">\((\Omega,\mathcal F,P)\)</span> を確率空間，<span class="math inline">\(X\)</span> を可積分な確率変数，<span class="math inline">\(\mathcal G\subseteq\mathcal F\)</span> を部分 <span class="math inline">\(\sigma\)</span>-加法族とする。<br>
+このとき，<span class="math inline">\(\mathcal G\)</span> の下での <span class="math inline">\(X\)</span> の<strong>条件付き期待値</strong> <span class="math inline">\(E[X\mid \mathcal G]\)</span> とは，次の2条件を満たす <span class="math inline">\(\mathcal G\)</span>-可測な確率変数 <span class="math inline">\(Y\)</span> のことである。</p>
+<ol type="1">
+<li><span class="math inline">\(Y\)</span> は <span class="math inline">\(\mathcal G\)</span>-可測である。</li>
+<li>任意の <span class="math inline">\(B\in \mathcal G\)</span> に対して <span class="math display">\[
+E[X1_B] = E[Y1_B]
+\]</span> が成立する。</li>
+</ol>
+<p>このような <span class="math inline">\(Y\)</span> は <span class="math inline">\(P\)</span>-a.s. の意味で一意に定まり，その <span class="math inline">\(a.s.\)</span> 同値類を <span class="math inline">\(E[X\mid \mathcal G]\)</span> と書く。</p>
+<p>この定義の2条件は，それぞれ次の意味をもつ。</p>
+<ul>
+<li><span class="math inline">\(Y\)</span> が <span class="math inline">\(\mathcal G\)</span>-可測であること：<span class="math inline">\(Y\)</span> は「<span class="math inline">\(\mathcal G\)</span> が教えてくれる情報だけで決まる」こと。</li>
+<li><span class="math inline">\(E[X1_B]=E[Y1_B]\)</span> がすべての <span class="math inline">\(B\in\mathcal G\)</span> で成り立つこと：<span class="math inline">\(\mathcal G\)</span> のどの情報集合の上でも，<span class="math inline">\(Y\)</span> は <span class="math inline">\(X\)</span> と同じ平均をもつこと。</li>
+</ul>
+<p>したがって，<span class="math inline">\(E[X\mid \mathcal G]\)</span> は「<span class="math inline">\(\mathcal G\)</span> に含まれる情報だけを使って <span class="math inline">\(X\)</span> を表したときの，平均を保存する確率変数」と読むことができる。</p>
+<p><strong>定義(条件付き確率)</strong></p>
+<p><span class="math inline">\(A\in \mathcal F\)</span> に対して</p>
+<p><span class="math display">\[
+P(A\mid \mathcal G) := E[1_A\mid \mathcal G]
+\]</span></p>
+<p>と定め，これを <span class="math inline">\(\mathcal G\)</span> の下での <span class="math inline">\(A\)</span> の条件付き確率という。</p>
+<p><strong>記法</strong></p>
+<ul>
+<li><span class="math inline">\(E[X\mid Y]\)</span> は <span class="math inline">\(E[X\mid \sigma(Y)]\)</span> の略記である。</li>
+<li>同様に，<span class="math inline">\(P(A\mid Y)\)</span> は <span class="math inline">\(P(A\mid \sigma(Y))\)</span> の略記である。</li>
+</ul>
+<p>つまり，<span class="math inline">\(E[X\mid Y]\)</span> とは本当は「確率変数 <span class="math inline">\(Y\)</span> が生成する情報に条件をつけた期待値」である。</p>
 </section>
-<section id="条件付き期待値の性質と証明" class="level2">
-<h2 class="anchored" data-anchor-id="条件付き期待値の性質と証明">条件付き期待値の性質と証明</h2>
-<p>加法性とか</p>
+<section id="ラドンニコディムの定理による存在と一意性" class="level2">
+<h2 class="anchored" data-anchor-id="ラドンニコディムの定理による存在と一意性">ラドン–ニコディムの定理による存在と一意性</h2>
+<p>上の定義は「そのような <span class="math inline">\(Y\)</span> があれば」という形になっている。したがって，次に確認すべきことは，そのような <span class="math inline">\(Y\)</span> が本当に存在するのか，そして存在するとしたら一意なのかである。</p>
+<p>ここで使うのがラドン–ニコディムの定理である。</p>
+<p><strong>定理(ラドン–ニコディムの定理)</strong></p>
+<p><span class="math inline">\((S,\mathcal A)\)</span> を可測空間とし，<span class="math inline">\(\mu\)</span> を <span class="math inline">\(\sigma\)</span>-有限測度，<span class="math inline">\(\nu\)</span> を <span class="math inline">\(\mu\)</span> に絶対連続な <span class="math inline">\(\sigma\)</span>-有限測度とする。すなわち</p>
+<p><span class="math display">\[
+\mu(A)=0 \quad \Rightarrow \quad \nu(A)=0
+\qquad (A\in\mathcal A)
+\]</span></p>
+<p>が成り立つとする。このとき，非負 <span class="math inline">\(\mathcal A\)</span>-可測関数 <span class="math inline">\(f\)</span> が存在して，任意の <span class="math inline">\(A\in\mathcal A\)</span> に対して</p>
+<p><span class="math display">\[
+\nu(A)=\int_A f\,d\mu
+\]</span></p>
+<p>が成り立つ。この <span class="math inline">\(f\)</span> は <span class="math inline">\(\mu\)</span>-a.e. の意味で一意であり，</p>
+<p><span class="math display">\[
+f=\frac{d\nu}{d\mu}
+\]</span></p>
+<p>と書く。</p>
+<p>この定理を条件付き期待値にどう使うかを見よう。</p>
+<p><strong>定理(条件付き期待値の存在と一意性)</strong></p>
+<p><span class="math inline">\((\Omega,\mathcal F,P)\)</span> を確率空間，<span class="math inline">\(X\)</span> を可積分な確率変数，<span class="math inline">\(\mathcal G\subseteq\mathcal F\)</span> を部分 <span class="math inline">\(\sigma\)</span>-加法族とする。このとき，<span class="math inline">\(E[X\mid\mathcal G]\)</span> は存在し，<span class="math inline">\(P\)</span>-a.s. の意味で一意である。</p>
+<p><strong>証明</strong></p>
+<p>まず <span class="math inline">\(X\)</span> を正部分と負部分に分ける。</p>
+<p><span class="math display">\[
+X^+ := \max\{X,0\},
+\qquad
+X^- := \max\{-X,0\}.
+\]</span></p>
+<p>すると</p>
+<p><span class="math display">\[
+X=X^+-X^-,
+\qquad
+|X|=X^++X^-.
+\]</span></p>
+<p><span class="math inline">\(X\)</span> は可積分なので，<span class="math inline">\(E[X^+]&lt;\infty\)</span> かつ <span class="math inline">\(E[X^-]&lt;\infty\)</span> である。</p>
+<p>ここで <span class="math inline">\(\mathcal G\)</span> 上の2つの有限測度 <span class="math inline">\(\nu^+\)</span> と <span class="math inline">\(\nu^-\)</span> を</p>
+<p><span class="math display">\[
+\nu^+(B):=E[X^+1_B],
+\qquad
+\nu^-(B):=E[X^-1_B],
+\qquad B\in\mathcal G
+\]</span></p>
+<p>で定義する。たとえば <span class="math inline">\(\nu^+\)</span> について確認すると，</p>
+<p><span class="math display">\[
+\nu^+(\emptyset)=0,
+\qquad
+\nu^+(\Omega)=E[X^+]&lt;\infty
+\]</span></p>
+<p>であり，互いに素な <span class="math inline">\(B_1,B_2,\dots\in\mathcal G\)</span> に対しては単調収束定理より</p>
+<p><span class="math display">\[
+\nu^+\left(\bigcup_{j=1}^\infty B_j\right)
+=
+E\left[X^+1_{\cup_j B_j}\right]
+=
+E\left[X^+\sum_{j=1}^\infty 1_{B_j}\right]
+=
+\sum_{j=1}^\infty E[X^+1_{B_j}]
+=
+\sum_{j=1}^\infty \nu^+(B_j)
+\]</span></p>
+<p>が成り立つ。したがって <span class="math inline">\(\nu^+\)</span> は <span class="math inline">\(\mathcal G\)</span> 上の有限測度である。<span class="math inline">\(\nu^-\)</span> も同様である。</p>
+<p>また，<span class="math inline">\(P(B)=0\)</span> なら</p>
+<p><span class="math display">\[
+\nu^+(B)=E[X^+1_B]=0,
+\qquad
+\nu^-(B)=E[X^-1_B]=0
+\]</span></p>
+<p>である。したがって，<span class="math inline">\(\nu^+\)</span> と <span class="math inline">\(\nu^-\)</span> はいずれも <span class="math inline">\(P\)</span> を <span class="math inline">\(\mathcal G\)</span> に制限した測度</p>
+<p><span class="math display">\[
+P_{\mathcal G}(B):=P(B),\qquad B\in\mathcal G
+\]</span></p>
+<p>に絶対連続である。</p>
+<p>ここでラドン–ニコディムの定理を，測度空間 <span class="math inline">\((\Omega,\mathcal G,P_{\mathcal G})\)</span> 上で <span class="math inline">\(\nu^+\)</span> と <span class="math inline">\(\nu^-\)</span> に適用する。すると，非負 <span class="math inline">\(\mathcal G\)</span>-可測関数 <span class="math inline">\(Y^+\)</span> と <span class="math inline">\(Y^-\)</span> が存在して，任意の <span class="math inline">\(B\in\mathcal G\)</span> に対して</p>
+<p><span class="math display">\[
+\nu^+(B)=\int_B Y^+\,dP,
+\qquad
+\nu^-(B)=\int_B Y^-\,dP
+\]</span></p>
+<p>が成り立つ。つまり</p>
+<p><span class="math display">\[
+E[X^+1_B]=E[Y^+1_B],
+\qquad
+E[X^-1_B]=E[Y^-1_B]
+\]</span></p>
+<p>である。さらに</p>
+<p><span class="math display">\[
+E[Y^+]=\nu^+(\Omega)=E[X^+]&lt;\infty,
+\qquad
+E[Y^-]=\nu^-(\Omega)=E[X^-]&lt;\infty
+\]</span></p>
+<p>なので，<span class="math inline">\(Y^+\)</span> と <span class="math inline">\(Y^-\)</span> は可積分である。</p>
+<p>そこで</p>
+<p><span class="math display">\[
+Y:=Y^+-Y^-
+\]</span></p>
+<p>とおく。<span class="math inline">\(Y\)</span> は <span class="math inline">\(\mathcal G\)</span>-可測かつ可積分であり，任意の <span class="math inline">\(B\in\mathcal G\)</span> に対して</p>
+<p><span class="math display">\[
+E[Y1_B]
+=
+E[Y^+1_B]-E[Y^-1_B]
+=
+E[X^+1_B]-E[X^-1_B]
+=
+E[X1_B]
+\]</span></p>
+<p>が成り立つ。したがって <span class="math inline">\(Y\)</span> は条件付き期待値の定義を満たす。これで存在が示された。</p>
+<p>次に一意性を示す。<span class="math inline">\(Y\)</span> と <span class="math inline">\(Y'\)</span> がともに条件付き期待値の定義を満たすとする。このとき <span class="math inline">\(Y,Y'\)</span> は <span class="math inline">\(\mathcal G\)</span>-可測なので</p>
+<p><span class="math display">\[
+D:=\{Y&gt;Y'\}\in\mathcal G
+\]</span></p>
+<p>である。定義より</p>
+<p><span class="math display">\[
+E[Y1_D]=E[X1_D]=E[Y'1_D]
+\]</span></p>
+<p>なので</p>
+<p><span class="math display">\[
+E[(Y-Y')1_D]=0
+\]</span></p>
+<p>である。しかし <span class="math inline">\((Y-Y')1_D\ge 0\)</span> であり，しかも <span class="math inline">\(D\)</span> 上では正である。したがって <span class="math inline">\(P(D)=0\)</span> でなければならない。同様に <span class="math inline">\(\{Y'&lt;Y\}\)</span> も確率 <span class="math inline">\(0\)</span> である。よって</p>
+<p><span class="math display">\[
+Y=Y' \qquad a.s.
+\]</span></p>
+<p>である。<span class="math inline">\(\square\)</span></p>
 </section>
-<section id="最小二乗法っぽい性質" class="level2">
-<h2 class="anchored" data-anchor-id="最小二乗法っぽい性質">最小二乗法っぽい性質</h2>
-<p>計量経済学の授業的にはこの性質が最も重要。</p>
-<p><span class="math inline">\(L^2\)</span> 空間での射影であることの理解</p>
+<section id="exmid-y-はy-の関数である" class="level2">
+<h2 class="anchored" data-anchor-id="exmid-y-はy-の関数である"><span class="math inline">\(E[X\mid Y]\)</span> は「<span class="math inline">\(Y\)</span> の関数」である</h2>
+<p><span class="math inline">\(E[X\mid Y]\)</span> と書いたとき，これは <span class="math inline">\(\sigma(Y)\)</span>-可測な確率変数である。したがって Doob–Dynkin の補題より，あるボレル可測関数 <span class="math inline">\(m\)</span> が存在して</p>
+<p><span class="math display">\[
+E[X\mid Y] = m(Y) \qquad a.s.
+\]</span></p>
+<p>と書ける。</p>
+<p>これが，計量経済学でよく見る</p>
+<p><span class="math display">\[
+m(x)=E[Y\mid X=x]
+\]</span></p>
+<p>という記法の厳密な中身である。<br>
+右辺を厳密に言い換えると，「<span class="math inline">\(\sigma(X)\)</span>-可測な確率変数 <span class="math inline">\(E[Y\mid X]\)</span> は <span class="math inline">\(X\)</span> の関数として書けるので，その関数を <span class="math inline">\(m\)</span> と書いている」ということである。</p>
+<p>この見方は重要である。条件付き期待値は，一つの数ではなく，<strong>観測された情報の関数として変動する確率変数</strong>なのである。</p>
+</section>
+<section id="素朴な定義との対応有限分割の場合" class="level2">
+<h2 class="anchored" data-anchor-id="素朴な定義との対応有限分割の場合">素朴な定義との対応：有限分割の場合</h2>
+<p>最初に書いた「事象 <span class="math inline">\(B\)</span> に条件をつける」という素朴な定義が，このフォーマルな定義の特別な場合として本当に出てくることを確認しよう。</p>
+<p><strong>命題(有限分割の場合の明示式)</strong></p>
+<p><span class="math inline">\(\{B_1,\dots,B_n\}\)</span> が <span class="math inline">\(\Omega\)</span> の有限分割で，</p>
+<p><span class="math display">\[
+\mathcal G = \sigma(B_1,\dots,B_n)
+\]</span></p>
+<p>とする。このとき，可積分な <span class="math inline">\(X\)</span> に対して</p>
+<p><span class="math display">\[
+E[X\mid \mathcal G]
+=
+\sum_{i=1}^n c_i 1_{B_i},
+\qquad
+c_i=
+\begin{cases}
+\dfrac{E[X1_{B_i}]}{P(B_i)} &amp; (P(B_i)&gt;0),\\[1em]
+0 &amp; (P(B_i)=0)
+\end{cases}
+\]</span></p>
+<p>が成立する。つまり，<span class="math inline">\(E[X\mid \mathcal G]\)</span> は各セル <span class="math inline">\(B_i\)</span> の上で定数であり，その値は「<span class="math inline">\(B_i\)</span> の上での平均」である。</p>
+<p>特に <span class="math inline">\(A\in\mathcal F\)</span> に対して</p>
+<p><span class="math display">\[
+P(A\mid \mathcal G)
+=
+\sum_{i=1}^n d_i 1_{B_i},
+\qquad
+d_i=
+\begin{cases}
+\dfrac{P(A\cap B_i)}{P(B_i)} &amp; (P(B_i)&gt;0),\\[1em]
+0 &amp; (P(B_i)=0)
+\end{cases}
+\]</span></p>
+<p>が成り立つ。すなわち，条件付き確率も各セル上で一定になり，その値はセルごとの条件付き確率になる。</p>
+<p><strong>証明</strong></p>
+<p><span class="math display">\[
+Y := \sum_{i=1}^n c_i 1_{B_i}
+\]</span></p>
+<p>とおく。<span class="math inline">\(Y\)</span> は各 <span class="math inline">\(B_i\)</span> 上で一定だから，明らかに <span class="math inline">\(\mathcal G\)</span>-可測である。<br>
+あとは，任意の <span class="math inline">\(B\in\mathcal G\)</span> に対して <span class="math inline">\(E[X1_B]=E[Y1_B]\)</span> を示せばよい。</p>
+<p><span class="math inline">\(\mathcal G\)</span> は有限分割 <span class="math inline">\(\{B_i\}\)</span> が生成する <span class="math inline">\(\sigma\)</span>-加法族だから，任意の <span class="math inline">\(B\in\mathcal G\)</span> はある添字集合 <span class="math inline">\(I_B\subseteq\{1,\dots,n\}\)</span> を使って</p>
+<p><span class="math display">\[
+B = \bigcup_{i\in I_B} B_i
+\]</span></p>
+<p>と書ける。したがって</p>
+<p><span class="math display">\[
+\begin{aligned}
+E[Y1_B]
+&amp;=
+\sum_{i=1}^n c_i P(B_i\cap B) \\
+&amp;=
+\sum_{i\in I_B} c_i P(B_i) \\
+&amp;=
+\sum_{i\in I_B} E[X1_{B_i}] \\
+&amp;=
+E\left[X\sum_{i\in I_B}1_{B_i}\right]
+=
+E[X1_B].
+\end{aligned}
+\]</span></p>
+<p>以上より <span class="math inline">\(Y\)</span> は条件付き期待値の定義を満たす。最後の条件付き確率の式は <span class="math inline">\(X=1_A\)</span> とおけば従う。<span class="math inline">\(\square\)</span></p>
+<p>この命題は，条件付き期待値が「部分集団ごとの平均」として理解できる場合を正確に言い表している。<br>
+情報 <span class="math inline">\(\mathcal G\)</span> が「どのセル <span class="math inline">\(B_i\)</span> に入ったか」だけを教えてくれるなら，最良の予測は「そのセルの中での平均」を返すことになる。</p>
+<section id="特に一つの事象-b-に条件をつける場合" class="level3">
+<h3 class="anchored" data-anchor-id="特に一つの事象-b-に条件をつける場合">特に，一つの事象 <span class="math inline">\(B\)</span> に条件をつける場合</h3>
+<p><span class="math inline">\(0&lt;P(B)&lt;1\)</span> として，</p>
+<p><span class="math display">\[
+\mathcal G = \sigma(B) = \{\emptyset, B, B^c, \Omega\}
+\]</span></p>
+<p>とすると，上の命題から</p>
+<p><span class="math display">\[
+E[X\mid \sigma(B)] = E[X\mid B]1_B + E[X\mid B^c]1_{B^c}
+\]</span></p>
+<p>が従う。さらに，<span class="math inline">\(A\in\mathcal F\)</span> に対して</p>
+<p><span class="math display">\[
+P(A\mid \sigma(B)) = P(A\mid B)1_B + P(A\mid B^c)1_{B^c}
+\]</span></p>
+<p>となる。</p>
+<p>つまり，初等確率で習う</p>
+<p><span class="math display">\[
+P(A\mid B)=\frac{P(A\cap B)}{P(B)}
+\]</span></p>
+<p>や</p>
+<p><span class="math display">\[
+E[X\mid B]
+=
+\sum_x x P(X=x\mid B)
+\]</span></p>
+<p>は，条件付き期待値の一般論の中では，「<span class="math inline">\(\sigma(B)\)</span> というとても粗い情報に条件をつけたときのセル平均」として位置づけられる。</p>
+</section>
+</section>
+<section id="まず見ておくべき極端な例" class="level2">
+<h2 class="anchored" data-anchor-id="まず見ておくべき極端な例">まず見ておくべき極端な例</h2>
+<p><strong>例 1：<span class="math inline">\(\mathcal G=\mathcal F\)</span> のとき</strong></p>
+<p>このとき <span class="math inline">\(X\)</span> 自身が <span class="math inline">\(\mathcal F\)</span>-可測であり，任意の <span class="math inline">\(B\in\mathcal F\)</span> について</p>
+<p><span class="math display">\[
+E[X1_B]=E[X1_B]
+\]</span></p>
+<p>は自明に成り立つ。したがって</p>
+<p><span class="math display">\[
+E[X\mid \mathcal F]=X \qquad a.s.
+\]</span></p>
+<p>である。全部の情報が見えているなら，予測すべき対象そのものがわかっている，というだけの話である。</p>
+<p><strong>例 2：<span class="math inline">\(\mathcal G=\{\emptyset,\Omega\}\)</span> のとき</strong></p>
+<p>このとき <span class="math inline">\(\mathcal G\)</span>-可測な確率変数は定数しかない。定数 <span class="math inline">\(E[X]\)</span> は明らかに <span class="math inline">\(\mathcal G\)</span>-可測であり，</p>
+<ul>
+<li><span class="math inline">\(B=\emptyset\)</span> では <span class="math inline">\(E[X1_B]=0=E[E[X]1_B]\)</span></li>
+<li><span class="math inline">\(B=\Omega\)</span> では <span class="math inline">\(E[X1_B]=E[X]=E[E[X]1_B]\)</span></li>
+</ul>
+<p>だから</p>
+<p><span class="math display">\[
+E[X\mid \{\emptyset,\Omega\}] = E[X] \qquad a.s.
+\]</span></p>
+<p>となる。何の情報もなければ，全体平均を返すしかない。</p>
+<p>この2つの例は極端だが，本質をよく表している。</p>
+<ul>
+<li>情報が最大なら，条件付き期待値は <span class="math inline">\(X\)</span> そのもの</li>
+<li>情報が最小なら，条件付き期待値は定数 <span class="math inline">\(E[X]\)</span></li>
+</ul>
+<p>条件付き期待値は，この2つの間で「持っている情報の量」に応じて変わる予測子だと理解するとよい。</p>
+</section>
+<section id="条件付き期待値の基本性質" class="level2">
+<h2 class="anchored" data-anchor-id="条件付き期待値の基本性質">条件付き期待値の基本性質</h2>
+<p>以下では，<span class="math inline">\(X,Y\)</span> は可積分な確率変数，<span class="math inline">\(\mathcal H\subseteq \mathcal G\subseteq \mathcal F\)</span> は部分 <span class="math inline">\(\sigma\)</span>-加法族とする。</p>
+<p><strong>命題(条件付き期待値の基本性質)</strong></p>
+<ol type="1">
+<li>（線形性）任意の <span class="math inline">\(a,b\in\mathbb R\)</span> に対して <span class="math display">\[
+E[aX+bY\mid \mathcal G]
+=
+aE[X\mid \mathcal G]+bE[Y\mid \mathcal G]
+\qquad a.s.
+\]</span></li>
+<li>（単調性）<span class="math inline">\(X\le Y\)</span> a.s. なら <span class="math display">\[
+E[X\mid \mathcal G]\le E[Y\mid \mathcal G]
+\qquad a.s.
+\]</span> 特に <span class="math inline">\(X\ge 0\)</span> a.s. なら <span class="math inline">\(E[X\mid \mathcal G]\ge 0\)</span> a.s. である。</li>
+<li>（わかっているものは外に出せる）<span class="math inline">\(Z\)</span> が <span class="math inline">\(\mathcal G\)</span>-可測で，<span class="math inline">\(ZX\)</span> が可積分なら <span class="math display">\[
+E[ZX\mid \mathcal G] = Z E[X\mid \mathcal G] \qquad a.s.
+\]</span> 特に，<span class="math inline">\(X\)</span> 自身が <span class="math inline">\(\mathcal G\)</span>-可測なら <span class="math display">\[
+E[X\mid \mathcal G] = X \qquad a.s.
+\]</span></li>
+<li>（反復期待値・tower property） <span class="math display">\[
+E[E[X\mid \mathcal G]\mid \mathcal H] = E[X\mid \mathcal H] \qquad a.s.
+\]</span> 特に，<span class="math inline">\(\mathcal H=\{\emptyset,\Omega\}\)</span> とすると <span class="math display">\[
+E[E[X\mid \mathcal G]] = E[X].
+\]</span></li>
+<li>（独立なら平均に潰れる）<span class="math inline">\(\sigma(X)\)</span> と <span class="math inline">\(\mathcal G\)</span> が独立なら <span class="math display">\[
+E[X\mid \mathcal G]=E[X] \qquad a.s.
+\]</span> したがって，<span class="math inline">\(f(X)\)</span> が可積分なら <span class="math display">\[
+E[f(X)\mid \mathcal G]=E[f(X)] \qquad a.s.
+\]</span></li>
+<li>（Jensen の不等式）<span class="math inline">\(\varphi\)</span> が凸関数で，<span class="math inline">\(\varphi(X)\)</span> が可積分なら <span class="math display">\[
+\varphi(E[X\mid\mathcal G])
+\le
+E[\varphi(X)\mid\mathcal G]
+\qquad a.s.
+\]</span> 特に <span class="math inline">\(p\ge 1\)</span> について <span class="math display">\[
+|E[X\mid\mathcal G]|^p
+\le
+E[|X|^p\mid\mathcal G]
+\qquad a.s.
+\]</span> が成り立つ。</li>
+</ol>
+<p><strong>証明</strong></p>
+<p><strong>(1)</strong> 右辺を</p>
+<p><span class="math display">\[
+U := aE[X\mid \mathcal G]+bE[Y\mid \mathcal G]
+\]</span></p>
+<p>とおく。<span class="math inline">\(U\)</span> は <span class="math inline">\(\mathcal G\)</span>-可測である。さらに任意の <span class="math inline">\(B\in\mathcal G\)</span> に対して</p>
+<p><span class="math display">\[
+\begin{aligned}
+E[U1_B]
+&amp;=
+aE[E[X\mid \mathcal G]1_B]+bE[E[Y\mid \mathcal G]1_B] \\
+&amp;=
+aE[X1_B]+bE[Y1_B]
+=
+E[(aX+bY)1_B].
+\end{aligned}
+\]</span></p>
+<p>よって <span class="math inline">\(U\)</span> は <span class="math inline">\(E[aX+bY\mid \mathcal G]\)</span> の定義を満たす。</p>
+<p><strong>(2)</strong> <span class="math inline">\(Y-X\ge 0\)</span> なので，<span class="math inline">\(E[Y-X\mid\mathcal G]\ge0\)</span> を示せばよい。そこで <span class="math inline">\(V:=E[Y-X\mid\mathcal G]\)</span> とし，<span class="math inline">\(B=\{V&lt;0\}\in\mathcal G\)</span> を考える。定義より</p>
+<p><span class="math display">\[
+E[V1_B]=E[(Y-X)1_B]\ge 0
+\]</span></p>
+<p>である。一方で <span class="math inline">\(V1_B\le 0\)</span> だから，両方を満たすには <span class="math inline">\(V1_B=0\)</span> a.s. でなければならない。したがって <span class="math inline">\(P(B)=0\)</span>，すなわち <span class="math inline">\(V\ge 0\)</span> a.s. である。</p>
+<p><strong>(3)</strong> まず <span class="math inline">\(Z=1_A\)</span>（<span class="math inline">\(A\in\mathcal G\)</span>）の場合を示す。このとき <span class="math inline">\(1_AE[X\mid \mathcal G]\)</span> は <span class="math inline">\(\mathcal G\)</span>-可測であり，任意の <span class="math inline">\(B\in\mathcal G\)</span> に対して</p>
+<p><span class="math display">\[
+E[(1_AX)1_B]
+=
+E[X1_{A\cap B}]
+=
+E[E[X\mid \mathcal G]1_{A\cap B}]
+=
+E[(1_AE[X\mid \mathcal G])1_B].
+\]</span></p>
+<p>したがって</p>
+<p><span class="math display">\[
+E[1_A X\mid \mathcal G]=1_AE[X\mid \mathcal G].
+\]</span></p>
+<p>次に <span class="math inline">\(Z\)</span> が非負の <span class="math inline">\(\mathcal G\)</span>-可測単純関数なら，線形性より同じ式が成り立つ。一般の <span class="math inline">\(\mathcal G\)</span>-可測 <span class="math inline">\(Z\)</span> については，単純関数近似と正負部分への分解を使えば</p>
+<p><span class="math display">\[
+E[ZX\mid \mathcal G]=ZE[X\mid \mathcal G]
+\]</span></p>
+<p>を得る。<br>
+特に <span class="math inline">\(X\)</span> が <span class="math inline">\(\mathcal G\)</span>-可測なら，<span class="math inline">\(X\)</span> 自身が条件付き期待値の定義を満たすので <span class="math inline">\(E[X\mid\mathcal G]=X\)</span> が従う。</p>
+<p><strong>(4)</strong> 左辺を</p>
+<p><span class="math display">\[
+U := E[E[X\mid \mathcal G]\mid \mathcal H]
+\]</span></p>
+<p>とおく。<span class="math inline">\(U\)</span> は <span class="math inline">\(\mathcal H\)</span>-可測である。任意の <span class="math inline">\(B\in\mathcal H\)</span> に対して，<span class="math inline">\(\mathcal H\subseteq \mathcal G\)</span> より <span class="math inline">\(B\in\mathcal G\)</span> でもあるから</p>
+<p><span class="math display">\[
+E[U1_B]
+=
+E[E[X\mid \mathcal G]1_B]
+=
+E[X1_B].
+\]</span></p>
+<p>よって <span class="math inline">\(U\)</span> は <span class="math inline">\(E[X\mid \mathcal H]\)</span> の定義を満たす。特に <span class="math inline">\(\mathcal H=\{\emptyset,\Omega\}\)</span> とすれば <span class="math inline">\(E[E[X\mid \mathcal G]]=E[X]\)</span> が従う。</p>
+<p><strong>(5)</strong> 定数 <span class="math inline">\(E[X]\)</span> は <span class="math inline">\(\mathcal G\)</span>-可測である。任意の <span class="math inline">\(B\in\mathcal G\)</span> に対して，<span class="math inline">\(\sigma(X)\)</span> と <span class="math inline">\(\mathcal G\)</span> の独立性から</p>
+<p><span class="math display">\[
+E[X1_B]=E[X]P(B)=E[E[X]1_B].
+\]</span></p>
+<p>したがって <span class="math inline">\(E[X\mid \mathcal G]=E[X]\)</span> a.s. である。<span class="math inline">\(f(X)\)</span> に対する主張も同様である。</p>
+<p><strong>(6)</strong> Jensen の不等式はここでは証明を省くが，直感は普通の Jensen と同じである。条件付き期待値は「条件をつけた平均」なので，凸関数を平均の外に出すと小さくなる。<span class="math inline">\(\square\)</span></p>
+<p>上の(3)と(4)を合わせると，計量経済学で最も頻繁に使う事実がすぐ出る。</p>
+<p><strong>系(条件付き期待値から引いた残差は，条件づけた情報と直交する)</strong></p>
+<p><span class="math display">\[
+U := X-E[X\mid \mathcal G]
+\]</span></p>
+<p>とおく。<span class="math inline">\(Z\)</span> が <span class="math inline">\(\mathcal G\)</span>-可測で <span class="math inline">\(UZ\)</span> が可積分なら</p>
+<p><span class="math display">\[
+E[UZ]=0.
+\]</span></p>
+<p>特に <span class="math inline">\(A\in\mathcal G\)</span> に対して</p>
+<p><span class="math display">\[
+E[U1_A]=0
+\]</span></p>
+<p>である。すなわち，条件付き期待値から引いた残差は，<span class="math inline">\(\mathcal G\)</span> によって観測できるどんな対象とも平均的に無相関になる。</p>
+<p><strong>証明</strong></p>
+<p><span class="math inline">\(Z\)</span> は <span class="math inline">\(\mathcal G\)</span>-可測だから，(3)と(4)より</p>
+<p><span class="math display">\[
+\begin{aligned}
+E[UZ]
+&amp;=
+E\bigl(E[UZ\mid \mathcal G]\bigr) \\
+&amp;=
+E\bigl(ZE[U\mid \mathcal G]\bigr)
+=
+0.
+\end{aligned}
+\]</span></p>
+<p>最後の等号は</p>
+<p><span class="math display">\[
+E[U\mid \mathcal G]
+=
+E[X\mid \mathcal G]-E[E[X\mid \mathcal G]\mid \mathcal G]
+=
+0
+\]</span></p>
+<p>から従う。<span class="math inline">\(\square\)</span></p>
+<p>この「残差は観測可能な情報と直交する」という性質が，そのまま <span class="math inline">\(L^2\)</span> の射影の話になる。</p>
+</section>
+<section id="l2-空間と直交射影" class="level2">
+<h2 class="anchored" data-anchor-id="l2-空間と直交射影"><span class="math inline">\(L^2\)</span> 空間と直交射影</h2>
+<p>ここからが計量経済学的には最も重要である。二乗誤差を考えたいので，今度は <span class="math inline">\(X\in L^2\)</span>，つまり</p>
+<p><span class="math display">\[
+E[X^2] &lt; \infty
+\]</span></p>
+<p>を仮定する。</p>
+<p><strong>定義(<span class="math inline">\(L^2\)</span> 空間)</strong></p>
+<p><span class="math inline">\(L^2(\mathcal F)\)</span> とは，二乗可積分な実数値確率変数全体を <span class="math inline">\(a.s.\)</span> に等しいもの同士で同一視した集合である。<br>
+この集合には内積</p>
+<p><span class="math display">\[
+\langle X,Y\rangle := E[XY]
+\]</span></p>
+<p>とノルム</p>
+<p><span class="math display">\[
+\|X\|_2 := \sqrt{E[X^2]}
+\]</span></p>
+<p>が入る。<span class="math inline">\(L^2(\mathcal F)\)</span> はこの内積について Hilbert 空間である。つまり，内積をもつ完備な線形空間である。</p>
+<p>いま，情報 <span class="math inline">\(\mathcal G\)</span> によって観測できる二乗可積分な確率変数全体を</p>
+<p><span class="math display">\[
+L^2(\mathcal G)
+:=
+\{Z\in L^2(\mathcal F): Z \text{ は } \mathcal G\text{-可測}\}
+\]</span></p>
+<p>と書く。これは <span class="math inline">\(L^2(\mathcal F)\)</span> の線形部分空間である。しかも閉部分空間である。</p>
+<p><strong>補題(<span class="math inline">\(L^2(\mathcal G)\)</span> は閉部分空間)</strong></p>
+<p><span class="math inline">\(L^2(\mathcal G)\)</span> は <span class="math inline">\(L^2(\mathcal F)\)</span> の閉線形部分空間である。</p>
+<p><strong>証明</strong></p>
+<p>線形部分空間であることは明らかである。閉性だけ確認する。<br>
+<span class="math inline">\(Z_n\in L^2(\mathcal G)\)</span> かつ <span class="math inline">\(Z_n\to Z\)</span> in <span class="math inline">\(L^2\)</span> とする。<span class="math inline">\(L^2\)</span> 収束から，ある部分列 <span class="math inline">\(Z_{n_j}\)</span> が存在して <span class="math inline">\(Z_{n_j}\to Z\)</span> a.s. となる。各 <span class="math inline">\(Z_{n_j}\)</span> は <span class="math inline">\(\mathcal G\)</span>-可測であり，可測関数列の点ごとの極限も <span class="math inline">\(\mathcal G\)</span>-可測である。したがって <span class="math inline">\(Z\)</span> は <span class="math inline">\(a.s.\)</span> の修正を除いて <span class="math inline">\(\mathcal G\)</span>-可測である。ゆえに <span class="math inline">\(Z\in L^2(\mathcal G)\)</span> である。<span class="math inline">\(\square\)</span></p>
+<p>閉部分空間が出てきたので，Hilbert 空間の射影定理が使える。</p>
+<p><strong>定理(Hilbert 空間の射影定理)</strong></p>
+<p><span class="math inline">\(H\)</span> を Hilbert 空間，<span class="math inline">\(M\subset H\)</span> を閉線形部分空間とする。任意の <span class="math inline">\(x\in H\)</span> に対して，ただ一つの <span class="math inline">\(m^\ast\in M\)</span> が存在して</p>
+<p><span class="math display">\[
+\|x-m^\ast\|
+=
+\inf_{m\in M}\|x-m\|
+\]</span></p>
+<p>を満たす。さらに，この <span class="math inline">\(m^\ast\)</span> は</p>
+<p><span class="math display">\[
+\langle x-m^\ast,m\rangle=0
+\qquad
+(\forall m\in M)
+\]</span></p>
+<p>を満たす唯一の元である。これを <span class="math inline">\(x\)</span> の <span class="math inline">\(M\)</span> への直交射影という。</p>
+<p>この射影定理を <span class="math inline">\(H=L^2(\mathcal F)\)</span>，<span class="math inline">\(M=L^2(\mathcal G)\)</span> に適用できる。結論を先に言うと，<span class="math inline">\(X\)</span> を <span class="math inline">\(L^2(\mathcal G)\)</span> へ直交射影したものが条件付き期待値である。</p>
+<p><strong>定理(条件付き期待値は <span class="math inline">\(L^2(\mathcal G)\)</span> への直交射影)</strong></p>
+<p><span class="math inline">\(X\in L^2(\mathcal F)\)</span> とし，</p>
+<p><span class="math display">\[
+Y := E[X\mid \mathcal G]
+\]</span></p>
+<p>とおく。このとき次が成り立つ。</p>
+<ol type="1">
+<li><span class="math inline">\(Y\in L^2(\mathcal G)\)</span>.</li>
+<li>任意の <span class="math inline">\(Z\in L^2(\mathcal G)\)</span> に対して <span class="math display">\[
+E[(X-Y)Z]=0.
+\]</span> すなわち，残差 <span class="math inline">\(X-Y\)</span> は <span class="math inline">\(L^2(\mathcal G)\)</span> のすべての元と直交する。</li>
+<li>任意の <span class="math inline">\(Z\in L^2(\mathcal G)\)</span> に対して <span class="math display">\[
+\|X-Z\|_2^2 = \|X-Y\|_2^2 + \|Y-Z\|_2^2.
+\]</span></li>
+</ol>
+<p>したがって</p>
+<p><span class="math display">\[
+E[X\mid \mathcal G]
+=
+\operatorname*{argmin}_{Z\in L^2(\mathcal G)} E[(X-Z)^2].
+\]</span></p>
+<p>つまり，条件付き期待値は「<span class="math inline">\(\mathcal G\)</span> の情報だけを使って作れる確率変数の中で，<span class="math inline">\(X\)</span> に最も近いもの」である。</p>
+<p><strong>証明</strong></p>
+<p><strong>(1)</strong> まず <span class="math inline">\(Y\)</span> は定義から <span class="math inline">\(\mathcal G\)</span>-可測である。二乗可積分性を示すため，</p>
+<p><span class="math display">\[
+Y_n := Y1_{\{|Y|\le n\}}
+\]</span></p>
+<p>とおく。<span class="math inline">\(Y_n\)</span> は有界かつ <span class="math inline">\(\mathcal G\)</span>-可測だから，基本性質より</p>
+<p><span class="math display">\[
+E[XY_n]
+=
+E\bigl(E[XY_n\mid \mathcal G]\bigr)
+=
+E\bigl(Y_nE[X\mid \mathcal G]\bigr)
+=
+E[YY_n].
+\]</span></p>
+<p>したがって Cauchy–Schwarz により</p>
+<p><span class="math display">\[
+E[Y_n^2]
+=
+E[YY_n]
+=
+E[XY_n]
+\le
+\|X\|_2\|Y_n\|_2.
+\]</span></p>
+<p>よって <span class="math inline">\(\|Y_n\|_2\le \|X\|_2\)</span> である。<span class="math inline">\(n\to\infty\)</span> とすると <span class="math inline">\(Y_n^2\uparrow Y^2\)</span> だから，単調収束定理より</p>
+<p><span class="math display">\[
+E[Y^2] = \lim_{n\to\infty}E[Y_n^2] \le \|X\|_2^2 &lt; \infty.
+\]</span></p>
+<p>ゆえに <span class="math inline">\(Y\in L^2(\mathcal G)\)</span> である。</p>
+<p><strong>(2)</strong> <span class="math inline">\(Z\in L^2(\mathcal G)\)</span> とする。<span class="math inline">\(X-Y\in L^2\)</span> なので，Cauchy–Schwarz により <span class="math inline">\((X-Y)Z\)</span> は可積分である。しかも <span class="math inline">\(Z\)</span> は <span class="math inline">\(\mathcal G\)</span>-可測だから，</p>
+<p><span class="math display">\[
+E[(X-Y)Z]
+=
+E\bigl(E[(X-Y)Z\mid \mathcal G]\bigr)
+=
+E\bigl(ZE[X-Y\mid \mathcal G]\bigr)
+=
+0.
+\]</span></p>
+<p>すなわち，残差 <span class="math inline">\(X-Y\)</span> は <span class="math inline">\(L^2(\mathcal G)\)</span> の任意の元に直交する。</p>
+<p><strong>(3)</strong> <span class="math inline">\(Y-Z\in L^2(\mathcal G)\)</span> なので，(2)から</p>
+<p><span class="math display">\[
+E[(X-Y)(Y-Z)]=0.
+\]</span></p>
+<p>したがって</p>
+<p><span class="math display">\[
+\begin{aligned}
+\|X-Z\|_2^2
+&amp;= E\bigl[((X-Y)+(Y-Z))^2\bigr] \\
+&amp;= E[(X-Y)^2] + 2E[(X-Y)(Y-Z)] + E[(Y-Z)^2] \\
+&amp;= \|X-Y\|_2^2 + \|Y-Z\|_2^2.
+\end{aligned}
+\]</span></p>
+<p>これがピタゴラス分解である。右辺第2項は常に非負だから，<span class="math inline">\(\|X-Z\|_2^2\)</span> は <span class="math inline">\(Z=Y\)</span> のとき最小になる。しかも最小化子は <span class="math inline">\(a.s.\)</span> の意味で一意である。<span class="math inline">\(\square\)</span></p>
+<section id="幾何学的な読み方" class="level3">
+<h3 class="anchored" data-anchor-id="幾何学的な読み方">幾何学的な読み方</h3>
+<p>この定理は，ふつうの線形代数の「直交射影」とまったく同じ構造をもっている。</p>
+<ul>
+<li>空間全体：<span class="math inline">\(L^2(\mathcal F)\)</span></li>
+<li>射影先の部分空間：<span class="math inline">\(L^2(\mathcal G)\)</span></li>
+<li>ベクトル：確率変数</li>
+<li>内積：<span class="math inline">\(E[XY]\)</span></li>
+<li>射影された点：<span class="math inline">\(E[X\mid \mathcal G]\)</span></li>
+<li>垂線成分：<span class="math inline">\(X-E[X\mid \mathcal G]\)</span></li>
+</ul>
+<p>つまり，</p>
+<p><span class="math display">\[
+X = E[X\mid \mathcal G] + \{X-E[X\mid \mathcal G]\}
+\]</span></p>
+<p>は</p>
+<ul>
+<li><strong>予測可能部分</strong> <span class="math inline">\(E[X\mid \mathcal G]\)</span></li>
+<li><strong>予測不可能部分</strong> <span class="math inline">\(X-E[X\mid \mathcal G]\)</span></li>
+</ul>
+<p>への直交分解になっている。</p>
+</section>
+</section>
+<section id="最良予測子としての条件付き期待値" class="level2">
+<h2 class="anchored" data-anchor-id="最良予測子としての条件付き期待値">最良予測子としての条件付き期待値</h2>
+<p>この射影定理を予測の言葉に言い換えると，条件付き期待値は二乗誤差の意味で最良の予測子である。</p>
+<p><strong>定理(二乗誤差の意味での最良予測子)</strong></p>
+<p><span class="math inline">\(Y\in L^2\)</span>，<span class="math inline">\(W\)</span> を任意の確率変数とする。このとき</p>
+<p><span class="math display">\[
+m(W):=E[Y\mid W]
+\]</span></p>
+<p>は，<span class="math inline">\(W\)</span> の可測関数 <span class="math inline">\(g(W)\)</span> の中で</p>
+<p><span class="math display">\[
+E[(Y-g(W))^2]
+\]</span></p>
+<p>を最小化する。</p>
+<p>より正確には，任意の二乗可積分な可測関数 <span class="math inline">\(g\)</span> に対して</p>
+<p><span class="math display">\[
+E[(Y-g(W))^2]
+=
+E[(Y-m(W))^2] + E[(m(W)-g(W))^2]
+\]</span></p>
+<p>が成り立つ。</p>
+<p><strong>証明</strong></p>
+<p><span class="math inline">\(\mathcal G=\sigma(W)\)</span> とおけば，<span class="math inline">\(g(W)\)</span> は <span class="math inline">\(L^2(\mathcal G)\)</span> の元である。したがって直交射影のピタゴラス分解をそのまま使えばよい。<span class="math inline">\(\square\)</span></p>
+<p>この定理は，計量経済学では極めて重要である。なぜなら，母集団レベルでは</p>
+<p><span class="math display">\[
+Y = E[Y\mid W] + u,
+\qquad E[u\mid W]=0
+\]</span></p>
+<p>という分解がいつでもできるからである。ここで</p>
+<p><span class="math display">\[
+u := Y-E[Y\mid W]
+\]</span></p>
+<p>は「<span class="math inline">\(W\)</span> を知っていても予測できない成分」であり，任意の二乗可積分な <span class="math inline">\(g(W)\)</span> に対して</p>
+<p><span class="math display">\[
+E[u\,g(W)] = 0
+\]</span></p>
+<p>を満たす。<br>
+これは，単に <span class="math inline">\(u\)</span> と <span class="math inline">\(W\)</span> が無相関というよりずっと強い。<strong><span class="math inline">\(u\)</span> は <span class="math inline">\(W\)</span> のあらゆる可測関数と直交する</strong>のである。</p>
+</section>
+<section id="ols-と-best-linear-predictor" class="level2">
+<h2 class="anchored" data-anchor-id="ols-と-best-linear-predictor">OLS と best linear predictor</h2>
+<p>ここまでの話は「予測子として許されるもの」を <span class="math inline">\(W\)</span> の<strong>すべての可測関数</strong>に広げていた。<br>
+一方，線形回帰ではその候補を線形関数に制限している。</p>
+<p>説明変数ベクトルを <span class="math inline">\(W\in\mathbb R^k\)</span> とし，定数項を含めるために</p>
+<p><span class="math display">\[
+R:=(1,W')'
+\]</span></p>
+<p>と書く。線形予測子全体を</p>
+<p><span class="math display">\[
+\mathcal L(W)
+:=
+\{R'\beta:\beta\in\mathbb R^{k+1}\}
+\subset L^2(\sigma(W))
+\]</span></p>
+<p>とおく。これは <span class="math inline">\(L^2(\mathcal F)\)</span> の有限次元線形部分空間である。</p>
+<p>母集団 OLS 係数は</p>
+<p><span class="math display">\[
+\beta^\ast
+\in
+\operatorname*{argmin}_{\beta\in\mathbb R^{k+1}}
+E[(Y-R'\beta)^2]
+\]</span></p>
+<p>として定義される。対応する予測値</p>
+<p><span class="math display">\[
+Y_L:=R'\beta^\ast
+\]</span></p>
+<p>は，<span class="math inline">\(Y\)</span> を <span class="math inline">\(\mathcal L(W)\)</span> に直交射影したものである。したがって，任意の <span class="math inline">\(\beta\)</span> に対して</p>
+<p><span class="math display">\[
+E[(Y-R'\beta)^2]
+=
+E[(Y-Y_L)^2]+E[(Y_L-R'\beta)^2]
+\]</span></p>
+<p>が成り立つ。これが OLS が <strong>best linear predictor</strong> と呼ばれる理由である。OLS は，線形予測子の中で二乗誤差を最小にする。</p>
+<p>内積の直交条件として書けば，</p>
+<p><span class="math display">\[
+E[R(Y-R'\beta^\ast)]=0
+\]</span></p>
+<p>である。これは母集団の正規方程式である。もし</p>
+<p><span class="math display">\[
+Q:=E[RR']
+\]</span></p>
+<p>が正則なら，</p>
+<p><span class="math display">\[
+\beta^\ast
+=
+Q^{-1}E[RY]
+\]</span></p>
+<p>と明示的に書ける。</p>
+<p>ここで条件付き期待値との関係をもう一段はっきりさせよう。<span class="math inline">\(m(W):=E[Y\mid W]\)</span> とする。任意の <span class="math inline">\(\beta\)</span> について，直交分解より</p>
+<p><span class="math display">\[
+E[(Y-R'\beta)^2]
+=
+E[(Y-m(W))^2]+E[(m(W)-R'\beta)^2].
+\]</span></p>
+<p>右辺第1項は <span class="math inline">\(\beta\)</span> に依存しない。したがって</p>
+<p><span class="math display">\[
+\beta^\ast
+\in
+\operatorname*{argmin}_{\beta\in\mathbb R^{k+1}}
+E[(m(W)-R'\beta)^2].
+\]</span></p>
+<p>つまり，母集団 OLS は <span class="math inline">\(Y\)</span> 自体を線形近似しているとも言えるが，より本質的には，<strong>条件付き期待値関数 <span class="math inline">\(m(W)=E[Y\mid W]\)</span> を最もよく線形近似している</strong>と言える。</p>
+<p>ここで重要なのは次の違いである。</p>
+<ul>
+<li><span class="math inline">\(E[Y\mid W]\)</span> は <strong>すべての可測関数</strong>を許したときの最良予測子</li>
+<li>OLS の <span class="math inline">\(R'\beta^\ast\)</span> は <strong>線形関数だけ</strong>を許したときの最良予測子</li>
+</ul>
+<p>もし本当に</p>
+<p><span class="math display">\[
+E[Y\mid W] = R'\beta_0
+\]</span></p>
+<p>が成り立つなら，条件付き期待値と線形射影は一致し，</p>
+<p><span class="math display">\[
+\beta^\ast=\beta_0
+\]</span></p>
+<p>となる。これが線形回帰モデルがうまく働く理想的な状況である。<br>
+しかし一般には <span class="math inline">\(E[Y\mid W]\)</span> は非線形かもしれない。そのとき OLS が返すのは真の条件付き期待値そのものではなく，あくまで<strong>条件付き期待値関数の最良線形近似</strong>である。</p>
+<p>この区別は計量経済学で非常に重要である。</p>
+<ul>
+<li>非線形な条件付き平均を線形モデルで近似しているだけなのか</li>
+<li>それとも本当に条件付き平均が線形なのか</li>
+</ul>
+<p>で，推定量の意味も解釈も変わるからである。</p>
+</section>
+<section id="rによるシミュレーション射影の感覚をつかむ" class="level2">
+<h2 class="anchored" data-anchor-id="rによるシミュレーション射影の感覚をつかむ">Rによるシミュレーション：射影の感覚をつかむ</h2>
+<p>最後に，条件付き期待値を「情報に応じた平均」かつ「射影」として感じるために，簡単なシミュレーションを2つやってみる。</p>
+<section id="シミュレーション1粗い情報-mathcal-g-への射影は区間ごとの平均" class="level3">
+<h3 class="anchored" data-anchor-id="シミュレーション1粗い情報-mathcal-g-への射影は区間ごとの平均">シミュレーション1：粗い情報 <span class="math inline">\(\mathcal G\)</span> への射影は区間ごとの平均</h3>
+<p>まず</p>
+<p><span class="math display">\[
+Y = X^2 + \varepsilon,
+\qquad X\sim \mathrm{Unif}[-2,2],
+\qquad \varepsilon\sim N(0,0.4^2)
+\]</span></p>
+<p>を考える。さらに <span class="math inline">\(X\)</span> と <span class="math inline">\(\varepsilon\)</span> は独立とする。このとき</p>
+<p><span class="math display">\[
+E[Y\mid X]=X^2
+\]</span></p>
+<p>である。</p>
+<p>一方で，いま持っている情報が「<span class="math inline">\(X\)</span> がどの区間に入ったか」だけだったとする。たとえば</p>
+<p><span class="math display">\[
+[-2,-1],\ (-1,0],\ (0,1],\ (1,2]
+\]</span></p>
+<p>の4区間のどこに入ったかしかわからないとき，<span class="math inline">\(\mathcal G\)</span> はその分割が生成する <span class="math inline">\(\sigma\)</span>-加法族である。<br>
+このとき <span class="math inline">\(E[Y\mid \mathcal G]\)</span> は，各区間ごとの平均を返す<strong>段差関数</strong>になるはずである。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">800</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">runif</span>(n, <span class="at">min =</span> <span class="sc">-</span><span class="dv">2</span>, <span class="at">max =</span> <span class="dv">2</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>eps <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">0.4</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> x<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> eps</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>breaks <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">2</span>, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">2</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>bin <span class="ot">&lt;-</span> <span class="fu">cut</span>(x, <span class="at">breaks =</span> breaks, <span class="at">include.lowest =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>bin_mean <span class="ot">&lt;-</span> <span class="fu">tapply</span>(y, bin, mean)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>y_hat_G <span class="ot">&lt;-</span> bin_mean[bin]</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(x, y,</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">cex =</span> <span class="fl">0.7</span>, <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.25</span>),</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"X"</span>, <span class="at">ylab =</span> <span class="st">"Y"</span>,</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Projection onto coarse information G"</span>)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="fu">curve</span>(x<span class="sc">^</span><span class="dv">2</span>, <span class="at">from =</span> <span class="sc">-</span><span class="dv">2</span>, <span class="at">to =</span> <span class="dv">2</span>, <span class="at">add =</span> <span class="cn">TRUE</span>, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">col =</span> <span class="st">"blue"</span>)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">1</span>), <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">col =</span> <span class="st">"gray70"</span>)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>(<span class="fu">length</span>(breaks) <span class="sc">-</span> <span class="dv">1</span>)) {</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">segments</span>(breaks[j], bin_mean[j], breaks[j <span class="sc">+</span> <span class="dv">1</span>], bin_mean[j],</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>           <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">lwd =</span> <span class="dv">3</span>)</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topleft"</span>,</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"Data"</span>, <span class="st">"True conditional mean X^2"</span>, <span class="st">"Prediction using bins"</span>),</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.5</span>), <span class="st">"blue"</span>, <span class="st">"red"</span>),</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>       <span class="at">pch =</span> <span class="fu">c</span>(<span class="dv">16</span>, <span class="cn">NA</span>, <span class="cn">NA</span>), <span class="at">lty =</span> <span class="fu">c</span>(<span class="cn">NA</span>, <span class="dv">1</span>, <span class="dv">1</span>), <span class="at">lwd =</span> <span class="fu">c</span>(<span class="cn">NA</span>, <span class="dv">2</span>, <span class="dv">3</span>),</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture4_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>青い曲線が真の条件付き期待値 <span class="math inline">\(E[Y\mid X]=X^2\)</span>，赤い段差関数が「区間だけ知っている」ときの条件付き期待値 <span class="math inline">\(E[Y\mid \mathcal G]\)</span> の標本版である。<br>
+情報が粗くなると，射影先の空間 <span class="math inline">\(L^2(\mathcal G)\)</span> も小さくなるので，予測子はより粗い形になる。</p>
+<p>次の出力は，「情報が増えるほど二乗誤差が下がる」ことを直感的に見せるものである。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>mse_global <span class="ot">&lt;-</span> <span class="fu">mean</span>((y <span class="sc">-</span> <span class="fu">mean</span>(y))<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>mse_G <span class="ot">&lt;-</span> <span class="fu">mean</span>((y <span class="sc">-</span> y_hat_G)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>mse_true <span class="ot">&lt;-</span> <span class="fu">mean</span>((y <span class="sc">-</span> x<span class="sc">^</span><span class="dv">2</span>)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">c</span>(</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Global mean only"</span> <span class="ot">=</span> mse_global,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Coarse information G"</span> <span class="ot">=</span> mse_G,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">"True conditional mean E[Y|X]"</span> <span class="ot">=</span> mse_true</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>), <span class="dv">4</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>            Global mean only         Coarse information G 
+                      1.6118                       0.5898 
+True conditional mean E[Y|X] 
+                      0.1631 </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">tapply</span>(y <span class="sc">-</span> y_hat_G, bin, mean), <span class="dv">10</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[-2,-1]  (-1,0]   (0,1]   (1,2] 
+      0       0       0       0 </code></pre>
+</div>
+</div>
+<p>最後の行で，各区間ごとの残差平均がほぼ <span class="math inline">\(0\)</span> になっていることも確認できる。これは母集団での関係</p>
+<p><span class="math display">\[
+E[Y-E[Y\mid \mathcal G]\mid \mathcal G]=0
+\]</span></p>
+<p>の標本版であり，「射影誤差は射影先の情報と直交する」という性質の離散版である。</p>
+</section>
+<section id="シミュレーション2条件付き期待値と線形射影は一般には違う" class="level3">
+<h3 class="anchored" data-anchor-id="シミュレーション2条件付き期待値と線形射影は一般には違う">シミュレーション2：条件付き期待値と線形射影は一般には違う</h3>
+<p>同じデータに対して，今度は最小二乗の直線を引いてみる。<br>
+すると，真の条件付き期待値 <span class="math inline">\(X^2\)</span> は非線形なので，OLS の直線とは一致しないはずである。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>fit_lin <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(x, y,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">cex =</span> <span class="fl">0.7</span>, <span class="at">col =</span> <span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.25</span>),</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"X"</span>, <span class="at">ylab =</span> <span class="st">"Y"</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Conditional mean vs. linear projection"</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="fu">curve</span>(x<span class="sc">^</span><span class="dv">2</span>, <span class="at">from =</span> <span class="sc">-</span><span class="dv">2</span>, <span class="at">to =</span> <span class="dv">2</span>, <span class="at">add =</span> <span class="cn">TRUE</span>, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">col =</span> <span class="st">"blue"</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(fit_lin, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topleft"</span>,</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"Data"</span>, <span class="st">"True conditional mean X^2"</span>, <span class="st">"OLS line"</span>),</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">0.5</span>), <span class="st">"blue"</span>, <span class="st">"red"</span>),</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">pch =</span> <span class="fu">c</span>(<span class="dv">16</span>, <span class="cn">NA</span>, <span class="cn">NA</span>), <span class="at">lty =</span> <span class="fu">c</span>(<span class="cn">NA</span>, <span class="dv">1</span>, <span class="dv">1</span>), <span class="at">lwd =</span> <span class="fu">c</span>(<span class="cn">NA</span>, <span class="dv">2</span>, <span class="dv">2</span>),</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>       <span class="at">bty =</span> <span class="st">"n"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture4_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">coef</span>(fit_lin)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>(Intercept)           x 
+ 1.32924149  0.04076354 </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">c</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Mean residual"</span> <span class="ot">=</span> <span class="fu">mean</span>(<span class="fu">resid</span>(fit_lin)),</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Mean X times residual"</span> <span class="ot">=</span> <span class="fu">mean</span>(x <span class="sc">*</span> <span class="fu">resid</span>(fit_lin))</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>), <span class="dv">10</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>        Mean residual Mean X times residual 
+                    0                     0 </code></pre>
+</div>
+</div>
+<p>赤い直線は「<span class="math inline">\(1\)</span> と <span class="math inline">\(X\)</span> の線形結合」という小さな部分空間への射影であり，青い曲線 <span class="math inline">\(E[Y\mid X]=X^2\)</span> とは一般には違う。<br>
+それでも OLS 残差が定数項と <span class="math inline">\(X\)</span> に直交していることは，最後の数値から確認できる。これは線形代数でいう正規方程式の確率論版である。</p>
+<p>この図から読み取るべきメッセージは次の通りである。</p>
+<ul>
+<li>条件付き期待値は「<span class="math inline">\(X\)</span> のすべての可測関数」を許したときの最良予測子</li>
+<li>OLS は「線形関数だけ」を許したときの最良予測子</li>
+<li>両者が一致するのは，条件付き平均が本当に線形なときだけ</li>
+</ul>
+</section>
+</section>
+<section id="まとめ" class="level2">
+<h2 class="anchored" data-anchor-id="まとめ">まとめ</h2>
+<p>条件付き期待値 <span class="math inline">\(E[X\mid \mathcal G]\)</span> は，初等確率で習う「ある事象に条件をつけた平均」を大きく一般化した概念である。</p>
+<ul>
+<li>条件をつける対象は，単なる事象ではなく情報を表す <span class="math inline">\(\sigma\)</span>-加法族 <span class="math inline">\(\mathcal G\)</span></li>
+<li>条件付き期待値は，一つの数ではなく <span class="math inline">\(\mathcal G\)</span>-可測な確率変数</li>
+<li>存在はラドン–ニコディムの定理から従う</li>
+<li>有限分割の場合には，各セルごとの平均として素朴な定義と一致</li>
+<li>基本性質として線形性，単調性，tower property，独立性との関係などをもつ</li>
+<li><span class="math inline">\(L^2\)</span> では，<span class="math inline">\(E[X\mid \mathcal G]\)</span> は <span class="math inline">\(L^2(\mathcal G)\)</span> への直交射影であり，二乗誤差の意味での最良予測子</li>
+<li>OLS は，予測子を線形関数に制限したときの最良予測子であり，条件付き期待値関数の best linear predictor である</li>
+</ul>
+<p>計量経済学で回帰分析が重要なのは，まさにこの最後の点のためである。<br>
+回帰とは，本質的には「利用可能な情報に基づいて，二乗誤差の意味で最良の予測を作ること」なのである。<br>
+線形回帰はその中でも，予測子のクラスを線形関数に制限した特別な場合にすぎない。</p>
 </section>
 </section>
 
