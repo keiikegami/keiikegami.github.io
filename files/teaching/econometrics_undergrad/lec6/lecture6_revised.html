@@ -20,6 +20,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -165,6 +200,15 @@ window.Quarto = {
   </ul></li>
   <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ">8. まとめ</a></li>
   </ul></li>
+  <li><a href="#カットオフがある変数と回帰分析" id="toc-カットオフがある変数と回帰分析" class="nav-link" data-scroll-target="#カットオフがある変数と回帰分析">カットオフがある変数と回帰分析</a>
+  <ul class="collapse">
+  <li><a href="#censoring-と-truncation-の違い" id="toc-censoring-と-truncation-の違い" class="nav-link" data-scroll-target="#censoring-と-truncation-の違い">Censoring と truncation の違い</a></li>
+  <li><a href="#従属変数が-censor-されているケース" id="toc-従属変数が-censor-されているケース" class="nav-link" data-scroll-target="#従属変数が-censor-されているケース">従属変数が censor されているケース</a></li>
+  <li><a href="#従属変数が-truncation-されているケース" id="toc-従属変数が-truncation-されているケース" class="nav-link" data-scroll-target="#従属変数が-truncation-されているケース">従属変数が truncation されているケース</a></li>
+  <li><a href="#説明変数にカットオフがあるケース" id="toc-説明変数にカットオフがあるケース" class="nav-link" data-scroll-target="#説明変数にカットオフがあるケース">説明変数にカットオフがあるケース</a></li>
+  <li><a href="#ols-だけでここまではできる" id="toc-ols-だけでここまではできる" class="nav-link" data-scroll-target="#ols-だけでここまではできる">OLS だけでここまではできる</a></li>
+  <li><a href="#ここから先はまだできない" id="toc-ここから先はまだできない" class="nav-link" data-scroll-target="#ここから先はまだできない">ここから先はまだできない</a></li>
+  </ul></li>
   <li><a href="#重回帰だけでも面白い分析はできる" id="toc-重回帰だけでも面白い分析はできる" class="nav-link" data-scroll-target="#重回帰だけでも面白い分析はできる">重回帰だけでも面白い分析はできる</a>
   <ul class="collapse">
   <li><a href="#bertrand-and-mullainathan-2004-are-emily-and-greg-more-employable-than-lakisha-and-jamal" id="toc-bertrand-and-mullainathan-2004-are-emily-and-greg-more-employable-than-lakisha-and-jamal" class="nav-link" data-scroll-target="#bertrand-and-mullainathan-2004-are-emily-and-greg-more-employable-than-lakisha-and-jamal">Bertrand and Mullainathan (2004): Are Emily and Greg More Employable than Lakisha and Jamal?</a>
@@ -212,7 +256,7 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
 <h1 class="title">Lecture 6：重回帰の応用と潜在アウトカム</h1>
-<p class="subtitle lead">関数形・ダミー変数・固定効果・因果推論の導入</p>
+<p class="subtitle lead">関数形・ダミー変数・固定効果・カットオフのある変数・因果推論の導入</p>
 </div>
 
 
@@ -242,12 +286,13 @@ window.Quarto = {
 <ul>
 <li><strong>重回帰</strong>は変数を増やす道具というより、関数形を工夫して経済関係を表現する道具である。</li>
 <li><strong>ダミー変数・交差項・固定効果</strong>は、「何を比較したいのか」を式に落とすための基本部品である。</li>
+<li><strong>カットオフのある変数</strong>では、OLS をそのまま当てはめると、何を推定しているのかが変わってしまうことがある。</li>
 <li><strong>因果推論</strong>では、回帰式を書けることと因果効果を識別できることを区別して考える必要がある。</li>
 </ul>
 </div>
 </div>
 <div class="lead">
-<pre><code>今回は、重回帰の応用的な書き方をまとめて整理したあとで、後半で潜在アウトカムと識別の考え方に入る。前半は「どう式を書くか」、後半は「その係数を因果効果として読めるのはいつか」という流れで読むと理解しやすい。</code></pre>
+<pre><code>今回は、重回帰の応用的な書き方をまとめて整理したあとで、カットオフのある変数を OLS で扱うと何が起きるかを確認し、最後に潜在アウトカムと識別の考え方に入る。前半は「どう式を書くか」、中盤は「その式をそのまま推定してよいのはいつか」、後半は「その係数を因果効果として読めるのはいつか」という流れで読むと理解しやすい。</code></pre>
 </div>
 <div class="callout callout-style-simple callout-note callout-titled" title="この lecture の流れ">
 <div class="callout-header d-flex align-content-center">
@@ -261,7 +306,8 @@ window.Quarto = {
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li>まず、対数・二次項・交差項・ダミー変数・固定効果など、重回帰の書き方を整理する。</li>
-<li>次に、重回帰だけでもかなり多くの実証研究が書けることを具体例で確認する。</li>
+<li>次に、従属変数や説明変数にカットオフがあるとき、ナイーブな OLS がなぜ危ないかを見る。</li>
+<li>そのうえで、重回帰だけでもかなり多くの実証研究が書けることを具体例で確認する。</li>
 <li>最後に、潜在アウトカムと識別の考え方を導入して、因果推論の入口をつかむ。</li>
 </ol>
 </div>
@@ -631,6 +677,419 @@ y_{it} = \alpha_i + \lambda_t + \beta x_{it} + u_{it}
 </ul>
 <p>といった形である。</p>
 <p>したがって、重回帰を学ぶときには「式を機械的に推定する」のではなく、 <strong>どのような関係を表現したいのかに応じて、どの変数をどう入れるべきかを考えること</strong>が大切である。</p>
+</section>
+</section>
+<section id="カットオフがある変数と回帰分析" class="level1">
+<h1>カットオフがある変数と回帰分析</h1>
+<p>ここまで見てきた重回帰は、基本的には「観測された <span class="math inline">Y</span> と <span class="math inline">X</span> の条件付き平均を、線形の式で近似する」道具である。 しかし実証分析では、そもそも観測される変数が制度やデータ作成の都合でカットオフを持っていることがある。</p>
+<p>たとえば次のようなケースである。</p>
+<ul>
+<li>所得が一定額以上だと「1,000万円以上」としか記録されない</li>
+<li>テスト点が 0 点未満や 100 点超にはならない</li>
+<li>医療費や労働時間のように、0 に値がたまる</li>
+<li>賃金データが、働いている人についてしか観測されない</li>
+<li>資産額や寄付額が、一定額以上の人だけデータに入っている</li>
+<li>説明変数である所得や資産が top-code されている</li>
+</ul>
+<p>こういう状況では、単に</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_i + u_i
+</span></p>
+<p>を OLS で推定すればよい、とは限らない。 問題は、OLS の計算ができないことではない。 OLS の計算はできる。 しかし、<strong>計算された係数が、もともと知りたかったパラメータと一致しない</strong>ことがある。</p>
+<p>ここでは、まだ最尤法を学んでいないので、Tobit や Heckit のようなモデルを本格的に導入することはしない。 その代わり、OLS だけを使って、どこまでなら言えるのか、どこから先はまだ言えないのかを整理する。</p>
+<section id="censoring-と-truncation-の違い" class="level2">
+<h2 class="anchored" data-anchor-id="censoring-と-truncation-の違い">Censoring と truncation の違い</h2>
+<p>まず言葉を分けておく。</p>
+<p><strong>Censoring</strong> とは、真の値はカットオフを超えているかもしれないが、観測値としてはカットオフの値にまとめられる状況である。 たとえば本当の所得が 1,200 万円でも 2,000 万円でも、データ上は「1,000万円以上」としか記録されない場合である。 下限で censor される場合もある。 たとえば、潜在的には負の値をとりうる需要や希望労働時間が、観測上は 0 で止まるような場合である。</p>
+<p><strong>Truncation</strong> とは、カットオフの外側にある観測単位が、データそのものに入ってこない状況である。 たとえば、賃金が働いている人についてしか観測されない場合、働いていない人の潜在賃金はデータから落ちている。 あるいは、一定額以上の寄付をした人だけが寄付者データに入っている場合、少額寄付者や非寄付者は観測されない。</p>
+<p>違いを短く言えば、</p>
+<ul>
+<li>censoring: 個体はデータにいるが、値がカットオフにまとめられる</li>
+<li>truncation: カットオフの外側の個体が、そもそもデータにいない</li>
+</ul>
+<p>である。</p>
+<p>この違いは重要である。 censoring では「カットオフに値がたまる」。 truncation では「誰がデータに入るか」自体が変わる。</p>
+</section>
+<section id="従属変数が-censor-されているケース" class="level2">
+<h2 class="anchored" data-anchor-id="従属変数が-censor-されているケース">従属変数が censor されているケース</h2>
+<p>まず、従属変数 <span class="math inline">Y</span> に下限 0 がある場合を考える。 背後には、潜在的な変数 <span class="math inline">Y_i^\ast</span> があり、</p>
+<p><span class="math display">
+Y_i^\ast = \beta_0 + \beta_1 X_i + u_i
+</span></p>
+<p>という関係があるとする。 しかし実際に観測されるのは</p>
+<p><span class="math display">
+Y_i =
+\begin{cases}
+Y_i^\ast &amp; \text{if } Y_i^\ast &gt; 0 \\
+0 &amp; \text{if } Y_i^\ast \le 0
+\end{cases}
+</span></p>
+<p>である。 たとえば <span class="math inline">Y_i^\ast</span> を「潜在的な支出意欲」、<span class="math inline">Y_i</span> を「実際の支出額」と考えると、支出額は 0 未満にならない。</p>
+<p>このとき、観測された <span class="math inline">Y_i</span> をそのまま OLS にかけると何が起きるだろうか。 直感的には、<span class="math inline">Y_i^\ast \le 0</span> の人たちが全員 0 に押し込められるので、<span class="math inline">Y</span> と <span class="math inline">X</span> の関係は直線ではなくなる。 とくに <span class="math inline">X</span> が小さいところでは 0 に張りつく人が多く、<span class="math inline">X</span> が大きいところでは張りつく人が少ない。 したがって、観測された <span class="math inline">Y</span> の条件付き平均 <span class="math inline">E[Y_i \mid X_i]</span> は、潜在変数 <span class="math inline">Y_i^\ast</span> の条件付き平均とは違う形になる。</p>
+<p>シミュレーションで見てみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">606</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">5000</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">1.2</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>y_star <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>y_cens <span class="ot">&lt;-</span> <span class="fu">pmax</span>(<span class="dv">0</span>, y_star)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>s_observed <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(y_star <span class="sc">&gt;</span> <span class="dv">0</span>)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>observed_positive <span class="ot">&lt;-</span> s_observed <span class="sc">==</span> <span class="dv">1</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>coef_table <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">model =</span> <span class="fu">c</span>(</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">"latent Y* on X"</span>,</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">"censored Y on X"</span>,</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">"censored Y on X, only S = 1"</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">slope =</span> <span class="fu">c</span>(</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coef</span>(<span class="fu">lm</span>(y_star <span class="sc">~</span> x))[<span class="dv">2</span>],</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coef</span>(<span class="fu">lm</span>(y_cens <span class="sc">~</span> x))[<span class="dv">2</span>],</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coef</span>(<span class="fu">lm</span>(y_cens <span class="sc">~</span> x, <span class="at">subset =</span> observed_positive))[<span class="dv">2</span>]</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>coef_table<span class="sc">$</span>slope <span class="ot">&lt;-</span> <span class="fu">round</span>(coef_table<span class="sc">$</span>slope, <span class="dv">3</span>)</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(coef_table)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">model</th>
+<th style="text-align: right;">slope</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">latent Y* on X</td>
+<td style="text-align: right;">2.029</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">censored Y on X</td>
+<td style="text-align: right;">1.359</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">censored Y on X, only S = 1</td>
+<td style="text-align: right;">1.566</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>本当の潜在モデルでは、<span class="math inline">X</span> の係数は 2 である。 ところが、0 で censor された <span class="math inline">Y</span> をそのまま OLS で回帰すると、係数は 2 からずれる。 これはサンプルサイズが小さいからではなく、観測された <span class="math inline">Y</span> の平均構造そのものが変わっているからである。</p>
+<p>図で見るとよりわかりやすい。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  x, y_cens,</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">col =</span> <span class="fu">rgb</span>(<span class="fl">0.1</span>, <span class="fl">0.35</span>, <span class="fl">0.7</span>, <span class="fl">0.18</span>),</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">"X"</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">ylab =</span> <span class="st">"observed Y"</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">main =</span> <span class="st">"Censored outcome: many observations are piled up at zero"</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="fu">lm</span>(y_cens <span class="sc">~</span> x), <span class="at">col =</span> <span class="st">"firebrick"</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="fu">lm</span>(y_cens <span class="sc">~</span> x, <span class="at">subset =</span> observed_positive), <span class="at">col =</span> <span class="st">"darkgreen"</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="at">col =</span> <span class="st">"gray30"</span>, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="st">"topleft"</span>,</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"OLS using observed censored Y"</span>, <span class="st">"OLS using only observed Y &gt; 0"</span>, <span class="st">"latent relationship"</span>),</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">col =</span> <span class="fu">c</span>(<span class="st">"firebrick"</span>, <span class="st">"darkgreen"</span>, <span class="st">"gray30"</span>),</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">lwd =</span> <span class="dv">2</span>,</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">2</span>),</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">bty =</span> <span class="st">"n"</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture6_revised_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>ここで大事なのは、censor された <span class="math inline">Y</span> に OLS をしてはいけない、と機械的に覚えることではない。 OLS が推定しているものを正しく読む必要がある。</p>
+<p>もし知りたいものが、</p>
+<blockquote class="blockquote">
+<p>観測された支出額 <span class="math inline">Y</span> が、<span class="math inline">X</span> と平均的にどう関係しているか</p>
+</blockquote>
+<p>であれば、OLS は記述的な線形近似として意味を持つ。 ただし、その係数は</p>
+<blockquote class="blockquote">
+<p>潜在的な支出意欲 <span class="math inline">Y^\ast</span> に対する <span class="math inline">X</span> の効果</p>
+</blockquote>
+<p>ではない。</p>
+<p>この区別が重要である。</p>
+</section>
+<section id="従属変数が-truncation-されているケース" class="level2">
+<h2 class="anchored" data-anchor-id="従属変数が-truncation-されているケース">従属変数が truncation されているケース</h2>
+<p>次に、<span class="math inline">Y_i^\ast &gt; 0</span> の人だけがデータに入る場合を考える。 これは censoring よりもさらに厄介である。</p>
+<p>ここで、個体 <span class="math inline">i</span> がデータに観測されるかどうかを表すダミー変数を</p>
+<p><span class="math display">
+S_i =
+\begin{cases}
+1 &amp; \text{if } Y_i^\ast &gt; 0 \\
+0 &amp; \text{if } Y_i^\ast \le 0
+\end{cases}
+</span></p>
+<p>と書くことにする。 <span class="math inline">S_i = 1</span> ならデータに入る。 <span class="math inline">S_i = 0</span> ならデータに入らない。</p>
+<p>つまり、観測されるサンプルは</p>
+<p><span class="math display">
+S_i = 1
+</span></p>
+<p>を満たす人だけである。 しかし、<span class="math inline">S_i=1</span> という条件は、もともとの潜在モデル</p>
+<p><span class="math display">
+Y_i^\ast = \beta_0 + \beta_1 X_i + u_i
+</span></p>
+<p>を使うと、</p>
+<p><span class="math display">
+u_i &gt; -\beta_0 - \beta_1 X_i
+</span></p>
+<p>という条件である。 つまり、サンプルに入るかどうかを表す <span class="math inline">S_i</span> は、誤差項 <span class="math inline">u_i</span> と説明変数 <span class="math inline">X_i</span> の両方に依存している。</p>
+<p>この条件付きサンプルで OLS をきれいに解釈するには、</p>
+<p><span class="math display">
+E[u_i \mid X_i, S_i = 1] = 0
+</span></p>
+<p>が必要である。 しかし、もともとの母集団で <span class="math inline">E[u_i \mid X_i] = 0</span> が成り立っていたとしても、この条件は自動的には成り立たない。 Lecture 5 で見たように、OLS のきれいな解釈には「説明変数と誤差項が系統的に関係していない」ことが必要だった。 truncation は、この条件をサンプル選択を通じて壊してしまう。</p>
+<p>なぜ壊れるのかをもう少し具体的に見る。 <span class="math inline">S_i=1</span> は</p>
+<p><span class="math display">
+u_i &gt; -\beta_0 - \beta_1 X_i
+</span></p>
+<p>を意味するので、<span class="math inline">S_i=1</span> の中では誤差項 <span class="math inline">u_i</span> の分布が下から切られている。 しかも、その切られる位置は <span class="math inline">X_i</span> によって変わる。 <span class="math inline">X_i</span> が小さい人は、かなり大きな正の誤差を持っていないと <span class="math inline">S_i=1</span> になれない。 逆に <span class="math inline">X_i</span> が大きい人は、多少小さい誤差でも <span class="math inline">S_i=1</span> になれる。</p>
+<p>したがって、<span class="math inline">S_i=1</span> で条件づけると、誤差項の平均が <span class="math inline">X_i</span> と一緒に動く。 これが</p>
+<p><span class="math display">
+E[u_i \mid X_i] = 0
+</span></p>
+<p>だった世界から、</p>
+<p><span class="math display">
+E[u_i \mid X_i, S_i = 1] \neq 0
+</span></p>
+<p>の世界に変わる、ということである。</p>
+<p>シミュレーションで、実際に条件付き誤差の分布を見てみよう。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>x_bin <span class="ot">&lt;-</span> <span class="fu">cut</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  x,</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">breaks =</span> <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.2</span>)),</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">include.lowest =</span> <span class="cn">TRUE</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>selection_table <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">x_bin =</span> <span class="fu">levels</span>(x_bin),</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_u_all =</span> <span class="fu">as.numeric</span>(<span class="fu">tapply</span>(u, x_bin, mean)),</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_u_given_s1 =</span> <span class="fu">as.numeric</span>(<span class="fu">tapply</span>(u[s_observed <span class="sc">==</span> <span class="dv">1</span>], x_bin[s_observed <span class="sc">==</span> <span class="dv">1</span>], mean)),</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">share_s1 =</span> <span class="fu">as.numeric</span>(<span class="fu">tapply</span>(s_observed, x_bin, mean))</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>selection_table<span class="sc">$</span>mean_u_all <span class="ot">&lt;-</span> <span class="fu">round</span>(selection_table<span class="sc">$</span>mean_u_all, <span class="dv">3</span>)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>selection_table<span class="sc">$</span>mean_u_given_s1 <span class="ot">&lt;-</span> <span class="fu">round</span>(selection_table<span class="sc">$</span>mean_u_given_s1, <span class="dv">3</span>)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>selection_table<span class="sc">$</span>share_s1 <span class="ot">&lt;-</span> <span class="fu">round</span>(selection_table<span class="sc">$</span>share_s1, <span class="dv">3</span>)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(selection_table)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">x_bin</th>
+<th style="text-align: right;">mean_u_all</th>
+<th style="text-align: right;">mean_u_given_s1</th>
+<th style="text-align: right;">share_s1</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">[-3.34,-0.86]</td>
+<td style="text-align: right;">-0.051</td>
+<td style="text-align: right;">1.829</td>
+<td style="text-align: right;">0.102</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">(-0.86,-0.249]</td>
+<td style="text-align: right;">0.004</td>
+<td style="text-align: right;">0.922</td>
+<td style="text-align: right;">0.464</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">(-0.249,0.262]</td>
+<td style="text-align: right;">0.023</td>
+<td style="text-align: right;">0.443</td>
+<td style="text-align: right;">0.791</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">(0.262,0.853]</td>
+<td style="text-align: right;">0.065</td>
+<td style="text-align: right;">0.181</td>
+<td style="text-align: right;">0.957</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">(0.853,4.06]</td>
+<td style="text-align: right;">0.017</td>
+<td style="text-align: right;">0.023</td>
+<td style="text-align: right;">0.998</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>全体では、どの <span class="math inline">X</span> の範囲でも誤差項の平均はだいたい 0 に近い。 これは、データを作るときに <span class="math inline">u_i</span> を <span class="math inline">X_i</span> と独立に発生させたからである。 しかし <span class="math inline">S_i=1</span> の人だけを見ると、誤差項の平均は 0 ではなく、しかも <span class="math inline">X</span> の範囲によって変わる。</p>
+<p>図にすると、何が起きているかがさらに見やすい。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>old_par <span class="ot">&lt;-</span> <span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="at">mar =</span> <span class="fu">c</span>(<span class="fl">4.2</span>, <span class="fl">4.2</span>, <span class="fl">2.4</span>, <span class="dv">1</span>))</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  x[observed_positive], u[observed_positive],</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">col =</span> <span class="fu">rgb</span>(<span class="fl">0.1</span>, <span class="fl">0.45</span>, <span class="fl">0.2</span>, <span class="fl">0.18</span>),</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">"X"</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">ylab =</span> <span class="st">"u"</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">main =</span> <span class="st">"Error term among observed units"</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">col =</span> <span class="st">"gray35"</span>, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="fu">points</span>(</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tapply</span>(x[observed_positive], x_bin[observed_positive], mean),</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tapply</span>(u[observed_positive], x_bin[observed_positive], mean),</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">col =</span> <span class="st">"firebrick"</span>, <span class="at">cex =</span> <span class="fl">1.4</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tapply</span>(x[observed_positive], x_bin[observed_positive], mean),</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tapply</span>(u[observed_positive], x_bin[observed_positive], mean),</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">col =</span> <span class="st">"firebrick"</span>, <span class="at">lwd =</span> <span class="dv">2</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>  u,</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">breaks =</span> <span class="dv">35</span>, <span class="at">freq =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">col =</span> <span class="fu">rgb</span>(<span class="fl">0.35</span>, <span class="fl">0.35</span>, <span class="fl">0.35</span>, <span class="fl">0.25</span>),</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">"u"</span>,</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">main =</span> <span class="st">"Distribution of u"</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(</span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>  u[observed_positive],</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">breaks =</span> <span class="dv">35</span>, <span class="at">freq =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">col =</span> <span class="fu">rgb</span>(<span class="fl">0.1</span>, <span class="fl">0.45</span>, <span class="fl">0.2</span>, <span class="fl">0.35</span>),</span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">add =</span> <span class="cn">TRUE</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(</span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>  <span class="st">"topright"</span>,</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"all units"</span>, <span class="st">"S = 1 only"</span>),</span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">fill =</span> <span class="fu">c</span>(<span class="fu">rgb</span>(<span class="fl">0.35</span>, <span class="fl">0.35</span>, <span class="fl">0.35</span>, <span class="fl">0.25</span>), <span class="fu">rgb</span>(<span class="fl">0.1</span>, <span class="fl">0.45</span>, <span class="fl">0.2</span>, <span class="fl">0.35</span>)),</span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">border =</span> <span class="st">"white"</span>,</span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">bty =</span> <span class="st">"n"</span></span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture6_revised_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(old_par)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>左の図では、<span class="math inline">S_i=1</span> の人だけを見ると、誤差項 <span class="math inline">u_i</span> の平均が <span class="math inline">X_i</span> によって変わっていることがわかる。 赤い点は <span class="math inline">X</span> の範囲ごとの平均であり、0 の水平線から系統的にずれている。 右の図では、<span class="math inline">S_i=1</span> に限ると誤差項の分布そのものが、全体の分布からずれていることがわかる。</p>
+<p>上のシミュレーションでも、観測された <span class="math inline">Y_i &gt; 0</span> の人だけを残して OLS をすると、潜在モデルの係数 2 からずれていた。 これは「観測される人だけを見る」ことで、<span class="math inline">E[u_i \mid X_i, S_i=1]=0</span> が崩れてしまうためである。</p>
+<p>典型例は賃金である。 賃金は働いている人についてしか観測されない。 しかし働くかどうかは、潜在賃金、家庭状況、健康、選好などに依存する。 したがって、働いている人だけで賃金回帰をすると、それは「全員に対する潜在賃金の関係」ではなく、「働いている人という選ばれたサンプルの中での関係」になる。</p>
+</section>
+<section id="説明変数にカットオフがあるケース" class="level2">
+<h2 class="anchored" data-anchor-id="説明変数にカットオフがあるケース">説明変数にカットオフがあるケース</h2>
+<p>カットオフは従属変数だけでなく、説明変数にも現れる。 たとえば所得や資産が top-code されているのに、それを説明変数として使う場合である。 あるいは、テスト点や信用スコアのように、説明変数が上限・下限を持つこともある。</p>
+<p>ここでも問題は同じで、観測された <span class="math inline">X</span> が、本当に回帰式に入れたい <span class="math inline">X^\ast</span> と一致しているかである。</p>
+<p>たとえば本当は</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 X_i^\ast + u_i
+</span></p>
+<p>なのに、観測されるのが</p>
+<p><span class="math display">
+X_i = \max(0, X_i^\ast)
+</span></p>
+<p>だとする。 このとき <span class="math inline">X_i^\ast &lt; 0</span> の人は、全員 <span class="math inline">X_i = 0</span> と記録される。 観測された <span class="math inline">X_i</span> をそのまま使うと、真の説明変数に測定誤差が入った回帰になる。 しかもこの測定誤差は、普通の「ランダムなノイズ」ではなく、カットオフによって生じる非線形な誤差である。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">607</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">5000</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>x_star <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x_star <span class="sc">+</span> u</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>x_cens <span class="ot">&lt;-</span> <span class="fu">pmax</span>(<span class="dv">0</span>, x_star)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>keep_x_positive <span class="ot">&lt;-</span> x_star <span class="sc">&gt;</span> <span class="dv">0</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>x_table <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">model =</span> <span class="fu">c</span>(</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Y on true X*"</span>,</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Y on censored X"</span>,</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">"truncated X sample: Y on X*, only X* &gt; 0"</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">slope =</span> <span class="fu">c</span>(</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coef</span>(<span class="fu">lm</span>(y <span class="sc">~</span> x_star))[<span class="dv">2</span>],</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coef</span>(<span class="fu">lm</span>(y <span class="sc">~</span> x_cens))[<span class="dv">2</span>],</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coef</span>(<span class="fu">lm</span>(y <span class="sc">~</span> x_star, <span class="at">subset =</span> keep_x_positive))[<span class="dv">2</span>]</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>x_table<span class="sc">$</span>slope <span class="ot">&lt;-</span> <span class="fu">round</span>(x_table<span class="sc">$</span>slope, <span class="dv">3</span>)</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(x_table)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">model</th>
+<th style="text-align: right;">slope</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Y on true X*</td>
+<td style="text-align: right;">1.996</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Y on censored X</td>
+<td style="text-align: right;">2.951</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">truncated X sample: Y on X<em>, only X</em> &gt; 0</td>
+<td style="text-align: right;">2.009</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>この例では、真の <span class="math inline">X^\ast</span> を使えば係数は 2 に近い。 しかし censor された <span class="math inline">X</span> をそのまま説明変数に使うと、係数は大きく変わる。 これは、<span class="math inline">X^\ast &lt; 0</span> の細かい違いがすべて 0 に潰れてしまい、<span class="math inline">X</span> の分布と <span class="math inline">Y</span> との関係が変形されるからである。</p>
+<p>一方で、説明変数についての truncation は少し注意が必要である。 もし「<span class="math inline">X^\ast &gt; 0</span> の人だけを観測している」が、その範囲では真の <span class="math inline">X^\ast</span> が正確に観測され、かつ</p>
+<p><span class="math display">
+E[u_i \mid X_i^\ast] = 0
+</span></p>
+<p>がその範囲でも成り立つなら、<span class="math inline">X^\ast &gt; 0</span> のサンプル内での傾きは推定できる。 つまり、説明変数でサンプルを切ることそれ自体が、常に OLS のバイアスを生むわけではない。</p>
+<p>ただし、このとき推定しているのは、</p>
+<blockquote class="blockquote">
+<p><span class="math inline">X^\ast &gt; 0</span> の人たちの範囲での関係</p>
+</blockquote>
+<p>である。 全体集団にそのまま外挿できるとは限らない。 また、サンプルに入る条件が実は <span class="math inline">X</span> だけでなく <span class="math inline">u</span> や <span class="math inline">Y</span> にも依存しているなら、やはり selection の問題が出てくる。</p>
+</section>
+<section id="ols-だけでここまではできる" class="level2">
+<h2 class="anchored" data-anchor-id="ols-だけでここまではできる">OLS だけでここまではできる</h2>
+<p>ここまでの話を整理すると、OLS だけでもできることはある。</p>
+<p>第一に、カットオフがあることを図や記述統計で確認できる。 ヒストグラムや散布図を描いて、0 や上限値に観測値が不自然にたまっていないかを見ることは重要である。</p>
+<p>第二に、観測された変数そのものについての線形近似はできる。 たとえば「実際に観測された支出額」や「実際に観測された労働時間」が <span class="math inline">X</span> とどう関係しているかを記述することはできる。</p>
+<p>第三に、サンプルを限定した分析であることを明示すれば、そのサンプル内での関係を推定することはできる。 たとえば「就業者に限った賃金回帰」や「正の支出をした人に限った支出額回帰」は、対象をはっきり限定すれば記述的には意味を持つ。</p>
+<p>ただし、ここで注意したいのは、これらは基本的に</p>
+<blockquote class="blockquote">
+<p>観測されたデータ上での関係を記述している</p>
+</blockquote>
+<p>ということである。</p>
+<p>潜在変数 <span class="math inline">Y^\ast</span> の係数や、サンプル選択がなかった世界での関係を推定しているとは限らない。</p>
+</section>
+<section id="ここから先はまだできない" class="level2">
+<h2 class="anchored" data-anchor-id="ここから先はまだできない">ここから先はまだできない</h2>
+<p>本当は、従属変数が censor されているときには Tobit モデル、サンプル選択があるときには Heckit などの考え方が出てくる。 これらは、単に OLS に変数を足す話ではない。 観測される確率や、カットオフに値がたまる確率を含めて、データが生成される仕組みをモデル化する必要がある。</p>
+<p>そのためには、最尤法や分布の仮定を使う。 この lecture の時点では、まだそこまでの道具を導入していない。</p>
+<p>したがって、ここでの到達点は次のようにまとめられる。</p>
+<ul>
+<li>カットオフがある変数では、OLS の係数が何を表しているかを慎重に読む必要がある</li>
+<li>censoring と truncation は違う問題である</li>
+<li>観測された変数の線形近似としての OLS はできる</li>
+<li>しかし、潜在変数の構造パラメータや選択のない世界のパラメータを推定するには、追加のモデルと推定法が必要である</li>
+</ul>
+<p>この区別は、次に見る論文紹介にもつながる。 重回帰は非常に便利だが、便利だからこそ、「何を観測していて、何が観測されていないのか」を常に意識する必要がある。</p>
 <div class="callout callout-style-simple callout-note callout-titled" title="ここからは実証研究の例">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
