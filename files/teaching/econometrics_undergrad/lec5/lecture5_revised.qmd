@@ -678,16 +678,319 @@ $$
 
 で与えられる。
 
+### 幾何的な射影として見る
 
-これを見て思うべきことは、**じゃあ説明変数が3つあったらどうなってしまうんだ**という点である。計算したことはないが、使い物にならないほど長大なものになるだろう。
+「射影」という言葉でイメージしているのは、次のような図である。
 
-ということで、とにかく重要なのは、先ほども述べた通り、
+![Geometric interpretation of OLS projection.](assets/fwl_projection_geometry.svg){fig-alt="A geometric diagram where Y is projected onto a predicted plane, with Y-hat on the plane and the residual shown as the perpendicular difference." width="78%"}
 
-> FOCである3本の式を連立して解くと、OLS 推定量が得られる
+この図では、緑の平面が「説明変数を使って予測できる値」の集まりである。観測された $Y$ は、その平面から少し浮いたところにある点として描かれている。OLS は、$Y$ にできるだけ近い平面上の点を選ぶ。この平面上の点が予測値 $\hat Y$ であり、$Y$ から $\hat Y$ までのズレが残差である。
 
-という流れである。これは説明変数が何個あっても変わらない。
+このとき、残差は予測できる平面に対して垂直になる。直感的には、もし残差が平面上のどちらかの方向にまだ傾いているなら、その方向に予測値を少し動かすことで二乗誤差をさらに小さくできるはずである。OLS ではもうそれができないところまで予測値を動かしているので、残ったズレは予測できる部分に対して垂直になる。
+
+
+## FWL定理：重回帰係数を残りどうしの単回帰として読む
+
+推定値の公式を覚えようとする必要はない。大事なのは、この公式が何をしているのかである。実は、重回帰における $X_1$ の係数は、$X_1$ と $Y$ から $X_2$ で説明できる部分を取り除いたあと、残った部分どうしを単回帰した係数として読むことができる。これを Frisch-Waugh-Lovell 定理、あるいは FWL 定理と呼ぶ。
+
+まず、説明変数が2つのケースで、数式を最後まで確認しておこう。先ほど定義した
+
+$$
+\tilde Y_i,\qquad
+\tilde X_{1i},\qquad
+\tilde X_{2i}
+$$
+
+を使う。
+
+はじめに、$X_1$ を $X_2$ で単回帰する。平均からのずれを使えば、定数項を省いて
+
+$$
+\tilde X_{1i}=\hat a\tilde X_{2i}+v_i
+$$
+
+と書ける。単回帰の公式より、
+
+$$
+\hat a=
+\frac{\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}}
+{\sum_{i=1}^n \tilde X_{2i}^2}
+$$
+
+である。したがって、
+
+$$
+v_i
+=
+\tilde X_{1i}
+-
+\frac{\sum_{j=1}^n \tilde X_{1j}\tilde X_{2j}}
+{\sum_{j=1}^n \tilde X_{2j}^2}
+\tilde X_{2i}
+$$
+
+と書ける。ここで $v_i$ は、$X_1$ のうち $X_2$ で説明できなかった残りである。
+
+次に、$Y$ を $X_2$ で単回帰する。同じく平均からのずれを使って、
+
+$$
+\tilde Y_i=\hat c\tilde X_{2i}+r_i
+$$
+
+と書く。単回帰の公式より、
+
+$$
+\hat c=
+\frac{\sum_{i=1}^n \tilde X_{2i}\tilde Y_i}
+{\sum_{i=1}^n \tilde X_{2i}^2}
+$$
+
+である。したがって、
+
+$$
+r_i
+=
+\tilde Y_i
+-
+\frac{\sum_{j=1}^n \tilde X_{2j}\tilde Y_j}
+{\sum_{j=1}^n \tilde X_{2j}^2}
+\tilde X_{2i}
+$$
+
+と書ける。ここで $r_i$ は、$Y$ のうち $X_2$ で説明できなかった残りである。
+
+次に、$r_i$ を $v_i$ に単回帰する。
+
+$$
+r_i = b v_i + \text{誤差}
+$$
+
+単回帰の係数公式より、
+
+$$
+\hat b =
+\frac{\sum_{i=1}^n v_i r_i}
+{\sum_{i=1}^n v_i^2}
+$$
+
+である。
+
+ここで計算すると、
+
+$$
+\sum_{i=1}^n v_i r_i
+=
+\sum_{i=1}^n \tilde X_{1i}\tilde Y_i
+-
+\frac{
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)
+\left(\sum_{i=1}^n \tilde X_{2i}\tilde Y_i\right)
+}{
+\sum_{i=1}^n \tilde X_{2i}^2
+}
+$$
+
+また、
+
+$$
+\sum_{i=1}^n v_i^2
+=
+\sum_{i=1}^n \tilde X_{1i}^2
+-
+\frac{
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)^2
+}{
+\sum_{i=1}^n \tilde X_{2i}^2
+}
+$$
+
+である。したがって、
+
+$$
+\hat b
+=
+\frac{
+\sum_{i=1}^n \tilde X_{1i}\tilde Y_i
+-
+\frac{
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)
+\left(\sum_{i=1}^n \tilde X_{2i}\tilde Y_i\right)
+}{
+\sum_{i=1}^n \tilde X_{2i}^2
+}
+}{
+\sum_{i=1}^n \tilde X_{1i}^2
+-
+\frac{
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)^2
+}{
+\sum_{i=1}^n \tilde X_{2i}^2
+}
+}
+$$
+
+分母分子に $\sum_{i=1}^n \tilde X_{2i}^2$ をかけると、
+
+$$
+\hat b
+=
+\frac{
+\left(\sum_{i=1}^n \tilde X_{2i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde Y_i\right)
+-
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)
+\left(\sum_{i=1}^n \tilde X_{2i}\tilde Y_i\right)
+}{
+\left(\sum_{i=1}^n \tilde X_{1i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{2i}^2\right)
+-
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)^2
+}
+$$
+
+となり、これは直前に出した重回帰の $\hat\beta_1$ の公式と同じである。結論として、
+
+$$
+\hat b=\hat\beta_1
+$$
+
+である。
+
+::: {.callout-important title="FWL定理の読み方"}
+重回帰
+$$
+Y_i=\beta_0+\beta_1X_{1i}+\beta_2X_{2i}+u_i
+$$
+における $X_1$ の係数 $\hat\beta_1$ は、
+
+1. $X_1$ から $X_2$ で説明できる部分を取り除く
+2. $Y$ から $X_2$ で説明できる部分を取り除く
+3. その残りどうしを単回帰する
+
+ことで得られる係数と同じである。
+:::
+
+
+
+### 図で見る：予測できる部分と残り
+
+まず、横軸 $X_2$、縦軸 $X_1$ の散布図を考える。回帰直線で予測される部分が $\hat X_{1i}$、点から回帰直線までの縦のズレが $v_i$ である。
+
+次に、横軸 $X_2$、縦軸 $Y$ の散布図を考える。回帰直線で予測される部分が $\hat Y_i$、点から回帰直線までの縦のズレが $r_i$ である。
+
+最後に、横軸 $v_i$、縦軸 $r_i$ の散布図を描き、その単回帰直線の傾きを見る。この傾きが、もとの重回帰の $\hat\beta_1$ である。
+
+```{r}
+#| echo: false
+#| fig-width: 10
+#| fig-height: 3.5
+#| out-width: "100%"
+
+set.seed(123)
+
+n_fwl <- 40
+x2_fwl <- seq(-2, 2, length.out = n_fwl)
+x1_fwl <- 0.8 * x2_fwl + rnorm(n_fwl, sd = 0.6)
+y_fwl  <- 1.5 * x1_fwl + 0.9 * x2_fwl + rnorm(n_fwl, sd = 0.7)
+
+fit_x1_on_x2 <- lm(x1_fwl ~ x2_fwl)
+fit_y_on_x2  <- lm(y_fwl ~ x2_fwl)
+
+v_fwl <- resid(fit_x1_on_x2)
+r_fwl <- resid(fit_y_on_x2)
+
+show_i <- c(6, 16, 26, 36)
+
+op <- par(mfrow = c(1, 3), mar = c(4, 4, 3, 1))
+
+plot(x2_fwl, x1_fwl,
+     xlab = "X2",
+     ylab = "X1",
+     main = "1. Predict X1 from X2")
+abline(fit_x1_on_x2, lwd = 2)
+segments(x2_fwl[show_i],
+         fitted(fit_x1_on_x2)[show_i],
+         x2_fwl[show_i],
+         x1_fwl[show_i],
+         lty = 2)
+
+plot(x2_fwl, y_fwl,
+     xlab = "X2",
+     ylab = "Y",
+     main = "2. Predict Y from X2")
+abline(fit_y_on_x2, lwd = 2)
+segments(x2_fwl[show_i],
+         fitted(fit_y_on_x2)[show_i],
+         x2_fwl[show_i],
+         y_fwl[show_i],
+         lty = 2)
+
+plot(v_fwl, r_fwl,
+     xlab = "Residualized X1 (v)",
+     ylab = "Residualized Y (r)",
+     main = "3. Regress residuals")
+abline(lm(r_fwl ~ v_fwl), lwd = 2)
+
+par(op)
+```
+
+左の図では、$X_1$ のうち $X_2$ で予測できる部分を回帰直線で表している。点から線までの縦のズレが $v_i$ である。中央の図では、$Y$ のうち $X_2$ で予測できる部分を回帰直線で表している。点から線までの縦のズレが $r_i$ である。右の図では、その残りどうしを比べている。この右の図の傾きが、もとの重回帰における $X_1$ の係数である。
+
+
+### コントロール変数が複数あっても同じ
+
+コントロール変数が複数ある場合も、考え方は同じである。たとえば、
+
+$$
+Y_i=
+\beta_0+\beta_1X_{1i}
++\beta_2X_{2i}
++\cdots
++\beta_KX_{Ki}
++u_i
+$$
+
+というモデルを考える。ここで関心があるのは $X_1$ の係数 $\beta_1$ で、$X_2,\ldots,X_K$ はコントロール変数であるとする。
+
+このときも、やることは同じである。まず、$X_1$ をコントロール変数で回帰する。
+
+$$
+X_{1i}
+=
+a_0+a_2X_{2i}+\cdots+a_KX_{Ki}+v_i
+$$
+
+ここで $v_i$ は、$X_1$ のうち $X_2,\ldots,X_K$ で説明できなかった残りである。
+
+次に、$Y$ をコントロール変数で回帰する。
+
+$$
+Y_i
+=
+c_0+c_2X_{2i}+\cdots+c_KX_{Ki}+r_i
+$$
+
+ここで $r_i$ は、$Y$ のうち $X_2,\ldots,X_K$ で説明できなかった残りである。
+
+最後に、
+
+$$
+r_i = b v_i + \text{誤差}
+$$
+
+を単回帰する。このときの $\hat b$ が、もとの重回帰の $\hat\beta_1$ と一致する。
+
+コントロール変数が1つだけなら、予測される部分は回帰直線で表せる。コントロール変数が2つなら、予測される部分は回帰平面で表せる。もっと多くなると図には描きにくくなるが、考え方は同じである。つまり、$X_1$ と $Y$ から、コントロール変数で予測できる部分を取り除き、残った部分どうしを比べている。
+
+とにかく重要なのは、先ほども述べた通り、
+
+> FOCの式を連立して解くと、OLS 推定量が得られる
+
+という流れである。これは説明変数が何個あっても変わらない。FWL定理が教えてくれるように、重回帰の係数は「他の説明変数で説明できる部分を取り除いたあとに残る関係」として読むのがよい。
 
 そして、パソコンはこういう連立方程式をとくという作業が大得意である。パソコンに任せよう。
+
+この見方は、あとで出てくるバイアスや多重共線性の理解にも役に立つ。必要なコントロール変数を落とすと、取り除くべき部分が残ってしまう。逆に、説明変数どうしがあまりに似ていると、$X_1$ のうち他の変数では説明できない残り $v_i$ が小さくなり、係数の推定が不安定になる。
 
 ::: {.callout-important title="ここからは推定量としての話"}
 以下の不偏性・一致性・漸近正規性は、**$E[u_i\mid x_{1i},x_{2i}]=0$** のような外生性条件の下で成り立つ。

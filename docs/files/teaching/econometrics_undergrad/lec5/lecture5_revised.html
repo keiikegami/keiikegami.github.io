@@ -169,7 +169,15 @@ window.Quarto = {
   <li><a href="#単回帰との違い" id="toc-単回帰との違い" class="nav-link" data-scroll-target="#単回帰との違い">単回帰との違い</a></li>
   <li><a href="#hatbeta_0-は平均を使って書ける" id="toc-hatbeta_0-は平均を使って書ける" class="nav-link" data-scroll-target="#hatbeta_0-は平均を使って書ける"><span class="math inline">\hat\beta_0</span> は平均を使って書ける</a></li>
   <li><a href="#ここでは何が大事か" id="toc-ここでは何が大事か" class="nav-link" data-scroll-target="#ここでは何が大事か">ここでは何が大事か</a></li>
-  <li><a href="#傾きの値の公式があるあるけど" id="toc-傾きの値の公式があるあるけど" class="nav-link" data-scroll-target="#傾きの値の公式があるあるけど">傾きの値の公式がある。あるけど…</a></li>
+  <li><a href="#傾きの値の公式があるあるけど" id="toc-傾きの値の公式があるあるけど" class="nav-link" data-scroll-target="#傾きの値の公式があるあるけど">傾きの値の公式がある。あるけど…</a>
+  <ul class="collapse">
+  <li><a href="#幾何的な射影として見る" id="toc-幾何的な射影として見る" class="nav-link" data-scroll-target="#幾何的な射影として見る">幾何的な射影として見る</a></li>
+  </ul></li>
+  <li><a href="#fwl定理重回帰係数を残りどうしの単回帰として読む" id="toc-fwl定理重回帰係数を残りどうしの単回帰として読む" class="nav-link" data-scroll-target="#fwl定理重回帰係数を残りどうしの単回帰として読む">FWL定理：重回帰係数を残りどうしの単回帰として読む</a>
+  <ul class="collapse">
+  <li><a href="#図で見る予測できる部分と残り" id="toc-図で見る予測できる部分と残り" class="nav-link" data-scroll-target="#図で見る予測できる部分と残り">図で見る：予測できる部分と残り</a></li>
+  <li><a href="#コントロール変数が複数あっても同じ" id="toc-コントロール変数が複数あっても同じ" class="nav-link" data-scroll-target="#コントロール変数が複数あっても同じ">コントロール変数が複数あっても同じ</a></li>
+  </ul></li>
   </ul></li>
   <li><a href="#ols-の性質推定量としての性質" id="toc-ols-の性質推定量としての性質" class="nav-link" data-scroll-target="#ols-の性質推定量としての性質">OLS の性質：推定量としての性質</a>
   <ul class="collapse">
@@ -793,13 +801,228 @@ Y_i-\hat\beta_0-\hat\beta_1X_{1i}-\hat\beta_2X_{2i}
 \hat\beta_0 = \bar Y - \hat\beta_1 \bar X_1 - \hat\beta_2 \bar X_2
 </span></p>
 <p>で与えられる。</p>
-<p>これを見て思うべきことは、<strong>じゃあ説明変数が3つあったらどうなってしまうんだ</strong>という点である。計算したことはないが、使い物にならないほど長大なものになるだろう。</p>
-<p>ということで、とにかく重要なのは、先ほども述べた通り、</p>
+<section id="幾何的な射影として見る" class="level3">
+<h3 class="anchored" data-anchor-id="幾何的な射影として見る">幾何的な射影として見る</h3>
+<p>「射影」という言葉でイメージしているのは、次のような図である。</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="assets/fwl_projection_geometry.svg" class="img-fluid figure-img" style="width:78.0%" alt="A geometric diagram where Y is projected onto a predicted plane, with Y-hat on the plane and the residual shown as the perpendicular difference."></p>
+<figcaption>Geometric interpretation of OLS projection.</figcaption>
+</figure>
+</div>
+<p>この図では、緑の平面が「説明変数を使って予測できる値」の集まりである。観測された <span class="math inline">Y</span> は、その平面から少し浮いたところにある点として描かれている。OLS は、<span class="math inline">Y</span> にできるだけ近い平面上の点を選ぶ。この平面上の点が予測値 <span class="math inline">\hat Y</span> であり、<span class="math inline">Y</span> から <span class="math inline">\hat Y</span> までのズレが残差である。</p>
+<p>このとき、残差は予測できる平面に対して垂直になる。直感的には、もし残差が平面上のどちらかの方向にまだ傾いているなら、その方向に予測値を少し動かすことで二乗誤差をさらに小さくできるはずである。OLS ではもうそれができないところまで予測値を動かしているので、残ったズレは予測できる部分に対して垂直になる。</p>
+</section>
+</section>
+<section id="fwl定理重回帰係数を残りどうしの単回帰として読む" class="level2">
+<h2 class="anchored" data-anchor-id="fwl定理重回帰係数を残りどうしの単回帰として読む">FWL定理：重回帰係数を残りどうしの単回帰として読む</h2>
+<p>推定値の公式を覚えようとする必要はない。大事なのは、この公式が何をしているのかである。実は、重回帰における <span class="math inline">X_1</span> の係数は、<span class="math inline">X_1</span> と <span class="math inline">Y</span> から <span class="math inline">X_2</span> で説明できる部分を取り除いたあと、残った部分どうしを単回帰した係数として読むことができる。これを Frisch-Waugh-Lovell 定理、あるいは FWL 定理と呼ぶ。</p>
+<p>まず、説明変数が2つのケースで、数式を最後まで確認しておこう。先ほど定義した</p>
+<p><span class="math display">
+\tilde Y_i,\qquad
+\tilde X_{1i},\qquad
+\tilde X_{2i}
+</span></p>
+<p>を使う。</p>
+<p>はじめに、<span class="math inline">X_1</span> を <span class="math inline">X_2</span> で単回帰する。平均からのずれを使えば、定数項を省いて</p>
+<p><span class="math display">
+\tilde X_{1i}=\hat a\tilde X_{2i}+v_i
+</span></p>
+<p>と書ける。単回帰の公式より、</p>
+<p><span class="math display">
+\hat a=
+\frac{\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}}
+{\sum_{i=1}^n \tilde X_{2i}^2}
+</span></p>
+<p>である。したがって、</p>
+<p><span class="math display">
+v_i
+=
+\tilde X_{1i}
+-
+\frac{\sum_{j=1}^n \tilde X_{1j}\tilde X_{2j}}
+{\sum_{j=1}^n \tilde X_{2j}^2}
+\tilde X_{2i}
+</span></p>
+<p>と書ける。ここで <span class="math inline">v_i</span> は、<span class="math inline">X_1</span> のうち <span class="math inline">X_2</span> で説明できなかった残りである。</p>
+<p>次に、<span class="math inline">Y</span> を <span class="math inline">X_2</span> で単回帰する。同じく平均からのずれを使って、</p>
+<p><span class="math display">
+\tilde Y_i=\hat c\tilde X_{2i}+r_i
+</span></p>
+<p>と書く。単回帰の公式より、</p>
+<p><span class="math display">
+\hat c=
+\frac{\sum_{i=1}^n \tilde X_{2i}\tilde Y_i}
+{\sum_{i=1}^n \tilde X_{2i}^2}
+</span></p>
+<p>である。したがって、</p>
+<p><span class="math display">
+r_i
+=
+\tilde Y_i
+-
+\frac{\sum_{j=1}^n \tilde X_{2j}\tilde Y_j}
+{\sum_{j=1}^n \tilde X_{2j}^2}
+\tilde X_{2i}
+</span></p>
+<p>と書ける。ここで <span class="math inline">r_i</span> は、<span class="math inline">Y</span> のうち <span class="math inline">X_2</span> で説明できなかった残りである。</p>
+<p>次に、<span class="math inline">r_i</span> を <span class="math inline">v_i</span> に単回帰する。</p>
+<p><span class="math display">
+r_i = b v_i + \text{誤差}
+</span></p>
+<p>単回帰の係数公式より、</p>
+<p><span class="math display">
+\hat b =
+\frac{\sum_{i=1}^n v_i r_i}
+{\sum_{i=1}^n v_i^2}
+</span></p>
+<p>である。</p>
+<p>ここで計算すると、</p>
+<p><span class="math display">
+\sum_{i=1}^n v_i r_i
+=
+\sum_{i=1}^n \tilde X_{1i}\tilde Y_i
+-
+\frac{
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)
+\left(\sum_{i=1}^n \tilde X_{2i}\tilde Y_i\right)
+}{
+\sum_{i=1}^n \tilde X_{2i}^2
+}
+</span></p>
+<p>また、</p>
+<p><span class="math display">
+\sum_{i=1}^n v_i^2
+=
+\sum_{i=1}^n \tilde X_{1i}^2
+-
+\frac{
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)^2
+}{
+\sum_{i=1}^n \tilde X_{2i}^2
+}
+</span></p>
+<p>である。したがって、</p>
+<p><span class="math display">
+\hat b
+=
+\frac{
+\sum_{i=1}^n \tilde X_{1i}\tilde Y_i
+-
+\frac{
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)
+\left(\sum_{i=1}^n \tilde X_{2i}\tilde Y_i\right)
+}{
+\sum_{i=1}^n \tilde X_{2i}^2
+}
+}{
+\sum_{i=1}^n \tilde X_{1i}^2
+-
+\frac{
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)^2
+}{
+\sum_{i=1}^n \tilde X_{2i}^2
+}
+}
+</span></p>
+<p>分母分子に <span class="math inline">\sum_{i=1}^n \tilde X_{2i}^2</span> をかけると、</p>
+<p><span class="math display">
+\hat b
+=
+\frac{
+\left(\sum_{i=1}^n \tilde X_{2i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde Y_i\right)
+-
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)
+\left(\sum_{i=1}^n \tilde X_{2i}\tilde Y_i\right)
+}{
+\left(\sum_{i=1}^n \tilde X_{1i}^2\right)
+\left(\sum_{i=1}^n \tilde X_{2i}^2\right)
+-
+\left(\sum_{i=1}^n \tilde X_{1i}\tilde X_{2i}\right)^2
+}
+</span></p>
+<p>となり、これは直前に出した重回帰の <span class="math inline">\hat\beta_1</span> の公式と同じである。結論として、</p>
+<p><span class="math display">
+\hat b=\hat\beta_1
+</span></p>
+<p>である。</p>
+<div class="callout callout-style-simple callout-important callout-titled" title="FWL定理の読み方">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>FWL定理の読み方
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>重回帰 <span class="math display">
+Y_i=\beta_0+\beta_1X_{1i}+\beta_2X_{2i}+u_i
+</span> における <span class="math inline">X_1</span> の係数 <span class="math inline">\hat\beta_1</span> は、</p>
+<ol type="1">
+<li><span class="math inline">X_1</span> から <span class="math inline">X_2</span> で説明できる部分を取り除く</li>
+<li><span class="math inline">Y</span> から <span class="math inline">X_2</span> で説明できる部分を取り除く</li>
+<li>その残りどうしを単回帰する</li>
+</ol>
+<p>ことで得られる係数と同じである。</p>
+</div>
+</div>
+<section id="図で見る予測できる部分と残り" class="level3">
+<h3 class="anchored" data-anchor-id="図で見る予測できる部分と残り">図で見る：予測できる部分と残り</h3>
+<p>まず、横軸 <span class="math inline">X_2</span>、縦軸 <span class="math inline">X_1</span> の散布図を考える。回帰直線で予測される部分が <span class="math inline">\hat X_{1i}</span>、点から回帰直線までの縦のズレが <span class="math inline">v_i</span> である。</p>
+<p>次に、横軸 <span class="math inline">X_2</span>、縦軸 <span class="math inline">Y</span> の散布図を考える。回帰直線で予測される部分が <span class="math inline">\hat Y_i</span>、点から回帰直線までの縦のズレが <span class="math inline">r_i</span> である。</p>
+<p>最後に、横軸 <span class="math inline">v_i</span>、縦軸 <span class="math inline">r_i</span> の散布図を描き、その単回帰直線の傾きを見る。この傾きが、もとの重回帰の <span class="math inline">\hat\beta_1</span> である。</p>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>左の図では、<span class="math inline">X_1</span> のうち <span class="math inline">X_2</span> で予測できる部分を回帰直線で表している。点から線までの縦のズレが <span class="math inline">v_i</span> である。中央の図では、<span class="math inline">Y</span> のうち <span class="math inline">X_2</span> で予測できる部分を回帰直線で表している。点から線までの縦のズレが <span class="math inline">r_i</span> である。右の図では、その残りどうしを比べている。この右の図の傾きが、もとの重回帰における <span class="math inline">X_1</span> の係数である。</p>
+</section>
+<section id="コントロール変数が複数あっても同じ" class="level3">
+<h3 class="anchored" data-anchor-id="コントロール変数が複数あっても同じ">コントロール変数が複数あっても同じ</h3>
+<p>コントロール変数が複数ある場合も、考え方は同じである。たとえば、</p>
+<p><span class="math display">
+Y_i=
+\beta_0+\beta_1X_{1i}
++\beta_2X_{2i}
++\cdots
++\beta_KX_{Ki}
++u_i
+</span></p>
+<p>というモデルを考える。ここで関心があるのは <span class="math inline">X_1</span> の係数 <span class="math inline">\beta_1</span> で、<span class="math inline">X_2,\ldots,X_K</span> はコントロール変数であるとする。</p>
+<p>このときも、やることは同じである。まず、<span class="math inline">X_1</span> をコントロール変数で回帰する。</p>
+<p><span class="math display">
+X_{1i}
+=
+a_0+a_2X_{2i}+\cdots+a_KX_{Ki}+v_i
+</span></p>
+<p>ここで <span class="math inline">v_i</span> は、<span class="math inline">X_1</span> のうち <span class="math inline">X_2,\ldots,X_K</span> で説明できなかった残りである。</p>
+<p>次に、<span class="math inline">Y</span> をコントロール変数で回帰する。</p>
+<p><span class="math display">
+Y_i
+=
+c_0+c_2X_{2i}+\cdots+c_KX_{Ki}+r_i
+</span></p>
+<p>ここで <span class="math inline">r_i</span> は、<span class="math inline">Y</span> のうち <span class="math inline">X_2,\ldots,X_K</span> で説明できなかった残りである。</p>
+<p>最後に、</p>
+<p><span class="math display">
+r_i = b v_i + \text{誤差}
+</span></p>
+<p>を単回帰する。このときの <span class="math inline">\hat b</span> が、もとの重回帰の <span class="math inline">\hat\beta_1</span> と一致する。</p>
+<p>コントロール変数が1つだけなら、予測される部分は回帰直線で表せる。コントロール変数が2つなら、予測される部分は回帰平面で表せる。もっと多くなると図には描きにくくなるが、考え方は同じである。つまり、<span class="math inline">X_1</span> と <span class="math inline">Y</span> から、コントロール変数で予測できる部分を取り除き、残った部分どうしを比べている。</p>
+<p>とにかく重要なのは、先ほども述べた通り、</p>
 <blockquote class="blockquote">
-<p>FOCである3本の式を連立して解くと、OLS 推定量が得られる</p>
+<p>FOCの式を連立して解くと、OLS 推定量が得られる</p>
 </blockquote>
-<p>という流れである。これは説明変数が何個あっても変わらない。</p>
+<p>という流れである。これは説明変数が何個あっても変わらない。FWL定理が教えてくれるように、重回帰の係数は「他の説明変数で説明できる部分を取り除いたあとに残る関係」として読むのがよい。</p>
 <p>そして、パソコンはこういう連立方程式をとくという作業が大得意である。パソコンに任せよう。</p>
+<p>この見方は、あとで出てくるバイアスや多重共線性の理解にも役に立つ。必要なコントロール変数を落とすと、取り除くべき部分が残ってしまう。逆に、説明変数どうしがあまりに似ていると、<span class="math inline">X_1</span> のうち他の変数では説明できない残り <span class="math inline">v_i</span> が小さくなり、係数の推定が不安定になる。</p>
 <div class="callout callout-style-simple callout-important callout-titled" title="ここからは推定量としての話">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -813,6 +1036,7 @@ Y_i-\hat\beta_0-\hat\beta_1X_{1i}-\hat\beta_2X_{2i}
 <p>以下の不偏性・一致性・漸近正規性は、<strong><span class="math inline">E[u_i\mid x_{1i},x_{2i}]=0</span></strong> のような外生性条件の下で成り立つ。</p>
 </div>
 </div>
+</section>
 </section>
 </section>
 <section id="ols-の性質推定量としての性質" class="level1">
@@ -1603,7 +1827,7 @@ Y_i=\beta_0+\beta_1 X_i+\beta_2(X_i^2-1)+(\beta_2 v_i+u_i)
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -1614,7 +1838,7 @@ Y_i=\beta_0+\beta_1 X_i+\beta_2(X_i^2-1)+(\beta_2 v_i+u_i)
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-5-2.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-6-2.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -1853,7 +2077,7 @@ F-statistic:  3891 on 2 and 497 DF,  p-value: &lt; 2.2e-16</code></pre>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -1951,7 +2175,7 @@ F-statistic:  3891 on 2 and 497 DF,  p-value: &lt; 2.2e-16</code></pre>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -1991,7 +2215,7 @@ F-statistic:  3891 on 2 and 497 DF,  p-value: &lt; 2.2e-16</code></pre>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -2034,7 +2258,7 @@ F-statistic:  3891 on 2 and 497 DF,  p-value: &lt; 2.2e-16</code></pre>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="lecture5_revised_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
