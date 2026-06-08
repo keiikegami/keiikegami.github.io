@@ -1,0 +1,127 @@
+---
+title: "Lecture 11：不連続回帰デザイン（RDD）"
+subtitle: "sharp / fuzzy RDD と制度的カットオフの利用"
+lang: ja
+format:
+  beamer:
+    theme: Boadilla
+    colortheme: seahorse
+    aspectratio: 169
+    slide-level: 2
+    pdf-engine: lualatex
+    fontsize: 11pt
+    toc: false
+    number-sections: false
+    incremental: false
+header-includes: |
+  \usepackage{luatexja}
+  \usepackage{amsmath,amssymb,bm,booktabs}
+  \setbeamertemplate{navigation symbols}{}
+  \setlength{\parskip}{0.25em}
+---
+# 導入
+
+## この講義で押さえたいこと
+
+- RDD は制度が作るカットオフの不連続を使って因果効果を識別する方法である
+- 識別の核心は、カットオフ近傍では他の要因が滑らかに変化すると考えることにある
+- sharp / fuzzy RDD と実装上の注意点を分けて理解する
+
+# RDD の直感
+
+## 自己負担額と受診回数を回帰すれば十分？
+
+- データはたくさんある
+- 散布図や OLS をやりたくなる
+- でも、それで因果効果まで言えるだろうか？
+
+## 素朴な回帰ではだめ
+
+- 健康状態が悪い人ほど受診も自己負担も大きい
+- $Cov(\mathrm{copay},u)\neq 0$
+- 相関は因果効果を教えてくれない
+
+## RDD の基本発想
+
+- 制度が作るカットオフを利用する
+- 年齢は連続的に変化する
+- でも treatment は閾値でジャンプする
+
+## なぜ 69歳11か月 と 70歳0か月 を比べるのか
+
+- たった数日違いの人たちは何が違うのか？
+- 何が同じだと考えるのか？
+
+## 答え：カットオフ近傍では人はよく似ている
+
+- 健康・所得・生活環境は滑らかに変化するはず
+- 70歳で自己負担だけが不連続に下がる
+- outcome もそこで飛べば因果効果と読める
+
+# sharp / fuzzy RDD
+
+## sharp RDD
+
+- treatment が閾値で完全に切り替わる
+- 識別対象 = cutoff における局所平均処置効果
+
+$$
+\tau_{SRD}=\lim_{x\downarrow c}E[Y\mid X=x]-\lim_{x\uparrow c}E[Y\mid X=x]
+$$
+
+## fuzzy RDD
+
+- treatment 確率だけがジャンプする
+- 識別は jump in outcome / jump in treatment
+- 直感的には cutoff を instrument にした IV
+
+## 識別仮定
+
+- 潜在アウトカムが cutoff で連続
+- manipulation が強くない
+- 他の共変量も cutoff で不連続でない
+
+## 実装の基本
+
+- cutoff 近傍だけを使う
+- 局所線形回帰を基本にする
+- bandwidth の選び方が重要になる
+
+# 読み方と実務
+
+## RDD で必ず確認するものは？
+
+- 結果が飛んでいるかだけ見ればよいのか？
+- それ以外に何をチェックすべきか？
+
+## チェックリスト
+
+- treatment の jump（first stage）
+- 共変量の連続性
+- ランニング変数の密度の連続性
+- placebo cutoff
+
+## 図の読み方
+
+- 左右で別々の線を引く
+- カットオフ直前と直後の差を見る
+- 全体の傾きではなく「局所の段差」が主役
+
+## 実証例：Shigeoka (2014)
+
+- 70歳で自己負担が下がる日本の制度を利用
+- 外来・入院は増える
+- ただし健康改善は明確でない
+- RDD は制度評価に強い
+
+## RDD の限界
+
+- 効果は cutoff 近傍の局所効果
+- 外的妥当性は自動では広がらない
+- manipulation や仕様依存性に注意する
+
+## 今日のまとめ
+
+- RDD は制度が作る段差を因果識別に使う
+- 核心は continuity assumption
+- sharp / fuzzy / 実装チェックを分けて理解する

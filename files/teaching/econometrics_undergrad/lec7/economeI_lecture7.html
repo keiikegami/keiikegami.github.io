@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>lecture7: 因果推論のフレームワーク</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="economeI_lecture7_files/libs/clipboard/clipboard.min.js"></script>
+<script src="economeI_lecture7_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="economeI_lecture7_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="economeI_lecture7_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="economeI_lecture7_files/libs/quarto-html/popper.min.js"></script>
+<script src="economeI_lecture7_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="economeI_lecture7_files/libs/quarto-html/anchor.min.js"></script>
+<link href="economeI_lecture7_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="economeI_lecture7_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="economeI_lecture7_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="economeI_lecture7_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="economeI_lecture7_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">lecture7: 因果推論のフレームワーク</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="因果推論とは何を識別することなのか" class="level1">
+<h1>因果推論とは何を識別することなのか</h1>
+<p>ここまで見てきたように、重回帰を使うと</p>
+<ul>
+<li>対数変数</li>
+<li>二次項</li>
+<li>交差項</li>
+<li>ダミー変数</li>
+<li>固定効果</li>
+</ul>
+<p>などを通じて、さまざまな経済的関係を表現できる。</p>
+<p>ただし、今まで散々見てきたように、<strong>回帰式を書けること</strong> と、<strong>因果効果がわかること</strong> は同じではない。</p>
+<p>たとえばダミー変数<span class="math inline">D_i</span>を用いて、</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 D_i + u_i
+</span></p>
+<p>という式を書いて、<span class="math inline">D_i</span> が 1 の人のほうが <span class="math inline">Y_i</span> が高かったとしても、それだけでは</p>
+<blockquote class="blockquote">
+<p><span class="math inline">D_i</span> が <span class="math inline">Y_i</span> を変えた</p>
+</blockquote>
+<p>とは言えない。</p>
+<p>なぜなら、<span class="math inline">D_i=1</span> の人と <span class="math inline">D_i=0</span> の人では、もともと別の特徴を持っていて、それが結果の<span class="math inline">Y_i</span>に影響しているかもしれないからである。これは<span class="math inline">E[u_i\mid D_i] = 0</span>という仮定をおかないと、本当に知りたいパラメータは識別できない、という話であった。</p>
+<p>計量経済学において、<strong>因果推論</strong>とは基本的に<strong>回帰式で説明変数として出てくる興味のあるダミー変数にくっついているパラメータを識別すること</strong>を指す。</p>
+<p>このパラメータはもちろん、<span class="math inline">D_i = 0</span>と比べて<span class="math inline">D_i = 1</span>が平均的にどれくらい結果が大きいか、を表すパラメータである。</p>
+<p>正味これだけの話なのだが、実はこの「パラメータ」をもうちょっと深ぼることができる。そしてもうちょっと深ぼると、なんでこれがわざわざ<strong>因果推論</strong>と呼ばれうるのかがわかる。</p>
+<p>まずはこの問題をふかぼるための道具である<strong>潜在アウトカム</strong>を導入する。</p>
+<section id="潜在アウトカム" class="level2">
+<h2 class="anchored" data-anchor-id="潜在アウトカム">潜在アウトカム</h2>
+<p>この考え方を厳密に書くために、<strong>潜在アウトカム</strong> を導入する。</p>
+<p>各個体 <span class="math inline">i</span> について、</p>
+<ul>
+<li><span class="math inline">Y_i(1)</span>：個体 <span class="math inline">i</span> が処置を受けたときのアウトカム</li>
+<li><span class="math inline">Y_i(0)</span>：個体 <span class="math inline">i</span> が処置を受けなかったときのアウトカム</li>
+</ul>
+<p>を考える。</p>
+<p>ここで「処置」とは、たとえば</p>
+<ul>
+<li>政策の対象になること</li>
+<li>補助金を受けること</li>
+<li>新制度が導入されること</li>
+<li>ある学校に進学すること</li>
+</ul>
+<p>など、分析したい介入一般を表している。この処置が行われたときに<span class="math inline">1</span>になるダミー変数が<span class="math inline">D_i</span>である。</p>
+<p>世界には同一の個体は一つしか存在しない。なので、なんらかの処置が実行された時、<strong>実際に観測されるのは、このうち片方だけである。</strong></p>
+<p>このように考えると、我々は常に一つの変数について観測できていないということになる。<span class="math inline">D_i = 0</span>の <span class="math inline">i</span>については<span class="math inline">Y_i(0)</span>が観測され、逆に<span class="math inline">D_i = 1</span>の人<span class="math inline">i</span>については<span class="math inline">Y_i(0)</span>が観測されていない。</p>
+<p>このような欠損値があるがゆえに処置の効果が直接にはわからない、という考え方をする。これが潜在アウトカムの考え方である。</p>
+<p>具体的に書く。処置変数を</p>
+<p><span class="math display">
+D_i =
+\begin{cases}
+1 &amp; \text{if individual } i \text{ is treated} \\
+0 &amp; \text{if individual } i \text{ is untreated}
+\end{cases}
+</span></p>
+<p>と書くと、観測アウトカム <span class="math inline">Y_i</span> は</p>
+<p><span class="math display">
+Y_i = D_i Y_i(1) + (1-D_i)Y_i(0)
+</span></p>
+<p>と表せる。</p>
+<p>この式はとても重要である。<br>
+なぜなら、各個体について</p>
+<ul>
+<li>処置を受けたなら <span class="math inline">Y_i(1)</span> だけが観測され</li>
+<li>処置を受けなかったなら <span class="math inline">Y_i(0)</span> だけが観測される</li>
+</ul>
+<p>ことを意味しているからである。</p>
+<p>したがって、各個体についての因果効果</p>
+<p><span class="math display">
+Y_i(1)-Y_i(0)
+</span></p>
+<p>は定義できるが、<strong>同じ個体について両方を同時に観測することはできない</strong>。</p>
+<p>これを因果推論の根本問題という。</p>
+</section>
+<section id="因果推論で知りたいパラメタ" class="level2">
+<h2 class="anchored" data-anchor-id="因果推論で知りたいパラメタ">因果推論で知りたいパラメタ</h2>
+<p>では、因果推論で知りたい量とは何だろうか。</p>
+<p>もっとも基本的なのは、個体ごとの因果効果</p>
+<p><span class="math display">
+Y_i(1)-Y_i(0)
+</span></p>
+<p>である。<br>
+しかし、これは各個体について直接は観測できないので、通常はその平均を考える。</p>
+<section id="平均処置効果" class="level3">
+<h3 class="anchored" data-anchor-id="平均処置効果">平均処置効果</h3>
+<p>母集団全体での平均処置効果は</p>
+<p><span class="math display">
+ATE = E[Y_i(1)-Y_i(0)]
+</span></p>
+<p>である。</p>
+<p>これは、</p>
+<blockquote class="blockquote">
+<p>ランダムに1人取り出したとき、その人を処置した場合としなかった場合で、平均してアウトカムがどれだけ変わるか</p>
+</blockquote>
+<p>を表している。</p>
+</section>
+<section id="処置群に対する平均処置効果" class="level3">
+<h3 class="anchored" data-anchor-id="処置群に対する平均処置効果">処置群に対する平均処置効果</h3>
+<p>一方、実証研究ではしばしば</p>
+<p><span class="math display">
+ATT = E[Y_i(1)-Y_i(0)\mid D_i=1]
+</span></p>
+<p>を知りたい。</p>
+<p>これは <strong>Average Treatment effect on the Treated</strong> の略で、</p>
+<blockquote class="blockquote">
+<p>実際に処置を受けた人たちにとって、処置は平均してどれだけの効果を持ったか</p>
+</blockquote>
+<p>を表している。</p>
+<p>たとえば政策評価では、</p>
+<ul>
+<li>政策対象となった地域</li>
+<li>補助金を受けた企業</li>
+<li>実際に制度変更の影響を受けた世代</li>
+</ul>
+<p>に対する効果が知りたいことが多いので、<span class="math inline">ATT</span> が重要になる。</p>
+</section>
+<section id="なぜこれが難しいのか" class="level3">
+<h3 class="anchored" data-anchor-id="なぜこれが難しいのか">なぜこれが難しいのか</h3>
+<p><span class="math inline">ATT</span> を書き下すと、</p>
+<p><span class="math display">
+ATT
+=
+E[Y_i(1)\mid D_i=1] - E[Y_i(0)\mid D_i=1]
+</span></p>
+<p>である。</p>
+<p>ここで、第一項</p>
+<p><span class="math display">
+E[Y_i(1)\mid D_i=1]
+</span></p>
+<p>は観測できる。<br>
+なぜなら、処置群について実際に観測されるアウトカムがこれだからである。</p>
+<p>しかし、第二項</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=1]
+</span></p>
+<p>は観測できない。<br>
+これは</p>
+<blockquote class="blockquote">
+<p>処置群が、もし処置を受けなかったならどうなっていたか</p>
+</blockquote>
+<p>という反実仮想だからである。</p>
+<p>ここが因果推論の核心で、要するにこれをどうにかしようということをみんな頑張っている。</p>
+</section>
+</section>
+<section id="なぜ単純な平均差ではだめなのか" class="level2">
+<h2 class="anchored" data-anchor-id="なぜ単純な平均差ではだめなのか">なぜ単純な平均差ではだめなのか</h2>
+<p>処置群と非処置群の観測平均の差は</p>
+<p><span class="math display">
+E[Y_i\mid D_i=1] - E[Y_i\mid D_i=0]
+</span></p>
+<p>である。</p>
+<p>観測アウトカムの式を使うと、これは</p>
+<p><span class="math display">
+E[Y_i(1)\mid D_i=1] - E[Y_i(0)\mid D_i=0]
+</span></p>
+<p>と書ける。</p>
+<p>一方で知りたいのは</p>
+<p><span class="math display">
+ATT
+=
+E[Y_i(1)\mid D_i=1] - E[Y_i(0)\mid D_i=1]
+</span></p>
+<p>であった。</p>
+<p>両者の差を比べると、</p>
+<p><span class="math display">
+E[Y_i\mid D_i=1] - E[Y_i\mid D_i=0]
+=
+ATT
++
+\Bigl(
+E[Y_i(0)\mid D_i=1] - E[Y_i(0)\mid D_i=0]
+\Bigr)
+</span></p>
+<p>となる。</p>
+<p>右端の</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=1] - E[Y_i(0)\mid D_i=0]
+</span></p>
+<p>は、<strong>処置がなかったとしても両群に平均差がある部分</strong> である。</p>
+<p>つまり、単純な平均差は</p>
+<ul>
+<li>本当の因果効果</li>
+<li>もともとの群の違い</li>
+</ul>
+<p>を両方含んでいる。</p>
+<p>だから、単純な平均差をそのまま因果効果と呼ぶことはできない。</p>
+</section>
+<section id="識別とは何か" class="level2">
+<h2 class="anchored" data-anchor-id="識別とは何か">識別とは何か</h2>
+<p>ここで「識別」という言葉をはっきりさせておこう。</p>
+<p>因果推論で知りたいパラメタは、たとえば</p>
+<p><span class="math display">
+ATT = E[Y_i(1)-Y_i(0)\mid D_i=1]
+</span></p>
+<p>のような <strong>潜在アウトカムで定義された量</strong> である。</p>
+<p>しかし、このままでは <span class="math inline">Y_i(0)</span> の反実仮想が含まれているので、そのままでは観測データから計算できない。</p>
+<p>そこで、何らかの仮定を使って、このパラメタを <strong>観測可能な量だけで書き直す</strong> 必要がある。</p>
+<p>これが因果推論の文脈で言われる<strong>識別</strong>である。</p>
+<p>たとえば、もし</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=1] = E[Y_i(0)\mid D_i=0]
+</span></p>
+<p>が成り立つなら、</p>
+<p><span class="math display">
+ATT
+=
+E[Y_i(1)\mid D_i=1] - E[Y_i(0)\mid D_i=0]
+</span></p>
+<p>となる。</p>
+<p>さらに観測データでは</p>
+<p><span class="math display">
+E[Y_i(1)\mid D_i=1] = E[Y_i\mid D_i=1]
+</span></p>
+<p>および</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=0] = E[Y_i\mid D_i=0]
+</span></p>
+<p>だから、</p>
+<p><span class="math display">
+ATT
+=
+E[Y_i\mid D_i=1] - E[Y_i\mid D_i=0]
+</span></p>
+<p>と書ける。</p>
+<p>このとき初めて、観測データの平均差が因果効果を表す。</p>
+<p>つまり、識別とは</p>
+<blockquote class="blockquote">
+<p><strong>見えない反実仮想を、仮定を使って見える量に置き換えること</strong></p>
+</blockquote>
+<p>である。</p>
+<p>そして、</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=1] = E[Y_i(0)\mid D_i=0]
+</span></p>
+<p>これは</p>
+<blockquote class="blockquote">
+<p>処置<span class="math inline">D_i</span>が処置されない時の結果と平均的には関係がない</p>
+</blockquote>
+<p>ということを意味している。このような状況を<strong>ランダムアサインメント</strong>と呼ぶ。</p>
+<p>お気づきの通り、これは我々が今まで<strong>実験</strong>と読んできた状況である。このような実験を<strong>Randomized Controlled Trial (RCT)</strong>と呼ぶ。</p>
+<p><strong>「RCTができるなら、回帰すればいい。」</strong>というこの講義の最初から言い続けてきたことがここでも表れている。</p>
+<p>そして同時に、<strong>「実験ができない時は識別戦略を慎重に考えなくてはならない」</strong>という、これまた今まで言い続けてきたことがここでも成り立っている。</p>
+</section>
+<section id="回帰は何をしているのか" class="level2">
+<h2 class="anchored" data-anchor-id="回帰は何をしているのか">回帰は何をしているのか</h2>
+<p>この観点から見ると、回帰分析の役割もはっきりする。</p>
+<p>回帰は、たとえば</p>
+<p><span class="math display">
+Y_i = \beta_0 + \beta_1 D_i + X_i'\gamma + u_i
+</span></p>
+<p>のような形で、処置変数 <span class="math inline">D_i</span> と他の変数 <span class="math inline">X_i</span> を同時に入れて推定する。</p>
+<p>ここで <span class="math inline">X_i</span> は年齢、教育、地域、性別などのコントロール変数である。</p>
+<p>このとき <span class="math inline">\beta_1</span> を因果効果として読みたければ、</p>
+<blockquote class="blockquote">
+<p><span class="math inline">X_i</span> を一定にしたとき、処置の有無は潜在アウトカムと独立である</p>
+</blockquote>
+<p>というような仮定が必要になる。</p>
+<p>つまり、回帰そのものが因果効果を自動的に生み出すわけではない。<br>
+<strong>回帰は、識別仮定のもとで因果パラメタを推定するための道具</strong> である。</p>
+<p>この意味で、</p>
+<ul>
+<li>どんな回帰式を書くか</li>
+<li>その係数を何として解釈するか</li>
+<li>その解釈にどんな仮定が必要か</li>
+</ul>
+<p>は必ずセットで考えなければならない。</p>
+</section>
+<section id="今後の講義で何をするのか" class="level2">
+<h2 class="anchored" data-anchor-id="今後の講義で何をするのか">今後の講義で何をするのか</h2>
+<p>今後の講義では、因果推論の代表的な作戦として</p>
+<ul>
+<li>Difference in Differences</li>
+<li>Fixed Effect Model</li>
+<li>Instrumental Variables</li>
+<li>Regression Discontinuity</li>
+</ul>
+<p>などを学んでいく。</p>
+<p>これらはすべて、違う見た目をしているようでいて、本質的には同じことをしている。</p>
+<p>つまり、</p>
+<ol type="1">
+<li>まず潜在アウトカムで知りたい因果パラメタを定義する<br>
+</li>
+<li>そのままでは観測できない反実仮想がどこにあるかを確認する<br>
+</li>
+<li>ある仮定のもとで、そのパラメタを観測データで書ける形にする<br>
+</li>
+<li>最後に回帰や平均差などの統計量で推定する</li>
+</ol>
+<p>という流れである。</p>
+<p>因果推論を学ぶときに本当に重要なのは、テクニックの名前を覚えることではない。</p>
+<p><strong>何を知りたいのか。そのために、どの反実仮想を、どんな仮定で埋めているのか。</strong></p>
+<p>これを明確に言えるようになることが重要である。</p>
+</section>
+<section id="まとめ" class="level2">
+<h2 class="anchored" data-anchor-id="まとめ">まとめ</h2>
+<p>このセクションのポイントは次の通りである。</p>
+<ul>
+<li>因果推論で知りたいのは、処置があった世界となかった世界の差である</li>
+<li>その差は潜在アウトカム <span class="math display">
+Y_i(1),\;Y_i(0)
+</span> を使って書ける</li>
+<li>しかし各個体について両方を同時に観測することはできない</li>
+<li>そこで <span class="math display">
+ATE,\quad ATT
+</span> のような平均因果効果を定義する</li>
+<li>さらに、見えない反実仮想を観測可能な量で書けるようにすることが識別である</li>
+<li>回帰は、その識別仮定のもとでパラメタを推定するための道具である</li>
+</ul>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

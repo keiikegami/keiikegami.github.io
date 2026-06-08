@@ -1,0 +1,125 @@
+---
+title: "Lecture 9：固定効果モデル"
+subtitle: "within 変換・差分回帰・TWFE"
+lang: ja
+format:
+  beamer:
+    theme: Boadilla
+    colortheme: seahorse
+    aspectratio: 169
+    slide-level: 2
+    pdf-engine: lualatex
+    fontsize: 11pt
+    toc: false
+    number-sections: false
+    incremental: false
+header-includes: |
+  \usepackage{luatexja}
+  \usepackage{amsmath,amssymb,bm,booktabs}
+  \setbeamertemplate{navigation symbols}{}
+  \setlength{\parskip}{0.25em}
+---
+# 導入
+
+## この講義で押さえたいこと
+
+- 固定効果モデルは、時間を通じて不変な未観測要因を取り除く道具である
+- 識別に使うのは個体間の差ではなく、同じ個体の中での変化である
+- within 変換・差分回帰・TWFE を同じ発想として理解する
+
+# なぜ固定効果が必要か
+
+## なぜ pooled OLS では危ないのか
+
+- 肥料投入量と収穫量を pooled OLS で回したくなる
+- しかし土地の質が観測できない
+- 個体ごとの固定的な違いがバイアスを生む
+
+## パネルデータとは
+
+- クロスセクション：多くの個体を 1 時点で観測
+- 時系列：1 個体を多時点で観測
+- パネル：多くの個体を多時点で観測
+
+## pooled OLS は何を取りこぼす？
+
+- 個体ごとに不変な要因
+- たとえば土地の質・能力・文化
+- これらが説明変数と相関すると OLS は歪む
+
+## 固定効果の発想
+
+- 個体ごとに定数項を持たせる
+- 時間を通じて不変な要因を吸収する
+- 識別に使うのは「同じ個体の中での変化」
+
+# 推定のやり方
+
+## ダミー変数で書く
+
+$$
+y_{it}=\alpha_i+\beta x_{it}+u_{it}
+$$
+
+- $\alpha_i$ が個体固定効果
+- 個体間の水準差はここに押し込む
+- 傾き $\beta$ は共通
+
+## within 変換
+
+$$
+y_{it}-\bar y_i
+=
+\beta(x_{it}-\bar x_i)+(u_{it}-\bar u_i)
+$$
+
+- 個体平均を引くと $\alpha_i$ が消える
+- ダミー回帰と同じ傾きを得る
+- 計算も解釈もすっきりする
+
+## 固定効果は何の比較をしている？
+
+- 人 A と人 B を比べているのか
+- それとも同じ人の前後変化か？
+
+## 答え：個体内変化
+
+- 同じ個体で $x$ が変わったときの $y$ の変化
+- 時間不変な個体差は使わない
+- だから time-invariant 変数の係数は識別できない
+
+## T=2 なら差分回帰
+
+- 2 期しかなければ within = first difference
+- 固定効果と差分回帰はかなり近い
+- ノイズの性質で有利不利が分かれる
+
+# 発展と注意点
+
+## 二方向固定効果（TWFE）
+
+$$
+y_{it}=\alpha_i+\lambda_t+\beta D_{it}+u_{it}
+$$
+
+- 個体固定効果 + 時点固定効果
+- 共通ショックも吸収する
+- DiD の回帰表現ともつながる
+
+## short panel の問題
+
+- 個体内変動が少ない
+- 標準誤差が大きくなりやすい
+- 測定誤差に弱くなる
+
+## 固定効果の読み方
+
+- 推定された $\beta$ は within 効果
+- between の関係とは別物
+- 「何の variation を使っているか」を必ず確認する
+
+## 今日のまとめ
+
+- 固定効果は時間不変の未観測要因を差し引く道具
+- within 変換とダミー回帰は同じ発想
+- 使える variation は個体内変化だけである
