@@ -49,8 +49,423 @@ execute:
 - $\to_p$：確率収束、$\to_d$：分布収束
 - $o_p(1)$：0 への確率収束、$O_p(1)$：確率的有界
 
-また、必要に応じてデータは i.i.d.、もしくは厳密定常かつエルゴード的であると仮定する。
+また、本章では必要に応じてデータは独立同分布、すなわち i.i.d. であると仮定する。
 :::
+
+# 予備知識：解析の言葉
+
+極値推定の議論では、解析の言葉が頻繁に出てくる。ただし、この章で必要なのは「有限個のパラメタを推定する」ための有限次元の直観で十分である。
+
+## 上限 sup
+
+$\sup$ は **上限** と読む。集合 $A$ のすべての要素以上である数を上界といい、その中で最小のものを $\sup A$ と書く。
+
+例えば
+$$
+\sup [0,1]=1,
+\qquad
+\sup (0,1)=1
+$$
+である。$[0,1]$ では 1 が集合に入っているので最大値でもある。一方、$(0,1)$ では 1 は集合に入っていないので最大値ではないが、いくらでも 1 に近づけるので上限は 1 である。
+
+極値推定で
+$$
+\sup_{\theta\in\Theta} Q_n(\theta)
+$$
+と書くときは、「パラメタ $\theta$ を動かしたときに達成できる目的関数の最良値」を表している。最大値が実際に存在するときは $\max_{\theta\in\Theta} Q_n(\theta)$ と同じだが、存在するかどうかをまだ仮定したくないので $\sup$ を使う。
+
+## コンパクト
+
+有限次元、つまり $\Theta\subseteq\mathbb R^p$ の場合には、**コンパクト** はほぼ
+
+> 閉じていて、かつ有界である
+
+と思ってよい。
+
+閉じているとは、端点や境界を含むということである。有界であるとは、無限遠まで広がっていないということである。例えば $[0,1]$ や閉球
+$$
+\{\theta\in\mathbb R^p:\|\theta\|\le C\}
+$$
+はコンパクトである。一方、$(0,1)$ は端点を含まないのでコンパクトではなく、$\mathbb R$ は無限に広がるのでコンパクトではない。
+
+推定論でコンパクト性を仮定する理由は、パラメタが「端点の外」や「無限遠」に逃げる可能性を排除するためである。本章では有限個のパラメタしか扱わないので、この有限次元の理解で十分である。
+
+## 連続関数
+
+関数 $Q(\theta)$ が連続であるとは、$\theta$ を少しだけ動かすと $Q(\theta)$ も少しだけしか変わらない、ということである。
+
+多項式、指数関数、対数関数、そしてそれらを足したり掛けたり合成したりして作った関数は、多くの場合連続である。一方、
+$$
+1\{\theta\ge 0\}
+$$
+のような指示関数は、$\theta=0$ で急に値が変わるので連続ではない。
+
+極値推定では、$Q$ が連続であると、目的関数の山や谷が突然切れることがない。この性質が、最大化点の存在や clean maximum の確認に使われる。
+
+## Weierstrass の定理
+
+Weierstrass の定理は、極値推定で何度も使う基本事実である。
+
+::: {.callout-note}
+## Weierstrass の定理
+
+$\Theta\subseteq\mathbb R^p$ がコンパクトで、$Q:\Theta\to\mathbb R$ が連続なら、$Q$ は $\Theta$ 上で最大値と最小値をとる。
+:::
+
+つまり、単に
+$$
+\sup_{\theta\in\Theta}Q(\theta)
+$$
+という上限があるだけでなく、それを実際に達成する点 $\theta^*$ が存在して
+$$
+Q(\theta^*)=\sup_{\theta\in\Theta}Q(\theta)
+$$
+と書ける。
+
+この章では、$\theta_0$ から一定距離以上離れた集合上で $Q$ の最大値をとる点が存在することを使い、その点では識別により $Q(\theta_0)$ より目的関数が低い、と示す。
+
+## 収束と一様収束
+
+数列 $a_n$ が $a$ に収束するとは、$n$ が大きくなると $a_n$ が $a$ に近づくことである。確率変数 $Z_n$ が $Z$ に確率収束するとは、任意の $\varepsilon>0$ について
+$$
+P(|Z_n-Z|>\varepsilon)\to 0
+$$
+となることである。
+
+関数列 $Q_n(\theta)$ の場合には、2 種類の収束を区別する必要がある。
+
+**点ごとの収束**は、各 $\theta$ を固定すると
+$$
+Q_n(\theta)\to Q(\theta)
+$$
+となることである。
+
+**一様収束**は、$\theta$ 全体で見た最大の誤差が小さくなることである。
+$$
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|\to 0.
+$$
+
+図式的には、点ごとの収束は「どの点も、個別に見れば近づく」、一様収束は「同じ $n$ で、曲線全体がまとめて近づく」という違いである。
+
+$$
+\begin{array}{c}
+\text{点ごとの収束:}\quad
+\theta\text{ を固定してから }n\to\infty \\
+\text{一様収束:}\quad
+\theta\text{ を全部動かしても最大誤差が小さい}
+\end{array}
+$$
+
+極値推定の一致性では、一様収束が重要である。なぜなら、推定量 $\hat\theta$ 自体が $Q_n$ を見て動くため、固定された $\theta$ だけで収束を確認しても足りないからである。
+
+## ブラケット数の直観
+
+一様収束を示すには、無限個の関数
+$$
+\mathcal M=\{m(\cdot;\theta):\theta\in\Theta\}
+$$
+を同時に扱う必要がある。ブラケット数は、この関数族がどれくらい複雑かを測る道具である。
+
+ブラケットとは、関数 $f$ を上下から挟む 2 本の関数 $\ell$ と $u$ の組である。
+$$
+\ell(x)\le f(x)\le u(x)
+$$
+で、さらに上下の幅の平均
+$$
+E[u(X)-\ell(X)]
+$$
+が小さいとき、そのブラケットはよい近似になっている。
+
+$$
+\begin{array}{c}
+u(x)\quad \text{上側の関数} \\
+\hline
+f(x)\quad \text{挟まれる関数} \\
+\hline
+\ell(x)\quad \text{下側の関数}
+\end{array}
+$$
+
+有限個のブラケットで関数族全体を挟めるなら、無限個の関数を一つずつ見る代わりに、有限個の上側関数と下側関数だけを見ればよい。有限個に帰着できれば、大数の法則を同時に適用しやすくなる。
+
+# 予備知識：線形代数の言葉
+
+GMM や漸近正規性では、ベクトルと行列の記法を使う。ここでは、この章で必要な最小限をまとめる。
+
+## ベクトル
+
+ベクトルは数を縦に並べたものである。
+$$
+x=
+\begin{pmatrix}
+x_1\\
+x_2\\
+\vdots\\
+x_k
+\end{pmatrix}
+\in\mathbb R^k.
+$$
+
+$x'$ は転置を表し、縦ベクトルを横ベクトルに変える。
+$$
+x'=(x_1,x_2,\ldots,x_k).
+$$
+
+2 つの同じ長さのベクトル $x,y\in\mathbb R^k$ の内積は
+$$
+x'y=\sum_{j=1}^k x_jy_j
+$$
+である。ノルムはベクトルの長さであり、
+$$
+\|x\|=\sqrt{x'x}
+$$
+と書く。
+
+## 行列
+
+行列は数を長方形に並べたものである。
+$$
+A=
+\begin{pmatrix}
+a_{11}&a_{12}&\cdots&a_{1k}\\
+a_{21}&a_{22}&\cdots&a_{2k}\\
+\vdots&\vdots&\ddots&\vdots\\
+a_{r1}&a_{r2}&\cdots&a_{rk}
+\end{pmatrix}
+\in\mathbb R^{r\times k}.
+$$
+
+$A\in\mathbb R^{r\times k}$ は、$r$ 行 $k$ 列の行列という意味である。$A'$ は転置行列で、行と列を入れ替える。
+
+## 足し算とスカラー倍
+
+同じサイズの行列やベクトルは、成分ごとに足し算できる。
+$$
+\begin{pmatrix}1\\2\end{pmatrix}
++
+\begin{pmatrix}3\\4\end{pmatrix}
+=
+\begin{pmatrix}4\\6\end{pmatrix}.
+$$
+
+数 $c$ を掛けるスカラー倍も成分ごとに行う。
+$$
+c
+\begin{pmatrix}1\\2\end{pmatrix}
+=
+\begin{pmatrix}c\\2c\end{pmatrix}.
+$$
+
+## 掛け算
+
+行列とベクトルの積 $Ax$ は、$A$ の列数と $x$ の長さが一致するときに定義される。$A\in\mathbb R^{r\times k}$、$x\in\mathbb R^k$ なら、$Ax\in\mathbb R^r$ である。
+$$
+(Ax)_i=\sum_{j=1}^k a_{ij}x_j.
+$$
+
+例えば
+$$
+\begin{pmatrix}
+1&2\\
+3&4
+\end{pmatrix}
+\begin{pmatrix}
+5\\
+6
+\end{pmatrix}
+=
+\begin{pmatrix}
+1\cdot 5+2\cdot 6\\
+3\cdot 5+4\cdot 6
+\end{pmatrix}
+=
+\begin{pmatrix}
+17\\
+39
+\end{pmatrix}.
+$$
+
+行列同士の積 $AB$ は、$A$ の列数と $B$ の行数が一致するときに定義される。成分は
+$$
+(AB)_{ij}=\sum_{\ell}a_{i\ell}b_{\ell j}
+$$
+である。一般に $AB=BA$ ではない。行列の掛け算では順番が重要である。
+
+## 逆行列
+
+正方行列 $A\in\mathbb R^{k\times k}$ に対して、
+$$
+A^{-1}A=AA^{-1}=I_k
+$$
+を満たす行列 $A^{-1}$ が存在するとき、$A$ は可逆であるといい、$A^{-1}$ を逆行列という。$I_k$ は単位行列であり、対角成分が 1、それ以外が 0 の行列である。
+
+2 次元の場合、
+$$
+A=
+\begin{pmatrix}
+a&b\\
+c&d
+\end{pmatrix}
+$$
+について $ad-bc\neq 0$ なら
+$$
+A^{-1}
+=
+\frac{1}{ad-bc}
+\begin{pmatrix}
+d&-b\\
+-c&a
+\end{pmatrix}.
+$$
+
+一般の次元では、拡大行列
+$$
+[A\mid I]
+$$
+を行基本変形で
+$$
+[I\mid A^{-1}]
+$$
+に変形することで逆行列を計算できる。実務では、明示的に逆行列を作るより、$Ax=b$ を直接解く数値計算の方が安定である。
+
+## 固有値
+
+正方行列 $A$ に対して、0 でないベクトル $v$ と数 $\lambda$ が
+$$
+Av=\lambda v
+$$
+を満たすとき、$\lambda$ を固有値、$v$ を固有ベクトルという。これは、$A$ を掛けても $v$ の向きは変わらず、長さだけが $\lambda$ 倍になるという意味である。
+
+対称行列では固有値は実数になり、行列が表す「伸び縮み」や「曲率」を理解するのに使える。
+
+## 正定値行列
+
+対称行列 $A$ が **正定値** であるとは、任意の 0 でないベクトル $z$ について
+$$
+z'Az>0
+$$
+が成り立つことである。
+
+正定値行列は、2 次関数
+$$
+z'Az
+$$
+が原点以外で必ず正になることを意味する。対称行列の場合、正定値であることは、すべての固有値が正であることと同値である。正定値行列は可逆であり、極値推定では目的関数の曲率や GMM の重み行列としてよく現れる。
+
+## ベクトルについての微分
+
+パラメタ $\theta=(\theta_1,\ldots,\theta_p)'$ に依存するスカラー関数 $q(\theta)$ の勾配は
+$$
+\frac{\partial q(\theta)}{\partial\theta}
+=
+\begin{pmatrix}
+\partial q(\theta)/\partial\theta_1\\
+\vdots\\
+\partial q(\theta)/\partial\theta_p
+\end{pmatrix}.
+$$
+
+2 階微分を並べた行列を Hessian という。
+$$
+\frac{\partial^2 q(\theta)}{\partial\theta\partial\theta'}
+=
+\left(
+\frac{\partial^2 q(\theta)}{\partial\theta_i\partial\theta_j}
+\right)_{i,j}.
+$$
+
+よく使う公式は次の通りである。$a$ はベクトル、$A$ は対称行列とする。
+$$
+\frac{\partial a'\theta}{\partial\theta}=a,
+\qquad
+\frac{\partial}{\partial\theta}\left(\frac12\theta'A\theta\right)=A\theta.
+$$
+
+また、$b-A\theta$ という残差ベクトルに対して
+$$
+\frac{\partial}{\partial\theta}(b-A\theta)'(b-A\theta)
+=
+-2A'(b-A\theta).
+$$
+
+ベクトル値関数 $g(\theta)\in\mathbb R^K$ の微分はヤコビアンで表す。
+$$
+G(\theta)
+=
+\frac{\partial g(\theta)}{\partial\theta'}
+\in\mathbb R^{K\times p}.
+$$
+
+## 応用：OLS の行列表記
+
+観測を縦に積んで
+$$
+y=
+\begin{pmatrix}
+y_1\\
+\vdots\\
+y_n
+\end{pmatrix},
+\qquad
+X=
+\begin{pmatrix}
+x_1'\\
+\vdots\\
+x_n'
+\end{pmatrix},
+\qquad
+\beta=
+\begin{pmatrix}
+\beta_1\\
+\vdots\\
+\beta_k
+\end{pmatrix}
+$$
+と書く。線形回帰モデルは
+$$
+y=X\beta_0+u
+$$
+である。
+
+OLS は残差平方和
+$$
+S(\beta)=(y-X\beta)'(y-X\beta)
+$$
+を最小化する。微分公式を使うと
+$$
+\frac{\partial S(\beta)}{\partial\beta}
+=
+-2X'(y-X\beta).
+$$
+
+一階条件は
+$$
+X'(y-X\hat\beta)=0
+$$
+である。これを整理すると正規方程式
+$$
+X'X\hat\beta=X'y
+$$
+が得られる。$X'X$ が可逆なら
+$$
+\hat\beta=(X'X)^{-1}X'y
+$$
+である。
+
+この式は、OLS 推定量が「残差をすべての説明変数と直交させる」ように選ばれていることを意味する。さらに $y=X\beta_0+u$ を代入すると
+$$
+\hat\beta-\beta_0=(X'X)^{-1}X'u
+=
+\left(\frac{X'X}{n}\right)^{-1}\left(\frac{X'u}{n}\right)
+$$
+となる。両辺に $\sqrt n$ を掛けると
+$$
+\sqrt n(\hat\beta-\beta_0)
+=
+\left(\frac{X'X}{n}\right)^{-1}
+\left(\frac{X'u}{\sqrt n}\right),
+$$
+となり、後で出てくる極値推定量の漸近正規性と同じ構造が見える。
 
 # 導入
 
@@ -105,7 +520,7 @@ M 推定では標本目的関数が
 $$
 Q_n(\theta)=\frac{1}{n}\sum_{t=1}^n m(X_t;\theta)
 $$
-という標本平均の形をとる。したがって、厳密定常かつエルゴード的なデータのもとでは
+という標本平均の形をとる。したがって、独立同分布データのもとでは
 $$
 Q_n(\theta) \to_p E[m(X_t;\theta)] \equiv Q(\theta)
 $$
@@ -166,20 +581,6 @@ $$
 Q_n(\theta)=-\frac12\bigl(g_n-\gamma(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma(\theta)\bigr)
 $$
 である。
-
-::: {.callout-note}
-## この章と後続章の関係
-
-この章では、M 推定・GMM・SMM・MD に共通する **抽象的な極値推定理論** を扱う。  
-後続章では、それぞれの推定法に固有の
-
-- 目的関数の曲率
-- 漸近分散の推定方法
-- 効率性
-- 実装上の注意
-
-を具体的に掘り下げる。
-:::
 
 # 一致性
 
@@ -343,12 +744,37 @@ $$
 
 ブラケット数が有限であるとは、関数族全体を有限個の「上下からの挟み込み」で近似できるという意味である。これにより、無限個の関数に対する supremum を、有限個のブラケット上の maximum に帰着できる。
 
+直観的には、次のように考えるとよい。パラメタ空間を小さな領域に分け、各領域に入る関数を 1 組の上下関数でまとめて挟む。
+
+$$
+\begin{array}{c}
+\Theta=B_1\cup B_2\cup\cdots\cup B_N\\[4pt]
+B_i \text{ に対応するブラケット: }[\ell_i,u_i]
+\end{array}
+$$
+
+各ブラケットの中では
+$$
+\ell_i(x)\le m(x;\theta)\le u_i(x)
+$$
+であり、幅 $E[u_i(X)-\ell_i(X)]$ が小さい。したがって、ある $\theta$ に対応する関数 $m(\cdot;\theta)$ の標本平均は、そのブラケットの上側関数と下側関数の標本平均の間に挟まれる。
+
+$$
+\frac1n\sum_{t=1}^n \ell_i(X_t)
+\le
+\frac1n\sum_{t=1}^n m(X_t;\theta)
+\le
+\frac1n\sum_{t=1}^n u_i(X_t)
+$$
+
+有限個の上側関数と下側関数について大数の法則を使えれば、無限個の $m(\cdot;\theta)$ をまとめて制御できる。これがブラケット数を使う理由である。
+
 ::: {#lem-ulln-bracketing}
 ## ブラケット数による一様収束
 
 $\mathcal M=\{m(\cdot;\theta):\theta\in\Theta\}$ とする。次を仮定する。
 
-1. $X_1,\ldots,X_n$ は厳密定常かつエルゴード的である。
+1. $X_1,\ldots,X_n$ は独立同分布である。
 2. 任意の $\varepsilon>0$ に対して $N_{[]}(\mathcal M,\varepsilon)<\infty$ である。
 
 このとき
@@ -380,7 +806,7 @@ $$
 Q_n(\theta)-Q(\theta)
 \le \frac1n\sum_{t=1}^n u_{\varepsilon,i(\theta)}(X_t)-E[u_{\varepsilon,i(\theta)}(X_t)] + \varepsilon.
 $$
-ここで右辺第1項は有限個のブラケット上の最大値で抑えられるので、エルゴード定理より
+ここで右辺第1項は有限個のブラケット上の最大値で抑えられるので、大数の法則より
 $$
 \max_{1\le i\le N}
 \left\{
@@ -431,17 +857,17 @@ $$
 
 任意の $\theta$ はどれか一つの球に属するので、対応する $j$ について
 $$
-\ell_{\delta,j}(x)\le m(x;\theta)\le \nu_{\delta,j}(x)
+\ell_{\delta,j}(x)\le m(x;\theta)\le u_{\delta,j}(x)
 $$
 が成り立つ。したがって、$J$ 個のブラケットで $\mathcal M$ を被覆できる。
 
 残るのは、ブラケット幅の期待値が $\delta\downarrow 0$ とともに 0 に行くことを示すことである。連続関数はコンパクト集合上で一様連続だから、各 $x$ に対して
 $$
-\max_{1\le j\le J}\bigl(\nu_{\delta,j}(x)-\ell_{\delta,j}(x)\bigr)\to 0.
+\max_{1\le j\le J}\bigl(u_{\delta,j}(x)-\ell_{\delta,j}(x)\bigr)\to 0.
 $$
 さらに
 $$
-\max_{1\le j\le J}\bigl|\nu_{\delta,j}(X_t)-\ell_{\delta,j}(X_t)\bigr|
+\max_{1\le j\le J}\bigl|u_{\delta,j}(X_t)-\ell_{\delta,j}(X_t)\bigr|
 \le 2\sup_{\theta\in\Theta}|m(X_t;\theta)|,
 $$
 であり、右辺は仮定 3 により可積分である。よって優収束定理からブラケット幅の期待値は 0 に収束する。したがって任意の $\varepsilon>0$ に対して有限個の $\varepsilon$-ブラケットが構成できる。
@@ -476,7 +902,7 @@ Q_n(\theta)=\frac1n\sum_{t=1}^n m(X_t;\theta)
 $$
 とする。次を仮定する。
 
-1. $X_1,\ldots,X_n$ は厳密定常かつエルゴード的である。
+1. $X_1,\ldots,X_n$ は独立同分布である。
 2. $\Theta$ はコンパクトである。
 3. $m(X_t;\theta)$ は $\theta$ で連続である。
 4. 
@@ -514,7 +940,7 @@ g(\theta)=E[g(X_t;\theta)]
 $$
 とおく。次を仮定する。
 
-1. $X_1,\ldots,X_n$ は厳密定常かつエルゴード的である。
+1. $X_1,\ldots,X_n$ は独立同分布である。
 2. $\Theta$ はコンパクトである。
 3. $g(\theta)$ は連続である。
 4. $\widehat W_n\to_p W$。ただし $W$ は正定値対称行列である。
@@ -811,4 +1237,3 @@ $$
 - Billingsley, P. (2008), *Probability and Measure*.
 - Hayashi, F. (2000), *Econometrics*, Chapter 7.
 - van der Vaart, A. W. and Wellner, J. A. (1996), *Weak Convergence and Empirical Processes*.
-
