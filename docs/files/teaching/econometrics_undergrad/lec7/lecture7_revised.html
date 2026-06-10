@@ -492,7 +492,70 @@ Y_i = \beta_0 + \beta_1 D_i + X_i'\gamma + u_i
 <blockquote class="blockquote">
 <p><span class="math inline">X_i</span> を一定にしたとき、処置の有無は潜在アウトカムと独立である</p>
 </blockquote>
-<p>というような仮定が必要になる。これを<strong>条件付き独立</strong>と呼ぶ。散々見てきた<strong>外生性</strong>の家庭である。</p>
+<p>というような仮定が必要になる。これを<strong>条件付き独立</strong>と呼ぶ。散々見てきた<strong>外生性</strong>の仮定である。</p>
+<p>数式で書けば、たとえば</p>
+<p><span class="math display">
+\{Y_i(1),Y_i(0)\}\perp D_i\mid X_i
+</span></p>
+<p>である。</p>
+<p>ただし、ここで一つ大事な条件がある。<span class="math inline">X_i</span> をそろえて比較すると言うためには、その <span class="math inline">X_i</span> の値を持つ人の中に、処置群と非処置群の両方がいなければならない。</p>
+<p>つまり、関心のある <span class="math inline">X_i=x</span> について、</p>
+<p><span class="math display">
+0&lt;P(D_i=1\mid X_i=x)&lt;1
+</span></p>
+<p>が必要になる。これを <strong>overlap</strong>、あるいは <strong>common support</strong> と呼ぶ。</p>
+<p>もしある <span class="math inline">X_i=x</span> の人が全員処置群なら、その <span class="math inline">x</span> における非処置群のアウトカムは観測できない。逆に、全員非処置群なら、その <span class="math inline">x</span> における処置群のアウトカムは観測できない。したがって、条件付き独立だけでなく、比較できる相手がデータ内に存在することも必要である。</p>
+<div class="callout callout-style-simple callout-note callout-titled" title="条件付き独立と overlap">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>条件付き独立と overlap
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>条件付き独立は「同じ <span class="math inline">X_i</span> の中で比べれば処置の有無はランダムに見える」という仮定である。一方、overlap は「同じ <span class="math inline">X_i</span> の中に、実際に処置群と非処置群の両方がいる」という条件である。前者は比較してよい理由、後者は比較できる相手がいることを保証している。</p>
+</div>
+</div>
+<p>ここでさらに注意したいのは、この条件付き独立の書き方はかなり強いという点である。</p>
+<p>もし</p>
+<p><span class="math display">
+\{Y_i(1),Y_i(0)\}\perp D_i\mid X_i
+</span></p>
+<p>が成り立ち、さらに十分な overlap があるなら、</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=1,X_i]
+=
+E[Y_i(0)\mid D_i=0,X_i]
+</span></p>
+<p>だけでなく、</p>
+<p><span class="math display">
+E[Y_i(1)\mid D_i=0,X_i]
+=
+E[Y_i(1)\mid D_i=1,X_i]
+</span></p>
+<p>も言えてしまう。</p>
+<p>つまり、この書き方だと、処置群に対する効果である <span class="math inline">ATT</span> だけでなく、母集団全体に対する <span class="math inline">ATE</span> まで識別できる方向に寄っている。</p>
+<p>しかし、実証研究ではしばしば、そこまで強いことを言う必要はない。<span class="math inline">ATT</span> を識別したいだけなら、必要なのは主に</p>
+<p><span class="math display">
+E[Y_i(0)\mid D_i=1,X_i]
+=
+E[Y_i(0)\mid D_i=0,X_i]
+</span></p>
+<p>である。</p>
+<p>これは、</p>
+<blockquote class="blockquote">
+<p><span class="math inline">X_i</span> をそろえれば、処置群が処置を受けなかった場合のアウトカムは、実際に処置を受けなかった人たちのアウトカムで近似できる</p>
+</blockquote>
+<p>という仮定である。</p>
+<p>一方、<span class="math inline">ATE</span> に必要な</p>
+<p><span class="math display">
+E[Y_i(1)\mid D_i=0,X_i]
+=
+E[Y_i(1)\mid D_i=1,X_i]
+</span></p>
+<p>までは主張していない。ここを分けて書くと、あとで観察データの論文を読むときに、どこまでを識別しようとしているのかがかなり見えやすくなる。</p>
 <p>回帰そのものが因果効果を自動的に生み出すわけではない。 <strong>回帰は、識別のための仮定のもとで因果パラメータを推定するための道具</strong> である。</p>
 <p>この意味で、</p>
 <ul>
@@ -774,24 +837,47 @@ E[Y_{sc}(0)\mid D_{sc}=1]
 W_{sc}=(\alpha_s,\lambda_c,X_{sc})
 </span></p>
 <p>と書こう。</p>
-<p>ここで置きたい識別仮定は、</p>
+<p>ここで注意したいのは、識別仮定を強く書きすぎないことである。</p>
+<p>たとえば、</p>
 <p><span class="math display">
 \{Y_{sc}(1),Y_{sc}(0)\}\perp D_{sc}\mid W_{sc}
 </span></p>
-<p>である。</p>
+<p>と書くこともできる。</p>
 <p>これは、</p>
 <blockquote class="blockquote">
 <p>州の固定的な違い、出生コホートごとの全国的な違い、観測可能なコントロール変数をそろえれば、high exposure か low exposure かは潜在アウトカムと独立である</p>
 </blockquote>
 <p>という仮定である。</p>
-<p>この仮定が成り立つなら、</p>
+<p>しかし、これはかなり強い仮定である。</p>
+<p>この仮定が本当に成り立ち、さらに十分な overlap もあるなら、<span class="math inline">ATT</span> だけでなく、<span class="math inline">ATE</span> まで識別できる方向に寄ってしまう。</p>
+<p>ここで読みたいのは、もっと控えめに、実際に high exposure だった州・出生コホートに対する <span class="math inline">ATT</span> である。そのために必要なのは、主に次の片側の条件である。</p>
 <p><span class="math display">
 E[Y_{sc}(0)\mid D_{sc}=1,W_{sc}]
 =
 E[Y_{sc}(0)\mid D_{sc}=0,W_{sc}]
 </span></p>
-<p>と書ける。</p>
-<p>さらに、<span class="math inline">D_{sc}=0</span> のグループでは <span class="math inline">Y_{sc}=Y_{sc}(0)</span> が観測されるので、</p>
+<p>これは、</p>
+<blockquote class="blockquote">
+<p><span class="math inline">W_{sc}</span> をそろえれば、high exposure cohort が low exposure だった場合の犯罪率は、実際に low exposure だった cohort の犯罪率で近似できる</p>
+</blockquote>
+<p>という仮定である。</p>
+<p>一方、<span class="math inline">ATE</span> に必要な</p>
+<p><span class="math display">
+E[Y_{sc}(1)\mid D_{sc}=0,W_{sc}]
+=
+E[Y_{sc}(1)\mid D_{sc}=1,W_{sc}]
+</span></p>
+<p>までは主張していない。</p>
+<p>さらに、この比較をするには overlap も必要である。つまり、high exposure の州・出生コホートが存在するような <span class="math inline">W_{sc}=w</span> について、比較相手になる low exposure の州・出生コホートも存在していなければならない。</p>
+<p>たとえば、</p>
+<p><span class="math display">
+P(D_{sc}=0\mid W_{sc}=w)&gt;0
+\quad
+\text{for } w \text{ such that } P(D_{sc}=1\mid W_{sc}=w)&gt;0
+</span></p>
+<p>である。</p>
+<p>この片側の条件付き平均独立と overlap が成り立つなら、</p>
+<p><span class="math inline">D_{sc}=0</span> のグループでは <span class="math inline">Y_{sc}=Y_{sc}(0)</span> が観測されるので、</p>
 <p><span class="math display">
 E[Y_{sc}(0)\mid D_{sc}=0,W_{sc}]
 =
@@ -846,10 +932,10 @@ E[Y_{sc}(0)\mid D_{sc}=1]
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>ATT の問題は、<span class="math inline">E[Y_{sc}(0)\mid D_{sc}=1]</span> が見えないことだった。条件付き独立を仮定すると、<span class="math inline">W_{sc}</span> をそろえた low exposure cohort の観測結果で、この反実仮想を代用できる。回帰式の固定効果とコントロール変数は、その <span class="math inline">W_{sc}</span> をそろえるために入っている。</p>
+<p>ATT の問題は、<span class="math inline">E[Y_{sc}(0)\mid D_{sc}=1]</span> が見えないことだった。<span class="math inline">ATT</span> に必要なのは、<span class="math inline">W_{sc}</span> をそろえた low exposure cohort の観測結果で、この反実仮想を代用できるという片側の仮定である。回帰式の固定効果とコントロール変数は、その <span class="math inline">W_{sc}</span> をそろえるために入っている。</p>
 </div>
 </div>
-<p>この仮定のもとでは、<span class="math inline">\beta</span> を</p>
+<p>この片側の仮定と overlap のもとでは、<span class="math inline">\beta</span> を</p>
 <p><span class="math display">
 ATT
 =
@@ -859,9 +945,11 @@ E[Y_{sc}(1)-Y_{sc}(0)\mid D_{sc}=1]
 <p>ただし、ここで大事なのは、<span class="math inline">\beta</span> が自動的に ATT になるわけではないという点である。</p>
 <p>それは、</p>
 <p><span class="math display">
-\{Y_{sc}(1),Y_{sc}(0)\}\perp D_{sc}\mid W_{sc}
+E[Y_{sc}(0)\mid D_{sc}=1,W_{sc}]
+=
+E[Y_{sc}(0)\mid D_{sc}=0,W_{sc}]
 </span></p>
-<p>という条件付き独立を信じられるときに限られる。</p>
+<p>という片側の条件付き平均独立と、必要な overlap を信じられるときに限られる。</p>
 <p>この意味で、Donohue and Levitt (2001) も因果推論である。</p>
 <p>単なる相関を見ているのではなく、</p>
 <blockquote class="blockquote">
@@ -903,7 +991,7 @@ E[Y_{sc}(1)-Y_{sc}(0)\mid D_{sc}=1]
 <p><span class="math display">
 E[Y_{sc}(0)\mid D_{sc}=1]
 </span></p>
-<p>を、条件付き独立の仮定のもとで、<span class="math inline">W_{sc}</span> をそろえた low exposure cohort の観測結果によって穴埋めしている、という点である。</p>
+<p>を、片側の条件付き平均独立と overlap のもとで、<span class="math inline">W_{sc}</span> をそろえた low exposure cohort の観測結果によって穴埋めしている、という点である。</p>
 <p>固定効果やコホート比較は強力な道具だが、それだけで全ての問題が消えるわけではない。</p>
 <p>この差は、因果推論を学ぶうえでとても重要である。</p>
 <div class="callout callout-style-simple callout-important callout-titled" title="因果推論のポイント">
