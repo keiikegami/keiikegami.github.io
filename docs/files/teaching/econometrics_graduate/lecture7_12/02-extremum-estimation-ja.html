@@ -153,8 +153,8 @@ window.Quarto = {
   <ul class="collapse">
   <li><a href="#m-推定" id="toc-m-推定" class="nav-link" data-scroll-target="#m-推定"><span class="header-section-number">3.1.1</span> M 推定</a></li>
   <li><a href="#gmm" id="toc-gmm" class="nav-link" data-scroll-target="#gmm"><span class="header-section-number">3.1.2</span> GMM</a></li>
-  <li><a href="#smm" id="toc-smm" class="nav-link" data-scroll-target="#smm"><span class="header-section-number">3.1.3</span> SMM</a></li>
-  <li><a href="#minimum-distance" id="toc-minimum-distance" class="nav-link" data-scroll-target="#minimum-distance"><span class="header-section-number">3.1.4</span> Minimum Distance</a></li>
+  <li><a href="#m-推定の-score-をモーメント条件として見る" id="toc-m-推定の-score-をモーメント条件として見る" class="nav-link" data-scroll-target="#m-推定の-score-をモーメント条件として見る"><span class="header-section-number">3.1.3</span> M 推定の score をモーメント条件として見る</a></li>
+  <li><a href="#weighting-matrix-が有益な理由" id="toc-weighting-matrix-が有益な理由" class="nav-link" data-scroll-target="#weighting-matrix-が有益な理由"><span class="header-section-number">3.1.4</span> weighting matrix が有益な理由</a></li>
   </ul></li>
   </ul></li>
   <li><a href="#一致性" id="toc-一致性" class="nav-link" data-scroll-target="#一致性"><span class="header-section-number">4</span> 一致性</a>
@@ -167,18 +167,9 @@ window.Quarto = {
   </ul></li>
   <li><a href="#m-推定量の一致性" id="toc-m-推定量の一致性" class="nav-link" data-scroll-target="#m-推定量の一致性"><span class="header-section-number">4.3</span> M 推定量の一致性</a></li>
   <li><a href="#gmm-の一致性" id="toc-gmm-の一致性" class="nav-link" data-scroll-target="#gmm-の一致性"><span class="header-section-number">4.4</span> GMM の一致性</a></li>
-  <li><a href="#smm-の一致性" id="toc-smm-の一致性" class="nav-link" data-scroll-target="#smm-の一致性"><span class="header-section-number">4.5</span> SMM の一致性</a></li>
-  <li><a href="#minimum-distance-の一致性" id="toc-minimum-distance-の一致性" class="nav-link" data-scroll-target="#minimum-distance-の一致性"><span class="header-section-number">4.6</span> Minimum Distance の一致性</a></li>
   </ul></li>
-  <li><a href="#漸近正規性" id="toc-漸近正規性" class="nav-link" data-scroll-target="#漸近正規性"><span class="header-section-number">5</span> 漸近正規性</a>
-  <ul class="collapse">
-  <li><a href="#ols-との類似" id="toc-ols-との類似" class="nav-link" data-scroll-target="#ols-との類似"><span class="header-section-number">5.1</span> OLS との類似</a></li>
-  <li><a href="#一般形" id="toc-一般形" class="nav-link" data-scroll-target="#一般形"><span class="header-section-number">5.2</span> 一般形</a></li>
-  <li><a href="#この定理がどこで使われるか" id="toc-この定理がどこで使われるか" class="nav-link" data-scroll-target="#この定理がどこで使われるか"><span class="header-section-number">5.3</span> この定理がどこで使われるか</a></li>
-  <li><a href="#非微分可能な目的関数について" id="toc-非微分可能な目的関数について" class="nav-link" data-scroll-target="#非微分可能な目的関数について"><span class="header-section-number">5.4</span> 非微分可能な目的関数について</a></li>
-  </ul></li>
-  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ"><span class="header-section-number">6</span> まとめ</a></li>
-  <li><a href="#参考文献" id="toc-参考文献" class="nav-link" data-scroll-target="#参考文献"><span class="header-section-number">7</span> 参考文献</a></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ"><span class="header-section-number">5</span> まとめ</a></li>
+  <li><a href="#参考文献" id="toc-参考文献" class="nav-link" data-scroll-target="#参考文献"><span class="header-section-number">6</span> 参考文献</a></li>
   </ul>
 <div class="quarto-alternate-formats"><h2>その他のフォーマット</h2><ul><li><a href="../02-extremum-estimation-ja.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
 </div>
@@ -216,12 +207,10 @@ window.Quarto = {
 <div class="callout-body-container callout-body">
 <p>この章の目的は次の4点である。</p>
 <ol type="1">
-<li>M 推定、GMM、SMM、MD を <strong>極値推定</strong> という一つの枠組みで理解する。</li>
+<li>データから作る標本目的関数 <span class="math inline">\(Q_n(\theta)\)</span> と、その母集団版 <span class="math inline">\(Q(\theta)\)</span> の関係を理解する。</li>
+<li>M 推定と GMM を <strong>極値推定</strong> という一つの枠組みで理解する。</li>
+<li>OLS を、M 推定としても GMM としても見られることを確認する。</li>
 <li>極値推定量の一致性を保証する 2 つの鍵、すなわち <strong>clean maximum</strong> と <strong>uniform convergence</strong> を理解する。</li>
-<li>漸近正規性の基本表現 <span class="math display">\[
-o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
-\]</span> を理解し、推論に必要な分散行列の構造を見る。</li>
-<li>後続章で各推定法ごとの <span class="math inline">\(H\)</span> と <span class="math inline">\(\Sigma\)</span> を具体化する準備を整える。</li>
 </ol>
 </div>
 </div>
@@ -604,7 +593,7 @@ E[(\theta_j-\theta_{j-1})X]
 </section>
 <section id="予備知識線形代数の言葉" class="level1" data-number="2">
 <h1 data-number="2"><span class="header-section-number">2</span> 予備知識：線形代数の言葉</h1>
-<p>GMM や漸近正規性では、ベクトルと行列の記法を使う。ここでは、この章で必要な最小限をまとめる。</p>
+<p>GMM や OLS の行列表記では、ベクトルと行列の記法を使う。ここでは、この章で必要な最小限をまとめる。</p>
 <section id="ベクトル" class="level2" data-number="2.1">
 <h2 data-number="2.1" class="anchored" data-anchor-id="ベクトル"><span class="header-section-number">2.1</span> ベクトル</h2>
 <p>ベクトルは数を縦に並べたものである。 <span class="math display">\[
@@ -1586,7 +1575,11 @@ X'X\hat\beta=X'y
 =
 \left(\frac{X'X}{n}\right)^{-1}
 \left(\frac{X'u}{\sqrt n}\right),
-\]</span> となり、後で出てくる極値推定量の漸近正規性と同じ構造が見える。</p>
+\]</span> となる。この形は、OLS の一致性を考えるときに、標本平均 <span class="math display">\[
+\frac{X'X}{n},
+\qquad
+\frac{X'u}{n}
+\]</span> がそれぞれ母集団の対応物に近づくことを示せばよい、という見通しを与える。</p>
 </section>
 <section id="応用ols-と射影行列" class="level2" data-number="2.13">
 <h2 data-number="2.13" class="anchored" data-anchor-id="応用ols-と射影行列"><span class="header-section-number">2.13</span> 応用：OLS と射影行列</h2>
@@ -1820,18 +1813,30 @@ W_n=\sqrt n Z_n.
 </div>
 </div>
 </div>
-<p>極値推定の記法に戻ると、<span class="math inline">\(\eta_n=o_p(1)\)</span> は「数値最適化の誤差が消える」ことを意味する。一方で、漸近正規性に出てくる <span class="math display">\[
-Z_n=\frac1{\sqrt n}\sum_{t=1}^n s(X_t;\theta_0)
-\]</span> のような量は、通常 0 に消えるのではなく、非退化な正規分布に収束する。したがって典型的には <span class="math display">\[
-Z_n=O_p(1)
-\]</span> だが、 <span class="math display">\[
-Z_n=o_p(1)
-\]</span> ではない。</p>
+<p>極値推定の記法に戻ると、<span class="math inline">\(\eta_n=o_p(1)\)</span> は「数値最適化の誤差が消える」ことを意味する。つまり、有限標本では厳密な最大値を見つけられなくても、標本サイズが大きくなるにつれてその誤差が無視できるなら、理論上は同じ推定量として扱える。</p>
 </section>
 </section>
 <section id="導入" class="level1" data-number="3">
 <h1 data-number="3"><span class="header-section-number">3</span> 導入</h1>
-<p>構造モデルや半構造モデルの多くでは、まずデータからある目的関数 <span class="math inline">\(Q_n(\theta)\)</span> を作り、その目的関数を最大化あるいは最小化することでパラメータを推定する。最小化問題も符号を反転させれば最大化問題として書けるので、本章では最大化に統一する。</p>
+<p>推定とは、データを見て未知のパラメタ <span class="math inline">\(\theta_0\)</span> を当てにいく作業である。極値推定では、この作業を次の形で書く。</p>
+<p>まず、観測データ <span class="math display">\[
+X_1,\ldots,X_n
+\]</span> から、各パラメタ値 <span class="math inline">\(\theta\in\Theta\)</span> に点数をつける関数 <span class="math display">\[
+Q_n:\Theta\to\mathbb R
+\]</span> を作る。この <span class="math inline">\(Q_n(\theta)\)</span> を <strong>標本目的関数</strong> という。<span class="math inline">\(Q_n(\theta)\)</span> はデータから作られるので、固定された <span class="math inline">\(\theta\)</span> に対しても確率変数である。つまり、標本が変われば <span class="math inline">\(Q_n\)</span> の形も変わる。</p>
+<p>そのうえで、 <span class="math display">\[
+\hat\theta
+\in
+\operatorname*{arg\,max}_{\theta\in\Theta} Q_n(\theta)
+\]</span> となるような <span class="math inline">\(\theta\)</span> を推定量として選ぶ。最小化問題も符号を反転させれば最大化問題として書けるので、本章では最大化に統一する。例えば二乗残差和を最小化する OLS は、負の二乗残差和を最大化する推定量として書ける。</p>
+<p>標本サイズが大きくなると、<span class="math inline">\(Q_n(\theta)\)</span> は多くの場合、ある非ランダムな関数 <span class="math display">\[
+Q:\Theta\to\mathbb R
+\]</span> に近づく。この <span class="math inline">\(Q(\theta)\)</span> を <strong>母目的関数</strong> という。直観的には、 <span class="math display">\[
+Q_n(\theta)\approx Q(\theta)
+\]</span> であり、もし <span class="math inline">\(Q(\theta)\)</span> が真の値 <span class="math inline">\(\theta_0\)</span> で一意に最大化されるなら、<span class="math inline">\(Q_n(\theta)\)</span> を最大化する <span class="math inline">\(\hat\theta\)</span> も <span class="math inline">\(\theta_0\)</span> の近くに来るはずである。</p>
+<p>ただし、ここで大事なのは、<span class="math inline">\(Q_n(\theta)\)</span> が各固定された <span class="math inline">\(\theta\)</span> で <span class="math inline">\(Q(\theta)\)</span> に近づくだけでは足りない、という点である。推定量 <span class="math inline">\(\hat\theta\)</span> 自体が <span class="math inline">\(Q_n\)</span> を見て動くので、<span class="math inline">\(\theta\)</span> 全体でまとめて <span class="math display">\[
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|
+\]</span> が小さくなる必要がある。これが後で見る <strong>uniform convergence</strong> である。</p>
 <div id="def-extremum" class="theorem definition">
 <p><span class="theorem-title"><strong>定義 1 (極値推定量)</strong></span> <span class="math inline">\(\hat\theta\)</span> を <span class="math inline">\(\Theta\)</span> 値の可測関数とする。<span class="math inline">\(\hat\theta\)</span> が <span id="eq-extremum-def"><span class="math display">\[
 Q_n(\hat\theta) \geq \sup_{\theta\in\Theta} Q_n(\theta)-\eta_n,
@@ -1843,7 +1848,7 @@ Q_n(\hat\theta) \geq \sup_{\theta\in\Theta} Q_n(\theta)-\eta_n,
 <li>その誤差が漸近的に無視できればよい</li>
 </ul>
 <p>という立場をとる。</p>
-<p>母目的関数 <span class="math inline">\(Q: \Theta \to \mathbb{R}\)</span> は、標本目的関数の確率極限に対応する。真のパラメータ <span class="math inline">\(\theta_0\)</span> は、通常 <span class="math display">\[
+<p>母目的関数 <span class="math inline">\(Q: \Theta \to \mathbb{R}\)</span> は、標本目的関数の確率極限に対応する。真のパラメタ <span class="math inline">\(\theta_0\)</span> は、通常 <span class="math display">\[
 Q(\theta_0) \geq Q(\theta) \qquad (\forall\theta\in\Theta)
 \]</span> を満たす点として定義される。さらに <span class="math display">\[
 Q(\theta_0)&gt;Q(\theta) \qquad (\forall\theta\neq \theta_0)
@@ -1869,9 +1874,10 @@ Q(\theta_0)&gt;Q(\theta) \qquad (\forall\theta\neq \theta_0)
 </div>
 <section id="極値推定の代表例" class="level2" data-number="3.1">
 <h2 data-number="3.1" class="anchored" data-anchor-id="極値推定の代表例"><span class="header-section-number">3.1</span> 極値推定の代表例</h2>
-<p>この章では後続章で詳しく扱う 4 種類の推定量を、極値推定という観点からまとめておく。</p>
+<p>この章では後続章で詳しく扱う M 推定と GMM を、極値推定という観点からまとめておく。</p>
 <section id="m-推定" class="level3" data-number="3.1.1">
 <h3 data-number="3.1.1" class="anchored" data-anchor-id="m-推定"><span class="header-section-number">3.1.1</span> M 推定</h3>
+<p>M 推定の <span class="math inline">\(M\)</span> は、Huber の用語で <strong>maximum likelihood type</strong> の <span class="math inline">\(M\)</span> である。最尤法そのものに限らず、最尤法のように「標本平均の形をした目的関数を最大化する」推定法をまとめて呼ぶための名前である。GMM の moments の <span class="math inline">\(M\)</span> とは別物なので、ここは少し注意しておきたい。</p>
 <p>M 推定では標本目的関数が <span class="math display">\[
 Q_n(\theta)=\frac{1}{n}\sum_{t=1}^n m(X_t;\theta)
 \]</span> という標本平均の形をとる。したがって、独立同分布データのもとでは <span class="math display">\[
@@ -1890,6 +1896,122 @@ m(X_t;\theta)=\log f(Y_t\mid Y_{t-1};\theta)
 Q_n(\theta)=-\frac1n\sum_{t=1}^n\bigl(Y_t-\varphi(Z_t;\theta)\bigr)^2
 \]</span> を最大化することで推定できる。</p></li>
 </ol>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>例：OLS を M 推定として見る
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>線形回帰 <span class="math display">\[
+Y_t=x_t'\beta_0+u_t
+\]</span> を考える。ここで <span class="math inline">\(x_t\)</span> は定数項を含む説明変数ベクトルだとする。OLS は残差二乗和を最小化する推定量だが、符号を反転させれば <span class="math display">\[
+Q_n(\beta)
+=-\frac{1}{2n}\sum_{t=1}^n (Y_t-x_t'\beta)^2
+\]</span> を最大化する推定量である。これは <span class="math display">\[
+m(X_t;\beta)=-\frac12(Y_t-x_t'\beta)^2
+\]</span> と置いた M 推定そのものである。</p>
+<p>母目的関数は <span class="math display">\[
+Q(\beta)
+=-\frac12 E[(Y_t-x_t'\beta)^2]
+\]</span> である。<span class="math inline">\(Y_t=x_t'\beta_0+u_t\)</span> を代入すると <span class="math display">\[
+Y_t-x_t'\beta
+=u_t-x_t'(\beta-\beta_0)
+\]</span> だから、 <span class="math display">\[
+Q(\beta)-Q(\beta_0)
+=
+-\frac12(\beta-\beta_0)'E[x_tx_t'](\beta-\beta_0)
++E[u_tx_t'](\beta-\beta_0).
+\]</span> もし <span class="math display">\[
+E[x_tu_t]=0,
+\qquad
+E[x_tx_t'] \text{ が正定値}
+\]</span> なら、第 2 項は 0 であり、<span class="math inline">\(\beta\neq\beta_0\)</span> では第 1 項が負になる。したがって <span class="math inline">\(Q(\beta)\)</span> は <span class="math inline">\(\beta_0\)</span> で一意に最大化される。つまり、OLS の一致性は「標本の二乗誤差目的関数が、母集団の二乗誤差目的関数に一様に近づく」という極値推定の話として理解できる。</p>
+</div>
+</div>
+<p>次のシミュレーションでは、 <span class="math display">\[
+Y_t=1+2X_t+u_t,
+\qquad
+X_t\sim N(0,1),
+\qquad
+u_t\sim N(0,1)
+\]</span> を繰り返し発生させ、各標本サイズで OLS の傾き推定値を計算している。ここで見たいのは漸近正規性ではなく、標本サイズが大きくなるほど推定値が真の値 <span class="math inline">\(2\)</span> の近くに集まる、という一致性の感覚である。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>beta0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>beta1 <span class="ot">&lt;-</span> <span class="dv">2</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>sigma_u <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>n_values <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">20</span>, <span class="dv">50</span>, <span class="dv">200</span>, <span class="dv">1000</span>)</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>B <span class="ot">&lt;-</span> <span class="dv">1000</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>ols_slope_once <span class="ot">&lt;-</span> <span class="cf">function</span>(n) {</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  u <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> sigma_u)</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>  y <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> beta1 <span class="sc">*</span> x <span class="sc">+</span> u</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unname</span>(<span class="fu">coef</span>(<span class="fu">lm</span>(y <span class="sc">~</span> x))[<span class="dv">2</span>])</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>slope_draws <span class="ot">&lt;-</span> <span class="fu">lapply</span>(n_values, <span class="cf">function</span>(n) {</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">replicate</span>(B, <span class="fu">ols_slope_once</span>(n))</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(slope_draws) <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"n = "</span>, n_values)</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>mean_absolute_error <span class="ot">&lt;-</span> <span class="fu">sapply</span>(slope_draws, <span class="cf">function</span>(v) {</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mean</span>(<span class="fu">abs</span>(v <span class="sc">-</span> beta1))</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>old_par <span class="ot">&lt;-</span> <span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">3</span>, <span class="dv">1</span>))</span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a><span class="fu">boxplot</span>(</span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>  slope_draws,</span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">outline =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">col =</span> <span class="st">"#56B4E9"</span>,</span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">border =</span> <span class="st">"gray35"</span>,</span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">ylab =</span> <span class="fu">expression</span>(<span class="fu">hat</span>(beta)[<span class="dv">1</span>]),</span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">main =</span> <span class="st">"Sampling distribution"</span></span>
+<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">h =</span> beta1, <span class="at">col =</span> <span class="st">"#D55E00"</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(</span>
+<span id="cb11-37"><a href="#cb11-37" aria-hidden="true" tabindex="-1"></a>  <span class="st">"topright"</span>,</span>
+<span id="cb11-38"><a href="#cb11-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">legend =</span> <span class="fu">expression</span>(beta[<span class="dv">1</span>] <span class="sc">==</span> <span class="dv">2</span>),</span>
+<span id="cb11-39"><a href="#cb11-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">col =</span> <span class="st">"#D55E00"</span>,</span>
+<span id="cb11-40"><a href="#cb11-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">lty =</span> <span class="dv">1</span>,</span>
+<span id="cb11-41"><a href="#cb11-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">lwd =</span> <span class="dv">2</span>,</span>
+<span id="cb11-42"><a href="#cb11-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">bty =</span> <span class="st">"n"</span></span>
+<span id="cb11-43"><a href="#cb11-43" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-44"><a href="#cb11-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-45"><a href="#cb11-45" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(</span>
+<span id="cb11-46"><a href="#cb11-46" aria-hidden="true" tabindex="-1"></a>  n_values,</span>
+<span id="cb11-47"><a href="#cb11-47" aria-hidden="true" tabindex="-1"></a>  mean_absolute_error,</span>
+<span id="cb11-48"><a href="#cb11-48" aria-hidden="true" tabindex="-1"></a>  <span class="at">type =</span> <span class="st">"b"</span>,</span>
+<span id="cb11-49"><a href="#cb11-49" aria-hidden="true" tabindex="-1"></a>  <span class="at">pch =</span> <span class="dv">19</span>,</span>
+<span id="cb11-50"><a href="#cb11-50" aria-hidden="true" tabindex="-1"></a>  <span class="at">lwd =</span> <span class="dv">2</span>,</span>
+<span id="cb11-51"><a href="#cb11-51" aria-hidden="true" tabindex="-1"></a>  <span class="at">log =</span> <span class="st">"x"</span>,</span>
+<span id="cb11-52"><a href="#cb11-52" aria-hidden="true" tabindex="-1"></a>  <span class="at">col =</span> <span class="st">"#009E73"</span>,</span>
+<span id="cb11-53"><a href="#cb11-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="st">"n"</span>,</span>
+<span id="cb11-54"><a href="#cb11-54" aria-hidden="true" tabindex="-1"></a>  <span class="at">ylab =</span> <span class="st">"mean absolute error"</span>,</span>
+<span id="cb11-55"><a href="#cb11-55" aria-hidden="true" tabindex="-1"></a>  <span class="at">main =</span> <span class="st">"Average absolute error"</span></span>
+<span id="cb11-56"><a href="#cb11-56" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-57"><a href="#cb11-57" aria-hidden="true" tabindex="-1"></a><span class="fu">grid</span>(<span class="at">col =</span> <span class="st">"gray85"</span>)</span>
+<span id="cb11-58"><a href="#cb11-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-59"><a href="#cb11-59" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(old_par)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-ols-consistency-simulation" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-ols-consistency-simulation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="02-extremum-estimation-ja_files/figure-html/fig-ols-consistency-simulation-1.png" class="img-fluid figure-img" width="768">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ols-consistency-simulation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;8: OLS 推定量の一致性：標本サイズが大きくなると傾き推定値は真の値 2 の周りに集中する
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
 </section>
 <section id="gmm" class="level3" data-number="3.1.2">
 <h3 data-number="3.1.2" class="anchored" data-anchor-id="gmm"><span class="header-section-number">3.1.2</span> GMM</h3>
@@ -1903,18 +2025,202 @@ Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n g_n(\theta)
 Q(\theta)=-\frac12 g(\theta)'Wg(\theta),
 \qquad g(\theta)=E[g(X_t;\theta)]
 \]</span> となる。</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>例：OLS を GMM として見る
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>同じ OLS を、GMM の一例としても見ることができる。線形回帰で外生性条件 <span class="math display">\[
+E[x_tu_t]=0,
+\qquad
+u_t=Y_t-x_t'\beta_0
+\]</span> が成り立つなら、 <span class="math display">\[
+E[x_t(Y_t-x_t'\beta_0)]=0
+\]</span> である。そこで <span class="math display">\[
+g(X_t;\beta)=x_t(Y_t-x_t'\beta)
+\]</span> と置けば、標本モーメントは <span class="math display">\[
+g_n(\beta)=\frac1n\sum_{t=1}^n x_t(Y_t-x_t'\beta)
+\]</span> になる。</p>
+<p>もしモーメントの数とパラメタの数が同じ、つまり <span class="math inline">\(x_t\)</span> の次元が <span class="math inline">\(\beta\)</span> の次元と同じなら、この GMM は just identified である。この場合、GMM 推定量は基本的に <span class="math display">\[
+g_n(\hat\beta)=0
+\]</span> を解く推定量になる。これは <span class="math display">\[
+\frac1n\sum_{t=1}^n x_t(Y_t-x_t'\hat\beta)=0
+\]</span> であり、行列表記では <span class="math display">\[
+X'(Y-X\hat\beta)=0
+\]</span> である。したがって <span class="math display">\[
+\hat\beta=(X'X)^{-1}X'Y
+\]</span> が得られる。これは通常の OLS 推定量である。</p>
+<p>つまり OLS は、</p>
+<ul>
+<li>二乗誤差を最小化する M 推定量</li>
+<li>正規方程式というモーメント条件を合わせる GMM 推定量</li>
+</ul>
+<p>の両方として理解できる。同じ推定量でも、目的関数から見るか、モーメント条件から見るかで、M 推定と GMM という 2 つの顔をもつ。</p>
+</div>
+</div>
 </section>
-<section id="smm" class="level3" data-number="3.1.3">
-<h3 data-number="3.1.3" class="anchored" data-anchor-id="smm"><span class="header-section-number">3.1.3</span> SMM</h3>
-<p>SMM は、データから得られるターゲット・モーメント <span class="math inline">\(g_n\)</span> と、モデルからシミュレーションで得られるモーメント <span class="math inline">\(\gamma_m(\theta)\)</span> を一致させる推定法である。標本目的関数は <span class="math display">\[
-Q_n(\theta)=-\frac12\bigl(g_n-\gamma_m(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma_m(\theta)\bigr)
-\]</span> である。</p>
+<section id="m-推定の-score-をモーメント条件として見る" class="level3" data-number="3.1.3">
+<h3 data-number="3.1.3" class="anchored" data-anchor-id="m-推定の-score-をモーメント条件として見る"><span class="header-section-number">3.1.3</span> M 推定の score をモーメント条件として見る</h3>
+<p>OLS の例で見たことは、もっと一般に成り立つ。滑らかな M 推定量を <span class="math display">\[
+\hat\theta
+=
+\operatorname*{arg\,max}_{\theta\in\Theta}
+Q_n(\theta),
+\qquad
+Q_n(\theta)=\frac1n\sum_{t=1}^n m(X_t;\theta)
+\]</span> と書く。</p>
+<p>もし最大化点 <span class="math inline">\(\hat\theta\)</span> がパラメタ空間の内部にあり、目的関数が <span class="math inline">\(\theta\)</span> について微分可能なら、厳密な最大化点では一階条件 <span class="math display">\[
+0
+=
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}
+=
+\frac1n\sum_{t=1}^n
+\frac{\partial m(X_t;\hat\theta)}{\partial\theta}
+\]</span> が成り立つ。</p>
+<p>ここで <span class="math display">\[
+s(X_t;\theta)
+=
+\frac{\partial m(X_t;\theta)}{\partial\theta}
+\]</span> とおく。この <span class="math inline">\(s(X_t;\theta)\)</span> は、目的関数の勾配であり、最尤法では score と呼ばれる。すると M 推定量の一階条件は <span class="math display">\[
+\frac1n\sum_{t=1}^n s(X_t;\hat\theta)=0
+\]</span> と書ける。</p>
+<p>これは <span class="math display">\[
+E[s(X_t;\theta_0)]=0
+\]</span> というモーメント条件の標本版である。したがって、滑らかな M 推定量は、少なくとも一階条件のレベルでは <span class="math display">\[
+g(X_t;\theta)=s(X_t;\theta)
+\]</span> を使った GMM のように見ることができる。OLS の正規方程式 <span class="math display">\[
+\frac1n\sum_{t=1}^n x_t(Y_t-x_t'\hat\beta)=0
+\]</span> は、この一般的な score moment の具体例である。</p>
+<div class="callout callout-style-default callout-caution callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">注意</span>FOC だけでは最大化とは限らない
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>この見方は便利だが、一階条件はあくまで「局所的な山の頂上候補」を表す条件である。一階条件を満たす点が、大域的な最大化点であるとは限らない。極値推定の一致性で clean maximum と uniform convergence を使うのは、標本目的関数の最大化点が母目的関数の正しい山に近づくことを保証するためである。</p>
+</div>
+</div>
 </section>
-<section id="minimum-distance" class="level3" data-number="3.1.4">
-<h3 data-number="3.1.4" class="anchored" data-anchor-id="minimum-distance"><span class="header-section-number">3.1.4</span> Minimum Distance</h3>
-<p>Minimum Distance では、ある縮約形統計量 <span class="math inline">\(g_n\)</span> と、その構造モデル上の対応物 <span class="math inline">\(\gamma(\theta)\)</span> の距離を最小化する。目的関数は <span class="math display">\[
-Q_n(\theta)=-\frac12\bigl(g_n-\gamma(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma(\theta)\bigr)
+<section id="weighting-matrix-が有益な理由" class="level3" data-number="3.1.4">
+<h3 data-number="3.1.4" class="anchored" data-anchor-id="weighting-matrix-が有益な理由"><span class="header-section-number">3.1.4</span> weighting matrix が有益な理由</h3>
+<p>GMM の目的関数は <span class="math display">\[
+Q_n(\theta)
+=-\frac12 g_n(\theta)'\widehat W_n g_n(\theta)
+\]</span> である。ここで <span class="math inline">\(\widehat W_n\)</span> は、複数のモーメント条件のズレをどの尺度で測るかを決める行列である。</p>
+<p>まず、もっとも単純な場合を考える。モーメント条件が 1 つだけなら、 <span class="math display">\[
+Q_n(\theta)=-\frac12 W_n g_n(\theta)^2
+\]</span> である。<span class="math inline">\(W_n&gt;0\)</span> は単なる正の定数なので、<span class="math inline">\(Q_n(\theta)\)</span> を最大化する <span class="math inline">\(\theta\)</span> は、<span class="math inline">\(g_n(\theta)^2\)</span> を最小にする <span class="math inline">\(\theta\)</span> と同じである。つまり、モーメントが 1 つだけなら、重みは推定量を本質的には変えない。</p>
+<p>しかし、モーメント条件が複数あると話が変わる。標本では、すべてのモーメントを同時に 0 にできるとは限らない。例えば <span class="math display">\[
+g_n(\theta)
+=
+\begin{pmatrix}
+g_{1n}(\theta)\\
+g_{2n}(\theta)
+\end{pmatrix}
+\]</span> があり、ある <span class="math inline">\(\theta\)</span> では <span class="math inline">\(g_{1n}(\theta)\)</span> は小さいが <span class="math inline">\(g_{2n}(\theta)\)</span> は大きい、別の <span class="math inline">\(\theta\)</span> ではその逆、ということが起きる。このとき、GMM は <span class="math display">\[
+g_n(\theta)'\widehat W_n g_n(\theta)
+\]</span> を小さくする <span class="math inline">\(\theta\)</span> を選ぶ。したがって <span class="math inline">\(\widehat W_n\)</span> は、「どのモーメントのズレをどれくらい重く見るか」を決めている。</p>
+<p>just identified、つまりモーメント条件の数とパラメタの数が同じ場合には、理想的には <span class="math display">\[
+g_n(\hat\theta)=0
+\]</span> を解けばよい。この場合、どの正定値な重み行列を使っても、一階の漸近分散は変わらない。OLS を GMM として見たときに weighting matrix が表に出てこないのは、このためである。</p>
+<p>一方、over identified、つまりモーメント条件がパラメタより多い場合には、有限標本ではすべてのモーメントを同時に 0 にできないことが多い。そこで、どのモーメントのズレをより重く見るかが問題になる。このとき weighting matrix が効いてくる。</p>
+<section id="具体例精度の違う-2-つのモーメント" class="level4" data-number="3.1.4.1">
+<h4 data-number="3.1.4.1" class="anchored" data-anchor-id="具体例精度の違う-2-つのモーメント"><span class="header-section-number">3.1.4.1</span> 具体例：精度の違う 2 つのモーメント</h4>
+<p>1 つのスカラー・パラメタ <span class="math inline">\(\theta_0\)</span> を推定したいとする。観測データから、<span class="math inline">\(\theta_0\)</span> について 2 つの情報が得られるとしよう。 <span class="math display">\[
+A_t=\theta_0+\varepsilon_{1t},
+\qquad
+B_t=\theta_0+\varepsilon_{2t}.
+\]</span> どちらも平均的には <span class="math inline">\(\theta_0\)</span> を測っているが、精度が違うとする。 <span class="math display">\[
+E[\varepsilon_{1t}]=E[\varepsilon_{2t}]=0,
+\qquad
+\operatorname{Var}(\varepsilon_{1t})=1,
+\qquad
+\operatorname{Var}(\varepsilon_{2t})=9.
+\]</span> <span class="math inline">\(B_t\)</span> の方が、<span class="math inline">\(A_t\)</span> より 9 倍ノイズが大きい。</p>
+<p>このとき、自然なモーメント条件は <span class="math display">\[
+E[A_t-\theta_0]=0,
+\qquad
+E[B_t-\theta_0]=0
+\]</span> である。標本モーメントは <span class="math display">\[
+g_n(\theta)
+=
+\begin{pmatrix}
+\bar A-\theta\\
+\bar B-\theta
+\end{pmatrix}
+\]</span> となる。</p>
+<p>もし重み行列を単位行列 <span class="math inline">\(W=I\)</span> にすると、GMM は <span class="math display">\[
+(\bar A-\theta)^2+(\bar B-\theta)^2
+\]</span> を最小化する。これは <span class="math inline">\(\bar A\)</span> と <span class="math inline">\(\bar B\)</span> を同じ重さで平均するので、 <span class="math display">\[
+\hat\theta_I=\frac{\bar A+\bar B}{2}
+\]</span> になる。しかしこれは少しもったいない。なぜなら、<span class="math inline">\(\bar B\)</span> は <span class="math inline">\(\bar A\)</span> よりかなり noisy なのに、同じだけ信じてしまっているからである。</p>
+<p>実際、この推定量の分散は <span class="math display">\[
+\operatorname{Var}(\hat\theta_I)
+=
+\frac14\operatorname{Var}(\bar A)
++\frac14\operatorname{Var}(\bar B)
+=
+\frac14\cdot\frac1n+\frac14\cdot\frac9n
+=
+\frac{2.5}{n}
 \]</span> である。</p>
+<p>では、より自然にはどうすればよいか。ノイズの小さい <span class="math inline">\(\bar A\)</span> を強く信じ、ノイズの大きい <span class="math inline">\(\bar B\)</span> は弱く信じればよい。ここではモーメントの分散共分散行列は <span class="math display">\[
+S
+=
+\operatorname{Var}\!\left(\sqrt n\,g_n(\theta_0)\right)
+=
+\begin{pmatrix}
+1&amp;0\\
+0&amp;9
+\end{pmatrix}
+\]</span> なので、その逆行列は <span class="math display">\[
+S^{-1}
+=
+\begin{pmatrix}
+1&amp;0\\
+0&amp;1/9
+\end{pmatrix}.
+\]</span> この重みを使うと、GMM は <span class="math display">\[
+(\bar A-\theta)^2+\frac19(\bar B-\theta)^2
+\]</span> を最小化する。したがって <span class="math display">\[
+\hat\theta_{S^{-1}}
+=
+\frac{\bar A+(1/9)\bar B}{1+1/9}
+=0.9\bar A+0.1\bar B
+\]</span> になる。精度の高い <span class="math inline">\(\bar A\)</span> を 90%、精度の低い <span class="math inline">\(\bar B\)</span> を 10% だけ使っている。</p>
+<p>この推定量の分散は <span class="math display">\[
+\operatorname{Var}(\hat\theta_{S^{-1}})
+=
+0.9^2\frac1n+0.1^2\frac9n
+=
+\frac{0.9}{n}
+\]</span> である。単位行列で同じ重みを置いたときの <span class="math inline">\(2.5/n\)</span> より、かなり小さい。</p>
+<p>この例が示していることは単純である。</p>
+<blockquote class="blockquote">
+<p>noisy なモーメントを、信頼できるモーメントと同じ重さで使うと、推定量が無駄に揺れる。</p>
+</blockquote>
+<p>weighting matrix は、この問題を避けるためにある。モーメントのノイズが大きい方向には小さい重みを置き、ノイズが小さい方向には大きい重みを置く。</p>
+</section>
+<section id="相関したモーメントを二重に数えない" class="level4" data-number="3.1.4.2">
+<h4 data-number="3.1.4.2" class="anchored" data-anchor-id="相関したモーメントを二重に数えない"><span class="header-section-number">3.1.4.2</span> 相関したモーメントを二重に数えない</h4>
+<p>weighting matrix のもう 1 つの役割は、モーメント間の相関を調整することである。</p>
+<p>例えば 2 つのモーメントがほとんど同じ情報を持っているとする。このとき、両方を独立な情報であるかのように同じ重さで使うと、同じ情報を二重に数えているような形になる。逆に、2 つのモーメントがあまり相関していないなら、それぞれが別の情報を持っているので、両方を使う価値が高い。</p>
+<p>この 2 つをまとめて処理するのが <span class="math display">\[
+W=S^{-1},
+\qquad
+S=\operatorname{Var}\!\left(\sqrt n\,g_n(\theta_0)\right)
+\]</span> という選択である。<span class="math inline">\(S\)</span> はモーメントのノイズの分散共分散行列であり、<span class="math inline">\(S^{-1}\)</span> を使うことは、ノイズの大きい方向を弱く、ノイズの小さい方向を強く見ることに対応する。また、モーメント間の相関も補正する。</p>
+<p>したがって、GMM における weighting matrix は単なる技術的な飾りではない。over identified な状況で、複数のモーメントをどれくらい信用して、どう組み合わせるかを決める中心的な部品である。</p>
+</section>
 </section>
 </section>
 </section>
@@ -1956,13 +2262,41 @@ S_n=
 \sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|&lt;\frac{\varepsilon}{3}
 \right\}.
 \]</span> 仮定より <span class="math inline">\(P(S_n)\to 1\)</span>。</p>
-<p><span class="math inline">\(S_n\)</span> 上では <span class="math display">\[
+<p><span class="math inline">\(S_n\)</span> 上で何が起きるかを、一つずつ確認する。</p>
+<p>まず、一様収束の事象 <span class="math display">\[
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|&lt;\frac{\varepsilon}{3}
+\]</span> が成り立っているので、任意の <span class="math inline">\(\theta\)</span> について <span class="math display">\[
+Q(\theta)&gt;Q_n(\theta)-\frac{\varepsilon}{3},
+\qquad
+Q_n(\theta)&gt;Q(\theta)-\frac{\varepsilon}{3}
+\]</span> である。特に <span class="math inline">\(\theta=\hat\theta\)</span> と <span class="math inline">\(\theta=\theta_0\)</span> に対してこの不等式を使える。</p>
+<p>したがって、まず <span class="math inline">\(\theta=\hat\theta\)</span> で評価すると <span class="math display">\[
 Q(\hat\theta)
-\ge Q_n(\hat\theta)-\frac{\varepsilon}{3}
-\ge Q_n(\theta_0)-\eta_n-\frac{\varepsilon}{3}
-\ge Q_n(\theta_0)-\frac{2\varepsilon}{3}
-\ge Q(\theta_0)-\varepsilon.
-\]</span> したがって <span class="math display">\[
+&gt;
+Q_n(\hat\theta)-\frac{\varepsilon}{3}.
+\]</span> 次に、<span class="math inline">\(\hat\theta\)</span> は <span class="math inline">\(Q_n\)</span> をほぼ最大化するので、<a href="#eq-extremum-def" class="quarto-xref">式&nbsp;1</a> より <span class="math display">\[
+Q_n(\hat\theta)
+\ge
+Q_n(\theta_0)-\eta_n
+\]</span> である。ここでは、<span class="math inline">\(\theta_0\)</span> も <span class="math inline">\(\Theta\)</span> の中の候補の一つなので、 <span class="math display">\[
+\sup_{\theta\in\Theta}Q_n(\theta)\ge Q_n(\theta_0)
+\]</span> を使っている。</p>
+<p>さらに <span class="math inline">\(S_n\)</span> 上では <span class="math inline">\(|\eta_n|&lt;\varepsilon/3\)</span> なので、とくに <span class="math inline">\(\eta_n&lt;\varepsilon/3\)</span> である。したがって <span class="math display">\[
+Q_n(\theta_0)-\eta_n-\frac{\varepsilon}{3}
+&gt;
+Q_n(\theta_0)-\frac{2\varepsilon}{3}.
+\]</span> 最後に、もう一度一様収束を <span class="math inline">\(\theta=\theta_0\)</span> で使うと <span class="math display">\[
+Q_n(\theta_0)&gt;Q(\theta_0)-\frac{\varepsilon}{3}.
+\]</span> 以上をつなげると <span class="math display">\[
+Q(\hat\theta)
+&gt;
+Q(\theta_0)-\varepsilon.
+\]</span></p>
+<p>ここで <span class="math inline">\(\varepsilon\)</span> の定義から <span class="math display">\[
+Q(\theta_0)-\varepsilon
+=
+\sup_{\theta\in\Theta:\,\|\theta-\theta_0\|\geq \delta}Q(\theta)
+\]</span> である。したがって <span class="math display">\[
 Q(\hat\theta) &gt; \sup_{\theta\in\Theta:\,\|\theta-\theta_0\|\ge \delta} Q(\theta).
 \]</span> よって <span class="math inline">\(S_n\)</span> 上では必ず <span class="math inline">\(\|\hat\theta-\theta_0\|&lt;\delta\)</span> である。ゆえに <span class="math display">\[
 P(\|\hat\theta-\theta_0\|&lt;\delta)\ge P(S_n)\to 1.
@@ -2208,199 +2542,24 @@ Q(\theta)=-\frac12 g(\theta)'Wg(\theta)
 <p>以上より <a href="#thm-extremum-consistency" class="quarto-xref">定理&nbsp;1</a> から結論が従う。</p>
 </div>
 </section>
-<section id="smm-の一致性" class="level2" data-number="4.5">
-<h2 data-number="4.5" class="anchored" data-anchor-id="smm-の一致性"><span class="header-section-number">4.5</span> SMM の一致性</h2>
-<p>SMM では標本側の不確実性に加えて、シミュレーション側の不確実性が入る。そのため、モデル・モーメントのシミュレーション近似 <span class="math inline">\(\gamma_m(\theta)\)</span> が <strong>一様に</strong> 真の <span class="math inline">\(\gamma(\theta)\)</span> に近づくことが必要になる。</p>
-<div id="thm-smm-consistency" class="theorem">
-<p><span class="theorem-title"><strong>定理 4 (SMM 推定量の一致性)</strong></span> SMM の標本目的関数を <span class="math display">\[
-Q_n(\theta)=-\frac12\bigl(g_n-\gamma_m(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma_m(\theta)\bigr)
-\]</span> とし、母目的関数を <span class="math display">\[
-Q(\theta)=-\frac12\bigl(g_0-\gamma(\theta)\bigr)'W\bigl(g_0-\gamma(\theta)\bigr)
-\]</span> とする。次を仮定する。</p>
-<ol type="1">
-<li><span class="math inline">\(\Theta\)</span> はコンパクトである。</li>
-<li><span class="math inline">\(\gamma(\theta)\)</span> は <span class="math inline">\(\theta\)</span> で連続である。</li>
-<li><span class="math display">\[
-\sup_{\theta\in\Theta}\|\gamma_m(\theta)-\gamma(\theta)\|=o_p(1).
-\]</span></li>
-<li><span class="math inline">\(g_n\to_p g_0\)</span> かつ <span class="math inline">\(\widehat W_n\to_p W\)</span>。ただし <span class="math inline">\(W\)</span> は正定値対称行列である。</li>
-<li><span class="math inline">\(\gamma(\theta)=g_0\)</span> であることと <span class="math inline">\(\theta=\theta_0\)</span> であることが同値である。</li>
-</ol>
-<p>このとき SMM 推定量 <span class="math inline">\(\hat\theta\)</span> は一致する。</p>
-</div>
-<div class="proof">
-<p><span class="proof-title"><em>証明</em>. </span>仮定 1, 2, 5 と <a href="#lem-clean-maximum" class="quarto-xref">補題&nbsp;1</a> より clean maximum が成り立つ。仮定 3, 4 を使って <span class="math display">\[
-\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|=o_p(1)
-\]</span> を示せばよい。実際、 <span class="math display">\[
-2\{Q(\theta)-Q_n(\theta)
-\}
-=(g_n-\gamma_m(\theta))'(\widehat W_n-W)(g_n-\gamma_m(\theta))
-\]</span> <span class="math display">\[
-\qquad +\bigl(g_n-g_0+\gamma(\theta)-\gamma_m(\theta)\bigr)'W
-\bigl(g_n-\gamma_m(\theta)+g_0-\gamma(\theta)\bigr)
-\]</span> と分解できる。仮定 3 によりシミュレーション誤差が一様に消え、仮定 4 により標本モーメントと重み行列も収束するので、右辺全体が <span class="math inline">\(o_p(1)\)</span> となる。よって <a href="#thm-extremum-consistency" class="quarto-xref">定理&nbsp;1</a> が適用できる。</p>
-</div>
-<div class="callout callout-style-default callout-caution callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">注意</span>SMM の実装上の注意
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>SMM を数値的に実装する際は、異なる <span class="math inline">\(\theta\)</span> の間で <strong>同じ乱数系列</strong> を使うことが重要である。乱数系列を毎回変えてしまうと、同じ <span class="math inline">\(\theta\)</span> でも評価される目的関数値がぶれ、最適化が不安定になる。</p>
-</div>
-</div>
 </section>
-<section id="minimum-distance-の一致性" class="level2" data-number="4.6">
-<h2 data-number="4.6" class="anchored" data-anchor-id="minimum-distance-の一致性"><span class="header-section-number">4.6</span> Minimum Distance の一致性</h2>
-<p>Minimum Distance は SMM からシミュレーション誤差を取り除いた形になっている。</p>
-<div id="thm-md-consistency" class="theorem">
-<p><span class="theorem-title"><strong>定理 5 (Minimum Distance 推定量の一致性)</strong></span> 標本目的関数を <span class="math display">\[
-Q_n(\theta)=-\frac12\bigl(g_n-\gamma(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma(\theta)\bigr)
-\]</span> とする。次を仮定する。</p>
-<ol type="1">
-<li><span class="math inline">\(\Theta\)</span> はコンパクトである。</li>
-<li><span class="math inline">\(\gamma(\theta)\)</span> は <span class="math inline">\(\theta\)</span> で連続である。</li>
-<li><span class="math inline">\(g_n\to_p g_0\)</span> かつ <span class="math inline">\(\widehat W_n\to_p W\)</span>。ただし <span class="math inline">\(W\)</span> は正定値対称行列である。</li>
-<li><span class="math inline">\(\gamma(\theta)=g_0\)</span> であることと <span class="math inline">\(\theta=\theta_0\)</span> であることが同値である。</li>
-</ol>
-<p>このとき Minimum Distance 推定量 <span class="math inline">\(\hat\theta\)</span> は一致する。</p>
-</div>
-<div class="proof">
-<p><span class="proof-title"><em>証明</em>. </span>SMM の場合の証明から、シミュレーション近似 <span class="math inline">\(\gamma_m(\theta)\)</span> を真の <span class="math inline">\(\gamma(\theta)\)</span> に置き換えればよい。clean maximum と uniform convergence が同様に確認できるので、<a href="#thm-extremum-consistency" class="quarto-xref">定理&nbsp;1</a> が適用できる。</p>
-</div>
-</section>
-</section>
-<section id="漸近正規性" class="level1" data-number="5">
-<h1 data-number="5"><span class="header-section-number">5</span> 漸近正規性</h1>
-<p>一致性だけでは推論はできない。標準誤差、信頼区間、Wald 検定などを行うには、<span class="math inline">\(\hat\theta\)</span> の漸近分布が必要である。本章ではその最も一般的な形を与える。</p>
-<section id="ols-との類似" class="level2" data-number="5.1">
-<h2 data-number="5.1" class="anchored" data-anchor-id="ols-との類似"><span class="header-section-number">5.1</span> OLS との類似</h2>
-<p>極値推定の漸近正規性は、実は OLS の議論と非常によく似ている。線形回帰 <span class="math display">\[
-y_t=x_t'\beta_0+u_t
-\]</span> を考えると、OLS の目的関数は <span class="math display">\[
-Q_n(\beta)=-\frac{1}{2n}\sum_{t=1}^n (y_t-x_t'\beta)^2
-\]</span> である。FOC を <span class="math inline">\(\hat\beta\)</span> で評価すると <span class="math display">\[
-0=
--\left(\frac1n\sum_{t=1}^n x_tx_t'\right)(\hat\beta-\beta_0)
-+\left(\frac1n\sum_{t=1}^n x_tu_t\right).
-\]</span> 両辺に <span class="math inline">\(\sqrt{n}\)</span> を掛ければ <span class="math display">\[
-0=H_n\sqrt{n}(\hat\beta-\beta_0)-Z_n
-\]</span> と書ける。ここで <span class="math display">\[
-H_n=\frac1n\sum_{t=1}^n x_tx_t',
-\qquad
-Z_n=\frac1{\sqrt n}\sum_{t=1}^n x_tu_t.
-\]</span> 一般の極値推定でも、適切な正則性条件の下でほぼ同じ構造が現れる。</p>
-</section>
-<section id="一般形" class="level2" data-number="5.2">
-<h2 data-number="5.2" class="anchored" data-anchor-id="一般形"><span class="header-section-number">5.2</span> 一般形</h2>
-<p>目的関数が十分滑らかで、かつ数値最適化誤差が十分小さいとする。すると、近似的一階条件 <span class="math display">\[
-\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
-\]</span> を <span class="math inline">\(\theta_0\)</span> のまわりで展開することで、しばしば <span id="eq-master-linearization"><span class="math display">\[
-o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
-\tag{2}\]</span></span> という表現が得られる。ここで</p>
-<ul>
-<li><span class="math inline">\(H_n\)</span> は目的関数の局所的な曲率を表す行列</li>
-<li><span class="math inline">\(Z_n\)</span> は標本平均の変動を表す確率ベクトル</li>
-</ul>
-<p>である。</p>
-<p>もし <span class="math display">\[
-H_n\to_p H,
-\qquad
-Z_n\to_d N(0,\Sigma),
-\]</span> かつ <span class="math inline">\(H\)</span> が可逆であれば、<a href="#eq-master-linearization" class="quarto-xref">式&nbsp;2</a> から <span class="math display">\[
-\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1})
-\]</span> が従うはずである。次の定理はそれを厳密に述べたものだ。</p>
-<div id="thm-master-an" class="theorem">
-<p><span class="theorem-title"><strong>定理 6 (極値推定量の漸近正規性：基本定理)</strong></span> 次を仮定する。</p>
-<ol type="1">
-<li><span class="math display">\[
-o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n.
-\]</span></li>
-<li><span class="math inline">\(H_n\to_p H\)</span>。ただし <span class="math inline">\(H\)</span> は正定値対称行列である。</li>
-<li><span class="math inline">\(Z_n\to_d N(0,\Sigma)\)</span>。ただし <span class="math inline">\(\Sigma\)</span> は正定値対称行列である。</li>
-</ol>
-<p>このとき <span class="math display">\[
-\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1}).
-\]</span></p>
-</div>
-<div class="proof">
-<p><span class="proof-title"><em>証明</em>. </span><span class="math inline">\(H\)</span> は正定値なので可逆である。仮定 1 の両辺に <span class="math inline">\(H^{-1}\)</span> を掛けると <span class="math display">\[
-o_p(1)=H^{-1}H_n\sqrt{n}(\hat\theta-\theta_0)-H^{-1}Z_n.
-\]</span> 仮定 2 より <span class="math inline">\(H^{-1}H_n\to_p I\)</span> であるから <span class="math display">\[
-H^{-1}H_n=I+o_p(1).
-\]</span> また仮定 3 と連続写像定理より <span class="math display">\[
-H^{-1}Z_n\to_d N(0,H^{-1}\Sigma H^{-1}),
-\]</span> したがって <span class="math inline">\(H^{-1}Z_n=O_p(1)\)</span> である。</p>
-<p>よって <span class="math display">\[
-o_p(1)=(I+o_p(1))\sqrt{n}(\hat\theta-\theta_0)-O_p(1)
-\]</span> から <span class="math inline">\(\sqrt{n}(\hat\theta-\theta_0)=O_p(1)\)</span> が従う。これを元の式に戻せば <span class="math display">\[
-\sqrt{n}(\hat\theta-\theta_0)=H^{-1}Z_n+o_p(1).
-\]</span> したがって Slutsky の定理により <span class="math display">\[
-\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1}).
-\]</span></p>
-</div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span><span class="math inline">\(H\)</span> と <span class="math inline">\(\Sigma\)</span> の経済学的意味
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>漸近分散 <span class="math display">\[
-\Omega = H^{-1}\Sigma H^{-1}
-\]</span> の中で、</p>
-<ul>
-<li><span class="math inline">\(H\)</span> は目的関数の <strong>曲率</strong> を表す。曲率が大きいほど、最適点の位置はデータの揺らぎに対して頑健になりやすい。</li>
-<li><span class="math inline">\(\Sigma\)</span> は標本平均やスコアの <strong>ばらつき</strong> を表す。</li>
-</ul>
-<p>したがって、推定の精度は「目的関数の鋭さ」と「データのノイズ」のバランスで決まる。</p>
-</div>
-</div>
-</section>
-<section id="この定理がどこで使われるか" class="level2" data-number="5.3">
-<h2 data-number="5.3" class="anchored" data-anchor-id="この定理がどこで使われるか"><span class="header-section-number">5.3</span> この定理がどこで使われるか</h2>
-<p>後続章では、各推定法ごとに <a href="#thm-master-an" class="quarto-xref">定理&nbsp;6</a> の <span class="math inline">\(H_n\)</span> と <span class="math inline">\(Z_n\)</span> を具体化する。</p>
-<ul>
-<li><strong>M 推定</strong>：<span class="math inline">\(H\)</span> は Hessian、<span class="math inline">\(\Sigma\)</span> はスコアの分散または長期分散</li>
-<li><strong>GMM</strong>：<span class="math inline">\(H=G'WG\)</span>、<span class="math inline">\(\Sigma=G'WSWG\)</span></li>
-<li><strong>SMM</strong>：GMM に加えてシミュレーション誤差が入る</li>
-<li><strong>MD</strong>：<span class="math inline">\(H=\Gamma'W\Gamma\)</span>、<span class="math inline">\(\Sigma=\Gamma'WSW\Gamma\)</span></li>
-</ul>
-<p>つまり、後続章の技術的作業は、結局のところ</p>
-<ol type="1">
-<li>近似的一階条件をつくる</li>
-<li><span class="math inline">\(H_n\)</span> の確率極限を求める</li>
-<li><span class="math inline">\(Z_n\)</span> に中心極限定理を適用する</li>
-</ol>
-<p>という 3 ステップに帰着する。</p>
-</section>
-<section id="非微分可能な目的関数について" class="level2" data-number="5.4">
-<h2 data-number="5.4" class="anchored" data-anchor-id="非微分可能な目的関数について"><span class="header-section-number">5.4</span> 非微分可能な目的関数について</h2>
-<p>本章の導出は、暗黙のうちに目的関数の微分可能性を使っている。しかし、量的回帰、maximum score、ある種のシミュレーション推定などでは目的関数が微分可能でないことがある。その場合でも、目的関数が局所的に二次近似できれば、同じ型の漸近正規性が導ける。これは付録で扱う一般結果に対応している。</p>
-</section>
-</section>
-<section id="まとめ" class="level1" data-number="6">
-<h1 data-number="6"><span class="header-section-number">6</span> まとめ</h1>
+<section id="まとめ" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> まとめ</h1>
 <p>この章で押さえるべき点は次の通りである。</p>
 <ol type="1">
-<li><strong>極値推定は統一的な枠組み</strong> であり、M 推定・GMM・SMM・MD を同じ論理で扱える。</li>
+<li><strong>極値推定は統一的な枠組み</strong> であり、M 推定と GMM を同じ論理で扱える。</li>
+<li>標本目的関数 <span class="math inline">\(Q_n(\theta)\)</span> はデータから作るランダムな関数であり、母目的関数 <span class="math inline">\(Q(\theta)\)</span> はその大標本での目標である。</li>
+<li>OLS は、二乗誤差を最小化する M 推定量としても、正規方程式をモーメント条件にした GMM 推定量としても理解できる。</li>
+<li>一般に、滑らかな M 推定量の一階条件は score の標本平均を 0 にする条件なので、score をモーメント条件と見れば M 推定は GMM のように読める。</li>
+<li>GMM の weighting matrix は、複数のモーメント条件をどれくらい信用して、どう組み合わせるかを決める。</li>
+<li>over identified な GMM では、ノイズの大きいモーメントを弱く見たり、相関したモーメントを二重に数えないために、重み行列が重要になる。</li>
 <li>一致性には
 <ul>
 <li>clean maximum</li>
 <li>uniform convergence の 2 条件が中心である。</li>
 </ul></li>
 <li>M 推定では、uniform convergence は <strong>一様大数法則</strong> の問題に還元される。</li>
-<li>漸近正規性は <span class="math display">\[
-o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
-\]</span> という線形化表現から導かれる。</li>
-<li>後続章では、各推定法ごとに <span class="math inline">\(H\)</span> と <span class="math inline">\(\Sigma\)</span> を具体化し、標準誤差推定と仮説検定に進む。</li>
+<li>GMM では、標本モーメント <span class="math inline">\(g_n(\theta)\)</span> が母モーメント <span class="math inline">\(g(\theta)\)</span> に一様に近づくことが一致性の中心になる。</li>
 </ol>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2414,16 +2573,16 @@ o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
 <div class="callout-body-container callout-body">
 <p>次の「M 推定」の章では、この章の抽象理論を最尤法・非線形最小二乗法に落とし込み、</p>
 <ul>
-<li>漸近分散の具体式</li>
-<li>sandwich 分散</li>
-<li>正しく指定された最尤法と誤指定最尤法の違い</li>
+<li>滑らかな目的関数の一階条件</li>
+<li>推定量の大標本近似</li>
+<li>最尤法と非線形最小二乗法の具体例</li>
 </ul>
 <p>を詳しく扱う。</p>
 </div>
 </div>
 </section>
-<section id="参考文献" class="level1" data-number="7">
-<h1 data-number="7"><span class="header-section-number">7</span> 参考文献</h1>
+<section id="参考文献" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> 参考文献</h1>
 <ul>
 <li>Billingsley, P. (2008), <em>Probability and Measure</em>.</li>
 <li>Hayashi, F. (2000), <em>Econometrics</em>, Chapter 7.</li>

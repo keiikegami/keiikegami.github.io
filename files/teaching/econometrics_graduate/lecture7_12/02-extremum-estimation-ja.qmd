@@ -26,14 +26,10 @@ execute:
 
 この章の目的は次の4点である。
 
-1. M 推定、GMM、SMM、MD を **極値推定** という一つの枠組みで理解する。
-2. 極値推定量の一致性を保証する 2 つの鍵、すなわち **clean maximum** と **uniform convergence** を理解する。
-3. 漸近正規性の基本表現
-   $$
-   o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
-   $$
-   を理解し、推論に必要な分散行列の構造を見る。
-4. 後続章で各推定法ごとの $H$ と $\Sigma$ を具体化する準備を整える。
+1. データから作る標本目的関数 $Q_n(\theta)$ と、その母集団版 $Q(\theta)$ の関係を理解する。
+2. M 推定と GMM を **極値推定** という一つの枠組みで理解する。
+3. OLS を、M 推定としても GMM としても見られることを確認する。
+4. 極値推定量の一致性を保証する 2 つの鍵、すなわち **clean maximum** と **uniform convergence** を理解する。
 :::
 
 ::: {.callout-important}
@@ -416,7 +412,7 @@ $$
 
 # 予備知識：線形代数の言葉
 
-GMM や漸近正規性では、ベクトルと行列の記法を使う。ここでは、この章で必要な最小限をまとめる。
+GMM や OLS の行列表記では、ベクトルと行列の記法を使う。ここでは、この章で必要な最小限をまとめる。
 
 ## ベクトル
 
@@ -1512,7 +1508,13 @@ $$
 \left(\frac{X'X}{n}\right)^{-1}
 \left(\frac{X'u}{\sqrt n}\right),
 $$
-となり、後で出てくる極値推定量の漸近正規性と同じ構造が見える。
+となる。この形は、OLS の一致性を考えるときに、標本平均
+$$
+\frac{X'X}{n},
+\qquad
+\frac{X'u}{n}
+$$
+がそれぞれ母集団の対応物に近づくことを示せばよい、という見通しを与える。
 
 ## 応用：OLS と射影行列
 
@@ -1772,23 +1774,45 @@ legend(
 par(old_par)
 ```
 
-極値推定の記法に戻ると、$\eta_n=o_p(1)$ は「数値最適化の誤差が消える」ことを意味する。一方で、漸近正規性に出てくる
-$$
-Z_n=\frac1{\sqrt n}\sum_{t=1}^n s(X_t;\theta_0)
-$$
-のような量は、通常 0 に消えるのではなく、非退化な正規分布に収束する。したがって典型的には
-$$
-Z_n=O_p(1)
-$$
-だが、
-$$
-Z_n=o_p(1)
-$$
-ではない。
+極値推定の記法に戻ると、$\eta_n=o_p(1)$ は「数値最適化の誤差が消える」ことを意味する。つまり、有限標本では厳密な最大値を見つけられなくても、標本サイズが大きくなるにつれてその誤差が無視できるなら、理論上は同じ推定量として扱える。
 
 # 導入
 
-構造モデルや半構造モデルの多くでは、まずデータからある目的関数 $Q_n(\theta)$ を作り、その目的関数を最大化あるいは最小化することでパラメータを推定する。最小化問題も符号を反転させれば最大化問題として書けるので、本章では最大化に統一する。
+推定とは、データを見て未知のパラメタ $\theta_0$ を当てにいく作業である。極値推定では、この作業を次の形で書く。
+
+まず、観測データ
+$$
+X_1,\ldots,X_n
+$$
+から、各パラメタ値 $\theta\in\Theta$ に点数をつける関数
+$$
+Q_n:\Theta\to\mathbb R
+$$
+を作る。この $Q_n(\theta)$ を **標本目的関数** という。$Q_n(\theta)$ はデータから作られるので、固定された $\theta$ に対しても確率変数である。つまり、標本が変われば $Q_n$ の形も変わる。
+
+そのうえで、
+$$
+\hat\theta
+\in
+\operatorname*{arg\,max}_{\theta\in\Theta} Q_n(\theta)
+$$
+となるような $\theta$ を推定量として選ぶ。最小化問題も符号を反転させれば最大化問題として書けるので、本章では最大化に統一する。例えば二乗残差和を最小化する OLS は、負の二乗残差和を最大化する推定量として書ける。
+
+標本サイズが大きくなると、$Q_n(\theta)$ は多くの場合、ある非ランダムな関数
+$$
+Q:\Theta\to\mathbb R
+$$
+に近づく。この $Q(\theta)$ を **母目的関数** という。直観的には、
+$$
+Q_n(\theta)\approx Q(\theta)
+$$
+であり、もし $Q(\theta)$ が真の値 $\theta_0$ で一意に最大化されるなら、$Q_n(\theta)$ を最大化する $\hat\theta$ も $\theta_0$ の近くに来るはずである。
+
+ただし、ここで大事なのは、$Q_n(\theta)$ が各固定された $\theta$ で $Q(\theta)$ に近づくだけでは足りない、という点である。推定量 $\hat\theta$ 自体が $Q_n$ を見て動くので、$\theta$ 全体でまとめて
+$$
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|
+$$
+が小さくなる必要がある。これが後で見る **uniform convergence** である。
 
 ::: {#def-extremum}
 ## 極値推定量
@@ -1807,7 +1831,7 @@ $$ {#eq-extremum-def}
 
 という立場をとる。
 
-母目的関数 $Q: \Theta \to \mathbb{R}$ は、標本目的関数の確率極限に対応する。真のパラメータ $\theta_0$ は、通常
+母目的関数 $Q: \Theta \to \mathbb{R}$ は、標本目的関数の確率極限に対応する。真のパラメタ $\theta_0$ は、通常
 $$
 Q(\theta_0) \geq Q(\theta) \qquad (\forall\theta\in\Theta)
 $$
@@ -1831,9 +1855,11 @@ $$
 
 ## 極値推定の代表例
 
-この章では後続章で詳しく扱う 4 種類の推定量を、極値推定という観点からまとめておく。
+この章では後続章で詳しく扱う M 推定と GMM を、極値推定という観点からまとめておく。
 
 ### M 推定
+
+M 推定の $M$ は、Huber の用語で **maximum likelihood type** の $M$ である。最尤法そのものに限らず、最尤法のように「標本平均の形をした目的関数を最大化する」推定法をまとめて呼ぶための名前である。GMM の moments の $M$ とは別物なので、ここは少し注意しておきたい。
 
 M 推定では標本目的関数が
 $$
@@ -1864,6 +1890,128 @@ $$
    $$
    を最大化することで推定できる。
 
+::: {.callout-note}
+## 例：OLS を M 推定として見る
+
+線形回帰
+$$
+Y_t=x_t'\beta_0+u_t
+$$
+を考える。ここで $x_t$ は定数項を含む説明変数ベクトルだとする。OLS は残差二乗和を最小化する推定量だが、符号を反転させれば
+$$
+Q_n(\beta)
+=-\frac{1}{2n}\sum_{t=1}^n (Y_t-x_t'\beta)^2
+$$
+を最大化する推定量である。これは
+$$
+m(X_t;\beta)=-\frac12(Y_t-x_t'\beta)^2
+$$
+と置いた M 推定そのものである。
+
+母目的関数は
+$$
+Q(\beta)
+=-\frac12 E[(Y_t-x_t'\beta)^2]
+$$
+である。$Y_t=x_t'\beta_0+u_t$ を代入すると
+$$
+Y_t-x_t'\beta
+=u_t-x_t'(\beta-\beta_0)
+$$
+だから、
+$$
+Q(\beta)-Q(\beta_0)
+=
+-\frac12(\beta-\beta_0)'E[x_tx_t'](\beta-\beta_0)
++E[u_tx_t'](\beta-\beta_0).
+$$
+もし
+$$
+E[x_tu_t]=0,
+\qquad
+E[x_tx_t'] \text{ が正定値}
+$$
+なら、第 2 項は 0 であり、$\beta\neq\beta_0$ では第 1 項が負になる。したがって $Q(\beta)$ は $\beta_0$ で一意に最大化される。つまり、OLS の一致性は「標本の二乗誤差目的関数が、母集団の二乗誤差目的関数に一様に近づく」という極値推定の話として理解できる。
+:::
+
+次のシミュレーションでは、
+$$
+Y_t=1+2X_t+u_t,
+\qquad
+X_t\sim N(0,1),
+\qquad
+u_t\sim N(0,1)
+$$
+を繰り返し発生させ、各標本サイズで OLS の傾き推定値を計算している。ここで見たいのは漸近正規性ではなく、標本サイズが大きくなるほど推定値が真の値 $2$ の近くに集まる、という一致性の感覚である。
+
+```{r}
+#| label: fig-ols-consistency-simulation
+#| echo: true
+#| fig-width: 8
+#| fig-height: 4
+#| fig-cap: "OLS 推定量の一致性：標本サイズが大きくなると傾き推定値は真の値 2 の周りに集中する"
+
+set.seed(123)
+
+beta0 <- 1
+beta1 <- 2
+sigma_u <- 1
+n_values <- c(20, 50, 200, 1000)
+B <- 1000
+
+ols_slope_once <- function(n) {
+  x <- rnorm(n)
+  u <- rnorm(n, sd = sigma_u)
+  y <- beta0 + beta1 * x + u
+  unname(coef(lm(y ~ x))[2])
+}
+
+slope_draws <- lapply(n_values, function(n) {
+  replicate(B, ols_slope_once(n))
+})
+names(slope_draws) <- paste0("n = ", n_values)
+
+mean_absolute_error <- sapply(slope_draws, function(v) {
+  mean(abs(v - beta1))
+})
+
+old_par <- par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
+
+boxplot(
+  slope_draws,
+  outline = FALSE,
+  col = "#56B4E9",
+  border = "gray35",
+  ylab = expression(hat(beta)[1]),
+  main = "Sampling distribution"
+)
+abline(h = beta1, col = "#D55E00", lwd = 2)
+legend(
+  "topright",
+  legend = expression(beta[1] == 2),
+  col = "#D55E00",
+  lty = 1,
+  lwd = 2,
+  bty = "n"
+)
+
+plot(
+  n_values,
+  mean_absolute_error,
+  type = "b",
+  pch = 19,
+  lwd = 2,
+  log = "x",
+  col = "#009E73",
+  xlab = "n",
+  ylab = "mean absolute error",
+  main = "Average absolute error"
+)
+grid(col = "gray85")
+
+par(old_par)
+```
+
 ### GMM
 
 GMM ではモーメント条件
@@ -1885,21 +2033,271 @@ Q(\theta)=-\frac12 g(\theta)'Wg(\theta),
 $$
 となる。
 
-### SMM
+::: {.callout-note}
+## 例：OLS を GMM として見る
 
-SMM は、データから得られるターゲット・モーメント $g_n$ と、モデルからシミュレーションで得られるモーメント $\gamma_m(\theta)$ を一致させる推定法である。標本目的関数は
+同じ OLS を、GMM の一例としても見ることができる。線形回帰で外生性条件
 $$
-Q_n(\theta)=-\frac12\bigl(g_n-\gamma_m(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma_m(\theta)\bigr)
+E[x_tu_t]=0,
+\qquad
+u_t=Y_t-x_t'\beta_0
+$$
+が成り立つなら、
+$$
+E[x_t(Y_t-x_t'\beta_0)]=0
+$$
+である。そこで
+$$
+g(X_t;\beta)=x_t(Y_t-x_t'\beta)
+$$
+と置けば、標本モーメントは
+$$
+g_n(\beta)=\frac1n\sum_{t=1}^n x_t(Y_t-x_t'\beta)
+$$
+になる。
+
+もしモーメントの数とパラメタの数が同じ、つまり $x_t$ の次元が $\beta$ の次元と同じなら、この GMM は just identified である。この場合、GMM 推定量は基本的に
+$$
+g_n(\hat\beta)=0
+$$
+を解く推定量になる。これは
+$$
+\frac1n\sum_{t=1}^n x_t(Y_t-x_t'\hat\beta)=0
+$$
+であり、行列表記では
+$$
+X'(Y-X\hat\beta)=0
+$$
+である。したがって
+$$
+\hat\beta=(X'X)^{-1}X'Y
+$$
+が得られる。これは通常の OLS 推定量である。
+
+つまり OLS は、
+
+- 二乗誤差を最小化する M 推定量
+- 正規方程式というモーメント条件を合わせる GMM 推定量
+
+の両方として理解できる。同じ推定量でも、目的関数から見るか、モーメント条件から見るかで、M 推定と GMM という 2 つの顔をもつ。
+:::
+
+### M 推定の score をモーメント条件として見る
+
+OLS の例で見たことは、もっと一般に成り立つ。滑らかな M 推定量を
+$$
+\hat\theta
+=
+\operatorname*{arg\,max}_{\theta\in\Theta}
+Q_n(\theta),
+\qquad
+Q_n(\theta)=\frac1n\sum_{t=1}^n m(X_t;\theta)
+$$
+と書く。
+
+もし最大化点 $\hat\theta$ がパラメタ空間の内部にあり、目的関数が $\theta$ について微分可能なら、厳密な最大化点では一階条件
+$$
+0
+=
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}
+=
+\frac1n\sum_{t=1}^n
+\frac{\partial m(X_t;\hat\theta)}{\partial\theta}
+$$
+が成り立つ。
+
+ここで
+$$
+s(X_t;\theta)
+=
+\frac{\partial m(X_t;\theta)}{\partial\theta}
+$$
+とおく。この $s(X_t;\theta)$ は、目的関数の勾配であり、最尤法では score と呼ばれる。すると M 推定量の一階条件は
+$$
+\frac1n\sum_{t=1}^n s(X_t;\hat\theta)=0
+$$
+と書ける。
+
+これは
+$$
+E[s(X_t;\theta_0)]=0
+$$
+というモーメント条件の標本版である。したがって、滑らかな M 推定量は、少なくとも一階条件のレベルでは
+$$
+g(X_t;\theta)=s(X_t;\theta)
+$$
+を使った GMM のように見ることができる。OLS の正規方程式
+$$
+\frac1n\sum_{t=1}^n x_t(Y_t-x_t'\hat\beta)=0
+$$
+は、この一般的な score moment の具体例である。
+
+::: {.callout-caution}
+## FOC だけでは最大化とは限らない
+
+この見方は便利だが、一階条件はあくまで「局所的な山の頂上候補」を表す条件である。一階条件を満たす点が、大域的な最大化点であるとは限らない。極値推定の一致性で clean maximum と uniform convergence を使うのは、標本目的関数の最大化点が母目的関数の正しい山に近づくことを保証するためである。
+:::
+
+### weighting matrix が有益な理由
+
+GMM の目的関数は
+$$
+Q_n(\theta)
+=-\frac12 g_n(\theta)'\widehat W_n g_n(\theta)
+$$
+である。ここで $\widehat W_n$ は、複数のモーメント条件のズレをどの尺度で測るかを決める行列である。
+
+まず、もっとも単純な場合を考える。モーメント条件が 1 つだけなら、
+$$
+Q_n(\theta)=-\frac12 W_n g_n(\theta)^2
+$$
+である。$W_n>0$ は単なる正の定数なので、$Q_n(\theta)$ を最大化する $\theta$ は、$g_n(\theta)^2$ を最小にする $\theta$ と同じである。つまり、モーメントが 1 つだけなら、重みは推定量を本質的には変えない。
+
+しかし、モーメント条件が複数あると話が変わる。標本では、すべてのモーメントを同時に 0 にできるとは限らない。例えば
+$$
+g_n(\theta)
+=
+\begin{pmatrix}
+g_{1n}(\theta)\\
+g_{2n}(\theta)
+\end{pmatrix}
+$$
+があり、ある $\theta$ では $g_{1n}(\theta)$ は小さいが $g_{2n}(\theta)$ は大きい、別の $\theta$ ではその逆、ということが起きる。このとき、GMM は
+$$
+g_n(\theta)'\widehat W_n g_n(\theta)
+$$
+を小さくする $\theta$ を選ぶ。したがって $\widehat W_n$ は、「どのモーメントのズレをどれくらい重く見るか」を決めている。
+
+just identified、つまりモーメント条件の数とパラメタの数が同じ場合には、理想的には
+$$
+g_n(\hat\theta)=0
+$$
+を解けばよい。この場合、どの正定値な重み行列を使っても、一階の漸近分散は変わらない。OLS を GMM として見たときに weighting matrix が表に出てこないのは、このためである。
+
+一方、over identified、つまりモーメント条件がパラメタより多い場合には、有限標本ではすべてのモーメントを同時に 0 にできないことが多い。そこで、どのモーメントのズレをより重く見るかが問題になる。このとき weighting matrix が効いてくる。
+
+#### 具体例：精度の違う 2 つのモーメント
+
+1 つのスカラー・パラメタ $\theta_0$ を推定したいとする。観測データから、$\theta_0$ について 2 つの情報が得られるとしよう。
+$$
+A_t=\theta_0+\varepsilon_{1t},
+\qquad
+B_t=\theta_0+\varepsilon_{2t}.
+$$
+どちらも平均的には $\theta_0$ を測っているが、精度が違うとする。
+$$
+E[\varepsilon_{1t}]=E[\varepsilon_{2t}]=0,
+\qquad
+\operatorname{Var}(\varepsilon_{1t})=1,
+\qquad
+\operatorname{Var}(\varepsilon_{2t})=9.
+$$
+$B_t$ の方が、$A_t$ より 9 倍ノイズが大きい。
+
+このとき、自然なモーメント条件は
+$$
+E[A_t-\theta_0]=0,
+\qquad
+E[B_t-\theta_0]=0
+$$
+である。標本モーメントは
+$$
+g_n(\theta)
+=
+\begin{pmatrix}
+\bar A-\theta\\
+\bar B-\theta
+\end{pmatrix}
+$$
+となる。
+
+もし重み行列を単位行列 $W=I$ にすると、GMM は
+$$
+(\bar A-\theta)^2+(\bar B-\theta)^2
+$$
+を最小化する。これは $\bar A$ と $\bar B$ を同じ重さで平均するので、
+$$
+\hat\theta_I=\frac{\bar A+\bar B}{2}
+$$
+になる。しかしこれは少しもったいない。なぜなら、$\bar B$ は $\bar A$ よりかなり noisy なのに、同じだけ信じてしまっているからである。
+
+実際、この推定量の分散は
+$$
+\operatorname{Var}(\hat\theta_I)
+=
+\frac14\operatorname{Var}(\bar A)
++\frac14\operatorname{Var}(\bar B)
+=
+\frac14\cdot\frac1n+\frac14\cdot\frac9n
+=
+\frac{2.5}{n}
 $$
 である。
 
-### Minimum Distance
+では、より自然にはどうすればよいか。ノイズの小さい $\bar A$ を強く信じ、ノイズの大きい $\bar B$ は弱く信じればよい。ここではモーメントの分散共分散行列は
+$$
+S
+=
+\operatorname{Var}\!\left(\sqrt n\,g_n(\theta_0)\right)
+=
+\begin{pmatrix}
+1&0\\
+0&9
+\end{pmatrix}
+$$
+なので、その逆行列は
+$$
+S^{-1}
+=
+\begin{pmatrix}
+1&0\\
+0&1/9
+\end{pmatrix}.
+$$
+この重みを使うと、GMM は
+$$
+(\bar A-\theta)^2+\frac19(\bar B-\theta)^2
+$$
+を最小化する。したがって
+$$
+\hat\theta_{S^{-1}}
+=
+\frac{\bar A+(1/9)\bar B}{1+1/9}
+=0.9\bar A+0.1\bar B
+$$
+になる。精度の高い $\bar A$ を 90%、精度の低い $\bar B$ を 10% だけ使っている。
 
-Minimum Distance では、ある縮約形統計量 $g_n$ と、その構造モデル上の対応物 $\gamma(\theta)$ の距離を最小化する。目的関数は
+この推定量の分散は
 $$
-Q_n(\theta)=-\frac12\bigl(g_n-\gamma(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma(\theta)\bigr)
+\operatorname{Var}(\hat\theta_{S^{-1}})
+=
+0.9^2\frac1n+0.1^2\frac9n
+=
+\frac{0.9}{n}
 $$
-である。
+である。単位行列で同じ重みを置いたときの $2.5/n$ より、かなり小さい。
+
+この例が示していることは単純である。
+
+> noisy なモーメントを、信頼できるモーメントと同じ重さで使うと、推定量が無駄に揺れる。
+
+weighting matrix は、この問題を避けるためにある。モーメントのノイズが大きい方向には小さい重みを置き、ノイズが小さい方向には大きい重みを置く。
+
+#### 相関したモーメントを二重に数えない
+
+weighting matrix のもう 1 つの役割は、モーメント間の相関を調整することである。
+
+例えば 2 つのモーメントがほとんど同じ情報を持っているとする。このとき、両方を独立な情報であるかのように同じ重さで使うと、同じ情報を二重に数えているような形になる。逆に、2 つのモーメントがあまり相関していないなら、それぞれが別の情報を持っているので、両方を使う価値が高い。
+
+この 2 つをまとめて処理するのが
+$$
+W=S^{-1},
+\qquad
+S=\operatorname{Var}\!\left(\sqrt n\,g_n(\theta_0)\right)
+$$
+という選択である。$S$ はモーメントのノイズの分散共分散行列であり、$S^{-1}$ を使うことは、ノイズの大きい方向を弱く、ノイズの小さい方向を強く見ることに対応する。また、モーメント間の相関も補正する。
+
+したがって、GMM における weighting matrix は単なる技術的な飾りではない。over identified な状況で、複数のモーメントをどれくらい信用して、どう組み合わせるかを決める中心的な部品である。
 
 # 一致性
 
@@ -1955,15 +2353,62 @@ S_n=
 $$
 仮定より $P(S_n)\to 1$。
 
-$S_n$ 上では
+$S_n$ 上で何が起きるかを、一つずつ確認する。
+
+まず、一様収束の事象
+$$
+\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|<\frac{\varepsilon}{3}
+$$
+が成り立っているので、任意の $\theta$ について
+$$
+Q(\theta)>Q_n(\theta)-\frac{\varepsilon}{3},
+\qquad
+Q_n(\theta)>Q(\theta)-\frac{\varepsilon}{3}
+$$
+である。特に $\theta=\hat\theta$ と $\theta=\theta_0$ に対してこの不等式を使える。
+
+したがって、まず $\theta=\hat\theta$ で評価すると
 $$
 Q(\hat\theta)
-\ge Q_n(\hat\theta)-\frac{\varepsilon}{3}
-\ge Q_n(\theta_0)-\eta_n-\frac{\varepsilon}{3}
-\ge Q_n(\theta_0)-\frac{2\varepsilon}{3}
-\ge Q(\theta_0)-\varepsilon.
+>
+Q_n(\hat\theta)-\frac{\varepsilon}{3}.
 $$
-したがって
+次に、$\hat\theta$ は $Q_n$ をほぼ最大化するので、@eq-extremum-def より
+$$
+Q_n(\hat\theta)
+\ge
+Q_n(\theta_0)-\eta_n
+$$
+である。ここでは、$\theta_0$ も $\Theta$ の中の候補の一つなので、
+$$
+\sup_{\theta\in\Theta}Q_n(\theta)\ge Q_n(\theta_0)
+$$
+を使っている。
+
+さらに $S_n$ 上では $|\eta_n|<\varepsilon/3$ なので、とくに $\eta_n<\varepsilon/3$ である。したがって
+$$
+Q_n(\theta_0)-\eta_n-\frac{\varepsilon}{3}
+>
+Q_n(\theta_0)-\frac{2\varepsilon}{3}.
+$$
+最後に、もう一度一様収束を $\theta=\theta_0$ で使うと
+$$
+Q_n(\theta_0)>Q(\theta_0)-\frac{\varepsilon}{3}.
+$$
+以上をつなげると
+$$
+Q(\hat\theta)
+>
+Q(\theta_0)-\varepsilon.
+$$
+
+ここで $\varepsilon$ の定義から
+$$
+Q(\theta_0)-\varepsilon
+=
+\sup_{\theta\in\Theta:\,\|\theta-\theta_0\|\geq \delta}Q(\theta)
+$$
+である。したがって
 $$
 Q(\hat\theta) > \sup_{\theta\in\Theta:\,\|\theta-\theta_0\|\ge \delta} Q(\theta).
 $$
@@ -2300,253 +2745,31 @@ $$
 以上より @thm-extremum-consistency から結論が従う。
 :::
 
-## SMM の一致性
-
-SMM では標本側の不確実性に加えて、シミュレーション側の不確実性が入る。そのため、モデル・モーメントのシミュレーション近似 $\gamma_m(\theta)$ が **一様に** 真の $\gamma(\theta)$ に近づくことが必要になる。
-
-::: {#thm-smm-consistency}
-## SMM 推定量の一致性
-
-SMM の標本目的関数を
-$$
-Q_n(\theta)=-\frac12\bigl(g_n-\gamma_m(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma_m(\theta)\bigr)
-$$
-とし、母目的関数を
-$$
-Q(\theta)=-\frac12\bigl(g_0-\gamma(\theta)\bigr)'W\bigl(g_0-\gamma(\theta)\bigr)
-$$
-とする。次を仮定する。
-
-1. $\Theta$ はコンパクトである。
-2. $\gamma(\theta)$ は $\theta$ で連続である。
-3. 
-   $$
-   \sup_{\theta\in\Theta}\|\gamma_m(\theta)-\gamma(\theta)\|=o_p(1).
-   $$
-4. $g_n\to_p g_0$ かつ $\widehat W_n\to_p W$。ただし $W$ は正定値対称行列である。
-5. $\gamma(\theta)=g_0$ であることと $\theta=\theta_0$ であることが同値である。
-
-このとき SMM 推定量 $\hat\theta$ は一致する。
-:::
-
-::: {.proof}
-仮定 1, 2, 5 と @lem-clean-maximum より clean maximum が成り立つ。仮定 3, 4 を使って
-$$
-\sup_{\theta\in\Theta}|Q_n(\theta)-Q(\theta)|=o_p(1)
-$$
-を示せばよい。実際、
-$$
-2\{Q(\theta)-Q_n(\theta)
-\}
-=(g_n-\gamma_m(\theta))'(\widehat W_n-W)(g_n-\gamma_m(\theta))
-$$
-$$
-\qquad +\bigl(g_n-g_0+\gamma(\theta)-\gamma_m(\theta)\bigr)'W
-\bigl(g_n-\gamma_m(\theta)+g_0-\gamma(\theta)\bigr)
-$$
-と分解できる。仮定 3 によりシミュレーション誤差が一様に消え、仮定 4 により標本モーメントと重み行列も収束するので、右辺全体が $o_p(1)$ となる。よって @thm-extremum-consistency が適用できる。
-:::
-
-::: {.callout-caution}
-## SMM の実装上の注意
-
-SMM を数値的に実装する際は、異なる $\theta$ の間で **同じ乱数系列** を使うことが重要である。乱数系列を毎回変えてしまうと、同じ $\theta$ でも評価される目的関数値がぶれ、最適化が不安定になる。
-:::
-
-## Minimum Distance の一致性
-
-Minimum Distance は SMM からシミュレーション誤差を取り除いた形になっている。
-
-::: {#thm-md-consistency}
-## Minimum Distance 推定量の一致性
-
-標本目的関数を
-$$
-Q_n(\theta)=-\frac12\bigl(g_n-\gamma(\theta)\bigr)'\widehat W_n\bigl(g_n-\gamma(\theta)\bigr)
-$$
-とする。次を仮定する。
-
-1. $\Theta$ はコンパクトである。
-2. $\gamma(\theta)$ は $\theta$ で連続である。
-3. $g_n\to_p g_0$ かつ $\widehat W_n\to_p W$。ただし $W$ は正定値対称行列である。
-4. $\gamma(\theta)=g_0$ であることと $\theta=\theta_0$ であることが同値である。
-
-このとき Minimum Distance 推定量 $\hat\theta$ は一致する。
-:::
-
-::: {.proof}
-SMM の場合の証明から、シミュレーション近似 $\gamma_m(\theta)$ を真の $\gamma(\theta)$ に置き換えればよい。clean maximum と uniform convergence が同様に確認できるので、@thm-extremum-consistency が適用できる。
-:::
-
-# 漸近正規性
-
-一致性だけでは推論はできない。標準誤差、信頼区間、Wald 検定などを行うには、$\hat\theta$ の漸近分布が必要である。本章ではその最も一般的な形を与える。
-
-## OLS との類似
-
-極値推定の漸近正規性は、実は OLS の議論と非常によく似ている。線形回帰
-$$
-y_t=x_t'\beta_0+u_t
-$$
-を考えると、OLS の目的関数は
-$$
-Q_n(\beta)=-\frac{1}{2n}\sum_{t=1}^n (y_t-x_t'\beta)^2
-$$
-である。FOC を $\hat\beta$ で評価すると
-$$
-0=
--\left(\frac1n\sum_{t=1}^n x_tx_t'\right)(\hat\beta-\beta_0)
-+\left(\frac1n\sum_{t=1}^n x_tu_t\right).
-$$
-両辺に $\sqrt{n}$ を掛ければ
-$$
-0=H_n\sqrt{n}(\hat\beta-\beta_0)-Z_n
-$$
-と書ける。ここで
-$$
-H_n=\frac1n\sum_{t=1}^n x_tx_t',
-\qquad
-Z_n=\frac1{\sqrt n}\sum_{t=1}^n x_tu_t.
-$$
-一般の極値推定でも、適切な正則性条件の下でほぼ同じ構造が現れる。
-
-## 一般形
-
-目的関数が十分滑らかで、かつ数値最適化誤差が十分小さいとする。すると、近似的一階条件
-$$
-\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
-$$
-を $\theta_0$ のまわりで展開することで、しばしば
-$$
-o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
-$$ {#eq-master-linearization}
-という表現が得られる。ここで
-
-- $H_n$ は目的関数の局所的な曲率を表す行列
-- $Z_n$ は標本平均の変動を表す確率ベクトル
-
-である。
-
-もし
-$$
-H_n\to_p H,
-\qquad
-Z_n\to_d N(0,\Sigma),
-$$
-かつ $H$ が可逆であれば、@eq-master-linearization から
-$$
-\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1})
-$$
-が従うはずである。次の定理はそれを厳密に述べたものだ。
-
-::: {#thm-master-an}
-## 極値推定量の漸近正規性：基本定理
-
-次を仮定する。
-
-1. 
-   $$
-   o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n.
-   $$
-2. $H_n\to_p H$。ただし $H$ は正定値対称行列である。
-3. $Z_n\to_d N(0,\Sigma)$。ただし $\Sigma$ は正定値対称行列である。
-
-このとき
-$$
-\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1}).
-$$
-:::
-
-::: {.proof}
-$H$ は正定値なので可逆である。仮定 1 の両辺に $H^{-1}$ を掛けると
-$$
-o_p(1)=H^{-1}H_n\sqrt{n}(\hat\theta-\theta_0)-H^{-1}Z_n.
-$$
-仮定 2 より $H^{-1}H_n\to_p I$ であるから
-$$
-H^{-1}H_n=I+o_p(1).
-$$
-また仮定 3 と連続写像定理より
-$$
-H^{-1}Z_n\to_d N(0,H^{-1}\Sigma H^{-1}),
-$$
-したがって $H^{-1}Z_n=O_p(1)$ である。
-
-よって
-$$
-o_p(1)=(I+o_p(1))\sqrt{n}(\hat\theta-\theta_0)-O_p(1)
-$$
-から $\sqrt{n}(\hat\theta-\theta_0)=O_p(1)$ が従う。これを元の式に戻せば
-$$
-\sqrt{n}(\hat\theta-\theta_0)=H^{-1}Z_n+o_p(1).
-$$
-したがって Slutsky の定理により
-$$
-\sqrt{n}(\hat\theta-\theta_0)\to_d N(0,H^{-1}\Sigma H^{-1}).
-$$
-:::
-
-::: {.callout-note}
-## $H$ と $\Sigma$ の経済学的意味
-
-漸近分散
-$$
-\Omega = H^{-1}\Sigma H^{-1}
-$$
-の中で、
-
-- $H$ は目的関数の **曲率** を表す。曲率が大きいほど、最適点の位置はデータの揺らぎに対して頑健になりやすい。
-- $\Sigma$ は標本平均やスコアの **ばらつき** を表す。
-
-したがって、推定の精度は「目的関数の鋭さ」と「データのノイズ」のバランスで決まる。
-:::
-
-## この定理がどこで使われるか
-
-後続章では、各推定法ごとに @thm-master-an の $H_n$ と $Z_n$ を具体化する。
-
-- **M 推定**：$H$ は Hessian、$\Sigma$ はスコアの分散または長期分散
-- **GMM**：$H=G'WG$、$\Sigma=G'WSWG$
-- **SMM**：GMM に加えてシミュレーション誤差が入る
-- **MD**：$H=\Gamma'W\Gamma$、$\Sigma=\Gamma'WSW\Gamma$
-
-つまり、後続章の技術的作業は、結局のところ
-
-1. 近似的一階条件をつくる
-2. $H_n$ の確率極限を求める
-3. $Z_n$ に中心極限定理を適用する
-
-という 3 ステップに帰着する。
-
-## 非微分可能な目的関数について
-
-本章の導出は、暗黙のうちに目的関数の微分可能性を使っている。しかし、量的回帰、maximum score、ある種のシミュレーション推定などでは目的関数が微分可能でないことがある。その場合でも、目的関数が局所的に二次近似できれば、同じ型の漸近正規性が導ける。これは付録で扱う一般結果に対応している。
-
 # まとめ
 
 この章で押さえるべき点は次の通りである。
 
-1. **極値推定は統一的な枠組み** であり、M 推定・GMM・SMM・MD を同じ論理で扱える。
-2. 一致性には
+1. **極値推定は統一的な枠組み** であり、M 推定と GMM を同じ論理で扱える。
+2. 標本目的関数 $Q_n(\theta)$ はデータから作るランダムな関数であり、母目的関数 $Q(\theta)$ はその大標本での目標である。
+3. OLS は、二乗誤差を最小化する M 推定量としても、正規方程式をモーメント条件にした GMM 推定量としても理解できる。
+4. 一般に、滑らかな M 推定量の一階条件は score の標本平均を 0 にする条件なので、score をモーメント条件と見れば M 推定は GMM のように読める。
+5. GMM の weighting matrix は、複数のモーメント条件をどれくらい信用して、どう組み合わせるかを決める。
+6. over identified な GMM では、ノイズの大きいモーメントを弱く見たり、相関したモーメントを二重に数えないために、重み行列が重要になる。
+7. 一致性には
    - clean maximum
    - uniform convergence
    の 2 条件が中心である。
-3. M 推定では、uniform convergence は **一様大数法則** の問題に還元される。
-4. 漸近正規性は
-   $$
-   o_p(1)=H_n\sqrt{n}(\hat\theta-\theta_0)-Z_n
-   $$
-   という線形化表現から導かれる。
-5. 後続章では、各推定法ごとに $H$ と $\Sigma$ を具体化し、標準誤差推定と仮説検定に進む。
+8. M 推定では、uniform convergence は **一様大数法則** の問題に還元される。
+9. GMM では、標本モーメント $g_n(\theta)$ が母モーメント $g(\theta)$ に一様に近づくことが一致性の中心になる。
 
 ::: {.callout-tip}
 ## 次章への接続
 
 次の「M 推定」の章では、この章の抽象理論を最尤法・非線形最小二乗法に落とし込み、
 
-- 漸近分散の具体式
-- sandwich 分散
-- 正しく指定された最尤法と誤指定最尤法の違い
+- 滑らかな目的関数の一階条件
+- 推定量の大標本近似
+- 最尤法と非線形最小二乗法の具体例
 
 を詳しく扱う。
 :::
