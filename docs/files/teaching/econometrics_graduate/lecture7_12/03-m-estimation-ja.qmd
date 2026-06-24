@@ -27,12 +27,12 @@ execute:
 
 この章の目的は次の 4 点である。
 
-1. 滑らかな M 推定量について、
+1. 1 次元の最尤推定を例に、M 推定量の漸近正規性がどこから出てくるかを手で確認する。
+2. 滑らかな M 推定量について、
    $$
    \sqrt{n}(\hat\theta-\theta_0)\overset{d}{\to} N(0,H^{-1}\Sigma H^{-1})
    $$
    という基本形を導く。
-2. $\Sigma$ の形が、i.i.d.、マルチンゲール差分列、一般の依存データでどう変わるかを理解する。
 3. 標準誤差をどう推定するか、特に **plug-in 推定量** と **sandwich 推定量** の意味を理解する。
 4. 最尤法を M 推定の代表例として捉え、正しく特定された場合の情報行列等式と、誤指定下でのロバスト推論を整理する。
 :::
@@ -42,26 +42,42 @@ execute:
 
 この章では、M 推定量の目的関数を
 $$
-Q_n(\theta)=\frac1n\sum_{t=1}^n m(X_t;\theta)
+Q_n(\theta)=\frac1n\sum_{i=1}^n m(X_i;\theta)
 $$
-と書く。さらに、$m$ が $\theta$ について十分滑らかであるとき、
-$$
-s(X_t;\theta)=\frac{\partial m(X_t;\theta)}{\partial\theta},
-\qquad
-D(X_t;\theta)=\frac{\partial^2 m(X_t;\theta)}{\partial\theta\partial\theta'}
-$$
-を用いる。
+と書く。$m$ は 1 観測あたりの目的関数であり、最尤法なら $m(X_i;\theta)=\log f(X_i;\theta)$ である。
 
-また、真の値 $\theta_0$ のまわりで
+$m$ が $\theta\in\mathbb R^p$ について十分滑らかであるとき、
 $$
-Z_n=\frac1{\sqrt n}\sum_{t=1}^n s(X_t;\theta_0),
+s(X_i;\theta)
+=
+\frac{\partial m(X_i;\theta)}{\partial\theta}
+\in\mathbb R^p
+$$
+を **score**、すなわち勾配ベクトルと呼ぶ。また、
+$$
+D(X_i;\theta)
+=
+\frac{\partial^2 m(X_i;\theta)}{\partial\theta\partial\theta'}
+\in\mathbb R^{p\times p}
+$$
+を **Hessian**、すなわち **ヘッセ行列** と呼ぶ。成分で書けば
+$$
+D_{jk}(X_i;\theta)
+=
+\frac{\partial^2 m(X_i;\theta)}{\partial\theta_j\partial\theta_k}
+$$
+である。
+
+真の値 $\theta_0$ のまわりで
+$$
+Z_n=\frac1{\sqrt n}\sum_{i=1}^n s(X_i;\theta_0),
 \qquad
-H=-E[D(X_t;\theta_0)]
+H=-E[D(X_i;\theta_0)]
 $$
 とおく。
 
-- $s(X_t;\theta)$：**score**（勾配）
-- $D(X_t;\theta)$：**Hessian**（ヘッセ行列）
+- $s(X_i;\theta)$：目的関数の傾き
+- $D(X_i;\theta)$：目的関数の 2 階微分、ヘッセ行列
 - $H$：母目的関数の局所的な曲率
 - $\Sigma$：$Z_n$ の漸近分散
 
@@ -101,11 +117,172 @@ M 推定の漸近理論は、ほぼ次の一行に尽きる。
 - $\Sigma$ が大きい（score の揺らぎが大きい）ほど推定量は不精密になる。
 :::
 
+## 1 次元の例：正規平均の MLE
+
+まずは 1 次元で、式が全部見える例から始める。$X_1,\ldots,X_n$ が独立同分布で
+$$
+X_i\sim N(\mu_0,\sigma^2)
+$$
+に従うとする。ここでは $\sigma^2$ は既知とし、$\mu_0$ だけを推定する。
+
+1 観測あたりの対数尤度は、$\mu$ に依存しない定数を除けば
+$$
+m(X_i;\mu)
+=
+-\frac{1}{2\sigma^2}(X_i-\mu)^2
+$$
+である。したがって標本目的関数は
+$$
+Q_n(\mu)
+=
+\frac1n\sum_{i=1}^n m(X_i;\mu)
+=
+-\frac{1}{2\sigma^2}\frac1n\sum_{i=1}^n (X_i-\mu)^2
+$$
+であり、これを最大化する $\hat\mu$ が MLE である。
+
+一階微分は
+$$
+\frac{\partial Q_n(\mu)}{\partial \mu}
+=
+\frac1n\sum_{i=1}^n \frac{X_i-\mu}{\sigma^2}
+=
+\frac{\bar X_n-\mu}{\sigma^2}.
+$$
+一階条件 $\partial Q_n(\hat\mu)/\partial\mu=0$ より
+$$
+\hat\mu=\bar X_n
+$$
+である。
+
+これだけなら標本平均の話に見えるが、M 推定の一般形もすでに現れている。score は
+$$
+s(X_i;\mu_0)
+=
+\frac{\partial m(X_i;\mu)}{\partial\mu}\bigg|_{\mu=\mu_0}
+=
+\frac{X_i-\mu_0}{\sigma^2}
+$$
+であり、2 階微分は
+$$
+D(X_i;\mu)
+=
+\frac{\partial^2 m(X_i;\mu)}{\partial\mu^2}
+=
+-\frac1{\sigma^2}.
+$$
+したがって
+$$
+H=-E[D(X_i;\mu_0)]=\frac1{\sigma^2},
+\qquad
+\Sigma=E[s(X_i;\mu_0)^2]
+=
+E\left[\frac{(X_i-\mu_0)^2}{\sigma^4}\right]
+=
+\frac1{\sigma^2}.
+$$
+
+次に、一般理論の形で漸近正規性を導いてみる。一階条件を $\mu_0$ のまわりで展開する。今回は 2 階微分が定数なので、展開は近似ではなく厳密である。
+$$
+\begin{aligned}
+0
+&=
+\frac{\partial Q_n(\hat\mu)}{\partial\mu}
+\\
+&=
+\frac{\partial Q_n(\mu_0)}{\partial\mu}
++
+\frac{\partial^2 Q_n(\mu_0)}{\partial\mu^2}(\hat\mu-\mu_0)
+\\
+&=
+\frac1n\sum_{i=1}^n \frac{X_i-\mu_0}{\sigma^2}
+-
+\frac1{\sigma^2}(\hat\mu-\mu_0).
+\end{aligned}
+$$
+両辺に $\sqrt n$ を掛けて整理すると
+$$
+\sqrt n(\hat\mu-\mu_0)
+=
+\frac1{\sqrt n}\sum_{i=1}^n (X_i-\mu_0).
+$$
+前章の CLT より
+$$
+\frac1{\sqrt n}\sum_{i=1}^n (X_i-\mu_0)
+\overset{d}{\to}
+N(0,\sigma^2).
+$$
+したがって
+$$
+\sqrt n(\hat\mu-\mu_0)
+\overset{d}{\to}
+N(0,\sigma^2).
+$$
+
+同じ結論を $H^{-1}\Sigma H^{-1}$ の形で書けば
+$$
+H^{-1}\Sigma H^{-1}
+=
+\sigma^2\cdot \frac1{\sigma^2}\cdot \sigma^2
+=
+\sigma^2.
+$$
+つまり、正規平均の MLE はこの章の一般公式の最も単純な例である。
+
+```{r}
+#| label: fig-normal-mean-mle
+#| fig-cap: "正規平均 MLE のシミュレーション。n が大きくなるにつれて、標準化した推定誤差の分布が標準正規に近づく。"
+#| fig-width: 9
+#| fig-height: 3.2
+set.seed(20260801)
+
+B <- 5000
+mu0 <- 1
+sigma <- 2
+n_grid <- c(20, 100, 500)
+
+op <- par(mfrow = c(1, 3), mar = c(4, 4, 2.5, 1))
+for (n in n_grid) {
+  xbar <- replicate(B, mean(rnorm(n, mean = mu0, sd = sigma)))
+  z <- sqrt(n) * (xbar - mu0) / sigma
+  hist(z,
+       breaks = 35,
+       probability = TRUE,
+       col = "gray85",
+       border = "white",
+       main = paste0("n = ", n),
+       xlab = expression(sqrt(n) * (hat(mu) - mu[0]) / sigma),
+       xlim = c(-4, 4))
+  curve(dnorm(x), add = TRUE, lwd = 2)
+}
+par(op)
+```
+
+この図では
+$$
+\frac{\sqrt n(\hat\mu-\mu_0)}{\sigma}
+$$
+を描いている。$n=20$ でもかなり正規分布に近いが、$n$ が大きくなるほど標準正規の曲線と重なっていく。ここで起きていることは、これから一般の M 推定量で行う議論の縮図である。
+
 # 漸近正規性の詳細
 
 ## 基本定理
 
 まず、滑らかな M 推定量の漸近正規性を与える基本結果を述べる。数値最適化誤差を許すため、厳密な一階条件ではなく、近似的一階条件を仮定する。
+
+この定理で使う記号をもう一度まとめておく。$\theta\in\mathbb R^p$ に対して
+$$
+s(X_i;\theta)=\frac{\partial m(X_i;\theta)}{\partial\theta},
+\qquad
+D(X_i;\theta)=\frac{\partial^2 m(X_i;\theta)}{\partial\theta\partial\theta'}
+$$
+であり、$D(X_i;\theta)$ はヘッセ行列である。また、
+$$
+Z_n=\frac1{\sqrt n}\sum_{i=1}^n s(X_i;\theta_0),
+\qquad
+H=-E[D(X_i;\theta_0)].
+$$
+$\Sigma$ は $Z_n$ の極限分散である。
 
 ::: {#thm-m-asymp-normal}
 ## M 推定量の漸近正規性
@@ -116,22 +293,22 @@ $$
 $$ {#eq-approx-foc}
 を満たすとする。さらに次を仮定する。
 
-1. $X_1,\ldots,X_n$ は厳密定常かつエルゴード的である。
+1. $X_1,\ldots,X_n$ は独立同分布である。
 2. $\hat\theta\overset{p}{\to}\theta_0$.
 3. $\theta_0$ は $\Theta$ の内部点である。
-4. 任意の $X_t$ に対して $m(X_t;\theta)$ は $\theta$ について 2 回連続微分可能である。
+4. 任意の $X_i$ に対して $m(X_i;\theta)$ は $\theta$ について 2 回連続微分可能である。
 5. 
    $$
-   Z_n=\frac1{\sqrt n}\sum_{t=1}^n s(X_t;\theta_0)\overset{d}{\to} N(0,\Sigma),
+   Z_n=\frac1{\sqrt n}\sum_{i=1}^n s(X_i;\theta_0)\overset{d}{\to} N(0,\Sigma),
    $$
    ただし $\Sigma$ は正定値である。
 6. $\theta_0$ のある凸・コンパクト近傍 $N$ が存在して
    $$
-   E[\sup_{\theta\in N}\|D(X_t;\theta)\| ]<\infty.
+   E[\sup_{\theta\in N}\|D(X_i;\theta)\| ]<\infty.
    $$
 7. 
    $$
-   H=-E[D(X_t;\theta_0)]
+   H=-E[D(X_i;\theta_0)]
    $$
    は正定値である。
 
@@ -142,37 +319,190 @@ $$
 :::
 
 ::: {.proof}
-@eq-approx-foc を $\theta_0$ のまわりで平均値展開すると、ある $\tilde\theta$（$\hat\theta$ と $\theta_0$ を結ぶ線分上の点）を用いて
-$$
-o_p(1)=Z_n+\frac{\partial^2 Q_n(\tilde\theta)}{\partial\theta\partial\theta'}\sqrt n(\hat\theta-\theta_0)
-$$
-が得られる。
+証明の流れは次の通りである。
 
-したがって、ヘッセ行列の標本平均が
-$$
-\frac{\partial^2 Q_n(\tilde\theta)}{\partial\theta\partial\theta'}\overset{p}{\to} -H
-$$
-を満たせば、
-$$
-\sqrt n(\hat\theta-\theta_0)=H^{-1}Z_n+o_p(1)
-$$
-となる。
+1. 近似的一階条件を書く。
+2. その一階条件を $\theta_0$ のまわりでテイラー展開する。
+3. ヘッセ行列の標本平均を母集団の曲率 $-H$ に置き換える。
+4. 最後に CLT と Slutsky の定理を使う。
 
-残る点はヘッセ行列の一様収束である。仮定 4 と 6 により、各成分について関数族
+まず
 $$
-\{D_{ij}(X_t;\theta):\theta\in N\}
+S_n(\theta)
+=
+\frac{\partial Q_n(\theta)}{\partial\theta}
+=
+\frac1n\sum_{i=1}^n s(X_i;\theta)
 $$
-は前章と同様の一様大数法則を満たす。さらに $E[D(X_t;\theta)]$ は $\theta_0$ で連続である。仮定 2 により $\tilde\theta\overset{p}{\to}\theta_0$ だから
+と書く。近似的一階条件は
 $$
-\frac{\partial^2 Q_n(\tilde\theta)}{\partial\theta\partial\theta'}\overset{p}{\to} -H.
+S_n(\hat\theta)=o_p(n^{-1/2})
 $$
-よって Slutsky の定理から結論が従う。
+である。両辺に $\sqrt n$ を掛けると
+$$
+\sqrt n S_n(\hat\theta)=o_p(1).
+$$
+
+次に、$S_n(\hat\theta)$ を $\theta_0$ のまわりで展開する。ベクトル値関数なので、平均値展開を積分形で書くと
+$$
+S_n(\hat\theta)
+=
+S_n(\theta_0)
++
+\left[
+\int_0^1
+\frac{\partial S_n(\theta_0+\lambda(\hat\theta-\theta_0))}{\partial\theta'}
+d\lambda
+\right](\hat\theta-\theta_0).
+$$
+ここで
+$$
+\frac{\partial S_n(\theta)}{\partial\theta'}
+=
+\frac{\partial^2 Q_n(\theta)}{\partial\theta\partial\theta'}
+=
+\frac1n\sum_{i=1}^n D(X_i;\theta)
+$$
+である。したがって
+$$
+A_n
+=
+\int_0^1
+\left[
+\frac1n\sum_{i=1}^n D(X_i;\theta_0+\lambda(\hat\theta-\theta_0))
+\right]
+d\lambda
+$$
+とおけば、
+$$
+S_n(\hat\theta)
+=
+S_n(\theta_0)+A_n(\hat\theta-\theta_0).
+$$
+
+この式に $\sqrt n$ を掛ける。
+$$
+\sqrt n S_n(\hat\theta)
+=
+\sqrt n S_n(\theta_0)
++
+A_n\sqrt n(\hat\theta-\theta_0).
+$$
+左辺は $o_p(1)$ である。また
+$$
+\sqrt n S_n(\theta_0)
+=
+\sqrt n\left(\frac1n\sum_{i=1}^n s(X_i;\theta_0)\right)
+=
+\frac1{\sqrt n}\sum_{i=1}^n s(X_i;\theta_0)
+=
+Z_n.
+$$
+よって
+$$
+o_p(1)
+=
+Z_n+A_n\sqrt n(\hat\theta-\theta_0).
+$$
+これを移項すると
+$$
+(-A_n)\sqrt n(\hat\theta-\theta_0)
+=
+Z_n+o_p(1).
+$$
+
+次に $A_n$ の極限を確認する。仮定 2 より $\hat\theta\overset{p}{\to}\theta_0$ である。したがって任意の $\lambda\in[0,1]$ について
+$$
+\theta_0+\lambda(\hat\theta-\theta_0)\overset{p}{\to}\theta_0.
+$$
+さらに仮定 4 と 6 により、ヘッセ行列の各成分について
+$$
+\sup_{\theta\in N}
+\left\|
+\frac1n\sum_{i=1}^n D(X_i;\theta)
+-
+E[D(X_i;\theta)]
+\right\|
+\overset{p}{\to}0
+$$
+が成り立つ。これは前章で見た一様大数法則の使い方である。
+
+また、優収束定理により $E[D(X_i;\theta)]$ は $\theta_0$ の近くで連続である。したがって
+$$
+\frac1n\sum_{i=1}^n D(X_i;\theta_0+\lambda(\hat\theta-\theta_0))
+\overset{p}{\to}
+E[D(X_i;\theta_0)]
+$$
+が $\lambda\in[0,1]$ について一様に成り立つ。積分しても極限は変わらないので
+$$
+A_n\overset{p}{\to}E[D(X_i;\theta_0)]=-H.
+$$
+つまり
+$$
+-A_n\overset{p}{\to}H.
+$$
+
+仮定 7 より $H$ は正定値なので可逆である。行列の逆写像は可逆行列の近くで連続だから、確率が 1 に近い事象上で $-A_n$ は可逆であり、
+$$
+(-A_n)^{-1}\overset{p}{\to}H^{-1}.
+$$
+先ほどの式
+$$
+(-A_n)\sqrt n(\hat\theta-\theta_0)
+=
+Z_n+o_p(1)
+$$
+の両辺に $(-A_n)^{-1}$ を掛けると
+$$
+\sqrt n(\hat\theta-\theta_0)
+=
+(-A_n)^{-1}Z_n+(-A_n)^{-1}o_p(1).
+$$
+ここで $(-A_n)^{-1}=O_p(1)$ なので
+$$
+(-A_n)^{-1}o_p(1)=o_p(1).
+$$
+よって
+$$
+\sqrt n(\hat\theta-\theta_0)
+=
+(-A_n)^{-1}Z_n+o_p(1).
+$$
+
+最後に Slutsky の定理を使う。仮定 5 より
+$$
+Z_n\overset{d}{\to}N(0,\Sigma)
+$$
+であり、上で示した通り
+$$
+(-A_n)^{-1}\overset{p}{\to}H^{-1}.
+$$
+したがって Slutsky の定理から
+$$
+(-A_n)^{-1}Z_n
+\overset{d}{\to}
+H^{-1}Z,
+\qquad
+Z\sim N(0,\Sigma).
+$$
+正規ベクトルを定数行列で左から掛けると、平均は $0$ のままで、分散共分散行列は
+$$
+\mathrm{Var}(H^{-1}Z)
+=
+H^{-1}\Sigma (H^{-1})'
+$$
+となる。$H$ は対称なので $(H^{-1})'=H^{-1}$ である。したがって
+$$
+\sqrt n(\hat\theta-\theta_0)
+\overset{d}{\to}
+N(0,H^{-1}\Sigma H^{-1}).
+$$
 :::
 
 ::: {.callout-note}
 ## なぜ一致性が先に必要なのか
 
-上の定理では $\hat\theta\overset{p}{\to}\theta_0$ を仮定している。これは、テイラー展開で現れる $\tilde\theta$ が $\theta_0$ の近くにあることを保証し、ヘッセ行列の標本平均を $-H$ に置き換えるために必要である。
+上の定理では $\hat\theta\overset{p}{\to}\theta_0$ を仮定している。これは、テイラー展開で現れる $\theta_0+\lambda(\hat\theta-\theta_0)$ が $\theta_0$ の近くにあることを保証し、ヘッセ行列の標本平均を $-H$ に置き換えるために必要である。
 
 つまり、
 
@@ -180,91 +510,184 @@ $$
 - この章では **どの速度・どの分布で揺らぐか** を示している。
 :::
 
-## 漸近分散 $\Sigma$ の形
+## score の CLT と $\Sigma$
 
-@thm-m-asymp-normal の中で最もデータ依存なのは、
+@thm-m-asymp-normal の中で最もデータに依存するのは、
 $$
-Z_n=\frac1{\sqrt n}\sum_{t=1}^n s(X_t;\theta_0)
+Z_n=\frac1{\sqrt n}\sum_{i=1}^n s(X_i;\theta_0)
 $$
-の極限定理である。したがって $\Sigma$ の形はサンプリング構造によって変わる。
+の極限定理である。したがって $\Sigma$ の形は、score の和にどの CLT を使えるかで決まる。
 
-### i.i.d. データ
+### 独立同分布データ
 
-$X_1,\ldots,X_n$ が i.i.d. で、
+$X_1,\ldots,X_n$ が独立同分布で、
 $$
-E\bigl[\|s(X_t;\theta_0)\|^2\bigr]<\infty
-$$
-なら、中心極限定理より
-$$
-Z_n\overset{d}{\to} N(0,\Sigma),
+E[s(X_i;\theta_0)]=0,
 \qquad
-\Sigma=E[s(X_t;\theta_0)s(X_t;\theta_0)'].
+E\bigl[\|s(X_i;\theta_0)\|^2\bigr]<\infty
 $$
-この場合、分散は単純な score の二次モーメントで与えられる。
+とする。このとき前章の多変量 CLT をそのまま使える。
 
-### 厳密定常・エルゴード的なマルチンゲール差分列
+前章の多変量 CLT の仮定は次の 3 つだった。
 
-$\mathcal F_t=\sigma(X_t,X_{t-1},\ldots)$ とし、
-$$
-E[s(X_{t+1};\theta_0)\mid \mathcal F_t]=0
-$$
-が a.s. に成り立つとき、$(s(X_t;\theta_0),\mathcal F_t)$ は **マルチンゲール差分列**（martingale difference sequence; m.d.s.）であるという。
+1. 足し合わせる確率ベクトルが独立同分布である。
+2. 平均が 0 である。
+3. 分散共分散行列が有限である。
 
-このとき、$k\ge 1$ に対して
+今は
 $$
-E[s(X_{t+k};\theta_0)s(X_t;\theta_0)']
-=E\{E[s(X_{t+k};\theta_0)\mid \mathcal F_{t+k-1}]s(X_t;\theta_0)']
+g_i=s(X_i;\theta_0)
+$$
+とおけばよい。仮定 1 より $X_i$ は独立同分布なので、$g_i$ も独立同分布である。最尤法のように $\theta_0$ が母目的関数の内部最大点なら
+$$
+E[s(X_i;\theta_0)]
+=
+\frac{\partial}{\partial\theta}E[m(X_i;\theta)]\bigg|_{\theta=\theta_0}
 =0
 $$
-となるので、score は全ての lead・lag で無相関である。したがって、適当な m.d.s. 用中心極限定理の下で
+である。一般の M 推定でも、この条件は「母目的関数の一階条件」として仮定する。さらに
 $$
-Z_n\overset{d}{\to} N(0,\Sigma),
+E\bigl[\|s(X_i;\theta_0)\|^2\bigr]<\infty
+$$
+を置いているので、分散共分散行列
+$$
+\Sigma
+=
+E[s(X_i;\theta_0)s(X_i;\theta_0)']
+$$
+は有限である。
+
+したがって前章の多変量 CLT より
+$$
+Z_n
+=
+\frac1{\sqrt n}\sum_{i=1}^n s(X_i;\theta_0)
+\overset{d}{\to}
+N(0,\Sigma),
 \qquad
-\Sigma=E[s(X_t;\theta_0)s(X_t;\theta_0)']
+\Sigma=E[s(X_i;\theta_0)s(X_i;\theta_0)'].
 $$
-が再び成り立つ。
-
-::: {.callout-tip}
-## いつ m.d.s. になるか
-
-条件付き最尤法では、正しく特定されたモデルのもとで score の条件付き期待値が 0 になることが多い。したがって、動学モデルやマルコフ過程でも m.d.s. 構造が自然に現れる。
-:::
-
-### 一般の依存データ
-
-score が m.d.s. でない場合、現在の score と過去・未来の score の共分散も漸近分散に効いてくる。そこで
-$$
-C_j=E[s(X_t;\theta_0)s(X_{t-j};\theta_0)']
-$$
-とおく。和が収束するとき、長期分散（long-run variance）は
-$$
-\Sigma=
-\sum_{j=-\infty}^{\infty} C_j
-= C_0+\sum_{j=1}^{\infty}(C_j+C_j').
-$$ {#eq-long-run-var}
-で与えられる。
-
-i.i.d. や m.d.s. は、単に $C_j=0$（$j\neq 0$）という特殊ケースにすぎない。
+これが @thm-m-asymp-normal の仮定 5 を確認するステップである。
 
 ::: {.callout-note}
-## 実務上の含意
+## Remark：時系列データなら何を直す必要があるか
 
-系列相関があるときに
-$$
-\hat\Sigma=\frac1n\sum_{t=1}^n s(X_t;\hat\theta)s(X_t;\hat\theta)'
-$$
-だけで済ませると、標準誤差を過小評価する危険がある。その場合は HAC 型の長期分散推定が必要になる。
+この章の主定理では、データを独立同分布として扱った。時系列データでは、この仮定のうち主に壊れるのは **独立性** である。直す必要がある場所と、直さなくてよい場所を分けておく。
+
+直す必要があるのは次の 2 箇所である。
+
+1. **score の CLT**：$n^{-1/2}\sum_i s(X_i;\theta_0)$ の極限分散が、単純な $E[ss']$ ではなく、時間方向の共分散も含む量になる。
+2. **ヘッセ行列の大数法則**：$n^{-1}\sum_i D(X_i;\theta)$ が期待値に近づくことを、独立データ用ではなく、時系列用の大数法則で確認する必要がある。
+
+一方で、直さなくてよい部分もある。
+
+1. 一階条件をテイラー展開する代数はそのままである。
+2. $H=-E[D(X_i;\theta_0)]$ という曲率の意味は変わらない。
+3. 適切な CLT と大数法則が用意できれば、最後の Slutsky の使い方も同じである。
+
+直観的には、時系列で変わるのは「$Z_n$ の分散をどう数えるか」であって、「一階条件を線形化して曲率で割る」という M 推定の骨格は変わらない。
+
+次の図は 3 つのケースを比べている。
+
+- 独立：標準化した和が標準正規に近づく。
+- 短い記憶：素朴な分散で割ると広がりがずれるが、時間方向の共分散を含めた分散で割ると標準正規に近づく。
+- 共通ショック：全観測に同じショックが入ると $\sqrt n$ スケールでは分布が安定しない。
+
+```{r}
+#| label: fig-timeseries-remark
+#| fig-cap: "独立データ、短い記憶をもつデータ、共通ショックがあるデータで、score 和の極限分布がどう変わるか。"
+#| fig-width: 10
+#| fig-height: 6.2
+set.seed(20260802)
+
+B <- 4000
+n <- 300
+rho <- 0.6
+
+sim_iid_sum <- function(n) {
+  sum(rnorm(n)) / sqrt(n)
+}
+
+sim_ar_sum <- function(n, rho) {
+  e <- rnorm(n)
+  s <- numeric(n)
+  s[1] <- e[1] / sqrt(1 - rho^2)
+  for (i in 2:n) {
+    s[i] <- rho * s[i - 1] + e[i]
+  }
+  sum(s) / sqrt(n)
+}
+
+sim_common_sum <- function(n) {
+  common <- rnorm(1)
+  idio <- rnorm(n)
+  sum(common + idio) / sqrt(n)
+}
+
+z_iid <- replicate(B, sim_iid_sum(n))
+z_ar_raw <- replicate(B, sim_ar_sum(n, rho))
+
+# AR(1) with innovation variance 1 has marginal variance 1/(1-rho^2).
+# The variance of the normalized sum is 1/(1-rho)^2.
+z_ar_naive <- z_ar_raw / sqrt(1 / (1 - rho^2))
+z_ar_lr <- z_ar_raw / sqrt(1 / (1 - rho)^2)
+z_common <- replicate(B, sim_common_sum(n))
+
+op <- par(mfrow = c(2, 2), mar = c(4, 4, 2.5, 1))
+
+hist(z_iid,
+     breaks = 35,
+     probability = TRUE,
+     col = "gray85",
+     border = "white",
+     main = "independent",
+     xlab = "standardized sum",
+     xlim = c(-5, 5))
+curve(dnorm(x), add = TRUE, lwd = 2)
+
+hist(z_ar_naive,
+     breaks = 35,
+     probability = TRUE,
+     col = "gray85",
+     border = "white",
+     main = "short memory: naive scale",
+     xlab = "standardized sum",
+     xlim = c(-5, 5))
+curve(dnorm(x), add = TRUE, lwd = 2)
+
+hist(z_ar_lr,
+     breaks = 35,
+     probability = TRUE,
+     col = "gray85",
+     border = "white",
+     main = "short memory: corrected scale",
+     xlab = "standardized sum",
+     xlim = c(-5, 5))
+curve(dnorm(x), add = TRUE, lwd = 2)
+
+hist(z_common,
+     breaks = 35,
+     probability = TRUE,
+     col = "gray85",
+     border = "white",
+     main = "common shock",
+     xlab = "sqrt(n)-scaled sum",
+     xlim = c(-25, 25))
+curve(dnorm(x), add = TRUE, lwd = 2)
+
+par(op)
+```
 :::
 
 # 標準誤差の推定
 
 ## plug-in 推定量
 
-i.i.d. もしくは m.d.s. の場合には、
+独立同分布データでは、
 $$
-H=-E[D(X_t;\theta_0)],
+H=-E[D(X_i;\theta_0)],
 \qquad
-\Sigma=E[s(X_t;\theta_0)s(X_t;\theta_0)']
+\Sigma=E[s(X_i;\theta_0)s(X_i;\theta_0)']
 $$
 であった。未知なのは
 
@@ -273,9 +696,9 @@ $$
 
 の 2 つである。最も自然な方法は、$\theta_0$ を $\hat\theta$ に置き換え、期待値を標本平均で置き換えることである。つまり
 $$
-\hat H=-\frac1n\sum_{t=1}^n D(X_t;\hat\theta),
+\hat H=-\frac1n\sum_{i=1}^n D(X_i;\hat\theta),
 \qquad
-\hat\Sigma=\frac1n\sum_{t=1}^n s(X_t;\hat\theta)s(X_t;\hat\theta)'
+\hat\Sigma=\frac1n\sum_{i=1}^n s(X_i;\hat\theta)s(X_i;\hat\theta)'
 $$ {#eq-plugin-H-Sigma}
 と定義する。
 
@@ -285,6 +708,12 @@ $$
 $$ {#eq-sandwich-estimator}
 を用いる。これが **sandwich 推定量** である。
 
+注意として、$\hat\Omega$ は $\sqrt n(\hat\theta-\theta_0)$ の分散を推定している。したがって $\hat\theta$ 自体の標準誤差として報告するのは
+$$
+\sqrt{\mathrm{diag}(\hat\Omega/n)}
+$$
+である。
+
 ## 一貫性
 
 ::: {#lem-plugin-consistency}
@@ -292,7 +721,7 @@ $$ {#eq-sandwich-estimator}
 
 @thm-m-asymp-normal の仮定に加えて、さらに
 $$
-E[\sup_{\theta\in N}\|s(X_t;\theta)\|^2 ]<\infty
+E[\sup_{\theta\in N}\|s(X_i;\theta)\|^2 ]<\infty
 $$
 を仮定する。このとき
 $$
@@ -308,7 +737,7 @@ $$
 ::: {.proof}
 $\hat H\overset{p}{\to} H$ の証明は、漸近正規性の証明で行ったヘッセ行列の一様収束をそのまま使えばよい。つまり、$\hat\theta$ が確率 1 に近い形で近傍 $N$ に入ることを使い、
 $$
--\frac1n\sum_{t=1}^n D(X_t;\hat\theta)-H
+-\frac1n\sum_{i=1}^n D(X_i;\hat\theta)-H
 $$
 を
 
@@ -319,7 +748,7 @@ $$
 
 $\hat\Sigma\overset{p}{\to}\Sigma$ も同様で、関数族
 $$
-\{s(X_t;\theta)s(X_t;\theta)':\theta\in N\}
+\{s(X_i;\theta)s(X_i;\theta)':\theta\in N\}
 $$
 に一様大数法則を適用する。最後は行列の逆写像の連続性と Slutsky の定理で
 $$
@@ -340,16 +769,6 @@ $$
 のどれも極限では同じになる。しかし有限標本では一致しないことが多い。さらに誤指定の可能性を考えると、一般には **常に sandwich 形を使う** のが安全である。
 :::
 
-## 依存データの場合の補足
-
-一般の依存データでは、@eq-plugin-H-Sigma の $\hat\Sigma$ はそのままでは不十分である。必要なのは @eq-long-run-var に対応する長期分散の推定であり、実務では HAC（heteroskedasticity and autocorrelation consistent）型推定量を用いる。
-
-したがって、一般の時系列 M 推定では
-$$
-\hat\Omega=\hat H^{-1}\hat\Sigma_{\mathrm{LR}}\hat H^{-1}
-$$
-とするのが基本である。ここで $\hat\Sigma_{\mathrm{LR}}$ は long-run variance の推定量である。
-
 # 最尤法をもう少し詳しく
 
 最尤法は M 推定の最も重要な例である。この節では、
@@ -365,32 +784,32 @@ $$
 ::: {.callout-note}
 ## 例：条件付き最尤法
 
-$i.i.d.$ データ $X_t=(Y_t,Z_t)$ を考える。モデルが
+独立同分布データ $X_i=(Y_i,Z_i)$ を考える。モデルが
 $$
-f(X_t;\theta)=f(Y_t\mid Z_t;\theta)f(Z_t)
+f(X_i;\theta)=f(Y_i\mid Z_i;\theta)f(Z_i)
 $$
-と分解でき、$f(Z_t)$ は $\theta$ に依存しないとする。このとき平均対数尤度は
+と分解でき、$f(Z_i)$ は $\theta$ に依存しないとする。このとき平均対数尤度は
 $$
-\frac1n\sum_{t=1}^n \log f(X_t;\theta)
-=\frac1n\sum_{t=1}^n \log f(Y_t\mid Z_t;\theta)
-+\frac1n\sum_{t=1}^n \log f(Z_t)
+\frac1n\sum_{i=1}^n \log f(X_i;\theta)
+=\frac1n\sum_{i=1}^n \log f(Y_i\mid Z_i;\theta)
++\frac1n\sum_{i=1}^n \log f(Z_i)
 $$
 だから、第 2 項は最適化に無関係である。したがって
 $$
-Q_n(\theta)=\frac1n\sum_{t=1}^n \log f(Y_t\mid Z_t;\theta)
+Q_n(\theta)=\frac1n\sum_{i=1}^n \log f(Y_i\mid Z_i;\theta)
 $$ {#eq-conditional-ml-criterion}
 を最大化すればよい。
 
 母目的関数は
 $$
-Q(\theta)=E[\log f(Y_t\mid Z_t;\theta)]
+Q(\theta)=E[\log f(Y_i\mid Z_i;\theta)]
 $$
 である。
 :::
 
 この例では
 $$
-m(X_t;\theta)=\log f(Y_t\mid Z_t;\theta)
+m(X_i;\theta)=\log f(Y_i\mid Z_i;\theta)
 $$
 だから、最尤法はそのまま M 推定量である。
 
@@ -401,41 +820,46 @@ $$
 
 $Q_n(\theta)$ を @eq-conditional-ml-criterion で定義する。$\hat\theta$ が極値推定量であり、さらに近似的一階条件 @eq-approx-foc を満たすとする。次を仮定する。
 
-1. $X_1,\ldots,X_n$ は i.i.d. である。
+1. $X_1,\ldots,X_n$ は独立同分布である。
 2. $\Theta$ はコンパクトである。
-3. $\log f(Y_t\mid Z_t;\theta)$ は $\theta$ について 2 回連続微分可能である。
+3. $\log f(Y_i\mid Z_i;\theta)$ は $\theta$ について 2 回連続微分可能である。
 4. 
    $$
-   E[\sup_{\theta\in\Theta}|\log f(Y_t\mid Z_t;\theta)| ]<\infty.
+   E[\sup_{\theta\in\Theta}|\log f(Y_i\mid Z_i;\theta)| ]<\infty.
    $$
 5. $Q(\theta)$ は $\theta_0$ で一意に最大化される。
 6. $\theta_0$ は $\Theta$ の内部点である。
 7. 
    $$
-   E[\|s(X_t;\theta_0)\|^2]<\infty.
+   E[\|s(X_i;\theta_0)\|^2]<\infty.
    $$
 8. $\theta_0$ のある近傍 $N$ について
    $$
-   E[\sup_{\theta\in N}\|D(X_t;\theta)\| ]<\infty.
+   E[\sup_{\theta\in N}\|D(X_i;\theta)\| ]<\infty.
    $$
+9. 
+   $$
+   H=-E[D(X_i;\theta_0)]
+   $$
+   は正定値である。
 
 このとき
 $$
 \sqrt n(\hat\theta-\theta_0)
 \overset{d}{\to}
 N\left(0,
-E[D(X_t;\theta_0)]^{-1}
-E[s(X_t;\theta_0)s(X_t;\theta_0)']
-E[D(X_t;\theta_0)]^{-1}
+E[D(X_i;\theta_0)]^{-1}
+E[s(X_i;\theta_0)s(X_i;\theta_0)']
+E[D(X_i;\theta_0)]^{-1}
 \right).
 $$
 :::
 
 ::: {.proof}
-一致性は前章の M 推定量の一般理論から従う。さらに i.i.d. 性と score の 2 乗可積分性により
+一致性は前章の M 推定量の一般理論から従う。さらに独立同分布性と score の 2 乗可積分性により
 $$
-Z_n=\frac1{\sqrt n}\sum_{t=1}^n s(X_t;\theta_0)
-\overset{d}{\to} N(0,E[s(X_t;\theta_0)s(X_t;\theta_0)'])
+Z_n=\frac1{\sqrt n}\sum_{i=1}^n s(X_i;\theta_0)
+\overset{d}{\to} N(0,E[s(X_i;\theta_0)s(X_i;\theta_0)'])
 $$
 である。したがって @thm-m-asymp-normal をそのまま適用すればよい。
 :::
@@ -446,27 +870,111 @@ $$
 
 ### 情報行列等式
 
-各 $z$ を固定すると、$f(y\mid z;\theta)$ は密度だから
+ここでは条件付き密度 $f(y\mid z;\theta)$ について説明する。$z$ を固定すると、$f(y\mid z;\theta)$ は $y$ の密度なので
 $$
 \int f(y\mid z;\theta)dy=1
 $$
-である。これを $\theta$ で 2 回微分し、積分と微分の交換が正当化できるとすると、
+である。この恒等式は、どの $\theta$ でも成り立つ。
+
+まず 1 回微分する。積分と微分を交換できる正則条件を仮定すると、
 $$
-E\left[
-\frac{\partial^2 \log f(Y_t\mid Z_t;\theta_0)}{\partial\theta\partial\theta'}
+\frac{\partial}{\partial\theta}
+\int f(y\mid z;\theta)dy
+=
+\int \frac{\partial f(y\mid z;\theta)}{\partial\theta}dy
+=0.
+$$
+ここで
+$$
+\frac{\partial f(y\mid z;\theta)}{\partial\theta}
+=
+f(y\mid z;\theta)
+\frac{\partial \log f(y\mid z;\theta)}{\partial\theta}
+$$
+なので、
+$$
+\int
+f(y\mid z;\theta)
+\frac{\partial \log f(y\mid z;\theta)}{\partial\theta}
+dy
+=0.
+$$
+つまり
+$$
+E_\theta\left[
+\frac{\partial \log f(Y\mid z;\theta)}{\partial\theta}
+\middle| Z=z
+\right]
+=0.
+$$
+これが「score の期待値は 0」という事実である。
+
+次に、この score の期待値 0 という式をさらに $\theta$ で微分する。つまり
+$$
+\frac{\partial}{\partial\theta'}
+\int
+f(y\mid z;\theta)
+\frac{\partial \log f(y\mid z;\theta)}{\partial\theta}
+dy
+=0
+$$
+を計算する。積の微分により
+$$
+\begin{aligned}
+0
+&=
+\int
+\frac{\partial}{\partial\theta'}
+\left\{
+f(y\mid z;\theta)
+\frac{\partial \log f(y\mid z;\theta)}{\partial\theta}
+\right\}
+dy
+\\
+&=
+\int
+\left[
+\frac{\partial \log f(y\mid z;\theta)}{\partial\theta}
+\frac{\partial \log f(y\mid z;\theta)}{\partial\theta'}
 +
-\frac{\partial \log f(Y_t\mid Z_t;\theta_0)}{\partial\theta}
-\frac{\partial \log f(Y_t\mid Z_t;\theta_0)}{\partial\theta'}
-\,
-\middle|
-Z_t
-\right]=0
+\frac{\partial^2 \log f(y\mid z;\theta)}{\partial\theta\partial\theta'}
+\right]
+f(y\mid z;\theta)
+dy.
+\end{aligned}
 $$
-が得られる。反復期待値をとると
+最後の行で、また
 $$
--E[D(X_t;\theta_0)] = E[s(X_t;\theta_0)s(X_t;\theta_0)']
+\frac{\partial f(y\mid z;\theta)}{\partial\theta'}
+=
+f(y\mid z;\theta)
+\frac{\partial \log f(y\mid z;\theta)}{\partial\theta'}
+$$
+を使った。
+
+したがって
+$$
+E_\theta\left[
+\frac{\partial^2 \log f(Y\mid Z;\theta)}{\partial\theta\partial\theta'}
++
+\frac{\partial \log f(Y\mid Z;\theta)}{\partial\theta}
+\frac{\partial \log f(Y\mid Z;\theta)}{\partial\theta'}
+\middle| Z
+\right]
+=0.
+$$
+$\theta=\theta_0$ でモデルが正しく特定されているなら、$E_\theta[\cdot\mid Z]$ は真の条件付き期待値と一致する。よって反復期待値をとると
+$$
+E[D(X_i;\theta_0)]
++
+E[s(X_i;\theta_0)s(X_i;\theta_0)']
+=0.
+$$
+同値に
+$$
+-E[D(X_i;\theta_0)] = E[s(X_i;\theta_0)s(X_i;\theta_0)']
 $$ {#eq-information-equality}
-となる。
+である。
 
 右辺と左辺の共通の値を **情報行列** と呼び、しばしば
 $$
@@ -504,20 +1012,22 @@ $$
 
 モデルが誤指定されている場合、真の分布 $g(x)$ はどの $\theta\in\Theta$ に対しても $f(x;\theta)$ と一致しない。それでも最尤法は意味を失うわけではなく、
 $$
-Q(\theta)=E[\log f(X_t;\theta)]
+Q(\theta)=E[\log f(X_i;\theta)]
 $$
 を最大化する点を推定していると解釈できる。
 
 真の密度を $g(x)$ とすると、
 $$
-Q(\theta)-E[\log g(X_t)]
-=E\left[\log \frac{f(X_t;\theta)}{g(X_t)}\right]
+Q(\theta)-E[\log g(X_i)]
+=E\left[\log \frac{f(X_i;\theta)}{g(X_i)}\right]
 $$
 である。右辺は Kullback-Leibler divergence の符号反転に等しいから、$\theta_0$ は
 
 > モデル族 $\{f(\cdot;\theta):\theta\in\Theta\}$ の中で、真の分布 $g$ に最も近い密度を選ぶパラメータ
 
 として解釈される。この $\theta_0$ を **pseudo-true parameter** と呼ぶ。
+
+この見方は、White (1982) の誤指定 MLE の理論や、Gourieroux, Monfort and Trognon (1984) の pseudo maximum likelihood の理論で標準的に使われている。応用例として有名なのが、Santos Silva and Tenreyro (2006) の Poisson pseudo maximum likelihood である。そこでは、データが本当に Poisson 分布に従うことよりも、条件付き平均の形を正しく書けているかが重要になる。
 
 ### 何が変わるか
 
@@ -548,44 +1058,133 @@ $$
 のが安全である。正しく特定されていれば sandwich でも正しいし、誤指定があっても破綻しにくいからである。
 :::
 
-## 準最尤法（QML）の例
+### 誤指定をシミュレーションで見る
 
-最後に、モデルの周辺分布だけを使う **準最尤法**（quasi-maximum likelihood; QML）の典型例を見ておく。
+ここでは Poisson 回帰を例に、2 種類の「モデルを間違える」を比べる。
 
-$X_1,\ldots,X_n$ が厳密定常かつエルゴード的で、各 $X_t$ の周辺密度 $f(X_t;\theta)$ は分かっているが、真の条件付き密度
+1. **分布は間違っているが、条件付き平均は正しい**：真のデータは過分散をもつ負の二項分布だが、Poisson MLE を使う。この場合、Poisson の分散仮定は間違っているが、条件付き平均 $E[Y_i\mid X_i]=\exp(\beta_0+\beta_1X_i)$ が正しければ $\beta$ は一致推定される。
+2. **条件付き平均そのものが間違っている**：真の平均は $\exp(\beta_0+\beta_1X_i+\gamma X_i^2)$ だが、$X_i^2$ を落として Poisson MLE を使う。この場合、推定量は真の $\beta_1$ ではなく、KL の意味で最も近い pseudo-true parameter に収束する。
+
+2 つ目の例では、$X_i\sim N(0,1)$ とすると pseudo-true な傾きは明示的に計算できる。真の平均を
 $$
-f(X_t\mid X_{t-1},X_{t-2},\ldots;\theta)
+\mu_0(x)=\exp(\beta_0+\beta_1x+\gamma x^2)
 $$
-は複雑すぎて扱えないとする。このとき
+とし、間違ったモデルの平均を
 $$
-Q_n(\theta)=\frac1n\sum_{t=1}^n \log f(X_t;\theta)
-$$ {#eq-qml-criterion}
-を最大化して $\theta$ を推定できる。
-
-これはサンプル全体の真の対数尤度ではないが、M 推定量としては正当であり、適当な条件の下で
+\mu(x;\alpha,\delta)=\exp(\alpha+\delta x)
 $$
-\sqrt n(\hat\theta-\theta_0)\overset{d}{\to} N(0,H^{-1}\Sigma H^{-1})
+とする。pseudo-true parameter は
 $$
-が成り立つ。ここで
+E[(\mu_0(X)-\mu(X;\alpha,\delta))(1,X)']=0
 $$
-H=-E\left[\frac{\partial^2 \log f(X_t;\theta_0)}{\partial\theta\partial\theta'}\right]
+を満たす。正規分布の積率母関数を使うと
 $$
-であり、$\Sigma$ は score の長期分散である。
+\delta^*=\frac{\beta_1}{1-2\gamma}
+$$
+となる。つまり、欠落した $X^2$ の効果が傾きにも入り込む。
 
-重要なのは、モデルがある意味で「正しい」としても、@eq-qml-criterion は真の尤度ではないため、一般には情報行列等式が成立しないことである。したがって、QML では最初から sandwich 形を使うのが自然である。
+```{r}
+#| label: fig-misspecified-poisson
+#| fig-cap: "誤指定下の Poisson MLE。上段は分布だけが違う場合で、真の傾きのまわりに正規的に集中する。下段は平均関数を間違えた場合で、真の傾きではなく pseudo-true な傾きのまわりに集中する。"
+#| fig-width: 10
+#| fig-height: 7
+set.seed(20260803)
 
-### 例：AR(1) の周辺尤度と条件付き尤度
+poisson_robust_fit <- function(y, x) {
+  fit <- glm(y ~ x, family = poisson())
+  X <- model.matrix(fit)
+  mu_hat <- fitted(fit)
+  resid <- y - mu_hat
+  H_hat <- crossprod(X, X * mu_hat) / length(y)
+  S_hat <- crossprod(X, X * resid^2) / length(y)
+  vcov_robust <- solve(H_hat, S_hat) %*% solve(H_hat) / length(y)
+  vcov_naive <- solve(crossprod(X, X * mu_hat))
+  c(beta1 = unname(coef(fit)[2]),
+    se_naive = sqrt(vcov_naive[2, 2]),
+    se_robust = sqrt(vcov_robust[2, 2]))
+}
 
-$X_t=\rho X_{t-1}+\sigma u_t$（$u_t\sim N(0,1)$ i.i.d.）を考える。
+B <- 600
+n <- 800
+beta0 <- 0.3
+beta1 <- 0.7
+size_nb <- 1.2
 
-- 条件付き分布 $X_t\mid X_{t-1}$ は $N(\rho X_{t-1},\sigma^2)$ なので、条件付き尤度からは $\rho$ と $\sigma^2$ の両方が識別される。
-- 一方、周辺分布は $N\bigl(0,\sigma^2/(1-\rho^2)\bigr)$ なので、周辺尤度から識別されるのは
-  $$
-  \frac{\sigma^2}{1-\rho^2}
-  $$
-  だけである。
+sim_nb <- replicate(B, {
+  x <- rnorm(n)
+  mu <- exp(beta0 + beta1 * x)
+  y <- rnbinom(n, mu = mu, size = size_nb)
+  poisson_robust_fit(y, x)
+})
+sim_nb <- t(sim_nb)
 
-したがって、使う尤度の形によって識別されるパラメータが変わりうる。
+z_robust <- (sim_nb[, "beta1"] - beta1) / sim_nb[, "se_robust"]
+
+gamma <- 0.05
+beta1_pseudo <- beta1 / (1 - 2 * gamma)
+
+sim_quad <- replicate(B, {
+  x <- rnorm(n)
+  mu <- exp(beta0 + beta1 * x + gamma * x^2)
+  y <- rpois(n, lambda = mu)
+  poisson_robust_fit(y, x)
+})
+sim_quad <- t(sim_quad)
+z_quad <- (sim_quad[, "beta1"] - beta1_pseudo) / sim_quad[, "se_robust"]
+
+op <- par(mfrow = c(2, 2), mar = c(4, 4, 2.5, 1))
+
+hist(sim_nb[, "beta1"],
+     breaks = 35,
+     probability = TRUE,
+     col = "gray85",
+     border = "white",
+     main = "wrong variance, right mean",
+     xlab = expression(hat(beta)[1]))
+abline(v = beta1, lwd = 2)
+
+hist(z_robust,
+     breaks = 35,
+     probability = TRUE,
+     col = "gray85",
+     border = "white",
+     main = "robust studentization",
+     xlab = "z statistic",
+     xlim = c(-5, 5))
+curve(dnorm(x), add = TRUE, lwd = 2)
+
+hist(sim_quad[, "beta1"],
+     breaks = 35,
+     probability = TRUE,
+     col = "gray85",
+     border = "white",
+     main = "wrong mean function",
+     xlab = expression(hat(beta)[1]))
+abline(v = beta1, lwd = 2, lty = 2)
+abline(v = beta1_pseudo, lwd = 2)
+legend("topright",
+       legend = c("true slope", "pseudo-true slope"),
+       lty = c(2, 1),
+       lwd = 2,
+       bty = "n",
+       cex = 0.85)
+
+hist(z_quad,
+     breaks = 35,
+     probability = TRUE,
+     col = "gray85",
+     border = "white",
+     main = "centered at pseudo-true value",
+     xlab = "robust z statistic",
+     xlim = c(-5, 5))
+curve(dnorm(x), add = TRUE, lwd = 2)
+
+par(op)
+```
+
+上段左では、データは負の二項分布から来ているので Poisson 分布ではない。それでも条件付き平均が正しいため、Poisson MLE の傾きは真の $\beta_1$ のまわりに集まる。上段右では、sandwich 型の標準誤差で標準化すると分布が標準正規に近づく。分散仮定を間違えているので、通常の Poisson 標準誤差ではなく、この robust な標準化が必要になる。
+
+下段左では、推定値は破線の真の傾きではなく、実線の pseudo-true な傾きに集まる。つまり誤指定下の「一致性」とは、真の構造パラメータへの一致ではなく、母目的関数を最大化する値への一致である。下段右では、その pseudo-true な値で中心化し、robust 標準誤差で割ると、分布が標準正規に近くなる。
 
 # まとめ
 
@@ -597,7 +1196,7 @@ $X_t=\rho X_{t-1}+\sigma u_t$（$u_t\sim N(0,1)$ i.i.d.）を考える。
    $$
    が得られる。
 2. $H$ は曲率、$\Sigma$ は score の揺らぎを表す。
-3. i.i.d. や m.d.s. では $\Sigma=E[ss']$、一般の依存データでは long-run variance を使う。
+3. 独立同分布データでは $\Sigma=E[ss']$ であり、前章の多変量 CLT を直接使える。
 4. 標準誤差は
    $$
    \hat\Omega=\hat H^{-1}\hat\Sigma\hat H^{-1}
@@ -610,7 +1209,7 @@ $X_t=\rho X_{t-1}+\sigma u_t$（$u_t\sim N(0,1)$ i.i.d.）を考える。
 
 次の GMM 章では、M 推定での
 $$
-H=-E[D(X_t;\theta_0)],
+H=-E[D(X_i;\theta_0)],
 \qquad
 \Sigma=\text{score の漸近分散}
 $$
