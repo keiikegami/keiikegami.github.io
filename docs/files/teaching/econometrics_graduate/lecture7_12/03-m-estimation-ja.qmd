@@ -343,18 +343,16 @@ $$
 \sqrt n S_n(\hat\theta)=o_p(1).
 $$
 
-次に、$S_n(\hat\theta)$ を $\theta_0$ のまわりで展開する。ベクトル値関数なので、平均値展開を積分形で書くと
+次に、$S_n(\hat\theta)$ を $\theta_0$ のまわりで普通にテイラー展開する。1 次元なら、$\hat\theta$ と $\theta_0$ の間にある点 $\tilde\theta_n$ が存在して
 $$
 S_n(\hat\theta)
 =
 S_n(\theta_0)
 +
-\left[
-\int_0^1
-\frac{\partial S_n(\theta_0+\lambda(\hat\theta-\theta_0))}{\partial\theta'}
-d\lambda
-\right](\hat\theta-\theta_0).
+\frac{\partial S_n(\tilde\theta_n)}{\partial\theta'}(\hat\theta-\theta_0)
 $$
+と書ける。多変量の場合も同じ形で読んでよい。厳密には成分ごとに「間の点」が少しずつ違うことがあるが、どの点も $\hat\theta$ と $\theta_0$ を結ぶ線分上にあるので、以下の一致性と一様収束の議論は同じである。
+
 ここで
 $$
 \frac{\partial S_n(\theta)}{\partial\theta'}
@@ -365,19 +363,17 @@ $$
 $$
 である。したがって
 $$
-A_n
+B_n
 =
-\int_0^1
-\left[
-\frac1n\sum_{i=1}^n D(X_i;\theta_0+\lambda(\hat\theta-\theta_0))
-\right]
-d\lambda
+\frac{\partial^2 Q_n(\tilde\theta_n)}{\partial\theta\partial\theta'}
+=
+\frac1n\sum_{i=1}^n D(X_i;\tilde\theta_n)
 $$
 とおけば、
 $$
 S_n(\hat\theta)
 =
-S_n(\theta_0)+A_n(\hat\theta-\theta_0).
+S_n(\theta_0)+B_n(\hat\theta-\theta_0).
 $$
 
 この式に $\sqrt n$ を掛ける。
@@ -386,7 +382,7 @@ $$
 =
 \sqrt n S_n(\theta_0)
 +
-A_n\sqrt n(\hat\theta-\theta_0).
+B_n\sqrt n(\hat\theta-\theta_0).
 $$
 左辺は $o_p(1)$ である。また
 $$
@@ -402,19 +398,33 @@ $$
 $$
 o_p(1)
 =
-Z_n+A_n\sqrt n(\hat\theta-\theta_0).
+Z_n+B_n\sqrt n(\hat\theta-\theta_0).
 $$
 これを移項すると
 $$
-(-A_n)\sqrt n(\hat\theta-\theta_0)
+(-B_n)\sqrt n(\hat\theta-\theta_0)
 =
 Z_n+o_p(1).
 $$
 
-次に $A_n$ の極限を確認する。仮定 2 より $\hat\theta\overset{p}{\to}\theta_0$ である。したがって任意の $\lambda\in[0,1]$ について
+次に $B_n$ の極限を確認する。$\tilde\theta_n$ は $\hat\theta$ と $\theta_0$ の間の点である。つまり、ある $\lambda_n\in[0,1]$ を使って
 $$
-\theta_0+\lambda(\hat\theta-\theta_0)\overset{p}{\to}\theta_0.
+\tilde\theta_n=\theta_0+\lambda_n(\hat\theta-\theta_0)
 $$
+と書ける。したがって
+$$
+\|\tilde\theta_n-\theta_0\|
+=
+\lambda_n\|\hat\theta-\theta_0\|
+\le
+\|\hat\theta-\theta_0\|.
+$$
+仮定 2 より $\hat\theta\overset{p}{\to}\theta_0$ だから、右辺は $o_p(1)$ であり、
+$$
+\tilde\theta_n\overset{p}{\to}\theta_0
+$$
+が従う。
+
 さらに仮定 4 と 6 により、ヘッセ行列の各成分について
 $$
 \sup_{\theta\in N}
@@ -427,46 +437,107 @@ E[D(X_i;\theta)]
 $$
 が成り立つ。これは前章で見た一様大数法則の使い方である。
 
-また、優収束定理により $E[D(X_i;\theta)]$ は $\theta_0$ の近くで連続である。したがって
+次に、期待値の側も $\theta$ に関して連続であることを確認する。ここで
 $$
-\frac1n\sum_{i=1}^n D(X_i;\theta_0+\lambda(\hat\theta-\theta_0))
+M(\theta)=E[D(X_i;\theta)]
+$$
+とおく。示したいのは
+$$
+M(\theta)\to M(\theta_0)
+\qquad
+(\theta\to\theta_0)
+$$
+である。
+
+なぜこれが成り立つか。仮定 4 より、各 $X_i=x$ を固定すると
+$$
+D(x;\theta)\to D(x;\theta_0)
+\qquad
+(\theta\to\theta_0)
+$$
+である。一方、$\theta,\theta_0\in N$ なら
+$$
+\|D(X_i;\theta)-D(X_i;\theta_0)\|
+\le
+2\sup_{\vartheta\in N}\|D(X_i;\vartheta)\|.
+$$
+右辺は仮定 6 により期待値が有限である。つまり、$D(X_i;\theta)-D(X_i;\theta_0)$ は、$\theta$ に依存しない可積分な確率変数で上から抑えられている。
+
+したがって優収束定理を使うと
+$$
+E[\|D(X_i;\theta)-D(X_i;\theta_0)\|]\to 0
+$$
+となる。特に
+$$
+\|M(\theta)-M(\theta_0)\|
+=
+\|E[D(X_i;\theta)]-E[D(X_i;\theta_0)]\|
+\le
+E[\|D(X_i;\theta)-D(X_i;\theta_0)\|]
+\to 0.
+$$
+これで $M(\theta)$ が $\theta_0$ で連続であることが分かった。
+
+いま $\tilde\theta_n\overset{p}{\to}\theta_0$ なので、連続写像定理により
+$$
+M(\tilde\theta_n)\overset{p}{\to}M(\theta_0).
+$$
+最後に
+$$
+\frac1n\sum_{i=1}^n D(X_i;\tilde\theta_n)
+=
+\left\{
+\frac1n\sum_{i=1}^n D(X_i;\tilde\theta_n)-M(\tilde\theta_n)
+\right\}
++
+\left\{
+M(\tilde\theta_n)-M(\theta_0)
+\right\}
++
+M(\theta_0)
+$$
+と分解する。第 1 項は上の一様大数法則により $o_p(1)$ であり、第 2 項は $M$ の連続性と $\tilde\theta_n\overset{p}{\to}\theta_0$ により $o_p(1)$ である。したがって
+$$
+\frac1n\sum_{i=1}^n D(X_i;\tilde\theta_n)
 \overset{p}{\to}
-E[D(X_i;\theta_0)]
-$$
-が $\lambda\in[0,1]$ について一様に成り立つ。積分しても極限は変わらないので
-$$
-A_n\overset{p}{\to}E[D(X_i;\theta_0)]=-H.
+M(\theta_0)
+=
+E[D(X_i;\theta_0)].
 $$
 つまり
 $$
--A_n\overset{p}{\to}H.
+B_n\overset{p}{\to}E[D(X_i;\theta_0)]=-H.
+$$
+したがって
+$$
+-B_n\overset{p}{\to}H.
 $$
 
-仮定 7 より $H$ は正定値なので可逆である。行列の逆写像は可逆行列の近くで連続だから、確率が 1 に近い事象上で $-A_n$ は可逆であり、
+仮定 7 より $H$ は正定値なので可逆である。行列の逆写像は可逆行列の近くで連続だから、確率が 1 に近い事象上で $-B_n$ は可逆であり、
 $$
-(-A_n)^{-1}\overset{p}{\to}H^{-1}.
+(-B_n)^{-1}\overset{p}{\to}H^{-1}.
 $$
 先ほどの式
 $$
-(-A_n)\sqrt n(\hat\theta-\theta_0)
+(-B_n)\sqrt n(\hat\theta-\theta_0)
 =
 Z_n+o_p(1)
 $$
-の両辺に $(-A_n)^{-1}$ を掛けると
+の両辺に $(-B_n)^{-1}$ を掛けると
 $$
 \sqrt n(\hat\theta-\theta_0)
 =
-(-A_n)^{-1}Z_n+(-A_n)^{-1}o_p(1).
+(-B_n)^{-1}Z_n+(-B_n)^{-1}o_p(1).
 $$
-ここで $(-A_n)^{-1}=O_p(1)$ なので
+ここで $(-B_n)^{-1}=O_p(1)$ なので
 $$
-(-A_n)^{-1}o_p(1)=o_p(1).
+(-B_n)^{-1}o_p(1)=o_p(1).
 $$
 よって
 $$
 \sqrt n(\hat\theta-\theta_0)
 =
-(-A_n)^{-1}Z_n+o_p(1).
+(-B_n)^{-1}Z_n+o_p(1).
 $$
 
 最後に Slutsky の定理を使う。仮定 5 より
@@ -475,11 +546,11 @@ Z_n\overset{d}{\to}N(0,\Sigma)
 $$
 であり、上で示した通り
 $$
-(-A_n)^{-1}\overset{p}{\to}H^{-1}.
+(-B_n)^{-1}\overset{p}{\to}H^{-1}.
 $$
 したがって Slutsky の定理から
 $$
-(-A_n)^{-1}Z_n
+(-B_n)^{-1}Z_n
 \overset{d}{\to}
 H^{-1}Z,
 \qquad
