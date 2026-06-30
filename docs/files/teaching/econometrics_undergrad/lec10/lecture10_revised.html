@@ -429,9 +429,56 @@ y_i = \beta_0 + \beta_1 s_i + u_i
 <li><span class="math inline">\(z_i=0\)</span> のグループ</li>
 </ul>
 <p>を比べていると思えばよい。</p>
-<p>このとき、任意の変数 <span class="math inline">\(x_i\)</span> について</p>
+<p>このとき、任意の変数 <span class="math inline">\(x_i\)</span> について、共分散はグループ平均との差で書き直せる。 この式変形を少し丁寧に見ておこう。</p>
+<p>まず、</p>
 <p><span class="math display">\[
-\operatorname{Cov}(z_i, x_i) = P(z_i=1)P(z_i=0)\left( E[x_i \mid z_i=1] - E[x_i \mid z_i=0] \right)
+p = P(z_i=1), \qquad 1-p = P(z_i=0)
+\]</span></p>
+<p>とおく。 また、</p>
+<p><span class="math display">\[
+\mu_1 = E[x_i \mid z_i=1], \qquad
+\mu_0 = E[x_i \mid z_i=0]
+\]</span></p>
+<p>と書く。</p>
+<p>共分散の定義は</p>
+<p><span class="math display">\[
+\operatorname{Cov}(z_i,x_i)
+= E[z_i x_i] - E[z_i]E[x_i]
+\]</span></p>
+<p>である。 ここで <span class="math inline">\(z_i\)</span> は 0/1 ダミーなので、</p>
+<p><span class="math display">\[
+E[z_i] = 1\cdot P(z_i=1) + 0\cdot P(z_i=0) = p
+\]</span></p>
+<p>である。 また、<span class="math inline">\(z_i x_i\)</span> は、<span class="math inline">\(z_i=1\)</span> のときだけ <span class="math inline">\(x_i\)</span> になり、<span class="math inline">\(z_i=0\)</span> のときは 0 になる。 したがって</p>
+<p><span class="math display">\[
+\begin{aligned}
+E[z_i x_i]
+&amp;= E[z_i x_i \mid z_i=1]P(z_i=1)
+  + E[z_i x_i \mid z_i=0]P(z_i=0) \\
+&amp;= E[x_i \mid z_i=1]p + 0\cdot (1-p) \\
+&amp;= p\mu_1
+\end{aligned}
+\]</span></p>
+<p>である。 一方、<span class="math inline">\(x_i\)</span> 全体の平均は、<span class="math inline">\(z_i=1\)</span> グループと <span class="math inline">\(z_i=0\)</span> グループの加重平均なので、</p>
+<p><span class="math display">\[
+E[x_i] = p\mu_1 + (1-p)\mu_0
+\]</span></p>
+<p>である。 これらを共分散の定義に代入すると、</p>
+<p><span class="math display">\[
+\begin{aligned}
+\operatorname{Cov}(z_i,x_i)
+&amp;= E[z_i x_i] - E[z_i]E[x_i] \\
+&amp;= p\mu_1 - p\{p\mu_1+(1-p)\mu_0\} \\
+&amp;= p\mu_1 - p^2\mu_1 - p(1-p)\mu_0 \\
+&amp;= p(1-p)\mu_1 - p(1-p)\mu_0 \\
+&amp;= p(1-p)(\mu_1-\mu_0).
+\end{aligned}
+\]</span></p>
+<p>最後に、<span class="math inline">\(p=P(z_i=1)\)</span>、<span class="math inline">\(1-p=P(z_i=0)\)</span>、<span class="math inline">\(\mu_1=E[x_i\mid z_i=1]\)</span>、<span class="math inline">\(\mu_0=E[x_i\mid z_i=0]\)</span> を戻すと、</p>
+<p><span class="math display">\[
+\operatorname{Cov}(z_i, x_i) =
+P(z_i=1)P(z_i=0)
+\left( E[x_i \mid z_i=1] - E[x_i \mid z_i=0] \right)
 \]</span></p>
 <p>が成り立つ。</p>
 <p>これを <span class="math inline">\(x_i=y_i\)</span> と <span class="math inline">\(x_i=s_i\)</span> にそれぞれ適用すると、</p>
@@ -510,19 +557,26 @@ E[s_i \mid z_i=1] - E[s_i \mid z_i=0]
 <section id="段階最小二乗法-2sls" class="level1">
 <h1>2段階最小二乗法 (2SLS)</h1>
 <p>2SLS は、操作変数法を重回帰の形で実装するための標準的な方法である。</p>
-<p>ここでは、結果変数を <span class="math inline">\(y_i\)</span>、内生変数を <span class="math inline">\(s_i\)</span>、外生的なコントロール変数のベクトルを <span class="math inline">\(X_i\)</span>、操作変数のベクトルを <span class="math inline">\(Z_i\)</span> と書く。</p>
+<p>ここでは、結果変数を <span class="math inline">\(y_i\)</span>、内生変数を <span class="math inline">\(s_i\)</span> と書く。 必要なら、外生的なコントロール変数を <span class="math inline">\(x_{1i}, x_{2i}, \cdots\)</span>、操作変数を <span class="math inline">\(z_{1i}, z_{2i}, \cdots\)</span> と書く。</p>
 <p>推定したい式は</p>
 <p><span class="math display">\[
-y_i = \beta_0 + \beta_1 s_i + \gamma' X_i + u_i
+y_i
+= \beta_0 + \beta_1 s_i
++ \gamma_1 x_{1i} + \gamma_2 x_{2i} + \cdots
++ u_i
 \]</span></p>
 <p>である。</p>
 <p>ここでの問題は、<span class="math inline">\(s_i\)</span> が内生的であって <span class="math inline">\(u_i\)</span> と相関しているかもしれない、という点にある。</p>
-<p>2SLS は、この <span class="math inline">\(s_i\)</span> をそのまま使うのではなく、まず <span class="math inline">\(Z_i\)</span> と <span class="math inline">\(X_i\)</span> で説明できる部分だけを取り出し、その外生的な部分で <span class="math inline">\(y_i\)</span> を説明する。</p>
+<p>2SLS は、この <span class="math inline">\(s_i\)</span> をそのまま使うのではなく、まず操作変数 <span class="math inline">\(z_{1i}, z_{2i}, \cdots\)</span> とコントロール変数 <span class="math inline">\(x_{1i}, x_{2i}, \cdots\)</span> で説明できる部分だけを取り出し、その外生的な部分で <span class="math inline">\(y_i\)</span> を説明する。</p>
 <section id="第1段階" class="level2">
 <h2 class="anchored" data-anchor-id="第1段階">第1段階</h2>
-<p>第1段階では、内生変数 <span class="math inline">\(s_i\)</span> を操作変数 <span class="math inline">\(Z_i\)</span> とコントロール変数 <span class="math inline">\(X_i\)</span> で回帰する。</p>
+<p>第1段階では、内生変数 <span class="math inline">\(s_i\)</span> を操作変数とコントロール変数で回帰する。</p>
 <p><span class="math display">\[
-s_i = \pi_0 + \Pi' Z_i + \delta' X_i + v_i
+s_i
+= \pi_0
++ \pi_1 z_{1i} + \pi_2 z_{2i} + \cdots
++ \delta_1 x_{1i} + \delta_2 x_{2i} + \cdots
++ v_i
 \]</span></p>
 <p>ここで得られる予測値を</p>
 <p><span class="math display">\[
@@ -534,9 +588,12 @@ s_i = \pi_0 + \Pi' Z_i + \delta' X_i + v_i
 </section>
 <section id="第2段階" class="level2">
 <h2 class="anchored" data-anchor-id="第2段階">第2段階</h2>
-<p>第2段階では、元の式の <span class="math inline">\(s_i\)</span> の代わりに、第１段階から得られた予測値 <span class="math inline">\(\hat{s}_i\)</span> を使って回帰する。</p>
+<p>第2段階では、元の式の <span class="math inline">\(s_i\)</span> の代わりに、第1段階から得られた予測値 <span class="math inline">\(\hat{s}_i\)</span> を使って回帰する。</p>
 <p><span class="math display">\[
-y_i = \beta_0 + \beta_1 \hat{s}_i + \gamma' X_i + \varepsilon_i
+y_i
+= \beta_0 + \beta_1 \hat{s}_i
++ \gamma_1 x_{1i} + \gamma_2 x_{2i} + \cdots
++ \varepsilon_i
 \]</span></p>
 <p>この回帰で得られる <span class="math inline">\(\hat{s}_i\)</span> の係数が、2SLS による <span class="math inline">\(\beta_1\)</span> の推定値である。</p>
 </section>
@@ -545,7 +602,7 @@ y_i = \beta_0 + \beta_1 \hat{s}_i + \gamma' X_i + \varepsilon_i
 <p>最も単純な場合には、2SLS 推定量は IV 推定量と一致する。 それを式で確認してみよう。</p>
 <p>ここでは簡単のため、</p>
 <ul>
-<li>コントロール変数 <span class="math inline">\(X_i\)</span> は入れない</li>
+<li>コントロール変数は入れない</li>
 <li>内生変数は 1 つだけで、それを <span class="math inline">\(s_i\)</span> と書く</li>
 <li>操作変数も 1 つだけで、それを <span class="math inline">\(z_i\)</span> と書く</li>
 </ul>
@@ -645,11 +702,11 @@ s_i = \pi_0 + \pi_1 z_i + v_i
 <h2 class="anchored" data-anchor-id="sls-は一般の-iv-法のどういう意味で特殊ケースか">2SLS は一般の IV 法のどういう意味で特殊ケースか</h2>
 <p>ここまで見ると、2SLS が操作変数法そのものに見えるかもしれない。 実際、実証研究では IV と 2SLS がほとんど同義のように使われることも多い。</p>
 <p>ただし厳密には、IV 法はもっと広い概念である。</p>
-<p>IV 法の本質は、操作変数 <span class="math inline">\(Z_i\)</span> を使って</p>
+<p>IV 法の本質は、操作変数を使って</p>
 <p><span class="math display">\[
-E[Z_i u_i] = 0
+E[z_i u_i] = 0
 \]</span></p>
-<p>というモーメント条件を立て、それを使って構造パラメータを識別・推定することにある。</p>
+<p>というようなモーメント条件を立て、それを使って構造パラメータを識別・推定することにある。</p>
 <p>その中で 2SLS は、</p>
 <ul>
 <li>モデルが線形で</li>
@@ -697,23 +754,30 @@ E[Z_i u_i] = 0
 </section>
 <section id="sls-の標準誤差" class="level1">
 <h1>2SLS の標準誤差</h1>
-<p>2slsは重回帰が２回あるので、重回帰の標準誤差の公式そのものを当てはめることができない。ここでは2slsの標準誤差の計算方法について述べる。</p>
+<p>2SLS は回帰を 2 回使って計算するので、第2段階の回帰結果に出てくる OLS の標準誤差をそのまま読めばよい、というわけではない。 ここでは、2SLS の標準誤差が何を測っていて、なぜ第1段階の強さに依存するのかを整理する。</p>
 <p>2SLS では、第1段階で</p>
 <p><span class="math display">\[
-s_i = \pi_0 + \Pi' Z_i + \delta' X_i + v_i
+s_i
+= \pi_0
++ \pi_1 z_{1i} + \pi_2 z_{2i} + \cdots
++ \delta_1 x_{1i} + \delta_2 x_{2i} + \cdots
++ v_i
 \]</span></p>
 <p>を推定し、その予測値 <span class="math inline">\(\hat{s}_i\)</span> を作ったうえで、第2段階で</p>
 <p><span class="math display">\[
-y_i = \beta_0 + \beta_1 \hat{s}_i + \gamma' X_i + \varepsilon_i
+y_i
+= \beta_0 + \beta_1 \hat{s}_i
++ \gamma_1 x_{1i} + \gamma_2 x_{2i} + \cdots
++ \varepsilon_i
 \]</span></p>
 <p>を推定する。</p>
-<p>このとき、見た目だけ見ると 「第2段階は <span class="math inline">\(y_i\)</span> を <span class="math inline">\(\hat{s}_i\)</span> と <span class="math inline">\(X_i\)</span> に回帰しているだけなのだから、普通の OLS と同じように標準誤差を計算すればよいのではないか」 と思いたくなる。</p>
+<p>このとき、見た目だけ見ると 「第2段階は <span class="math inline">\(y_i\)</span> を <span class="math inline">\(\hat{s}_i\)</span> とコントロール変数に回帰しているだけなのだから、普通の OLS と同じように標準誤差を計算すればよいのではないか」 と思いたくなる。</p>
 <p>しかし、<strong>それは一般には正しくない</strong>。</p>
 <section id="なぜ第2段階を普通の-ols-だと思ってはいけないのか" class="level2">
 <h2 class="anchored" data-anchor-id="なぜ第2段階を普通の-ols-だと思ってはいけないのか">なぜ第2段階を普通の OLS だと思ってはいけないのか</h2>
 <p>理由は単純である。 第2段階で使っている <span class="math inline">\(\hat{s}_i\)</span> は、最初から与えられた固定の説明変数ではない。 これは第1段階で推定された係数</p>
 <p><span class="math display">\[
-\hat{\pi}_0,\ \hat{\Pi},\ \hat{\delta}
+\hat{\pi}_0,\ \hat{\pi}_1,\ \hat{\pi}_2,\ \cdots,\ \hat{\delta}_1,\ \hat{\delta}_2,\ \cdots
 \]</span></p>
 <p>を使って作られた <strong>推定量</strong> である。</p>
 <p>つまり、第2段階では説明変数そのものに第1段階の推定誤差が入り込んでいる。</p>
@@ -722,7 +786,7 @@ y_i = \beta_0 + \beta_1 \hat{s}_i + \gamma' X_i + \varepsilon_i
 </section>
 <section id="sls-の標準誤差はどう計算するのか" class="level2">
 <h2 class="anchored" data-anchor-id="sls-の標準誤差はどう計算するのか">2SLS の標準誤差はどう計算するのか</h2>
-<p>2SLS では、「使ってよい説明変数の変動」は <span class="math inline">\(s_i\)</span> 全体ではなく、操作変数 <span class="math inline">\(Z_i\)</span> によって生み出された外生的な部分だけである。</p>
+<p>2SLS では、「使ってよい説明変数の変動」は <span class="math inline">\(s_i\)</span> 全体ではなく、操作変数によって生み出された外生的な部分だけである。</p>
 <p>したがって、標準誤差の式も、OLS のときの「残差の分散 ÷ 説明変数の分散」という形をそのまま使うのではなく、<strong>操作変数で説明できる部分だけを使った形</strong> になる。</p>
 <section id="まずは一番単純な場合" class="level3">
 <h3 class="anchored" data-anchor-id="まずは一番単純な場合">まずは一番単純な場合</h3>
@@ -743,7 +807,59 @@ y_i = \beta_0 + \beta_1 s_i + u_i
 {\sum_i (z_i-\bar z)(s_i-\bar s)}
 \]</span></p>
 <p>と書けた。</p>
-<p>この推定量のばらつきを考えると、同分散のもとでは、その分散はおおまかに</p>
+<p>この推定量のばらつきを、少しだけ式で見てみる。 構造式</p>
+<p><span class="math display">\[
+y_i = \beta_0 + \beta_1 s_i + u_i
+\]</span></p>
+<p>を使うと、<span class="math inline">\(y_i-\bar y\)</span> は</p>
+<p><span class="math display">\[
+y_i-\bar y
+= \beta_1(s_i-\bar s) + (u_i-\bar u)
+\]</span></p>
+<p>と書ける。 これを 2SLS 推定量の分子に代入すると、</p>
+<p><span class="math display">\[
+\begin{aligned}
+\sum_i (z_i-\bar z)(y_i-\bar y)
+&amp;=
+\sum_i (z_i-\bar z)
+\{\beta_1(s_i-\bar s)+(u_i-\bar u)\} \\
+&amp;=
+\beta_1\sum_i (z_i-\bar z)(s_i-\bar s)
++ \sum_i (z_i-\bar z)(u_i-\bar u).
+\end{aligned}
+\]</span></p>
+<p>ここで、<span class="math inline">\(\sum_i(z_i-\bar z)=0\)</span> なので、</p>
+<p><span class="math display">\[
+\sum_i (z_i-\bar z)(u_i-\bar u)
+= \sum_i (z_i-\bar z)u_i
+\]</span></p>
+<p>である。 したがって、</p>
+<p><span class="math display">\[
+\hat{\beta}_{2SLS}
+= \beta_1
++ \frac{\sum_i (z_i-\bar z)u_i}
+{\sum_i (z_i-\bar z)(s_i-\bar s)}
+\]</span></p>
+<p>となる。</p>
+<p>つまり、2SLS の推定誤差は</p>
+<p><span class="math display">\[
+\hat{\beta}_{2SLS}-\beta_1
+=
+\frac{\sum_i (z_i-\bar z)u_i}
+{\sum_i (z_i-\bar z)(s_i-\bar s)}
+\]</span></p>
+<p>である。 分子は「操作変数と構造誤差がたまたま一緒に動いてしまった部分」、分母は「操作変数が内生変数をどれだけ動かしているか」である。</p>
+<p>ここで、近似的に分母を固定された量として扱い、さらに同分散</p>
+<p><span class="math display">\[
+\operatorname{Var}(u_i\mid z_i)=\sigma_u^2
+\]</span></p>
+<p>を仮定すると、分子の分散はおおまかに</p>
+<p><span class="math display">\[
+\operatorname{Var}\left(\sum_i (z_i-\bar z)u_i\right)
+\approx
+\sigma_u^2\sum_i (z_i-\bar z)^2
+\]</span></p>
+<p>となる。 そのため、2SLS 推定量の分散は</p>
 <p><span class="math display">\[
 \operatorname{Var}(\hat{\beta}_{2SLS})
 \approx
@@ -751,7 +867,7 @@ y_i = \beta_0 + \beta_1 s_i + u_i
 {\left[\sum_i (z_i-\bar z)(s_i-\bar s)\right]^2}
 \]</span></p>
 <p>という形になる。</p>
-<p>ここで <span class="math inline">\(\sigma_u^2\)</span> は構造誤差 <span class="math inline">\(u_i\)</span> の分散である。</p>
+<p>ここで <span class="math inline">\(\sigma_u^2\)</span> は構造誤差 <span class="math inline">\(u_i\)</span> の分散である。 この式は近似であり、厳密な大標本理論では分母のランダムさも含めて扱う。 ただし、直感としてはこの式で十分である。 <strong>第1段階の共変動が小さいほど、分母が小さくなり、2SLS の分散は大きくなる。</strong></p>
 <p>したがって標準誤差は</p>
 <p><span class="math display">\[
 \operatorname{se}(\hat{\beta}_{2SLS})
@@ -794,15 +910,15 @@ y_i = \beta_0 + \beta_1 s_i + u_i
 </section>
 <section id="コントロール変数があるときはどうするか" class="level3">
 <h3 class="anchored" data-anchor-id="コントロール変数があるときはどうするか">コントロール変数があるときはどうするか</h3>
-<p>実際には、2SLS ではコントロール変数 <span class="math inline">\(X_i\)</span> を入れることが多い。 このときも考え方は同じである。 ただし、<span class="math inline">\(y_i\)</span>、<span class="math inline">\(s_i\)</span>、<span class="math inline">\(z_i\)</span> をそのまま比べるのではなく、<strong>まずコントロール変数 <span class="math inline">\(X_i\)</span> の影響を取り除いた後の変数同士で考える</strong>。</p>
+<p>実際には、2SLS ではコントロール変数 <span class="math inline">\(x_{1i}, x_{2i}, \cdots\)</span> を入れることが多い。 このときも考え方は同じである。 ただし、<span class="math inline">\(y_i\)</span>、<span class="math inline">\(s_i\)</span>、<span class="math inline">\(z_i\)</span> をそのまま比べるのではなく、<strong>まずコントロール変数の影響を取り除いた後の変数同士で考える</strong>。</p>
 <p>具体的には、</p>
 <ul>
-<li><span class="math inline">\(y_i\)</span> を <span class="math inline">\(X_i\)</span> に回帰した残差を <span class="math inline">\(\tilde y_i\)</span></li>
-<li><span class="math inline">\(s_i\)</span> を <span class="math inline">\(X_i\)</span> に回帰した残差を <span class="math inline">\(\tilde s_i\)</span></li>
-<li><span class="math inline">\(z_i\)</span> を <span class="math inline">\(X_i\)</span> に回帰した残差を <span class="math inline">\(\tilde z_i\)</span></li>
+<li><span class="math inline">\(y_i\)</span> を <span class="math inline">\(x_{1i}, x_{2i}, \cdots\)</span> に回帰した残差を <span class="math inline">\(\tilde y_i\)</span></li>
+<li><span class="math inline">\(s_i\)</span> を <span class="math inline">\(x_{1i}, x_{2i}, \cdots\)</span> に回帰した残差を <span class="math inline">\(\tilde s_i\)</span></li>
+<li><span class="math inline">\(z_i\)</span> を <span class="math inline">\(x_{1i}, x_{2i}, \cdots\)</span> に回帰した残差を <span class="math inline">\(\tilde z_i\)</span></li>
 </ul>
 <p>とする。</p>
-<p>これは、「<span class="math inline">\(X_i\)</span> で説明できる部分を落としたあとに残る変動」を意味する。 重回帰の Frisch–Waugh–Lovell の定理と同じ発想である。</p>
+<p>これは、「コントロール変数で説明できる部分を落としたあとに残る変動」を意味する。 重回帰の Frisch–Waugh–Lovell の定理と同じ発想である。</p>
 <p>すると、コントロール付きの 2SLS 推定量は</p>
 <p><span class="math display">\[
 \hat{\beta}_{2SLS} = \frac{\sum_i \tilde z_i \tilde y_i}
@@ -839,7 +955,7 @@ y_i = \beta_0 + \beta_1 s_i + u_i
 <h3 class="anchored" data-anchor-id="heteroskedasticity-があると何が変わるか">heteroskedasticity があると何が変わるか</h3>
 <p>ここまでは、誤差項の分散がすべての観測で同じ、すなわち</p>
 <p><span class="math display">\[
-\operatorname{Var}(u_i \mid Z_i, X_i)=\sigma_u^2
+\operatorname{Var}(u_i \mid z_i, x_{1i}, x_{2i}, \cdots)=\sigma_u^2
 \]</span></p>
 <p>であることを仮定していた。</p>
 <p>しかし実際のデータでは、個人によって誤差のばらつきが違うことはよくある。 たとえば高学歴の人ほど賃金のばらつきが大きい、というような状況では、不均一分散 (heteroskedasticity) が起きている。</p>
@@ -909,7 +1025,7 @@ y_i = \beta_0 + \beta_1 s_i + u_i
 <p>例えば、「教育年数」に対するIVとして、「四半期ダミー」と「双子ダミー」の二つをIVとして当てることも可能だ。</p>
 <p>双子だと予期せずに教育負担が倍になるので比較的ランダムに教育年数を変動させてくれるので、これも有効なIVである。</p>
 <p>しかしこのようにIVが複数あると、今までのような 1 本の比の形では書けなくなる。</p>
-<p>こういうケースは2slsではなく操作変数法の一般的な表記で理解した方が良い。これはこの講義では扱わない。</p>
+<p>こういうケースでは、1本の分数だけで手計算するより、2SLS をソフトウェアで実装して理解する方が自然である。 細かい一般式はこの講義では扱わない。</p>
 <p>しかし考え方は同じである。</p>
 <ul>
 <li>まず第1段階で、内生変数のうち操作変数で説明できる部分を取り出す</li>
@@ -930,7 +1046,7 @@ y_i = \beta_0 + \beta_1 s_i + u_i
 <p>以下、二つのシミュレーションを通してIVへの理解を深める。</p>
 <ol type="1">
 <li>2段階で最小二乗法を実装して、IVのパッケージと同じ結果を出すか</li>
-<li>2slsの標準誤差は1st stage次第ということを理解する。</li>
+<li>2SLS の標準誤差は1st stage次第ということを理解する。</li>
 </ol>
 <section id="シミュレーション最も単純な-2sls" class="level2">
 <h2 class="anchored" data-anchor-id="シミュレーション最も単純な-2sls">シミュレーション：最も単純な 2SLS</h2>
@@ -1264,7 +1380,14 @@ s_i = \pi z_i + 0.8 a_i + v_i
 </section>
 <section id="標準誤差と実際のばらつきの関係" class="level3">
 <h3 class="anchored" data-anchor-id="標準誤差と実際のばらつきの関係">標準誤差と実際のばらつきの関係</h3>
-<p>robust 標準誤差の平均と、実際の <span class="math inline">\(\hat\beta\)</span> の標準偏差を並べる。</p>
+<p>ここでいう「実際のばらつき」とは、現実のデータで直接観察できるものではない。 現実の実証研究では、手元にある標本は普通 1 つだけなので、「同じ研究を何度もやり直したら推定値がどれくらい散らばるか」は見えない。</p>
+<p>しかしシミュレーションでは、同じデータ生成過程から何度も標本を作り直せる。 そこで、同じ <span class="math inline">\(\pi\)</span> の値について 100 回データを作り、100 個の <span class="math inline">\(\hat{\beta}_{2SLS}\)</span> を得る。 この 100 個の推定値の標準偏差が、ここでいう <strong>実際のばらつき</strong> である。</p>
+<p>一方、標準誤差は、各サンプルの中で計算される「この推定値はどれくらいぶれそうか」という推定値である。 つまり、ここでは</p>
+<ul>
+<li><strong>実際のばらつき</strong>：シミュレーションを何度も回したときの <span class="math inline">\(\hat{\beta}_{2SLS}\)</span> の標準偏差</li>
+<li><strong>報告される標準誤差</strong>：各回のデータだけから計算された標準誤差の平均</li>
+</ul>
+<p>を並べている。 標準誤差がうまく働いていれば、後者は前者に近い値になるはずである。</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>compare_table <span class="ot">&lt;-</span> <span class="fu">merge</span>(summary_table[, <span class="fu">c</span>(<span class="st">"pi"</span>, <span class="st">"se_rob"</span>, <span class="st">"f_1st"</span>)], sd_table, <span class="at">by =</span> <span class="st">"pi"</span>)</span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>compare_table</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
@@ -1303,7 +1426,7 @@ s_i = \pi z_i + 0.8 a_i + v_i
 </ul>
 <p>ことがわかる。</p>
 <p>つまり、<strong>2SLS の標準誤差は第1段階の強さに強く依存している</strong>。<br>
-このことが、次に学ぶ weak IV 問題の出発点である。 `</p>
+このことが、次に学ぶ weak IV 問題の出発点である。</p>
 <div class="callout callout-style-simple callout-warning callout-titled" title="Weak IV は本当に危ない">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -1322,7 +1445,7 @@ s_i = \pi z_i + 0.8 a_i + v_i
 </section>
 <section id="weak-iv" class="level1">
 <h1>Weak IV</h1>
-<p>ここまで見たように、操作変数法がうまくいくためには、操作変数 <span class="math inline">\(Z_i\)</span> が内生変数 <span class="math inline">\(s_i\)</span> を十分に動かしてくれなければならない。 この「十分に動かす」という条件が弱いときに起きるのが <strong>Weak IV 問題</strong> である。</p>
+<p>ここまで見たように、操作変数法がうまくいくためには、操作変数 <span class="math inline">\(z_i\)</span> が内生変数 <span class="math inline">\(s_i\)</span> を十分に動かしてくれなければならない。 この「十分に動かす」という条件が弱いときに起きるのが <strong>Weak IV 問題</strong> である。</p>
 <p>まず、構造式と第1段階を</p>
 <p><span class="math display">\[
 y_i = \beta s_i + u_i
@@ -1336,11 +1459,73 @@ s_i = \pi z_i + v_i
 \pi \neq 0
 \]</span></p>
 <p>でなければならない。 つまり、第1段階で <span class="math inline">\(z_i\)</span> が <span class="math inline">\(s_i\)</span> を動かしていなければならない。</p>
-<p>Weak IV とは、この <span class="math inline">\(\pi\)</span> が 0 ではないとしても <strong>十分に大きくない</strong> 場合をいう。 より formal には、標本サイズ <span class="math inline">\(n\)</span> が大きくなっても、第1段階の係数が</p>
+<p>Weak IV とは、この <span class="math inline">\(\pi\)</span> が 0 ではないとしても <strong>十分に大きくない</strong> 場合をいう。</p>
+<p>二値の操作変数なら、直感的には</p>
+<p><span class="math display">\[
+E[s_i\mid z_i=1]-E[s_i\mid z_i=0]
+\]</span></p>
+<p>という2グループ間の差が first stage の強さである。 この差が大きければ、<span class="math inline">\(z_i\)</span> は <span class="math inline">\(s_i\)</span> をはっきり動かしている。 この差がほとんど 0 なら、<span class="math inline">\(z_i\)</span> は <span class="math inline">\(s_i\)</span> をほとんど動かしていない。</p>
+<p>視覚的には、次のように考えるとよい。</p>
+<pre class="text"><code>Strong IV:
+z=0 の s 分布     oooooooo
+z=1 の s 分布                  oooooooo
+                  平均がはっきり離れている
+
+Weak IV:
+z=0 の s 分布          oooooooo
+z=1 の s 分布           oooooooo
+                       平均がほとんど同じ</code></pre>
+<p>より formal には、標本サイズ <span class="math inline">\(n\)</span> が大きくなっても、第1段階の係数が</p>
 <p><span class="math display">\[
 \pi = \frac{c}{\sqrt{n}}
 \]</span></p>
-<p>のようなオーダーでしか大きくならない場合を weak instrument asymptotics と呼ぶ。 これは、「サンプルが増えても、第1段階の信号がノイズに比べて十分強くならない」状況を表している。Staiger and Stock (1997) はこの極限理論を用いて、弱い操作変数のもとでは通常の 2SLS の近似理論が大きく崩れることを示した。 (<a href="https://academic.oup.com/qje/article-abstract/106/4/979/1873496?utm_source=chatgpt.com" title="Does Compulsory School Attendance Affect Schooling and ...">drphilipshaw.com</a>)</p>
+<p>のようなオーダーでしか大きくならない場合を weak instrument asymptotics と呼ぶ。 ここで大事なのは、<span class="math inline">\(\pi\)</span> が「固定された小さい値」ではなく、<span class="math inline">\(n\)</span> が増えるにつれて小さくなるように考えている点である。</p>
+<p>なぜそんな考え方をするのか。 通常の strong IV では、<span class="math inline">\(\pi\)</span> が 0 から離れた値に固定されている。 その場合、サンプルサイズが増えるほど first stage の信号はノイズに比べて見えやすくなる。 一方、weak instrument asymptotics では、サンプルが増えるにつれて1人あたりの first stage が弱くなるので、全体としての信号の見えやすさがあまり改善しない。</p>
+<pre class="text"><code>Strong IV のイメージ
+n が増える:    first-stage の信号 / ノイズ  =  小  -&gt;  中  -&gt;  大
+               F 統計量も大きくなりやすい
+
+Weak IV asymptotics のイメージ
+n が増える:    first-stage の信号 / ノイズ  =  小  -&gt;  小  -&gt;  小
+               F 統計量が大きくならない</code></pre>
+<p>表にすると次のようになる。</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 21%">
+<col style="width: 28%">
+<col style="width: 21%">
+<col style="width: 28%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>状況</th>
+<th style="text-align: right;">第1段階の係数</th>
+<th>サンプルを増やすと何が起きるか</th>
+<th style="text-align: right;">first-stage F のイメージ</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>relevance なし</td>
+<td style="text-align: right;"><span class="math inline">\(\pi=0\)</span></td>
+<td><span class="math inline">\(z_i\)</span> は <span class="math inline">\(s_i\)</span> を動かさない</td>
+<td style="text-align: right;">0 に近い</td>
+</tr>
+<tr class="even">
+<td>weak IV</td>
+<td style="text-align: right;"><span class="math inline">\(\pi=c/\sqrt{n}\)</span> 程度</td>
+<td>データを増やしても信号がノイズから十分に浮き上がらない</td>
+<td style="text-align: right;">小さいまま</td>
+</tr>
+<tr class="odd">
+<td>strong IV</td>
+<td style="text-align: right;"><span class="math inline">\(\pi\)</span> が 0 から離れている</td>
+<td>データを増やすと first stage がだんだん明確になる</td>
+<td style="text-align: right;">大きくなりやすい</td>
+</tr>
+</tbody>
+</table>
+<p>Staiger and Stock (1997) はこの極限理論を用いて、弱い操作変数のもとでは通常の 2SLS の近似理論が大きく崩れることを示した。 (<a href="https://drphilipshaw.com/Staiger-Stock-1997.pdf?utm_source=chatgpt.com" title="Instrumental Variables Regression with Weak Instruments">PDF</a>)</p>
 <p>学部レベルでは、Weak IV を次のように理解しておけばよい。</p>
 <ul>
 <li><strong>relevance はあるが弱い</strong></li>
@@ -1349,16 +1534,34 @@ s_i = \pi z_i + v_i
 </ul>
 <p>実際、1本の操作変数の IV 推定量は</p>
 <p><span class="math display">\[
-\hat\beta_{IV} = \frac{\sum_i z_i y_i}{\sum_i z_i s_i}
+\hat\beta_{IV}
+=
+\frac{\sum_i (z_i-\bar z)(y_i-\bar y)}
+{\sum_i (z_i-\bar z)(s_i-\bar s)}
 \]</span></p>
-<p>のような形で書けるので、分母の <span class="math inline">\(\sum_i z_i s_i\)</span>、すなわち第1段階の共変動が小さいと、推定量のばらつきが一気に大きくなる。 Weak IV 問題とは、まさにこの「第1段階の分母が弱すぎる」ことから生じる問題である。</p>
+<p>のような形で書けるので、分母の <span class="math inline">\(\sum_i (z_i-\bar z)(s_i-\bar s)\)</span>、すなわち第1段階の共変動が小さいと、推定量のばらつきが一気に大きくなる。 Weak IV 問題とは、まさにこの「第1段階の分母が弱すぎる」ことから生じる問題である。</p>
 <section id="なぜ-weak-iv-は問題なのか" class="level2">
 <h2 class="anchored" data-anchor-id="なぜ-weak-iv-は問題なのか">なぜ Weak IV は問題なのか</h2>
 <p>Weak IV の下で困るのは、単に標準誤差が大きくなることだけではない。 もっと深刻なのは、<strong>通常の 2SLS の t 検定や信頼区間が信用できなくなる</strong> ことである。</p>
 <section id="sls-推定量が不安定になる" class="level3">
 <h3 class="anchored" data-anchor-id="sls-推定量が不安定になる">1. 2SLS 推定量が不安定になる</h3>
 <p>第1段階が弱いと、2SLS 推定量は標本ごとに大きくぶれやすい。 直感的には、「<span class="math inline">\(z_i\)</span> が <span class="math inline">\(s_i\)</span> をほとんど動かしていないのに、そのわずかな変動だけで <span class="math inline">\(\beta\)</span> を割り出そうとしている」ので、推定値が暴れやすい。</p>
-<p>さらに、弱い IV のもとでは 2SLS 推定量は有限標本で OLS の方向に引っ張られやすいことが知られている。 Staiger and Stock (1997) は、この有限標本バイアスが無視できなくなることを理論的に示した。 (<a href="https://academic.oup.com/qje/article-abstract/106/4/979/1873496?utm_source=chatgpt.com" title="Does Compulsory School Attendance Affect Schooling and ...">drphilipshaw.com</a>)</p>
+<p>もう少し図式的に書くと、2SLS は</p>
+<pre class="text"><code>reduced form:  z が y をどれだけ動かすか
+first stage:   z が s をどれだけ動かすか
+
+IV 推定値 = reduced form / first stage</code></pre>
+<p>という割り算をしている。</p>
+<p>Strong IV なら、分母である first stage が大きく、標本ごとのノイズにあまり左右されない。</p>
+<pre class="text"><code>Strong IV:
+IV 推定値 = そこそこ noisy な分子 / 大きくて安定した分母
+          -&gt; 推定値は比較的安定する</code></pre>
+<p>Weak IV だと、分母そのものが小さく、しかも標本ごとの偶然でかなり揺れる。</p>
+<pre class="text"><code>Weak IV:
+IV 推定値 = noisy な分子 / 小さくて noisy な分母
+          -&gt; 分母がたまたま 0 に近づくと推定値が大きく跳ねる</code></pre>
+<p>このため、<span class="math inline">\(\hat{\beta}_{2SLS}\)</span> の分布はきれいな正規分布から外れやすく、裾が厚くなったり、OLS の方向に引っ張られたりする。</p>
+<p>さらに、弱い IV のもとでは 2SLS 推定量は有限標本で OLS の方向に引っ張られやすいことが知られている。 Staiger and Stock (1997) は、この有限標本バイアスが無視できなくなることを理論的に示した。 (<a href="https://drphilipshaw.com/Staiger-Stock-1997.pdf?utm_source=chatgpt.com" title="Instrumental Variables Regression with Weak Instruments">PDF</a>)</p>
 </section>
 <section id="t-検定のサイズが崩れる" class="level3">
 <h3 class="anchored" data-anchor-id="t-検定のサイズが崩れる">2. t 検定のサイズが崩れる</h3>
@@ -1366,8 +1569,17 @@ s_i = \pi z_i + v_i
 <p><span class="math display">\[
 t = \frac{\hat\beta_{2SLS} - \beta_0}{\widehat{\operatorname{se}}(\hat\beta_{2SLS})}
 \]</span></p>
-<p>を計算し、これが標準正規分布に近いと考えて検定する。 しかし weak IV のもとでは、この近似が壊れる。</p>
-<p>その結果、本当は帰無仮説が正しいのに、5% 有意水準の検定で 5% を大きく超える頻度で棄却してしまうことがある。 つまり、<strong>有意だと思った結果が、実は weak IV による見かけ上の有意性かもしれない</strong>。 この点が、weak IV が実証研究で特に怖がられている理由である。 (<a href="https://ideas.repec.org/a/aea/aecrev/v80y1990i3p313-36.html?utm_source=chatgpt.com" title="Lifetime Earnings and the Vietnam Era Draft Lottery">NBER</a>)</p>
+<p>を計算し、これが標準正規分布に近いと考えて検定する。 しかし weak IV のもとでは、この近似が壊れる。 問題は「標準誤差が大きい」だけではない。 通常の標準誤差は、first stage が十分強く、分母のランダムさが大きな問題にならないという近似の上で作られている。 weak IV では分母のノイズが無視できないので、通常の <span class="math inline">\(\widehat{\operatorname{se}}(\hat\beta_{2SLS})\)</span> で割っても、<span class="math inline">\(t\)</span> 統計量が標準正規分布に近づくとは限らない。</p>
+<p>したがって、ここで起きているのは、単純に</p>
+<blockquote class="blockquote">
+<p>標準誤差が大きくなる</p>
+</blockquote>
+<p>だけではなく、</p>
+<blockquote class="blockquote">
+<p>通常の標準誤差と通常の <span class="math inline">\(t\)</span> 近似に基づく推論が信用できなくなる</p>
+</blockquote>
+<p>という問題である。</p>
+<p>その結果、本当は帰無仮説が正しいのに、5% 有意水準の検定で 5% を大きく超える頻度で棄却してしまうことがある。 つまり、<strong>有意だと思った結果が、実は weak IV による見かけ上の有意性かもしれない</strong>。 この点が、weak IV が実証研究で特に怖がられている理由である。 (<a href="https://www.nber.org/system/files/working_papers/t0284/t0284.pdf?utm_source=chatgpt.com" title="Testing for Weak Instruments in Linear IV Regression">NBER</a>)</p>
 </section>
 <section id="信頼区間もあてにならない" class="level3">
 <h3 class="anchored" data-anchor-id="信頼区間もあてにならない">3. 信頼区間もあてにならない</h3>
@@ -1381,9 +1593,9 @@ t = \frac{\hat\beta_{2SLS} - \beta_0}{\widehat{\operatorname{se}}(\hat\beta_{2SL
 </section>
 <section id="なぜ実証研究で大きな問題として意識されるようになったのか" class="level2">
 <h2 class="anchored" data-anchor-id="なぜ実証研究で大きな問題として意識されるようになったのか">なぜ実証研究で大きな問題として意識されるようになったのか</h2>
-<p>IV はもともと、「OLS には内生性バイアスがあるから、それを避けるために使う方法」として広く使われてきた。 ところが 1990 年代になると、操作変数が「外生的ではあるが弱い」ケースでは、2SLS の usual inference が大きく壊れうることが体系的に理解されるようになった。 その転換点になったのが Staiger and Stock (1997) である。 (<a href="https://academic.oup.com/qje/article-abstract/106/4/979/1873496?utm_source=chatgpt.com" title="Does Compulsory School Attendance Affect Schooling and ...">drphilipshaw.com</a>)</p>
-<p>この文脈では、Angrist and Krueger (1991) のような「制度的にはもっともらしいが、第1段階はそこまで強くないかもしれない」IV の応用が重要な題材になった。 「IV を使っているから安心」ではなく、<strong>その IV は十分強いのか</strong> を必ず確認しなければならない、という認識が広がったのである。 (<a href="https://academic.oup.com/qje/article-abstract/106/4/979/1873496?utm_source=chatgpt.com" title="Does Compulsory School Attendance Affect Schooling and ...">drphilipshaw.com</a>)</p>
-<p>さらに近年では、報告される first-stage F がちょうど 10 を少し上回るあたりに結果が集まりやすい、というメタ研究もあり、研究者が weak-IV 診断に反応して仕様選択している可能性が議論されている。 つまり weak IV は単なる理論上の問題ではなく、実証研究の実務に深く入り込んでいる問題である。 (<a href="https://ideas.repec.org/a/aea/aecrev/v88y1998i3p450-77.html?utm_source=chatgpt.com" title="Children and Their Parents' Labor Supply: Evidence from ...">JSTOR</a>)</p>
+<p>IV はもともと、「OLS には内生性バイアスがあるから、それを避けるために使う方法」として広く使われてきた。 ところが 1990 年代になると、操作変数が「外生的ではあるが弱い」ケースでは、2SLS の usual inference が大きく壊れうることが体系的に理解されるようになった。 その転換点になったのが Staiger and Stock (1997) である。 (<a href="https://drphilipshaw.com/Staiger-Stock-1997.pdf?utm_source=chatgpt.com" title="Instrumental Variables Regression with Weak Instruments">PDF</a>)</p>
+<p>この文脈では、Angrist and Krueger (1991) のような「制度的にはもっともらしいが、第1段階はそこまで強くないかもしれない」IV の応用が重要な題材になった。 「IV を使っているから安心」ではなく、<strong>その IV は十分強いのか</strong> を必ず確認しなければならない、という認識が広がったのである。 (<a href="https://drphilipshaw.com/Staiger-Stock-1997.pdf?utm_source=chatgpt.com" title="Instrumental Variables Regression with Weak Instruments">PDF</a>)</p>
+<p>さらに近年では、報告される first-stage F がちょうど 10 を少し上回るあたりに結果が集まりやすい、というメタ研究もあり、研究者が weak-IV 診断に反応して仕様選択している可能性が議論されている。 つまり weak IV は単なる理論上の問題ではなく、実証研究の実務に深く入り込んでいる問題である。 (<a href="https://www.jstor.org/stable/26773910?utm_source=chatgpt.com" title="Weak Instruments in Instrumental Variables Regression">JSTOR</a>)</p>
 </section>
 <section id="weak-iv-をどう診断するか" class="level2">
 <h2 class="anchored" data-anchor-id="weak-iv-をどう診断するか">Weak IV をどう診断するか</h2>
@@ -1391,15 +1603,19 @@ t = \frac{\hat\beta_{2SLS} - \beta_0}{\widehat{\operatorname{se}}(\hat\beta_{2SL
 <h3 class="anchored" data-anchor-id="まずは第1段階を見る">1. まずは第1段階を見る</h3>
 <p>最も基本的なのは、第1段階回帰</p>
 <p><span class="math display">\[
-s_i = \pi_0 + \Pi' Z_i + \delta' X_i + v_i
+s_i
+= \pi_0
++ \pi_1 z_{1i} + \pi_2 z_{2i} + \cdots
++ \delta_1 x_{1i} + \delta_2 x_{2i} + \cdots
++ v_i
 \]</span></p>
 <p>を推定して、「除外された操作変数」がどれくらい強く <span class="math inline">\(s_i\)</span> を説明しているかを見ることである。</p>
-<p>とくに、内生変数が1つのときには、第1段階での excluded instruments の F 統計量がよく使われる。 経験則として <strong>first-stage F が 10 未満なら weak IV を疑う</strong> というルールが広く使われてきた。 これは Staiger and Stock (1997) の実務的な rule of thumb として広まり、その後 Stock and Yogo (2005) がより formal な臨界値表を与えた。 (<a href="https://ideas.repec.org/a/aea/aecrev/v80y1990i3p313-36.html?utm_source=chatgpt.com" title="Lifetime Earnings and the Vietnam Era Draft Lottery">NBER</a>)</p>
-<p>ただし、<strong>F &gt; 10 なら絶対に安全</strong> という意味ではない。 10 という数字は万能ではなく、許容したいバイアスや size distortion の大きさ、内生変数の数、操作変数の数によって基準は変わる。 したがって、より厳密には Stock–Yogo の臨界値表と比較する。 (<a href="https://ideas.repec.org/a/aea/aecrev/v80y1990i3p313-36.html?utm_source=chatgpt.com" title="Lifetime Earnings and the Vietnam Era Draft Lottery">NBER</a>)</p>
+<p>とくに、内生変数が1つのときには、第1段階での excluded instruments の F 統計量がよく使われる。 経験則として <strong>first-stage F が 10 未満なら weak IV を疑う</strong> というルールが広く使われてきた。 これは Staiger and Stock (1997) の実務的な rule of thumb として広まり、その後 Stock and Yogo (2005) がより formal な臨界値表を与えた。 (<a href="https://www.nber.org/system/files/working_papers/t0284/t0284.pdf?utm_source=chatgpt.com" title="Testing for Weak Instruments in Linear IV Regression">NBER</a>)</p>
+<p>ただし、<strong>F &gt; 10 なら絶対に安全</strong> という意味ではない。 10 という数字は万能ではなく、許容したいバイアスや size distortion の大きさ、内生変数の数、操作変数の数によって基準は変わる。 したがって、より厳密には Stock–Yogo の臨界値表と比較する。 (<a href="https://www.nber.org/system/files/working_papers/t0284/t0284.pdf?utm_source=chatgpt.com" title="Testing for Weak Instruments in Linear IV Regression">NBER</a>)</p>
 </section>
 <section id="複数の内生変数があるときはもっと注意が必要" class="level3">
 <h3 class="anchored" data-anchor-id="複数の内生変数があるときはもっと注意が必要">2. 複数の内生変数があるときはもっと注意が必要</h3>
-<p>内生変数が複数ある場合には、「平均的には強そう」に見えても、ある特定の内生変数に対してだけ weak IV になっていることがある。 この場合、単純な first-stage F だけでは不十分で、Cragg–Donald 統計量や Sanderson–Windmeijer の conditional F などを併用することが推奨される。 (<a href="https://www.aeaweb.org/articles?id=10.1257%2Faer.91.4.795&amp;utm_source=chatgpt.com" title="Schooling and Labor Market Consequences of ...">Institute for Fiscal Studies</a>)</p>
+<p>内生変数が複数ある場合には、「平均的には強そう」に見えても、ある特定の内生変数に対してだけ weak IV になっていることがある。 この場合、単純な first-stage F だけでは不十分で、Cragg–Donald 統計量や Sanderson–Windmeijer の conditional F などを併用することが推奨される。 (<a href="https://ifs.org.uk/sites/default/files/output_url_files/cwp311515.pdf?utm_source=chatgpt.com" title="A weak instrument F-test in linear IV models with multiple ...">Institute for Fiscal Studies</a>)</p>
 </section>
 </section>
 <section id="weak-iv-への対策" class="level2">
@@ -1424,7 +1640,7 @@ s_i = \pi_0 + \Pi' Z_i + \delta' X_i + v_i
 <li><strong>Conditional Likelihood Ratio (CLR) test</strong></li>
 <li><strong>score / LM 系の検定</strong></li>
 </ul>
-<p>とくに AR 検定は古典的で、操作変数が弱くても正しいサイズを保つことで知られている。 Moreira (2003) の CLR 検定は、その後の weak-IV robust inference の中心的手法になった。 (<a href="https://academic.oup.com/qje/article-abstract/111/2/319/1938359?utm_source=chatgpt.com" title="Effect of Prison Population Size on Crime Rates">JSTOR</a>)</p>
+<p>とくに AR 検定は古典的で、操作変数が弱くても正しいサイズを保つことで知られている。 Moreira (2003) の CLR 検定は、その後の weak-IV robust inference の中心的手法になった。 (<a href="https://www.jstor.org/stable/1555489?utm_source=chatgpt.com" title="A Conditional Likelihood Ratio Test for Structural Models">JSTOR</a>)</p>
 <p>学部の段階では細かい式までは追わなくてよいが、メッセージは明確である。 <strong>「weak IV かもしれないなら、いつもの t 検定ではなく、weak-IV に頑健な検定を使う必要がある」</strong>。</p>
 </section>
 <section id="推定量そのものを変える" class="level3">
@@ -1434,7 +1650,7 @@ s_i = \pi_0 + \Pi' Z_i + \delta' X_i + v_i
 <li><strong>LIML</strong></li>
 <li><strong>Fuller estimator</strong></li>
 </ul>
-<p>であり、これらは 2SLS より weak IV に強いことが多い。 Stock and Yogo (2005) も、2SLS だけでなく LIML や Fuller を念頭に置いた weak-IV 診断を議論している。 (<a href="https://ideas.repec.org/a/aea/aecrev/v80y1990i3p313-36.html?utm_source=chatgpt.com" title="Lifetime Earnings and the Vietnam Era Draft Lottery">NBER</a>)</p>
+<p>であり、これらは 2SLS より weak IV に強いことが多い。 Stock and Yogo (2005) も、2SLS だけでなく LIML や Fuller を念頭に置いた weak-IV 診断を議論している。 (<a href="https://www.nber.org/system/files/working_papers/t0284/t0284.pdf?utm_source=chatgpt.com" title="Testing for Weak Instruments in Linear IV Regression">NBER</a>)</p>
 </section>
 </section>
 <section id="実務上のまとめ" class="level2">
@@ -1470,7 +1686,30 @@ s_i = \pi_0 + \Pi' Z_i + \delta' X_i + v_i
 <p>以下では、以前導入した potential outcomes の表記と整合的に、この点を整理する。</p>
 <section id="potential-outcomes-による表記" class="level3">
 <h3 class="anchored" data-anchor-id="potential-outcomes-による表記">potential outcomes による表記</h3>
-<p>処置変数を <span class="math inline">\(D_i \in \{0,1\}\)</span>、結果変数を <span class="math inline">\(Y_i\)</span>、操作変数を <span class="math inline">\(Z_i \in \{0,1\}\)</span> とする。 各個人 <span class="math inline">\(i\)</span> について、</p>
+<p>処置変数を <span class="math inline">\(D_i \in \{0,1\}\)</span>、結果変数を <span class="math inline">\(Y_i\)</span>、操作変数を <span class="math inline">\(Z_i \in \{0,1\}\)</span> とする。</p>
+<p>この記法が何を表しているのかを、教育の例で先に見ておく。</p>
+<p>まず、普通の RCT で <strong>処置そのもの</strong> を直接ランダムに割り当てる場合を考える。 たとえば、補習プログラムを受けるかどうかを研究者がランダムに決められるなら、</p>
+<ul>
+<li><span class="math inline">\(D_i=1\)</span>：補習を受ける</li>
+<li><span class="math inline">\(D_i=0\)</span>：補習を受けない</li>
+<li><span class="math inline">\(Y_i\)</span>：テストスコア</li>
+</ul>
+<p>である。 この場合、ランダム化されているのは <span class="math inline">\(D_i\)</span> そのものなので、処置群と対照群を比べれば、比較的まっすぐに補習の平均効果を推定できる。</p>
+<p>一方、IV の典型例では、研究者が <span class="math inline">\(D_i\)</span> を直接動かせない。 たとえば、学校バウチャーや奨学金のオファーをランダムに配る設定を考える。 このとき、</p>
+<ul>
+<li><span class="math inline">\(Z_i=1\)</span>：バウチャーのオファーを受ける</li>
+<li><span class="math inline">\(Z_i=0\)</span>：バウチャーのオファーを受けない</li>
+<li><span class="math inline">\(D_i=1\)</span>：実際に私立学校に通う、あるいは追加的に進学する</li>
+<li><span class="math inline">\(D_i=0\)</span>：そうしない</li>
+<li><span class="math inline">\(Y_i\)</span>：テストスコア、卒業、将来の賃金など</li>
+</ul>
+<p>である。 この場合、ランダムに決まっているのは <span class="math inline">\(Z_i\)</span>、つまり「バウチャーをもらうかどうか」であって、<span class="math inline">\(D_i\)</span> そのものではない。 バウチャーをもらっても使わない人がいるし、バウチャーがなくても私立学校に通う人もいる。</p>
+<p>したがって、<span class="math inline">\(Z_i=1\)</span> と <span class="math inline">\(Z_i=0\)</span> の結果の差は、バウチャーのオファーが結果をどれだけ変えたか、つまり reduced form を表す。 一方、<span class="math inline">\(Z_i=1\)</span> と <span class="math inline">\(Z_i=0\)</span> の <span class="math inline">\(D_i\)</span> の差は、バウチャーのオファーが実際の学校選択や進学をどれだけ変えたか、つまり first stage を表す。 IV はこの2つを割ることで、</p>
+<blockquote class="blockquote">
+<p>バウチャーのオファーによって実際に学校選択や進学を変えた人たちにとって、学校選択や進学が <span class="math inline">\(Y_i\)</span> に与えた効果</p>
+</blockquote>
+<p>を取り出そうとしている。 これが LATE の直感である。</p>
+<p>各個人 <span class="math inline">\(i\)</span> について、</p>
 <ul>
 <li>処置を受けたときの潜在結果を <span class="math inline">\(Y_i(1)\)</span></li>
 <li>処置を受けなかったときの潜在結果を <span class="math inline">\(Y_i(0)\)</span></li>
@@ -1526,10 +1765,10 @@ D_i(1) \geq D_i(0) \qquad \text{for all } i
 <h3 class="anchored" data-anchor-id="人々のタイプ分け">人々のタイプ分け</h3>
 <p><span class="math inline">\(D_i(1)\)</span> と <span class="math inline">\(D_i(0)\)</span> によって、人々は4つのタイプに分けられる。</p>
 <ul>
-<li><p><strong>always-taker</strong>: <span class="math inline">\(D_i(1)=1,; D_i(0)=1\)</span> 操作変数に関係なく常に処置を受ける人</p></li>
-<li><p><strong>never-taker</strong>: <span class="math inline">\(D_i(1)=0,; D_i(0)=0\)</span> 操作変数に関係なく常に処置を受けない人</p></li>
-<li><p><strong>complier</strong>: <span class="math inline">\(D_i(1)=1,; D_i(0)=0\)</span> 操作変数に従って処置状態が変わる人</p></li>
-<li><p><strong>defier</strong>: <span class="math inline">\(D_i(1)=0,; D_i(0)=1\)</span> 操作変数に逆らうように処置状態が変わる人</p></li>
+<li><p><strong>always-taker</strong>: <span class="math inline">\(D_i(1)=1,\ D_i(0)=1\)</span> 操作変数に関係なく常に処置を受ける人</p></li>
+<li><p><strong>never-taker</strong>: <span class="math inline">\(D_i(1)=0,\ D_i(0)=0\)</span> 操作変数に関係なく常に処置を受けない人</p></li>
+<li><p><strong>complier</strong>: <span class="math inline">\(D_i(1)=1,\ D_i(0)=0\)</span> 操作変数に従って処置状態が変わる人</p></li>
+<li><p><strong>defier</strong>: <span class="math inline">\(D_i(1)=0,\ D_i(0)=1\)</span> 操作変数に逆らうように処置状態が変わる人</p></li>
 </ul>
 <p>monotonicity は、この最後の defier が存在しないという仮定である。</p>
 </section>
@@ -1542,10 +1781,92 @@ D_i(1) \geq D_i(0) \qquad \text{for all } i
 \]</span></p>
 <p>で書ける。</p>
 <p>この式の分子は、「操作変数を 0 から 1 に変えたとき、結果が平均的にどれだけ変わるか」である。 分母は、「操作変数を 0 から 1 に変えたとき、処置確率が平均的にどれだけ変わるか」である。</p>
-<p>排除制約と独立性のもとでは、分子の変化は <span class="math inline">\(D_i\)</span> の変化を通じて生じたものだと解釈できる。 さらに monotonicity を置くと、その変化を生み出しているのは complier だけになる。</p>
-<p>その結果、</p>
+<p>ここから LATE の式を導出する。 個人 <span class="math inline">\(i\)</span> の処置効果を</p>
 <p><span class="math display">\[
-\beta_{IV} = E\bigl[Y_i(1)-Y_i(0)\mid D_i(1)&gt;D_i(0)\bigr]
+\tau_i = Y_i(1)-Y_i(0)
+\]</span></p>
+<p>と書く。 排除制約のもとでは、<span class="math inline">\(Z_i\)</span> は <span class="math inline">\(Y_i\)</span> に直接影響しないので、<span class="math inline">\(Z_i=z\)</span> のときに観測される結果は</p>
+<p><span class="math display">\[
+Y_i(D_i(z))
+=
+Y_i(0)+D_i(z)\{Y_i(1)-Y_i(0)\}
+=
+Y_i(0)+D_i(z)\tau_i
+\]</span></p>
+<p>である。</p>
+<p>独立性より、<span class="math inline">\(Z_i=1\)</span> の人たちと <span class="math inline">\(Z_i=0\)</span> の人たちは、潜在結果や潜在的な処置選択の分布が同じだと考えられる。 したがって、Wald 推定量の分子は</p>
+<p><span class="math display">\[
+\begin{aligned}
+E[Y_i\mid Z_i=1]-E[Y_i\mid Z_i=0]
+&amp;= E\{Y_i(0)+D_i(1)\tau_i\}
+- E\{Y_i(0)+D_i(0)\tau_i\} \\
+&amp;= E\left[\{D_i(1)-D_i(0)\}\tau_i\right].
+\end{aligned}
+\]</span></p>
+<p>同じように、分母は</p>
+<p><span class="math display">\[
+\begin{aligned}
+E[D_i\mid Z_i=1]-E[D_i\mid Z_i=0]
+&amp;= E[D_i(1)]-E[D_i(0)] \\
+&amp;= E[D_i(1)-D_i(0)].
+\end{aligned}
+\]</span></p>
+<p>ここで、<span class="math inline">\(D_i(1)-D_i(0)\)</span> はタイプごとに次の値を取る。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>タイプ</th>
+<th style="text-align: right;"><span class="math inline">\(D_i(1)-D_i(0)\)</span></th>
+<th>意味</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>always-taker</td>
+<td style="text-align: right;">0</td>
+<td><span class="math inline">\(Z_i\)</span> を変えても常に処置を受ける</td>
+</tr>
+<tr class="even">
+<td>never-taker</td>
+<td style="text-align: right;">0</td>
+<td><span class="math inline">\(Z_i\)</span> を変えても常に処置を受けない</td>
+</tr>
+<tr class="odd">
+<td>complier</td>
+<td style="text-align: right;">1</td>
+<td><span class="math inline">\(Z_i=1\)</span> で処置を受け、<span class="math inline">\(Z_i=0\)</span> で処置を受けない</td>
+</tr>
+<tr class="even">
+<td>defier</td>
+<td style="text-align: right;">-1</td>
+<td><span class="math inline">\(Z_i=1\)</span> で処置を受けず、<span class="math inline">\(Z_i=0\)</span> で処置を受ける</td>
+</tr>
+</tbody>
+</table>
+<p>monotonicity を置くと defier はいない。 すると、<span class="math inline">\(D_i(1)-D_i(0)\)</span> は complier だけで 1、その他の人では 0 になる。 したがって、<span class="math inline">\(C_i\)</span> を「個人 <span class="math inline">\(i\)</span> が complier である」という事象として書けば、</p>
+<p><span class="math display">\[
+E[D_i(1)-D_i(0)] = P(C_i)
+\]</span></p>
+<p>であり、分子は</p>
+<p><span class="math display">\[
+\begin{aligned}
+E\left[\{D_i(1)-D_i(0)\}\tau_i\right]
+&amp;= E[\tau_i \cdot 1\{C_i\}] \\
+&amp;= P(C_i)E[\tau_i\mid C_i].
+\end{aligned}
+\]</span></p>
+<p>よって Wald 推定量は</p>
+<p><span class="math display">\[
+\begin{aligned}
+\beta_{IV}
+&amp;=
+\frac{E[Y_i \mid Z_i=1] - E[Y_i \mid Z_i=0]}
+{E[D_i \mid Z_i=1] - E[D_i \mid Z_i=0]} \\
+&amp;=
+\frac{P(C_i)E[\tau_i\mid C_i]}{P(C_i)} \\
+&amp;= E[\tau_i\mid C_i] \\
+&amp;= E\bigl[Y_i(1)-Y_i(0)\mid D_i(1)&gt;D_i(0)\bigr].
+\end{aligned}
 \]</span></p>
 <p>となる。</p>
 <p>これが <strong>LATE</strong> である。 つまり、IV が識別しているのは</p>
