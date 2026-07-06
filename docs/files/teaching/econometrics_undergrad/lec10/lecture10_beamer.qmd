@@ -1,0 +1,124 @@
+---
+title: "Lecture 10：操作変数法"
+subtitle: "IV・2SLS・weak IV・LATE"
+lang: ja
+format:
+  beamer:
+    theme: Boadilla
+    colortheme: seahorse
+    aspectratio: 169
+    slide-level: 2
+    pdf-engine: lualatex
+    fontsize: 11pt
+    toc: false
+    number-sections: false
+    incremental: false
+header-includes: |
+  \usepackage{luatexja}
+  \usepackage{amsmath,amssymb,bm,booktabs}
+  \setbeamertemplate{navigation symbols}{}
+  \setlength{\parskip}{0.25em}
+---
+# 導入
+
+## この講義で押さえたいこと
+
+- IV は、内生的な説明変数のうち外生的に動いた部分だけを使う方法である
+- 2SLS は IV の標準実装であり、第1段階の強さまで含めて読む必要がある
+- IV の係数は一般に ATE ではなく LATE として解釈する
+
+# IV の発想
+
+## なぜ OLS ではだめなのか
+
+- 教育年数が能力と相関する
+- 価格が需要ショックと同時に動く
+- 逆因果や欠落変数で $Cov(x,u)\neq 0$
+
+## IV の発想
+
+- 内生変数 $x$ のうち、外生的に動いた部分だけを使う
+- そのための道具が操作変数 $z$
+- 欲しいのは「ランダムに近い variation」
+
+## 良い IV の条件
+
+- 関連性：$Cov(z,x)\neq 0$
+- 外生性：$Cov(z,u)=0$
+- 両方満たしてはじめて識別に使える
+
+## 最も単純な IV = Wald 比
+
+$$
+\hat\beta_{IV}
+=
+\frac{E[y\mid Z=1]-E[y\mid Z=0]}
+{E[x\mid Z=1]-E[x\mid Z=0]}
+$$
+
+- instrument が 0/1 なら「平均差の比」
+- 直感は Angrist and Krueger の例と同じ
+
+# 2SLS
+
+## コントロール変数があるときは？
+
+- Wald を毎回手計算するのは大変
+- 実務ではどう実装するのか？
+
+## 答え：2SLS
+
+1. 第1段階：$x$ を $z$ で説明して $\hat x$ を作る  
+2. 第2段階：$y$ を $\hat x$ で説明する
+
+- これが IV の標準実装である
+
+## なぜ第2段階 OLS の SE を使ってはいけないか
+
+- $\hat x$ は推定された変数
+- 第1段階の不確実性を無視すると SE が狂う
+- 必ず IV / 2SLS 用の標準誤差を使う
+
+## Weak IV とは何か
+
+- 第1段階が弱い
+- instrument が $x$ をほとんど動かさない
+- すると 2SLS は不安定になる
+
+## Weak IV が危ない理由
+
+- 推定値が大きくぶれる
+- t 検定のサイズが崩れる
+- 信頼区間も信用しにくくなる
+
+## 実務上まず見るもの
+
+- 第1段階係数
+- 第1段階 F 統計量
+- reduced form / first stage / 2SLS をセットで報告する
+
+# 解釈
+
+## IV は何の平均効果を識別する？
+
+- ATE なのか
+- それとも別の対象か？
+
+## 答え：LATE
+
+- instrument に反応して処置が変わる compliers の平均効果
+- always-takers / never-takers にはそのまま当てはまらない
+- IV の外的妥当性はここで制約される
+
+## AK を IV として読むと
+
+- $z$：誕生四半期 × 制度
+- $x$：教育年数
+- $y$：賃金
+- 誕生時期で外生的に動いた教育年数の効果を見ている
+
+## 今日のまとめ
+
+- IV は内生性への対処法
+- relevance / exogeneity / weak IV を必ず確認する
+- 係数の解釈は LATE まで含めて行う

@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Minimum Distance</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="06-minimum-distance-ja_files/libs/clipboard/clipboard.min.js"></script>
+<script src="06-minimum-distance-ja_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="06-minimum-distance-ja_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="06-minimum-distance-ja_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="06-minimum-distance-ja_files/libs/quarto-html/popper.min.js"></script>
+<script src="06-minimum-distance-ja_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="06-minimum-distance-ja_files/libs/quarto-html/anchor.min.js"></script>
+<link href="06-minimum-distance-ja_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="06-minimum-distance-ja_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="06-minimum-distance-ja_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="06-minimum-distance-ja_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="06-minimum-distance-ja_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a></li>
+  <li><a href="#漸近正規性" id="toc-漸近正規性" class="nav-link" data-scroll-target="#漸近正規性"><span class="header-section-number">2</span> 漸近正規性</a>
+  <ul class="collapse">
+  <li><a href="#基本定理" id="toc-基本定理" class="nav-link" data-scroll-target="#基本定理"><span class="header-section-number">2.1</span> 基本定理</a></li>
+  <li><a href="#何が仮定されているか" id="toc-何が仮定されているか" class="nav-link" data-scroll-target="#何が仮定されているか"><span class="header-section-number">2.2</span> 何が仮定されているか</a></li>
+  <li><a href="#gmm-との形式的類似" id="toc-gmm-との形式的類似" class="nav-link" data-scroll-target="#gmm-との形式的類似"><span class="header-section-number">2.3</span> GMM との形式的類似</a></li>
+  </ul></li>
+  <li><a href="#最適重みと効率性" id="toc-最適重みと効率性" class="nav-link" data-scroll-target="#最適重みと効率性"><span class="header-section-number">3</span> 最適重みと効率性</a></li>
+  <li><a href="#標準誤差の推定" id="toc-標準誤差の推定" class="nav-link" data-scroll-target="#標準誤差の推定"><span class="header-section-number">4</span> 標準誤差の推定</a>
+  <ul class="collapse">
+  <li><a href="#一般形" id="toc-一般形" class="nav-link" data-scroll-target="#一般形"><span class="header-section-number">4.1</span> 一般形</a></li>
+  <li><a href="#効率的重みの場合" id="toc-効率的重みの場合" class="nav-link" data-scroll-target="#効率的重みの場合"><span class="header-section-number">4.2</span> 効率的重みの場合</a></li>
+  </ul></li>
+  <li><a href="#md-の応用上の解釈" id="toc-md-の応用上の解釈" class="nav-link" data-scroll-target="#md-の応用上の解釈"><span class="header-section-number">5</span> MD の応用上の解釈</a></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ"><span class="header-section-number">6</span> まとめ</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>その他のフォーマット</h2><ul><li><a href="../../../../../../東京大学マーケットデザインセンター Dropbox/ikegami kei/横市/授業/大学院計量/06-minimum-distance-ja.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Minimum Distance</h1>
+<p class="subtitle lead">計量経済学大学院講義ノート</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<blockquote class="blockquote">
+<p><strong>原ノートとの対応</strong><br>
+この講義ノートは Tim Christensen, <em>Econometrics II</em> の Chapter 6 “Minimum distance” をもとに、日本語の大学院向けノートとして再構成したものである。GMM と SMM の構造を踏まえつつ、ここでは <strong>Minimum Distance 推定量の漸近正規性と標準誤差</strong> を簡潔に整理する。</p>
+</blockquote>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この章の到達目標
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>この章の目的は次の 4 点である。</p>
+<ol type="1">
+<li>Minimum Distance（MD）推定量を、縮約形統計量 <span class="math inline">\(g_n\)</span> と構造モデルの対応物 <span class="math inline">\(\gamma(\theta)\)</span> を結びつける推定法として理解する。</li>
+<li>MD 推定量の漸近分布 <span class="math display">\[
+\sqrt{n}(\hat\theta-\theta_0)
+\overset{d}{\to}
+N\!\left(
+0,
+(\Gamma'W\Gamma)^{-1}\Gamma'WSW\Gamma(\Gamma'W\Gamma)^{-1}
+\right)
+\]</span> を導く。</li>
+<li>最適重み <span class="math inline">\(W=S^{-1}\)</span> による効率化を理解する。</li>
+<li>MD が GMM や SMM とどう関係するかを整理する。</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>記法の確認
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>この章では、データから得られる縮約形統計量を <span class="math inline">\(g_n\in\mathbb R^K\)</span>、構造モデルが与える理論対応物を <span class="math inline">\(\gamma(\theta)\in\mathbb R^K\)</span> とする。目的関数は <span class="math display">\[
+Q_n(\theta)
+=
+-\frac12
+\bigl(g_n-\gamma(\theta)\bigr)'
+\widehat W_n
+\bigl(g_n-\gamma(\theta)\bigr)
+\]</span> である。</p>
+<p>また、 <span class="math display">\[
+\Gamma(\theta)=\frac{\partial \gamma(\theta)}{\partial\theta'},
+\qquad
+\Gamma=\Gamma(\theta_0)
+\]</span> と書く。ここで <span class="math inline">\(\Gamma(\theta)\)</span> は <span class="math inline">\(K\times p\)</span> 行列である。</p>
+</div>
+</div>
+<section id="導入" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 導入</h1>
+<p>Minimum Distance は、データから計算された何らかの統計量 <span class="math inline">\(g_n\)</span> に対し、構造モデルがその統計量について予測する値 <span class="math inline">\(\gamma(\theta)\)</span> を近づけることでパラメータを推定する方法である。</p>
+<p>重要なのは、<span class="math inline">\(g_n\)</span> が必ずしも単純な標本平均である必要はないことである。たとえば</p>
+<ul>
+<li>補助回帰の係数</li>
+<li>分位点</li>
+<li>分布の要約統計</li>
+<li>ヘテロジニアス・エージェント・モデルにおける wealth distribution の特徴量</li>
+</ul>
+<p>なども <span class="math inline">\(g_n\)</span> として使える。</p>
+<p>この意味で MD は非常に柔軟であり、GMM のように「各観測に対してモーメント関数 <span class="math inline">\(g(X_t;\theta)\)</span> を書く」必要がない場面でも使える。</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>GMM・SMM との関係
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>GMM は、<span class="math inline">\(g_n(\theta)\)</span> という「パラメータ入りの標本モーメント」を直接最小化する。</li>
+<li>SMM は、データ・モーメント <span class="math inline">\(g_n\)</span> とシミュレーションで得た <span class="math inline">\(\gamma_m(\theta)\)</span> を一致させる。</li>
+<li>MD は、データ・モーメント <span class="math inline">\(g_n\)</span> と閉形式の <span class="math inline">\(\gamma(\theta)\)</span> を一致させる。</li>
+</ul>
+<p>したがって MD は、SMM からシミュレーション誤差を取り除いたものと考えると理解しやすい。</p>
+</div>
+</div>
+</section>
+<section id="漸近正規性" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 漸近正規性</h1>
+<section id="基本定理" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="基本定理"><span class="header-section-number">2.1</span> 基本定理</h2>
+<div id="thm-md-asymp-normal" class="theorem">
+<p><span class="theorem-title"><strong>定理 1 (Minimum Distance 推定量の漸近正規性)</strong></span> <span class="math inline">\(\hat\theta\)</span> が <span id="eq-md-approx-foc"><span class="math display">\[
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
+\tag{1}\]</span></span> を満たすとする。さらに次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(\hat\theta\overset{p}{\to}\theta_0\)</span>.</li>
+<li><span class="math inline">\(\widehat W_n\overset{p}{\to}W\)</span>，ただし <span class="math inline">\(W\)</span> は正定値対称行列である。</li>
+<li><span class="math inline">\(\theta_0\)</span> は <span class="math inline">\(\Theta\)</span> の内部点である。</li>
+<li><span class="math inline">\(\gamma(\theta)\)</span> は <span class="math inline">\(\theta\)</span> について連続微分可能である。</li>
+<li><span class="math display">\[
+\sqrt n\bigl(g_n-\gamma(\theta_0)\bigr)\overset{d}{\to}N(0,S),
+\]</span> ただし <span class="math inline">\(S\)</span> は正定値である。</li>
+<li><span class="math inline">\(\Gamma=\partial\gamma(\theta_0)/\partial\theta'\)</span> は full column rank <span class="math inline">\(p\)</span> をもつ。</li>
+</ol>
+<p>このとき <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)
+\overset{d}{\to}
+N\!\left(
+0,
+(\Gamma'W\Gamma)^{-1}\Gamma'WSW\Gamma(\Gamma'W\Gamma)^{-1}
+\right).
+\]</span></p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>一階条件より <span class="math display">\[
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}
+=
+\Gamma(\hat\theta)'\widehat W_n\bigl(g_n-\gamma(\hat\theta)\bigr)
+=
+o_p(n^{-1/2})
+\]</span> である。ここで <span class="math inline">\(\gamma(\hat\theta)\)</span> を <span class="math inline">\(\theta_0\)</span> のまわりで平均値展開すると、ある <span class="math inline">\(\tilde\theta\)</span> を用いて <span class="math display">\[
+\gamma(\hat\theta)=\gamma(\theta_0)+\Gamma(\tilde\theta)(\hat\theta-\theta_0)
+\]</span> だから <span class="math display">\[
+\bigl(\Gamma(\hat\theta)'\widehat W_n\Gamma(\tilde\theta)\bigr)\sqrt n(\hat\theta-\theta_0)
+=
+\Gamma(\hat\theta)'\widehat W_n\sqrt n\bigl(g_n-\gamma(\theta_0)\bigr)+o_p(1)
+\]</span> を得る。</p>
+<p>一致性と <span class="math inline">\(\Gamma(\theta)\)</span> の連続性により <span class="math display">\[
+\Gamma(\hat\theta)\overset{p}{\to}\Gamma,
+\qquad
+\Gamma(\tilde\theta)\overset{p}{\to}\Gamma
+\]</span> であるから、 <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)
+=
+(\Gamma'W\Gamma)^{-1}\Gamma'W\sqrt n\bigl(g_n-\gamma(\theta_0)\bigr)+o_p(1)
+\]</span> となる。最後は中心極限定理と Slutsky の定理で従う。</p>
+</div>
+</section>
+<section id="何が仮定されているか" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="何が仮定されているか"><span class="header-section-number">2.2</span> 何が仮定されているか</h2>
+<p>上の定理では <span class="math display">\[
+\sqrt n\bigl(g_n-\gamma(\theta_0)\bigr)\overset{d}{\to}N(0,S)
+\]</span> を仮定しているが、これは実質的に <strong>モデルが正しく特定されている</strong> ことを意味する。もしどの <span class="math inline">\(\theta\)</span> に対しても <span class="math inline">\(\gamma(\theta)\)</span> がデータの極限統計量と一致しないなら、MD 推定量は「最も近い近似」を選ぶだけで、ここでの正規近似はそのままでは使えない。</p>
+</section>
+<section id="gmm-との形式的類似" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="gmm-との形式的類似"><span class="header-section-number">2.3</span> GMM との形式的類似</h2>
+<p>漸近分散の式は GMM と極めてよく似ている。違いは</p>
+<ul>
+<li>GMM では <span class="math inline">\(G=\partial E[g(X_t;\theta)]/\partial\theta'\)</span></li>
+<li>MD では <span class="math inline">\(\Gamma=\partial\gamma(\theta)/\partial\theta'\)</span></li>
+</ul>
+<p>が登場する点である。</p>
+<p>この意味で MD は、<strong>モーメント条件が <span class="math inline">\(g_n-\gamma(\theta)\)</span> の形に分離している GMM</strong> とみなせる。</p>
+</section>
+</section>
+<section id="最適重みと効率性" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 最適重みと効率性</h1>
+<p>over identified の場合、重み行列の選び方はやはり重要である。効率的重みは <span class="math display">\[
+W=S^{-1}
+\]</span> であり、このとき漸近分散は <span id="eq-md-efficient"><span class="math display">\[
+(\Gamma'S^{-1}\Gamma)^{-1}
+\tag{2}\]</span></span> に簡約される。</p>
+<p>MD では、<span class="math inline">\(S\)</span> はデータから得られる縮約形統計量 <span class="math inline">\(g_n\)</span> の漸近分散である。したがって <span class="math inline">\(S\)</span> の一貫推定量 <span class="math inline">\(\widehat S\)</span> が得られれば、 <span class="math display">\[
+\widehat W_n=\widehat S^{-1}
+\]</span> とすることで、<strong>1 回の最適化で効率的 MD</strong> を実装できる。</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>なぜ GMM より実装が楽なことがあるか
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>GMM では <span class="math inline">\(S\)</span> の推定が <span class="math inline">\(\theta\)</span> に依存することが多く、二段階推定が自然だった。MD では <span class="math inline">\(g_n\)</span> 自体が先に推定される縮約形統計量であることが多いため、<span class="math inline">\(S\)</span> を先に評価しやすい。したがって効率的重みを最初から使える場面が少なくない。</p>
+</div>
+</div>
+</section>
+<section id="標準誤差の推定" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> 標準誤差の推定</h1>
+<section id="一般形" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="一般形"><span class="header-section-number">4.1</span> 一般形</h2>
+<p>一般の重み <span class="math inline">\(W\)</span> に対する漸近分散 <span class="math display">\[
+\Omega
+=
+(\Gamma'W\Gamma)^{-1}\Gamma'WSW\Gamma(\Gamma'W\Gamma)^{-1}
+\]</span> の推定量は、自然に <span class="math display">\[
+\widehat\Omega
+=
+(\widehat\Gamma'\widehat W_n\widehat\Gamma)^{-1}
+\widehat\Gamma'\widehat W_n\widehat S\widehat W_n\widehat\Gamma
+(\widehat\Gamma'\widehat W_n\widehat\Gamma)^{-1}
+\]</span> である。ここで <span class="math display">\[
+\widehat\Gamma=\Gamma(\hat\theta)
+\]</span> である。</p>
+</section>
+<section id="効率的重みの場合" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="効率的重みの場合"><span class="header-section-number">4.2</span> 効率的重みの場合</h2>
+<p>もし <span class="math inline">\(\widehat W_n=\widehat S^{-1}\)</span> を使っているなら、推定量は大きく簡約されて <span class="math display">\[
+\widehat\Omega_{\mathrm{eff}}
+=
+(\widehat\Gamma'\widehat S^{-1}\widehat\Gamma)^{-1}
+\]</span> となる。</p>
+<p>この式は GMM や SMM の効率的分散と全く同じ見た目であり、講義全体を通じて「効率的重みを使うと sandwich が簡約する」という共通構造が見えてくる。</p>
+</section>
+</section>
+<section id="md-の応用上の解釈" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> MD の応用上の解釈</h1>
+<p>MD は応用研究ではしばしば「二段階推定」の第 2 段階として現れる。</p>
+<ol type="1">
+<li>第 1 段階で縮約形統計量 <span class="math inline">\(g_n\)</span> を推定する。</li>
+<li>第 2 段階でその統計量と構造モデル <span class="math inline">\(\gamma(\theta)\)</span> を一致させる。</li>
+</ol>
+<p>たとえば、補助回帰から得られた係数ベクトルを <span class="math inline">\(g_n\)</span> とし、構造モデルがその係数に対して何を予測するかを <span class="math inline">\(\gamma(\theta)\)</span> とすれば、MD は「補助モデルを通じて構造パラメータを同定する」方法になる。</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>講義全体の見取り図
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>ここまでで</p>
+<ul>
+<li>M 推定</li>
+<li>GMM</li>
+<li>SMM</li>
+<li>MD</li>
+</ul>
+<p>の 4 つを見てきた。これらは見た目こそ違うが、すべて <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)\overset{d}{\to}N(0,H^{-1}\Sigma H^{-1})
+\]</span> という共通骨格をもつ。次章では、この共通骨格の上に <strong>仮説検定</strong> を組み立てる。</p>
+</div>
+</div>
+</section>
+<section id="まとめ" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> まとめ</h1>
+<p>この章の要点は次の通りである。</p>
+<ol type="1">
+<li>MD は、データから得られた縮約形統計量 <span class="math inline">\(g_n\)</span> と理論対応物 <span class="math inline">\(\gamma(\theta)\)</span> の距離を最小化する推定法である。</li>
+<li>漸近分散は <span class="math display">\[
+(\Gamma'W\Gamma)^{-1}\Gamma'WSW\Gamma(\Gamma'W\Gamma)^{-1}
+\]</span> である。</li>
+<li>効率的重みは <span class="math inline">\(W=S^{-1}\)</span> であり、そのとき漸近分散は <span class="math display">\[
+(\Gamma'S^{-1}\Gamma)^{-1}
+\]</span> に簡約される。</li>
+<li>標準誤差推定では、<span class="math inline">\(S\)</span> の推定量と <span class="math inline">\(\widehat\Gamma=\Gamma(\hat\theta)\)</span> を plug-in すればよい。</li>
+<li>MD は、分離可能な GMM やシミュレーション誤差のない SMM とみなせる。</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>次章への接続
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>次の仮説検定の章では、これまで得た漸近正規性と分散推定を使って、Wald 検定、LM 検定、QLR 検定を統一的に扱う。</p>
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

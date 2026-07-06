@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>GMM</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="04-gmm-ja_files/libs/clipboard/clipboard.min.js"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/popper.min.js"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="04-gmm-ja_files/libs/quarto-html/anchor.min.js"></script>
+<link href="04-gmm-ja_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="04-gmm-ja_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="04-gmm-ja_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="04-gmm-ja_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="04-gmm-ja_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#導入モーメント条件から-gmm-へ" id="toc-導入モーメント条件から-gmm-へ" class="nav-link active" data-scroll-target="#導入モーメント条件から-gmm-へ"><span class="header-section-number">1</span> 導入：モーメント条件から GMM へ</a>
+  <ul class="collapse">
+  <li><a href="#method-of-moments-の最も単純な例" id="toc-method-of-moments-の最も単純な例" class="nav-link" data-scroll-target="#method-of-moments-の最も単純な例"><span class="header-section-number">1.1</span> method of moments の最も単純な例</a></li>
+  <li><a href="#複数のモーメントがある例" id="toc-複数のモーメントがある例" class="nav-link" data-scroll-target="#複数のモーメントがある例"><span class="header-section-number">1.2</span> 複数のモーメントがある例</a></li>
+  <li><a href="#gmm-の基本形" id="toc-gmm-の基本形" class="nav-link" data-scroll-target="#gmm-の基本形"><span class="header-section-number">1.3</span> GMM の基本形</a></li>
+  <li><a href="#最も単純な-gmm-の例ols" id="toc-最も単純な-gmm-の例ols" class="nav-link" data-scroll-target="#最も単純な-gmm-の例ols"><span class="header-section-number">1.4</span> 最も単純な GMM の例：OLS</a></li>
+  <li><a href="#重要な応用例線形モデルの-iv-推定" id="toc-重要な応用例線形モデルの-iv-推定" class="nav-link" data-scroll-target="#重要な応用例線形モデルの-iv-推定"><span class="header-section-number">1.5</span> 重要な応用例：線形モデルの IV 推定</a></li>
+  <li><a href="#有名な応用例資産価格投資の-euler-方程式" id="toc-有名な応用例資産価格投資の-euler-方程式" class="nav-link" data-scroll-target="#有名な応用例資産価格投資の-euler-方程式"><span class="header-section-number">1.6</span> 有名な応用例：資産価格・投資の Euler 方程式</a></li>
+  </ul></li>
+  <li><a href="#漸近正規性の詳細" id="toc-漸近正規性の詳細" class="nav-link" data-scroll-target="#漸近正規性の詳細"><span class="header-section-number">2</span> 漸近正規性の詳細</a>
+  <ul class="collapse">
+  <li><a href="#基本定理" id="toc-基本定理" class="nav-link" data-scroll-target="#基本定理"><span class="header-section-number">2.1</span> 基本定理</a></li>
+  <li><a href="#漸近分散の分解" id="toc-漸近分散の分解" class="nav-link" data-scroll-target="#漸近分散の分解"><span class="header-section-number">2.2</span> 漸近分散の分解</a></li>
+  <li><a href="#just-identified-と-over-identified" id="toc-just-identified-と-over-identified" class="nav-link" data-scroll-target="#just-identified-と-over-identified"><span class="header-section-number">2.3</span> just identified と over identified</a>
+  <ul class="collapse">
+  <li><a href="#just-identified-の場合" id="toc-just-identified-の場合" class="nav-link" data-scroll-target="#just-identified-の場合"><span class="header-section-number">2.3.1</span> just identified の場合</a></li>
+  <li><a href="#over-identified-の場合" id="toc-over-identified-の場合" class="nav-link" data-scroll-target="#over-identified-の場合"><span class="header-section-number">2.3.2</span> over identified の場合</a></li>
+  </ul></li>
+  <li><a href="#最適重み付けと効率性" id="toc-最適重み付けと効率性" class="nav-link" data-scroll-target="#最適重み付けと効率性"><span class="header-section-number">2.4</span> 最適重み付けと効率性</a>
+  <ul class="collapse">
+  <li><a href="#two-step-efficient-gmm" id="toc-two-step-efficient-gmm" class="nav-link" data-scroll-target="#two-step-efficient-gmm"><span class="header-section-number">2.4.1</span> two-step efficient GMM</a></li>
+  <li><a href="#数値例最適重みで標準誤差が小さくなる" id="toc-数値例最適重みで標準誤差が小さくなる" class="nav-link" data-scroll-target="#数値例最適重みで標準誤差が小さくなる"><span class="header-section-number">2.4.2</span> 数値例：最適重みで標準誤差が小さくなる</a></li>
+  <li><a href="#r-実装二段階-gmm" id="toc-r-実装二段階-gmm" class="nav-link" data-scroll-target="#r-実装二段階-gmm"><span class="header-section-number">2.4.3</span> R 実装：二段階 GMM</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#標準誤差の推定" id="toc-標準誤差の推定" class="nav-link" data-scroll-target="#標準誤差の推定"><span class="header-section-number">3</span> 標準誤差の推定</a>
+  <ul class="collapse">
+  <li><a href="#基本的な-plug-in-推定" id="toc-基本的な-plug-in-推定" class="nav-link" data-scroll-target="#基本的な-plug-in-推定"><span class="header-section-number">3.1</span> 基本的な plug-in 推定</a></li>
+  <li><a href="#独立データの場合" id="toc-独立データの場合" class="nav-link" data-scroll-target="#独立データの場合"><span class="header-section-number">3.2</span> 独立データの場合</a></li>
+  <li><a href="#効率的-gmm-の標準誤差" id="toc-効率的-gmm-の標準誤差" class="nav-link" data-scroll-target="#効率的-gmm-の標準誤差"><span class="header-section-number">3.3</span> 効率的 GMM の標準誤差</a></li>
+  </ul></li>
+  <li><a href="#one-step-correction" id="toc-one-step-correction" class="nav-link" data-scroll-target="#one-step-correction"><span class="header-section-number">4</span> one-step correction</a></li>
+  <li><a href="#過剰識別制約の検定" id="toc-過剰識別制約の検定" class="nav-link" data-scroll-target="#過剰識別制約の検定"><span class="header-section-number">5</span> 過剰識別制約の検定</a>
+  <ul class="collapse">
+  <li><a href="#j-統計量" id="toc-j-統計量" class="nav-link" data-scroll-target="#j-統計量"><span class="header-section-number">5.1</span> <span class="math inline">\(J\)</span> 統計量</a></li>
+  <li><a href="#有名な使われ方" id="toc-有名な使われ方" class="nav-link" data-scroll-target="#有名な使われ方"><span class="header-section-number">5.2</span> 有名な使われ方</a></li>
+  </ul></li>
+  <li><a href="#continuously-updated-gmm" id="toc-continuously-updated-gmm" class="nav-link" data-scroll-target="#continuously-updated-gmm"><span class="header-section-number">6</span> Continuously-updated GMM</a>
+  <ul class="collapse">
+  <li><a href="#定義" id="toc-定義" class="nav-link" data-scroll-target="#定義"><span class="header-section-number">6.1</span> 定義</a></li>
+  <li><a href="#cu-gmm-の意味" id="toc-cu-gmm-の意味" class="nav-link" data-scroll-target="#cu-gmm-の意味"><span class="header-section-number">6.2</span> CU-GMM の意味</a></li>
+  </ul></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ"><span class="header-section-number">7</span> まとめ</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>その他のフォーマット</h2><ul><li><a href="../04-gmm-ja.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">GMM</h1>
+<p class="subtitle lead">計量経済学大学院講義ノート</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>この章の到達目標
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>この章の目的は次の 6 点である。</p>
+<ol type="1">
+<li>method of moments の考え方を、1 つのモーメント条件から複数のモーメント条件へ拡張して理解する。</li>
+<li>GMM が「標本モーメントをできるだけ 0 に近づける」推定法であり、OLS や線形 IV 推定もその一例として読めることを確認する。</li>
+<li>資産価格・投資の Euler 方程式のような応用で、GMM がなぜ自然に現れるかを理解する。</li>
+<li>GMM 推定量の漸近正規性を <span class="math display">\[
+\sqrt{n}(\hat\theta-\theta_0)\overset{d}{\to}
+N\!\left(0,(G'WG)^{-1}G'WSWG(G'WG)^{-1}\right)
+\]</span> の形で理解する。</li>
+<li><strong>just identified</strong> と <strong>over identified</strong> の違い、および重み行列 <span class="math inline">\(W\)</span> が効率性に与える影響を理解する。</li>
+<li>標準誤差、<strong>two-step efficient GMM</strong>、<strong>one-step correction</strong>、<strong>CU-GMM</strong>、<strong>Hansen-Sargan の <span class="math inline">\(J\)</span> 検定</strong> の位置づけを整理する。</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>記法の確認
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>この章では、モーメント条件 <span class="math display">\[
+E[g(X_t;\theta_0)]=0
+\]</span> を出発点とする。標本モーメントを <span class="math display">\[
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+\]</span> と書き、GMM の目的関数を <span class="math display">\[
+Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n g_n(\theta)
+\]</span> とする。<span class="math inline">\(Q_n(\theta)\)</span> は負の二次形式なので、<span class="math inline">\(Q_n(\theta)\)</span> を最大化することは、距離 <span class="math display">\[
+g_n(\theta)'\widehat W_n g_n(\theta)
+\]</span> を最小化することと同じである。</p>
+<p>さらに、<span class="math inline">\(\theta\)</span> に関する導関数として <span class="math display">\[
+d(X_t;\theta)=\frac{\partial g(X_t;\theta)}{\partial\theta'},
+\qquad
+G_n(\theta)=\frac1n\sum_{t=1}^n d(X_t;\theta),
+\qquad
+G=E[d(X_t;\theta_0)]
+\]</span> を用いる。ここで</p>
+<ul>
+<li><span class="math inline">\(g(X_t;\theta)\in\mathbb R^K\)</span></li>
+<li><span class="math inline">\(\theta\in\mathbb R^p\)</span></li>
+<li><span class="math inline">\(d(X_t;\theta),G_n(\theta),G\in\mathbb R^{K\times p}\)</span></li>
+</ul>
+<p>である。通常、識別のためには <span class="math inline">\(K\ge p\)</span> が必要である。</p>
+<p>例えば OLS を GMM として見るときは <span class="math display">\[
+g(X_t;\beta)=x_t(Y_t-x_t'\beta)
+\]</span> であり、<span class="math inline">\(K\)</span> は説明変数ベクトル <span class="math inline">\(x_t\)</span> の次元、<span class="math inline">\(p\)</span> は回帰係数 <span class="math inline">\(\beta\)</span> の次元である。</p>
+</div>
+</div>
+<section id="導入モーメント条件から-gmm-へ" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 導入：モーメント条件から GMM へ</h1>
+<p>GMM（generalized method of moments）は、モデルが含意する <strong>モーメント条件</strong> を使ってパラメータを推定する方法である。モーメント条件とは、真のパラメータ <span class="math inline">\(\theta_0\)</span> で評価すると平均が 0 になる関数 <span class="math display">\[
+E[g(X_t;\theta_0)]=0
+\]</span> のことである。</p>
+<p>最尤法では、分布全体を指定して尤度を最大化する。一方、GMM では分布全体を指定しなくてもよい。モデルから「この平均は 0 になるはずだ」という条件だけを取り出し、その条件が標本でもできるだけ成り立つように <span class="math inline">\(\theta\)</span> を選ぶ。この意味で、GMM はしばしば <strong>limited information</strong> 推定と呼ばれる。</p>
+<section id="method-of-moments-の最も単純な例" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="method-of-moments-の最も単純な例"><span class="header-section-number">1.1</span> method of moments の最も単純な例</h2>
+<p>まず、平均 <span class="math inline">\(\mu_0\)</span> を推定するだけの一番単純な例から始める。<span class="math inline">\(Y_1,\ldots,Y_n\)</span> が同じ分布から来ていて、平均が <span class="math display">\[
+E[Y_t]=\mu_0
+\]</span> であるとする。この条件は <span class="math display">\[
+E[Y_t-\mu_0]=0
+\]</span> と書き直せる。つまり <span class="math display">\[
+g(Y_t;\mu)=Y_t-\mu
+\]</span> とおけば、真の値 <span class="math inline">\(\mu_0\)</span> は <span class="math display">\[
+E[g(Y_t;\mu_0)]=0
+\]</span> を満たす。</p>
+<p>母平均 <span class="math inline">\(E[Y_t-\mu]\)</span> は観測できないので、標本平均で置き換える。標本モーメントは <span class="math display">\[
+g_n(\mu)
+=
+\frac1n\sum_{t=1}^n (Y_t-\mu)
+=
+\bar Y_n-\mu
+\]</span> である。method of moments は、この標本版のモーメント条件 <span class="math display">\[
+g_n(\hat\mu)=0
+\]</span> を解く。したがって <span class="math display">\[
+\bar Y_n-\hat\mu=0
+\]</span> より <span class="math display">\[
+\hat\mu=\bar Y_n
+\]</span> が得られる。</p>
+<p>この例では、推定したいパラメータは 1 つ、モーメント条件も 1 つである。標本モーメントをちょうど 0 にできるので、推定量は「方程式を解く」だけで出てくる。</p>
+</section>
+<section id="複数のモーメントがある例" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="複数のモーメントがある例"><span class="header-section-number">1.2</span> 複数のモーメントがある例</h2>
+<p>次に、1 つのパラメータ <span class="math inline">\(\theta_0\)</span> について、2 つの情報がある場合を考える。観測データから <span class="math display">\[
+A_t=\theta_0+\varepsilon_{1t},
+\qquad
+B_t=\theta_0+\varepsilon_{2t}
+\]</span> が得られるとする。どちらも平均的には <span class="math inline">\(\theta_0\)</span> を測っているので、 <span class="math display">\[
+E[A_t-\theta_0]=0,
+\qquad
+E[B_t-\theta_0]=0
+\]</span> という 2 つのモーメント条件がある。</p>
+<p>このとき標本モーメントを <span class="math display">\[
+g_n(\theta)
+=
+\begin{pmatrix}
+\bar A-\theta\\
+\bar B-\theta
+\end{pmatrix}
+\]</span> と書ける。もし標本で <span class="math display">\[
+\bar A=\bar B
+\]</span> なら、<span class="math inline">\(\theta=\bar A=\bar B\)</span> とすれば 2 つの標本モーメントを同時に 0 にできる。しかし一般には、標本誤差のために <span class="math inline">\(\bar A\)</span> と <span class="math inline">\(\bar B\)</span> は一致しない。すると <span class="math display">\[
+\bar A-\theta=0,
+\qquad
+\bar B-\theta=0
+\]</span> を同時に満たす <span class="math inline">\(\theta\)</span> は存在しない。</p>
+<p>ここに GMM が必要になる理由がある。複数のモーメント条件があり、しかもモーメントの数がパラメータの数より多いと、標本ではすべての条件を同時に完全には満たせないことが多い。そのときは、「どの条件もなるべく小さくする」ような妥協点を選ぶ必要がある。</p>
+<p>例えば重み <span class="math inline">\(w_1,w_2&gt;0\)</span> を使って <span class="math display">\[
+w_1(\bar A-\theta)^2+w_2(\bar B-\theta)^2
+\]</span> を最小化すると、一階条件は <span class="math display">\[
+-2w_1(\bar A-\theta)-2w_2(\bar B-\theta)=0
+\]</span> なので、 <span class="math display">\[
+\hat\theta
+=
+\frac{w_1\bar A+w_2\bar B}{w_1+w_2}
+\]</span> になる。つまり、GMM は複数のモーメント条件を重みつき平均のように組み合わせている。</p>
+<p>ここで重要なのは、重みの選び方で推定量が変わることである。もし <span class="math inline">\(A_t\)</span> が精度の高い測定で、<span class="math inline">\(B_t\)</span> がノイズの大きい測定なら、<span class="math inline">\(\bar A\)</span> をより強く信じ、<span class="math inline">\(\bar B\)</span> を弱く信じる方が自然である。一般の GMM では、この「どのモーメントをどれだけ信用するか」を重み行列 <span class="math inline">\(W\)</span> が決める。</p>
+</section>
+<section id="gmm-の基本形" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="gmm-の基本形"><span class="header-section-number">1.3</span> GMM の基本形</h2>
+<p>一般に、<span class="math inline">\(K\)</span> 個のモーメント条件 <span class="math display">\[
+E[g(X_t;\theta_0)]=0,
+\qquad
+g(X_t;\theta)\in\mathbb R^K
+\]</span> があり、推定したいパラメータが <span class="math display">\[
+\theta\in\mathbb R^p
+\]</span> であるとする。標本モーメントは <span class="math display">\[
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+\]</span> である。</p>
+<p>GMM は、標本モーメント <span class="math inline">\(g_n(\theta)\)</span> の大きさを <span class="math display">\[
+g_n(\theta)'\widehat W_n g_n(\theta)
+\]</span> で測り、これを小さくする <span class="math inline">\(\theta\)</span> を選ぶ。ここで <span class="math inline">\(\widehat W_n\)</span> は正定値対称な重み行列である。このノートでは、推定量を極値推定量として扱うため、同じ問題を最大化問題として <span class="math display">\[
+Q_n(\theta)
+=
+-\frac12 g_n(\theta)'\widehat W_n g_n(\theta)
+\]</span> と書く。<span class="math inline">\(Q_n(\theta)\)</span> を最大化することは、二次形式 <span class="math inline">\(g_n(\theta)'\widehat W_n g_n(\theta)\)</span> を最小化することと同じである。</p>
+<p>モーメント条件の数 <span class="math inline">\(K\)</span> とパラメータの数 <span class="math inline">\(p\)</span> の関係に応じて、状況は大きく 2 つに分かれる。</p>
+<ul>
+<li><span class="math inline">\(K=p\)</span> の場合を <strong>just identified</strong> という。この場合、標本方程式 <span class="math inline">\(g_n(\theta)=0\)</span> が解ければ、重み行列は推定量の一階の漸近分散に影響しない。</li>
+<li><span class="math inline">\(K&gt;p\)</span> の場合を <strong>over identified</strong> という。この場合、標本ではすべてのモーメントを同時に 0 にできないことが多く、重み行列の選び方が効率性を左右する。</li>
+</ul>
+</section>
+<section id="最も単純な-gmm-の例ols" class="level2" data-number="1.4">
+<h2 data-number="1.4" class="anchored" data-anchor-id="最も単純な-gmm-の例ols"><span class="header-section-number">1.4</span> 最も単純な GMM の例：OLS</h2>
+<p>線形回帰 <span class="math display">\[
+Y_t=x_t'\beta_0+u_t
+\]</span> を考える。<span class="math inline">\(x_t\)</span> は定数項を含む説明変数ベクトルで、<span class="math inline">\(\beta_0\)</span> が推定したい回帰係数である。OLS の標準的な外生性条件は <span class="math display">\[
+E[x_tu_t]=0
+\]</span> である。<span class="math inline">\(u_t=Y_t-x_t'\beta_0\)</span> だから、この条件は <span class="math display">\[
+E[x_t(Y_t-x_t'\beta_0)]=0
+\]</span> と書ける。したがって <span class="math display">\[
+g(X_t;\beta)=x_t(Y_t-x_t'\beta)
+\]</span> をモーメント関数と見れば、OLS は GMM の一例である。</p>
+<p>標本モーメントは <span class="math display">\[
+g_n(\beta)
+=
+\frac1n\sum_{t=1}^n x_t(Y_t-x_t'\beta)
+\]</span> である。just identified の場合、GMM 推定量は <span class="math display">\[
+g_n(\hat\beta)=0
+\]</span> を解く。これは <span class="math display">\[
+\frac1n\sum_{t=1}^n x_t(Y_t-x_t'\hat\beta)=0
+\]</span> であり、行列表記では <span class="math display">\[
+X'(Y-X\hat\beta)=0
+\]</span> である。よって <span class="math display">\[
+\hat\beta=(X'X)^{-1}X'Y
+\]</span> が得られる。これは通常の OLS 推定量そのものである。</p>
+<p>この見方は重要である。OLS は「残差平方和を最小化する推定量」でもあり、「残差が説明変数と直交するというモーメント条件を合わせる推定量」でもある。後者の見方を一般化したものが GMM である。</p>
+</section>
+<section id="重要な応用例線形モデルの-iv-推定" class="level2" data-number="1.5">
+<h2 data-number="1.5" class="anchored" data-anchor-id="重要な応用例線形モデルの-iv-推定"><span class="header-section-number">1.5</span> 重要な応用例：線形モデルの IV 推定</h2>
+<p>OLS の次に重要な例は、線形モデルの IV（instrumental variables, 操作変数）推定である。構造方程式 <span class="math display">\[
+Y_t=x_t'\beta_0+u_t
+\]</span> を考える。ここで <span class="math inline">\(x_t\)</span> の一部が内生的であると、一般には <span class="math display">\[
+E[x_tu_t]\ne 0
+\]</span> となる。この場合、OLS のモーメント条件 <span class="math display">\[
+E[x_t(Y_t-x_t'\beta_0)]=0
+\]</span> は正しくない。</p>
+<p>IV 推定では、説明変数 <span class="math inline">\(x_t\)</span> そのものではなく、操作変数 <span class="math inline">\(z_t\)</span> を使う。操作変数に必要な基本条件は、直観的には次の 2 つである。</p>
+<ol type="1">
+<li><span class="math inline">\(z_t\)</span> は <span class="math inline">\(x_t\)</span> と十分に相関している。</li>
+<li><span class="math inline">\(z_t\)</span> は構造誤差 <span class="math inline">\(u_t\)</span> と相関していない。</li>
+</ol>
+<p>2 つ目の条件は、モーメント条件として <span class="math display">\[
+E[z_tu_t]=0
+\]</span> と書ける。<span class="math inline">\(u_t=Y_t-x_t'\beta_0\)</span> なので、 <span class="math display">\[
+E[z_t(Y_t-x_t'\beta_0)]=0
+\]</span> である。したがって <span class="math display">\[
+g(X_t;\beta)=z_t(Y_t-x_t'\beta)
+\]</span> をモーメント関数とすれば、線形 IV 推定は GMM の一例である。</p>
+<p>標本モーメントは <span class="math display">\[
+g_n(\beta)
+=
+\frac1n\sum_{t=1}^n z_t(Y_t-x_t'\beta)
+\]</span> である。行列表記では、<span class="math inline">\(Z\)</span> を操作変数の行列、<span class="math inline">\(X\)</span> を説明変数の行列とすると、 <span class="math display">\[
+g_n(\beta)=\frac1n Z'(Y-X\beta)
+\]</span> である。</p>
+<p>まず、操作変数の数とパラメータの数が同じ just identified の場合を考える。このとき、IV 推定量は <span class="math display">\[
+g_n(\hat\beta)=0
+\]</span> を解く。つまり <span class="math display">\[
+Z'(Y-X\hat\beta)=0
+\]</span> であり、 <span class="math display">\[
+Z'Y-Z'X\hat\beta=0
+\]</span> だから、<span class="math inline">\(Z'X\)</span> が可逆なら <span class="math display">\[
+\hat\beta_{\mathrm{IV}}=(Z'X)^{-1}Z'Y
+\]</span> が得られる。もし <span class="math inline">\(z_t=x_t\)</span> なら <span class="math inline">\(Z=X\)</span> なので、この式は OLS の <span class="math display">\[
+(X'X)^{-1}X'Y
+\]</span> に戻る。したがって、OLS は「説明変数自身を操作変数として使った IV」とも見られる。</p>
+<p>次に、操作変数の数がパラメータの数より多い場合を考える。このとき <span class="math inline">\(K&gt;p\)</span> なので over identified であり、一般には <span class="math display">\[
+Z'(Y-X\beta)=0
+\]</span> をすべて同時に満たす <span class="math inline">\(\beta\)</span> は存在しない。そこで GMM は <span class="math display">\[
+g_n(\beta)'\widehat W_n g_n(\beta)
+\]</span> を最小にする <span class="math inline">\(\beta\)</span> を選ぶ。</p>
+<p>特に <span class="math display">\[
+\widehat W_n=\left(\frac1n Z'Z\right)^{-1}
+\]</span> を使うと、目的関数は定数倍を除いて <span class="math display">\[
+(Y-X\beta)'Z(Z'Z)^{-1}Z'(Y-X\beta)
+\]</span> になる。これは <span class="math inline">\(Z\)</span> の列空間への射影行列 <span class="math display">\[
+P_Z=Z(Z'Z)^{-1}Z'
+\]</span> を使って <span class="math display">\[
+(Y-X\beta)'P_Z(Y-X\beta)
+\]</span> と書ける。この目的関数を最小化すると <span class="math display">\[
+\hat\beta_{\mathrm{2SLS}}
+=
+(X'P_ZX)^{-1}X'P_ZY
+\]</span> が得られる。これは通常の 2 段階最小二乗法（2SLS）である。</p>
+<p>この例は、GMM の考え方を理解するうえで非常に重要である。IV 推定では、経済理論や制度的な知識から「この操作変数は構造誤差と直交するはずだ」というモーメント条件を作る。操作変数が多いと over identified になり、重み行列の選び方、効率性、そしてあとで扱う <span class="math inline">\(J\)</span> 検定が自然に問題になる。</p>
+</section>
+<section id="有名な応用例資産価格投資の-euler-方程式" class="level2" data-number="1.6">
+<h2 data-number="1.6" class="anchored" data-anchor-id="有名な応用例資産価格投資の-euler-方程式"><span class="header-section-number">1.6</span> 有名な応用例：資産価格・投資の Euler 方程式</h2>
+<p>GMM の有名な応用は、資産価格や投資の Euler 方程式の推定である。直観的には、投資家が最適に行動しているなら、今日 1 単位の資源を減らして投資し、将来のリターンを得るという小さな変更から、期待限界便益は 0 になるはずである。この最適性条件が Euler 方程式である。</p>
+<p>ここで最も大事なのは、Euler 方程式は本来 <strong>条件付き期待値の条件</strong> として出てくる、という点である。時点 <span class="math inline">\(t\)</span> に投資家が知っている情報を <span class="math inline">\(\mathcal F_t\)</span> と書く。投資家は <span class="math inline">\(\mathcal F_t\)</span> に含まれる情報を使って、時点 <span class="math inline">\(t\)</span> の投資・保有量を選ぶ。最適化の一階条件は、「時点 <span class="math inline">\(t\)</span> の情報で見たときに、追加的に投資しても期待限界利益が 0 である」という形になる。</p>
+<p>例えば、確率的割引ファクターを <span class="math inline">\(m_{t+1}(\theta)\)</span>、資産のグロスリターンを <span class="math inline">\(R_{t+1}\)</span> と書くと、基本的な Euler 方程式は <span class="math display">\[
+E[m_{t+1}(\theta_0)R_{t+1}-1\mid \mathcal F_t]=0
+\]</span> である。左辺は「時点 <span class="math inline">\(t\)</span> に利用可能な情報で条件づけた、割引後リターンの期待超過分」である。真のパラメータ <span class="math inline">\(\theta_0\)</span> の下で投資家が最適に選んでいるなら、この期待値は 0 になる。</p>
+<p>消費ベースのモデルなら、典型的には <span class="math display">\[
+m_{t+1}(\theta)
+=
+\beta
+\left(\frac{C_{t+1}}{C_t}\right)^{-\gamma},
+\qquad
+\theta=(\beta,\gamma)'
+\]</span> のように書く。ここで <span class="math inline">\(\beta\)</span> は主観的割引因子、<span class="math inline">\(\gamma\)</span> は相対的危険回避度である。</p>
+<p>この条件付き期待値の条件は、非常に強い条件である。なぜなら、<span class="math inline">\(\mathcal F_t\)</span> に含まれるどんな情報を使っても、予測可能な利益機会が残っていないことを要求しているからである。しかしデータ分析では、<span class="math inline">\(\mathcal F_t\)</span> 全体をそのまま扱うことはできない。そこで、時点 <span class="math inline">\(t\)</span> で観測できる変数のベクトル <span class="math inline">\(z_t\)</span> をいくつか選ぶ。<span class="math inline">\(z_t\)</span> は <span class="math inline">\(\mathcal F_t\)</span> に含まれる、つまり時点 <span class="math inline">\(t\)</span> に既に観測されている変数であるとする。</p>
+<p>このとき、条件付き期待値の性質から無条件モーメント条件が得られる。具体的には、<span class="math inline">\(z_t\)</span> が <span class="math inline">\(\mathcal F_t\)</span>-measurable なので、 <span class="math display">\[
+\begin{aligned}
+E\!\left[
+z_t\{m_{t+1}(\theta_0)R_{t+1}-1\}
+\right]
+&amp;=
+E\!\left[
+z_t
+E\{m_{t+1}(\theta_0)R_{t+1}-1\mid \mathcal F_t\}
+\right] \\
+&amp;=0.
+\end{aligned}
+\]</span> これが GMM で使うモーメント条件である。つまり GMM は、条件付き Euler 方程式そのものを直接推定しているのではなく、そこから導かれる有限個の無条件モーメント条件を使っている。</p>
+<p>複数の資産リターンや複数の操作変数 <span class="math inline">\(z_t\)</span> を使えば、モーメント条件の数はすぐにパラメータの数より多くなる。例えば <span class="math inline">\(R_{t+1}\)</span> が <span class="math inline">\(J\)</span> 個の資産リターンを含み、<span class="math inline">\(z_t\)</span> が <span class="math inline">\(L\)</span> 個の情報変数を含むなら、単純には <span class="math inline">\(J\times L\)</span> 個のモーメント条件が得られる。したがって、この種の Euler 方程式の推定では over identified GMM が自然に現れる。</p>
+<p>企業投資の Euler 方程式でも構造は同じである。企業が時点 <span class="math inline">\(t\)</span> の情報 <span class="math inline">\(\mathcal F_t\)</span> に基づいて投資を選んでいるなら、最適投資の一階条件は <span class="math display">\[
+E[\xi_{t+1}(\theta_0)\mid \mathcal F_t]=0
+\]</span> という形で書けることが多い。ここで <span class="math inline">\(\xi_{t+1}(\theta)\)</span> は「最適投資なら条件付き平均が 0 になるはずの Euler 方程式の誤差」である。</p>
+<p>研究者は <span class="math inline">\(\mathcal F_t\)</span> 全体を使う代わりに、その中から観測可能な変数 <span class="math inline">\(z_t\)</span> を選ぶ。すると、上と同じ反復期待法則により <span class="math display">\[
+E[z_t \xi_{t+1}(\theta_0)]
+=
+E\!\left[
+z_t E\{\xi_{t+1}(\theta_0)\mid \mathcal F_t\}
+\right]
+=0
+\]</span> が得られる。実証研究では、投資率、キャッシュフロー、資本ストック、ラグ付きの売上成長率など、時点 <span class="math inline">\(t\)</span> で利用可能な変数を <span class="math inline">\(z_t\)</span> として選び、それらと Euler 方程式の誤差 <span class="math inline">\(\xi_{t+1}(\theta)\)</span> を掛け合わせたモーメント条件を GMM で合わせる。</p>
+<p>この例で GMM が便利なのは、資産リターン、消費成長率、投資、資本ストックなどの完全な同時分布を指定しなくても、動学的最適化から得られる条件付き Euler 方程式を、有限個の無条件モーメント条件に変換して構造パラメータを推定できるからである。</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>直観
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>GMM の推定誤差は、M 推定と同じく</p>
+<ul>
+<li>モーメントの標本誤差</li>
+<li>目的関数の局所曲率</li>
+</ul>
+<p>の 2 つの要素から決まる。ただし GMM では、score の代わりに標本モーメント <span class="math inline">\(g_n(\theta_0)\)</span> がノイズの源になり、曲率は <span class="math inline">\(G'WG\)</span> という形で現れる。このあと導く漸近正規性は、この直観を数式で表したものである。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="漸近正規性の詳細" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 漸近正規性の詳細</h1>
+<section id="基本定理" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="基本定理"><span class="header-section-number">2.1</span> 基本定理</h2>
+<p>ここからは、導入の例で見た考え方を一般の <span class="math inline">\(K\)</span> 個のモーメント条件に対して書く。この章ではまず <span class="math display">\[
+\hat\theta\overset{p}{\to}\theta_0
+\]</span> という一致性が成り立つと仮定し、そのうえで推論に必要な漸近正規性を導く。一致性そのものは、前章の極値推定の議論と同じく、母目的関数の識別と標本モーメントの一様収束から確認する。</p>
+<p>この章の漸近分散と標準誤差の議論では、簡単化のためデータは独立同分布、すなわち i.i.d. とする。</p>
+<p>鍵になるのは一階条件である。もし <span class="math inline">\(\hat\theta\)</span> が内部の厳密な最大化点なら <span class="math display">\[
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}=0
+\]</span> である。ただし実際の計算では、数値最適化で完全に 0 まで解かないこともある。そのため理論では、厳密な 0 ではなく <span class="math display">\[
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
+\]</span> という <strong>近似的一階条件</strong> を仮定する。これは、推定量の主要な揺らぎが <span class="math inline">\(n^{-1/2}\)</span> の大きさなので、最適化誤差がそれより小さければ一次の漸近分布には影響しない、という意味である。</p>
+<p>まず、<span class="math inline">\(g(X_t;\theta)\)</span> が <span class="math inline">\(\theta\)</span> に関して滑らかな場合の標準的な漸近理論を述べる。</p>
+<div id="thm-gmm-asymp-normal" class="theorem">
+<p><span class="theorem-title"><strong>定理 1 (GMM 推定量の漸近正規性)</strong></span> <span class="math inline">\(\hat\theta\)</span> が <span id="eq-gmm-approx-foc"><span class="math display">\[
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}=o_p(n^{-1/2})
+\tag{1}\]</span></span> を満たすとする。さらに次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(X_1,\ldots,X_n\)</span> は i.i.d. である。</li>
+<li><span class="math inline">\(\hat\theta\overset{p}{\to}\theta_0\)</span>.</li>
+<li><span class="math inline">\(\widehat W_n\overset{p}{\to} W\)</span>，ただし <span class="math inline">\(W\)</span> は正定値対称行列である。</li>
+<li><span class="math inline">\(\theta_0\)</span> は <span class="math inline">\(\Theta\)</span> の内部点である。</li>
+<li>任意の <span class="math inline">\(X_t\)</span> に対して <span class="math inline">\(g(X_t;\theta)\)</span> は <span class="math inline">\(\theta\)</span> について連続微分可能である。</li>
+<li><span class="math display">\[
+\sqrt n\,g_n(\theta_0)\overset{d}{\to} N(0,S),
+\]</span> ただし <span class="math inline">\(S\)</span> は正定値である。</li>
+<li><span class="math inline">\(\theta_0\)</span> のある凸・コンパクト近傍 <span class="math inline">\(N\)</span> が存在して <span class="math display">\[
+E\!\left[\sup_{\theta\in N}\|d(X_t;\theta)\|\right]&lt;\infty.
+\]</span></li>
+<li><span class="math inline">\(G=E[d(X_t;\theta_0)]\)</span> は full column rank <span class="math inline">\(p\)</span> をもつ。</li>
+</ol>
+<p>このとき <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)
+\overset{d}{\to}
+N\!\left(0,
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\right).
+\]</span></p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>近似的一階条件 <a href="#eq-gmm-approx-foc" class="quarto-xref">式&nbsp;1</a> を用いると <span class="math display">\[
+\frac{\partial Q_n(\hat\theta)}{\partial\theta}
+=
+-G_n(\hat\theta)'\widehat W_n g_n(\hat\theta)
+=o_p(n^{-1/2})
+\]</span> である。ここで <span class="math inline">\(g_n(\hat\theta)\)</span> を <span class="math inline">\(\theta_0\)</span> のまわりで展開する。<span class="math inline">\(g_n(\theta)\)</span> はベクトル値関数なので、厳密にはヤコビアンの積分平均を使うときれいに書ける。すなわち <span class="math display">\[
+\bar G_n
+=
+\int_0^1
+G_n\!\left(\theta_0+s(\hat\theta-\theta_0)\right)\,ds
+\]</span> とおけば、 <span class="math display">\[
+g_n(\hat\theta)
+=
+g_n(\theta_0)+\bar G_n(\hat\theta-\theta_0)
+\]</span> である。これを一階条件に代入すると <span class="math display">\[
+o_p(1)
+=
+\bigl(G_n(\hat\theta)'\widehat W_n \bar G_n\bigr)\sqrt n(\hat\theta-\theta_0)
++
+G_n(\hat\theta)'\widehat W_n \sqrt n\,g_n(\theta_0)
+\]</span> を得る。ここでは、もとの一階条件の両辺に <span class="math inline">\(\sqrt n\)</span> を掛けている。</p>
+<p>一様大数法則と一致性により <span class="math display">\[
+G_n(\hat\theta)\overset{p}{\to} G,
+\qquad
+\bar G_n\overset{p}{\to} G
+\]</span> が成り立つので、 <span class="math display">\[
+G_n(\hat\theta)'\widehat W_n \bar G_n\overset{p}{\to} G'WG
+\]</span> である。<span class="math inline">\(G\)</span> が full column rank で <span class="math inline">\(W\)</span> が正定値なので、<span class="math inline">\(G'WG\)</span> は可逆である。したがって <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)
+=
+-(G'WG)^{-1}G'W\sqrt n\,g_n(\theta_0)+o_p(1),
+\]</span> となる。最後に <span class="math display">\[
+\sqrt n\,g_n(\theta_0)\overset{d}{\to} N(0,S)
+\]</span> と Slutsky の定理を用いると、右辺は平均 0、分散 <span class="math display">\[
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\]</span> の正規分布に収束する。</p>
+</div>
+</section>
+<section id="漸近分散の分解" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="漸近分散の分解"><span class="header-section-number">2.2</span> 漸近分散の分解</h2>
+<p>上の定理では <span class="math display">\[
+H=G'WG,
+\qquad
+\Sigma=G'WSWG
+\]</span> と書けば、 <span class="math display">\[
+\Omega=H^{-1}\Sigma H^{-1}
+\]</span> という <strong>曲率とノイズの分解</strong> になる。</p>
+<ul>
+<li><span class="math inline">\(G\)</span> はモーメント条件がパラメータにどれだけ敏感かを表す。</li>
+<li><span class="math inline">\(W\)</span> は研究者が選ぶ重みである。</li>
+<li><span class="math inline">\(S\)</span> は標本モーメント <span class="math inline">\(\sqrt n\,g_n(\theta_0)\)</span> の漸近分散である。</li>
+</ul>
+<p>この形を見ると、GMM の推定精度は</p>
+<ol type="1">
+<li>モーメントの情報量（<span class="math inline">\(G\)</span>）</li>
+<li>モーメントのノイズ（<span class="math inline">\(S\)</span>）</li>
+<li>ノイズをどう重みづけるか（<span class="math inline">\(W\)</span>）</li>
+</ol>
+<p>の 3 つに依存することが分かる。</p>
+</section>
+<section id="just-identified-と-over-identified" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="just-identified-と-over-identified"><span class="header-section-number">2.3</span> just identified と over identified</h2>
+<section id="just-identified-の場合" class="level3" data-number="2.3.1">
+<h3 data-number="2.3.1" class="anchored" data-anchor-id="just-identified-の場合"><span class="header-section-number">2.3.1</span> just identified の場合</h3>
+<p><span class="math inline">\(K=p\)</span> で <span class="math inline">\(G\)</span> が可逆なら、 <span class="math display">\[
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+=
+G^{-1}S(G')^{-1}
+\]</span> となり、重み行列 <span class="math inline">\(W\)</span> は打ち消し合う。この中間計算を少しだけ書くと、 <span class="math display">\[
+(G'WG)^{-1}
+=
+G^{-1}W^{-1}(G')^{-1}
+\]</span> なので <span class="math display">\[
+(G'WG)^{-1}G'W=G^{-1},
+\qquad
+WG(G'WG)^{-1}=(G')^{-1}
+\]</span> である。したがって sandwich の左右で <span class="math inline">\(W\)</span> が消える。</p>
+<p>直観的には、just identified の場合には <span class="math inline">\(K=p\)</span> 本の標本方程式 <span class="math display">\[
+g_n(\hat\theta)=0
+\]</span> を解けばよい。解がちょうど 0 を達成するなら、その 0 までの距離をどの重みで測っても同じ点が選ばれる。したがって <strong>just identified モデルでは <span class="math inline">\(W\)</span> の選び方は漸近分散に影響しない</strong>。</p>
+</section>
+<section id="over-identified-の場合" class="level3" data-number="2.3.2">
+<h3 data-number="2.3.2" class="anchored" data-anchor-id="over-identified-の場合"><span class="header-section-number">2.3.2</span> over identified の場合</h3>
+<p><span class="math inline">\(K&gt;p\)</span> では <span class="math inline">\(G\)</span> は正方行列でないため、この打ち消しは起きない。したがって <strong>over identified モデルでは <span class="math inline">\(W\)</span> の選び方が効率性を左右する</strong>。</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>重要な含意
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>over identified GMM では、同じモーメント条件でも重み行列の選び方が悪いと標準誤差が大きくなり、信頼区間も広くなる。GMM の実務では「モーメント条件をどう作るか」だけでなく、「どの重みで評価するか」も本質的である。</p>
+</div>
+</div>
+</section>
+</section>
+<section id="最適重み付けと効率性" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="最適重み付けと効率性"><span class="header-section-number">2.4</span> 最適重み付けと効率性</h2>
+<p>over identified の場合、標本モーメントは <span class="math inline">\(K\)</span> 個あり、パラメータは <span class="math inline">\(p\)</span> 個である。<span class="math inline">\(K&gt;p\)</span> なので、標本では <span class="math display">\[
+g_n(\theta)=0
+\]</span> を完全には解けないことが多い。そこで、どの方向のモーメントのズレを重く見るかを決める必要がある。その結論が次の命題である。</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>命題：効率的な GMM 重み
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>次を仮定する。</p>
+<ol type="1">
+<li><span class="math inline">\(\sqrt n\,g_n(\theta_0)\overset{d}{\to}N(0,S)\)</span>.</li>
+<li><span class="math inline">\(S\)</span> は正定値である。</li>
+<li><span class="math inline">\(G=E[\partial g(X_t;\theta_0)/\partial\theta']\)</span> は full column rank <span class="math inline">\(p\)</span> をもつ。</li>
+</ol>
+<p>このとき、正定値な重み行列 <span class="math inline">\(W\)</span> を用いた GMM 推定量の漸近分散は <span class="math display">\[
+\Omega(W)
+=
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\]</span> である。この漸近分散は <span class="math display">\[
+W=S^{-1}
+\]</span> のとき最小になり、その最小値は <span class="math display">\[
+\Omega_{\mathrm{eff}}=(G'S^{-1}G)^{-1}
+\]</span> である。つまり、任意の正定値行列 <span class="math inline">\(W\)</span> について <span class="math display">\[
+\Omega(W)\succeq \Omega_{\mathrm{eff}}
+\]</span> が成り立つ。ここで <span class="math inline">\(\succeq\)</span> は半正定値行列の意味での大小である。</p>
+</div>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>定理の証明で見たように、重み <span class="math inline">\(W\)</span> を使った GMM では <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)
+=
+-A_W\sqrt n\,g_n(\theta_0)+o_p(1),
+\qquad
+A_W=(G'WG)^{-1}G'W
+\]</span> と書ける。ここで <span class="math inline">\(A_W\)</span> は <span class="math inline">\(p\times K\)</span> 行列であり、<span class="math inline">\(K\)</span> 次元の標本モーメントの誤差を <span class="math inline">\(p\)</span> 次元のパラメータ推定誤差へ変換する。</p>
+<p>この <span class="math inline">\(A_W\)</span> は <span class="math display">\[
+A_WG=I_p
+\]</span> を満たす。これは、パラメータを <span class="math inline">\(h\)</span> だけ動かしたときに生じるモーメントの変化 <span class="math inline">\(Gh\)</span> を、きちんと <span class="math inline">\(h\)</span> に戻せるという意味である。over identified では <span class="math inline">\(G\)</span> が縦長なので、このような左逆行列は一意ではない。</p>
+<p>そこで一般に、<span class="math inline">\(AG=I_p\)</span> を満たす <span class="math inline">\(p\times K\)</span> 行列 <span class="math inline">\(A\)</span> を考える。<span class="math inline">\(Z_n=\sqrt n\,g_n(\theta_0)\)</span> とおくと、<span class="math inline">\(Z_n\)</span> の漸近分散は <span class="math inline">\(S\)</span> であり、<span class="math inline">\(AZ_n\)</span> の漸近分散は <span class="math display">\[
+ASA'
+\]</span> である。したがって、<span class="math inline">\(AG=I_p\)</span> を満たす <span class="math inline">\(A\)</span> の中で <span class="math inline">\(ASA'\)</span> を最小にするものを選べばよい。</p>
+<p>その候補は <span class="math display">\[
+A_*=(G'S^{-1}G)^{-1}G'S^{-1}
+\]</span> である。実際、 <span class="math display">\[
+A_*G=I_p
+\]</span> である。</p>
+<p>任意の <span class="math inline">\(A\)</span> が <span class="math inline">\(AG=I_p\)</span> を満たすとする。<span class="math inline">\(C=A-A_*\)</span> とおくと <span class="math display">\[
+CG=0
+\]</span> である。また <span class="math display">\[
+A_*S
+=
+(G'S^{-1}G)^{-1}G'
+\]</span> なので、 <span class="math display">\[
+A_*SC'
+=
+(G'S^{-1}G)^{-1}G'C'
+=0.
+\]</span> したがって <span class="math display">\[
+\begin{aligned}
+ASA'
+&amp;=(A_*+C)S(A_*+C)'\\
+&amp;=A_*SA_*' + CSC'.
+\end{aligned}
+\]</span> ここで <span class="math inline">\(CSC'\)</span> は半正定値である。よって <span class="math display">\[
+ASA'\succeq A_*SA_*'
+\]</span> である。さらに <span class="math display">\[
+A_*SA_*'=(G'S^{-1}G)^{-1}.
+\]</span> したがって <span class="math inline">\(A_*\)</span> が最も小さい漸近分散を与える。</p>
+<p>最後に、GMM の重みとして <span class="math inline">\(W=S^{-1}\)</span> を選ぶと <span class="math display">\[
+A_W=(G'S^{-1}G)^{-1}G'S^{-1}=A_*
+\]</span> となる。したがって効率的な重みは <span class="math inline">\(W=S^{-1}\)</span> であり、効率的漸近分散は <span class="math inline">\((G'S^{-1}G)^{-1}\)</span> である。</p>
+</div>
+<p>直観的には、<span class="math inline">\(S^{-1}\)</span> は次の 2 つを同時に行っている。</p>
+<ol type="1">
+<li>ノイズの大きいモーメントには小さい重みを置く。</li>
+<li>互いに強く相関したモーメントを、独立な情報であるかのように二重に数えない。</li>
+</ol>
+<p>この不等式は、GMM における効率性の中心結果であり、実務的には <strong>two-step efficient GMM</strong> の理論的根拠になる。</p>
+<section id="two-step-efficient-gmm" class="level3" data-number="2.4.1">
+<h3 data-number="2.4.1" class="anchored" data-anchor-id="two-step-efficient-gmm"><span class="header-section-number">2.4.1</span> two-step efficient GMM</h3>
+<p>実装は通常 2 段階で行う。</p>
+<ol type="1">
+<li>まず <span class="math inline">\(\widehat W_n=I_K\)</span> など単純な重みで一段階推定量 <span class="math inline">\(\tilde\theta\)</span> を得る。</li>
+<li>次に <span class="math inline">\(\tilde\theta\)</span> を使って <span class="math inline">\(S\)</span> を推定し、その逆行列を重みとしてもう一度 GMM を解く。</li>
+</ol>
+<p>こうして得られる二段階推定量 <span class="math inline">\(\hat\theta\)</span> は、適当な条件の下で効率的漸近分散 <span class="math display">\[
+(G'S^{-1}G)^{-1}
+\]</span> をもつ。</p>
+<p>第一段階の重みは効率的である必要はない。必要なのは、第一段階の推定量 <span class="math inline">\(\tilde\theta\)</span> が <span class="math inline">\(\theta_0\)</span> に十分近づき、それを使って <span class="math inline">\(S\)</span> を一貫推定できることである。第二段階で <span class="math inline">\(\widehat S^{-1}\)</span> を使うことで、漸近的には最適重みに到達する。</p>
+</section>
+<section id="数値例最適重みで標準誤差が小さくなる" class="level3" data-number="2.4.2">
+<h3 data-number="2.4.2" class="anchored" data-anchor-id="数値例最適重みで標準誤差が小さくなる"><span class="header-section-number">2.4.2</span> 数値例：最適重みで標準誤差が小さくなる</h3>
+<p>最適重みの効果を、単純な例で確認する。1 つのパラメータ <span class="math inline">\(\theta_0\)</span> を、2 つの測定値から推定する。 <span class="math display">\[
+A_t=\theta_0+\varepsilon_{1t},
+\qquad
+B_t=\theta_0+\varepsilon_{2t},
+\]</span> ただし <span class="math display">\[
+\operatorname{Var}(\varepsilon_{1t})=1,
+\qquad
+\operatorname{Var}(\varepsilon_{2t})=9
+\]</span> とする。<span class="math inline">\(B_t\)</span> は <span class="math inline">\(A_t\)</span> より 9 倍ノイズが大きい。</p>
+<p>モーメント条件は <span class="math display">\[
+E[A_t-\theta_0]=0,
+\qquad
+E[B_t-\theta_0]=0
+\]</span> であり、 <span class="math display">\[
+g_n(\theta)
+=
+\begin{pmatrix}
+\bar A-\theta\\
+\bar B-\theta
+\end{pmatrix}.
+\]</span></p>
+<p>単位行列 <span class="math inline">\(W=I_2\)</span> を使うと <span class="math display">\[
+\hat\theta_I=\frac{\bar A+\bar B}{2}
+\]</span> であり、ノイズの大きい <span class="math inline">\(\bar B\)</span> を <span class="math inline">\(\bar A\)</span> と同じだけ信じてしまう。一方、真の <span class="math display">\[
+S=
+\begin{pmatrix}
+1&amp;0\\
+0&amp;9
+\end{pmatrix}
+\]</span> を使った最適重み <span class="math inline">\(S^{-1}\)</span> では <span class="math display">\[
+\hat\theta_{\mathrm{eff}}
+=
+\frac{\bar A+(1/9)\bar B}{1+1/9}
+=
+0.9\bar A+0.1\bar B
+\]</span> となる。精度の高い <span class="math inline">\(\bar A\)</span> を強く、精度の低い <span class="math inline">\(\bar B\)</span> を弱く使っている。</p>
+<p>漸近分散は <span class="math display">\[
+\operatorname{Avar}\{\sqrt n(\hat\theta_I-\theta_0)\}=2.5,
+\qquad
+\operatorname{Avar}\{\sqrt n(\hat\theta_{\mathrm{eff}}-\theta_0)\}=0.9
+\]</span> である。したがって、最適重みを使うと標準誤差はかなり小さくなる。</p>
+<p>次のシミュレーションでは、この違いを有限標本で確認する。</p>
+<div id="tbl-optimal-weight-simulation" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-optimal-weight-simulation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;1
+</figcaption>
+<div aria-describedby="tbl-optimal-weight-simulation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">200</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>R <span class="ot">&lt;-</span> <span class="dv">5000</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>theta0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>simulate_once <span class="ot">&lt;-</span> <span class="cf">function</span>() {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  A <span class="ot">&lt;-</span> theta0 <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  B_meas <span class="ot">&lt;-</span> theta0 <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">3</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  theta_I <span class="ot">&lt;-</span> (<span class="fu">mean</span>(A) <span class="sc">+</span> <span class="fu">mean</span>(B_meas)) <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  theta_eff <span class="ot">&lt;-</span> (<span class="fu">mean</span>(A) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">/</span> <span class="dv">9</span>) <span class="sc">*</span> <span class="fu">mean</span>(B_meas)) <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="dv">1</span> <span class="sc">/</span> <span class="dv">9</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="at">identity =</span> theta_I, <span class="at">optimal =</span> theta_eff)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>sim <span class="ot">&lt;-</span> <span class="fu">replicate</span>(R, <span class="fu">simulate_once</span>())</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>simulation_summary <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">weight =</span> <span class="fu">c</span>(<span class="st">"W = I"</span>, <span class="st">"W = S^{-1}"</span>),</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">empirical_sd =</span> <span class="fu">apply</span>(sim, <span class="dv">1</span>, sd),</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">theoretical_se =</span> <span class="fu">c</span>(<span class="fu">sqrt</span>(<span class="fl">2.5</span> <span class="sc">/</span> n), <span class="fu">sqrt</span>(<span class="fl">0.9</span> <span class="sc">/</span> n))</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>simulation_summary<span class="sc">$</span>empirical_sd <span class="ot">&lt;-</span> <span class="fu">round</span>(simulation_summary<span class="sc">$</span>empirical_sd, <span class="dv">4</span>)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>simulation_summary<span class="sc">$</span>theoretical_se <span class="ot">&lt;-</span> <span class="fu">round</span>(simulation_summary<span class="sc">$</span>theoretical_se, <span class="dv">4</span>)</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(simulation_summary, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     weight empirical_sd theoretical_se
+      W = I       0.1117         0.1118
+ W = S^{-1}       0.0669         0.0671</code></pre>
+</div>
+</div>
+</figure>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">density</span>(sim[<span class="st">"identity"</span>, ]),</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">lwd =</span> <span class="dv">2</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">col =</span> <span class="st">"gray35"</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">xlab =</span> <span class="fu">expression</span>(<span class="fu">hat</span>(theta)),</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">main =</span> <span class="st">"GMM estimates across simulations"</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(<span class="fu">density</span>(sim[<span class="st">"optimal"</span>, ]), <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">col =</span> <span class="st">"steelblue"</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> theta0, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="st">"topright"</span>,</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"W = I"</span>, <span class="fu">expression</span>(W <span class="sc">==</span> S<span class="sc">^</span>{<span class="sc">-</span><span class="dv">1</span>}), <span class="fu">expression</span>(theta[<span class="dv">0</span>])),</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">col =</span> <span class="fu">c</span>(<span class="st">"gray35"</span>, <span class="st">"steelblue"</span>, <span class="st">"black"</span>),</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">lwd =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">2</span>, <span class="dv">1</span>),</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">lty =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">2</span>),</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">bty =</span> <span class="st">"n"</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-optimal-weight-simulation" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-optimal-weight-simulation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="04-gmm-ja_files/figure-html/fig-optimal-weight-simulation-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-optimal-weight-simulation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;1: 重み行列による GMM 推定量のばらつきの違い
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="r-実装二段階-gmm" class="level3" data-number="2.4.3">
+<h3 data-number="2.4.3" class="anchored" data-anchor-id="r-実装二段階-gmm"><span class="header-section-number">2.4.3</span> R 実装：二段階 GMM</h3>
+<p>同じ例で、<span class="math inline">\(S\)</span> を知らない場合の二段階 GMM を実装してみる。第一段階では <span class="math inline">\(W=I_2\)</span> を使い、第二段階では第一段階の推定量でモーメントの分散共分散行列を推定して、その逆行列を重みに使う。</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>two_step_gmm <span class="ot">&lt;-</span> <span class="cf">function</span>(A, B_meas) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  n <span class="ot">&lt;-</span> <span class="fu">length</span>(A)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 第 1 段階: W = I.</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  theta_1 <span class="ot">&lt;-</span> (<span class="fu">mean</span>(A) <span class="sc">+</span> <span class="fu">mean</span>(B_meas)) <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 第 1 段階の推定量で S を推定する。</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  g_1 <span class="ot">&lt;-</span> <span class="fu">cbind</span>(A <span class="sc">-</span> theta_1, B_meas <span class="sc">-</span> theta_1)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  g_1_centered <span class="ot">&lt;-</span> <span class="fu">sweep</span>(g_1, <span class="dv">2</span>, <span class="fu">colMeans</span>(g_1), <span class="st">"-"</span>)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  S_hat <span class="ot">&lt;-</span> <span class="fu">crossprod</span>(g_1_centered) <span class="sc">/</span> n</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  W_hat <span class="ot">&lt;-</span> <span class="fu">solve</span>(S_hat)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 第 2 段階: gbar(theta)' W_hat gbar(theta) を最小化する。</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  m <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">mean</span>(A), <span class="fu">mean</span>(B_meas))</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  one <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  theta_2 <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">t</span>(one) <span class="sc">%*%</span> W_hat <span class="sc">%*%</span> m <span class="sc">/</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>                          (<span class="fu">t</span>(one) <span class="sc">%*%</span> W_hat <span class="sc">%*%</span> one))</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 効率的 GMM の標準誤差。</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  G_hat <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>), <span class="at">ncol =</span> <span class="dv">1</span>)</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  Omega_hat <span class="ot">&lt;-</span> <span class="fu">solve</span>(<span class="fu">t</span>(G_hat) <span class="sc">%*%</span> W_hat <span class="sc">%*%</span> G_hat)</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  se_2 <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">as.numeric</span>(Omega_hat) <span class="sc">/</span> n)</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="at">theta_1 =</span> theta_1, <span class="at">theta_2 =</span> theta_2, <span class="at">se_2 =</span> se_2)</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">456</span>)</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>A <span class="ot">&lt;-</span> theta0 <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>B_meas <span class="ot">&lt;-</span> theta0 <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">3</span>)</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">two_step_gmm</span>(A, B_meas), <span class="dv">4</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>theta_1 theta_2    se_2 
+ 1.1764  1.0324  0.0677 </code></pre>
+</div>
+</div>
+<p>この例では、二段階目の推定量 <code>theta_2</code> が、ノイズの大きい <span class="math inline">\(B_t\)</span> よりも精度の高い <span class="math inline">\(A_t\)</span> を強く使う推定量になっている。標準誤差 <code>se_2</code> は、二段階 GMM の plug-in 標準誤差である。</p>
+</section>
+</section>
+</section>
+<section id="標準誤差の推定" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 標準誤差の推定</h1>
+<section id="基本的な-plug-in-推定" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="基本的な-plug-in-推定"><span class="header-section-number">3.1</span> 基本的な plug-in 推定</h2>
+<p>一般形の漸近分散 <span class="math display">\[
+\Omega=(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\]</span> を推定するには、<span class="math inline">\(G\)</span> と <span class="math inline">\(S\)</span> をそれぞれ推定すればよい。ここで <span class="math inline">\(\Omega\)</span> は <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)
+\]</span> の漸近分散である。したがって、<span class="math inline">\(\hat\theta_j\)</span> 自体の標準誤差は <span class="math display">\[
+\operatorname{se}(\hat\theta_j)
+=
+\sqrt{\frac{\widehat\Omega_{jj}}{n}}
+\]</span> として計算する。</p>
+<p><span class="math inline">\(G\)</span> の自然な推定量は <span class="math display">\[
+\widehat G=\frac1n\sum_{t=1}^n d(X_t;\hat\theta)
+\]</span> である。したがって、一般形の sandwich 推定量は <span id="eq-gmm-sandwich"><span class="math display">\[
+\widehat\Omega
+=
+(\widehat G'\widehat W_n\widehat G)^{-1}
+\widehat G'\widehat W_n\widehat S \widehat W_n\widehat G
+(\widehat G'\widehat W_n\widehat G)^{-1}
+\tag{2}\]</span></span> である。これは M 推定で出てきた sandwich 推定量と同じ形をしている。外側の <span class="math display">\[
+(\widehat G'\widehat W_n\widehat G)^{-1}
+\]</span> が曲率の逆行列、中央の <span class="math display">\[
+\widehat G'\widehat W_n\widehat S \widehat W_n\widehat G
+\]</span> が一階条件に入るノイズの分散に対応する。</p>
+</section>
+<section id="独立データの場合" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="独立データの場合"><span class="header-section-number">3.2</span> 独立データの場合</h2>
+<p>データが i.i.d. であれば、異なる時点のモーメントは相関しないので、 <span class="math display">\[
+S=E[g(X_t;\theta_0)g(X_t;\theta_0)']
+\]</span> である。</p>
+<p>したがって <span class="math display">\[
+\widehat S
+=
+\frac1n\sum_{t=1}^n g(X_t;\hat\theta)g(X_t;\hat\theta)'
+\]</span> あるいは <span class="math display">\[
+\widehat S
+=
+\frac1n\sum_{t=1}^n
+\bigl(g(X_t;\hat\theta)-g_n(\hat\theta)\bigr)
+\bigl(g(X_t;\hat\theta)-g_n(\hat\theta)\bigr)'
+\]</span> を用いればよい。</p>
+<p>最初の式は、真の値では <span class="math inline">\(E[g(X_t;\theta_0)]=0\)</span> であることをそのまま使う推定量である。2 つ目の式は、標本平均 <span class="math inline">\(g_n(\hat\theta)\)</span> を引いて中心化している。漸近的には同じ値に近づくが、有限標本では中心化した方が安定することがある。</p>
+<p>一致性が成り立てば、<a href="#eq-gmm-sandwich" class="quarto-xref">式&nbsp;2</a> は <span class="math inline">\(\Omega\)</span> の一貫推定量になる。</p>
+</section>
+<section id="効率的-gmm-の標準誤差" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="効率的-gmm-の標準誤差"><span class="header-section-number">3.3</span> 効率的 GMM の標準誤差</h2>
+<p>もし <span class="math inline">\(\widehat W_n=\widehat S^{-1}\)</span> を使っていれば、漸近分散は <span class="math display">\[
+\Omega_{\mathrm{eff}}=(G'S^{-1}G)^{-1}
+\]</span> だから、推定量は簡約されて <span class="math display">\[
+\widehat\Omega_{\mathrm{eff}}
+=
+(\widehat G'\widehat S^{-1}\widehat G)^{-1}
+\]</span> となる。実務ではこの形が最もよく使われる。ただし、ここでも実際に報告する標準誤差は <span class="math display">\[
+\sqrt{\frac{(\widehat\Omega_{\mathrm{eff}})_{jj}}{n}}
+\]</span> である。</p>
+</section>
+</section>
+<section id="one-step-correction" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> one-step correction</h1>
+<p><strong>one-step correction</strong> は、<span class="math inline">\(\sqrt n\)</span>-一致な初期推定量を出発点にして、一回だけ線形化による更新を行い、効率的 GMM と同じ一次の漸近分布を得る方法である。</p>
+<p>注意しておきたいのは、普通の小さな GMM 問題では、one-step correction が特に必要ないことも多い、という点である。たとえば線形 IV や低次元の滑らかな GMM なら、第 2 段階の目的関数をそのまま最適化しても大きな負担ではない。</p>
+<p>one-step correction が有益になるのは、第 2 段階の「1 回の最適化」が実際にはかなり重い場合である。数値最適化では、1 回の最適化の中で目的関数やモーメントを何十回、何百回も評価することがある。構造推定、シミュレーションを含むモーメント、非線形で局所解が多い目的関数、大きなブートストラップや多数の仕様チェックでは、この繰り返し評価が無視できなくなる。</p>
+<p>このとき、初期推定量 <span class="math inline">\(\tilde\theta\)</span> がすでに <span class="math inline">\(\sqrt n\)</span>-一致なら、その近くでモーメント条件を一度だけ線形化して更新するだけで、一次の漸近分布は効率的 GMM と同じになる。これが one-step correction の考え方である。</p>
+<p><span class="math inline">\(\tilde\theta\)</span> を <span class="math inline">\(\sqrt n\)</span>-一致な初期推定量とし、<span class="math inline">\(\widehat W_n\)</span> を効率的重みとする。<span class="math inline">\(\tilde\theta\)</span> の近くで <span class="math display">\[
+g_n(\theta)
+\approx
+g_n(\tilde\theta)+\widetilde G(\theta-\tilde\theta),
+\qquad
+\widetilde G=G_n(\tilde\theta)
+\]</span> と線形化する。<span class="math inline">\(\Delta=\theta-\tilde\theta\)</span> とおくと、線形化された GMM 問題は <span class="math display">\[
+\min_{\Delta}
+\{g_n(\tilde\theta)+\widetilde G\Delta\}'
+\widehat W_n
+\{g_n(\tilde\theta)+\widetilde G\Delta\}
+\]</span> である。この一階条件は <span class="math display">\[
+\widetilde G'\widehat W_n
+\{g_n(\tilde\theta)+\widetilde G\Delta\}=0
+\]</span> なので、 <span class="math display">\[
+\Delta
+=
+-
+(\widetilde G'\widehat W_n\widetilde G)^{-1}
+\widetilde G'\widehat W_n g_n(\tilde\theta)
+\]</span> となる。したがって <span class="math display">\[
+\hat\theta_{\mathrm{1step}}
+=
+\tilde\theta
+-
+(\widetilde G'\widehat W_n\widetilde G)^{-1}
+\widetilde G'\widehat W_n
+\left(\frac1n\sum_{t=1}^n g(X_t;\tilde\theta)\right),
+\]</span> と定める。これは、線形化された GMM 問題を解く Gauss-Newton / Newton 型の one-step 更新である。</p>
+<p>すると適当な条件の下で <span class="math display">\[
+\sqrt n(\hat\theta_{\mathrm{1step}}-\theta_0)
+\overset{d}{\to}
+N\!\left(0,(G'S^{-1}G)^{-1}\right)
+\]</span> が成り立つ。つまり、初期推定量がすでに <span class="math inline">\(\sqrt n\)</span> の速度で真の値に近づいていれば、<strong>一回の Newton 型ステップだけで漸近的には効率的</strong> になる。</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>いつ有利か
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>one-step correction は、次のような状況で有用である。</p>
+<ul>
+<li>第 2 段階の非線形最適化が、目的関数評価を多数回必要とする。</li>
+<li>モーメントの計算にシミュレーションや大きな数値計算が入る。</li>
+<li>ブートストラップ、モンテカルロ、多数の初期値、多数の仕様で、同じ GMM 推定を何度も繰り返す。</li>
+<li>初期推定量とヤコビアン <span class="math inline">\(G_n(\tilde\theta)\)</span> は比較的簡単に得られる。</li>
+</ul>
+<p>逆に、線形 IV や単純な低次元 GMM のように第 2 段階を簡単に解ける場合には、無理に one-step correction を使う必要はあまりない。</p>
+</div>
+</div>
+</section>
+<section id="過剰識別制約の検定" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> 過剰識別制約の検定</h1>
+<p>over identified モデルでは <span class="math inline">\(K-p\)</span> 個の余剰モーメント条件があり、それらを使ってモデルの適合度を検定できる。</p>
+<p>考え方は単純である。<span class="math inline">\(K&gt;p\)</span> の場合、推定では <span class="math inline">\(p\)</span> 個のパラメータを動かして <span class="math inline">\(K\)</span> 個の標本モーメントをできるだけ 0 に近づける。もしモデルのモーメント条件がすべて正しければ、推定後に残る標本モーメントのズレは、純粋な標本誤差の範囲に収まるはずである。逆に、そのズレが標本誤差としては大きすぎるなら、少なくともいくつかのモーメント条件が疑わしい。</p>
+<section id="j-統計量" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="j-統計量"><span class="header-section-number">5.1</span> <span class="math inline">\(J\)</span> 統計量</h2>
+<p>帰無仮説は <span class="math display">\[
+H_0:\quad E[g(X_t;\theta_0)]=0 \text{ を満たす }\theta_0\in\Theta \text{ が存在する}
+\]</span> である。検定統計量は <span id="eq-j-stat"><span class="math display">\[
+J=-2nQ_n(\hat\theta)
+=
+n\,g_n(\hat\theta)'\widehat W_n g_n(\hat\theta)
+\tag{3}\]</span></span> である。</p>
+<div id="thm-jtest" class="theorem">
+<p><span class="theorem-title"><strong>定理 2 (Hansen-Sargan の <span class="math inline">\(J\)</span> 検定)</strong></span> <a href="#thm-gmm-asymp-normal" class="quarto-xref">定理&nbsp;1</a> の仮定に加え、さらに <span class="math display">\[
+\widehat W_n\overset{p}{\to} S^{-1}
+\]</span> を仮定する。このとき、帰無仮説の下で <span class="math display">\[
+J\overset{d}{\to}\chi^2_{K-p}
+\]</span> が成り立つ。</p>
+</div>
+<div class="proof">
+<p><span class="proof-title"><em>証明</em>. </span>平均値展開により <span class="math display">\[
+\sqrt n\,g_n(\hat\theta)
+=
+\sqrt n\,g_n(\theta_0)+G\sqrt n(\hat\theta-\theta_0)+o_p(1)
+\]</span> である。さらに効率的 GMM の線形表示 <span class="math display">\[
+\sqrt n(\hat\theta-\theta_0)
+=
+-(G'S^{-1}G)^{-1}G'S^{-1}\sqrt n\,g_n(\theta_0)+o_p(1)
+\]</span> を代入すると、 <span class="math display">\[
+\sqrt n\,g_n(\hat\theta)
+=
+\left[
+I_K-G(G'S^{-1}G)^{-1}G'S^{-1}
+\right]\sqrt n\,g_n(\theta_0)+o_p(1)
+\]</span> を得る。</p>
+<p>ここで <span class="math display">\[
+Z_n=S^{-1/2}\sqrt n\,g_n(\theta_0),
+\qquad
+M=S^{-1/2}G
+\]</span> とおく。仮定より <span class="math inline">\(Z_n\overset{d}{\to}N(0,I_K)\)</span> である。また、<span class="math inline">\(\widehat W_n\to_p S^{-1}\)</span> なので、Slutsky の定理により <span class="math display">\[
+S^{-1/2}\sqrt n\,g_n(\hat\theta)
+=
+\left[
+I_K-M(M'M)^{-1}M'
+\right]Z_n+o_p(1)
+\]</span> である。したがって <span class="math display">\[
+J
+=
+Z_n'
+\left[
+I_K-M(M'M)^{-1}M'
+\right]
+Z_n
++o_p(1)
+\]</span> と書ける。</p>
+<p>行列 <span class="math display">\[
+P=I_K-M(M'M)^{-1}M'
+\]</span> は、<span class="math inline">\(M\)</span> の列空間に直交する方向への射影行列である。<span class="math inline">\(G\)</span> が full column rank <span class="math inline">\(p\)</span> をもつので <span class="math inline">\(M\)</span> も rank <span class="math inline">\(p\)</span> をもち、したがって <span class="math inline">\(P\)</span> の rank は <span class="math inline">\(K-p\)</span> である。標準正規ベクトル <span class="math inline">\(Z\)</span> について、rank <span class="math inline">\(r\)</span> の直交射影行列 <span class="math inline">\(P\)</span> に対する二次形式 <span class="math inline">\(Z'PZ\)</span> は <span class="math inline">\(\chi^2_r\)</span> に従う。よって <span class="math display">\[
+J\overset{d}{\to}\chi^2_{K-p}
+\]</span> である。</p>
+</div>
+<p>この検定は</p>
+<ul>
+<li><strong>test of over-identifying restrictions</strong></li>
+<li><strong>Hansen-Sargan test</strong></li>
+<li><strong>J test</strong></li>
+</ul>
+<p>などと呼ばれる。</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>何が分かり、何は分からないか
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(J\)</span> 検定で棄却されると、「少なくともいくつかのモーメント条件が誤指定されている」ことは分かる。しかし、<strong>どのモーメント条件が悪いのかまでは教えてくれない</strong>。したがって、棄却後はモーメント条件の個別診断が必要である。</p>
+</div>
+</div>
+</section>
+<section id="有名な使われ方" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="有名な使われ方"><span class="header-section-number">5.2</span> 有名な使われ方</h2>
+<p><span class="math inline">\(J\)</span> 検定は、単独で大きな経済的主張をするというより、GMM で使ったモーメント条件がデータと大きく矛盾していないかを確認するために使われることが多い。</p>
+<p>代表例は <a href="https://larspeterhansen.org/lph_research/generalized-instrumental-variables-estimation-of-nonlinear-rational-expectations-models/">Hansen and Singleton (1982)</a> である。この論文は、非線形の合理的期待モデルを、確率的 Euler 方程式から直接 GMM で推定・検定する古典的な応用である。消費者や投資家の動学的最適化から出てくる直交条件を標本でどれだけ満たせるかを見て、モデルの含意を検証する。</p>
+<p>もう 1 つの有名な例は <a href="https://ideas.repec.org/a/oup/restud/v58y1991i2p277-297..html">Arellano and Bond (1991)</a> の動学パネル GMM である。ラグ変数を操作変数として使うと多くのモーメント条件が生まれるため、Sargan/Hansen 型の過剰識別制約検定は、操作変数集合が全体として妥当かを確認するための標準的な診断として使われる。</p>
+<p>これらの例での読み方は共通している。<span class="math inline">\(J\)</span> 検定で棄却されなければ、使ったモーメント条件が正しいことが証明されたわけではない。しかし、少なくともデータがそのモーメント条件全体と明らかに矛盾している、とは言いにくい。一方、棄却されれば、モデル、操作変数、または一部の直交条件を見直す強い理由になる。</p>
+</section>
+</section>
+<section id="continuously-updated-gmm" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> Continuously-updated GMM</h1>
+<section id="定義" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="定義"><span class="header-section-number">6.1</span> 定義</h2>
+<p>効率的 GMM を 2 段階で実装する代わりに、重み行列自体を <span class="math inline">\(\theta\)</span> の関数にして 1 回の最適化で済ませる方法が <strong>continuously-updated GMM（CU-GMM）</strong> である。目的関数は <span class="math display">\[
+Q_n(\theta)=-\frac12 g_n(\theta)'\widehat W_n(\theta)g_n(\theta)
+\]</span> である。</p>
+<p>典型的には <span class="math display">\[
+\widehat W_n(\theta)
+=
+\left(
+\frac1n\sum_{t=1}^n g(X_t;\theta)g(X_t;\theta)'
+\right)^{-1}
+\]</span> あるいは <span class="math display">\[
+\widehat W_n(\theta)
+=
+\left(
+\frac1n\sum_{t=1}^n g(X_t;\theta)g(X_t;\theta)'
+-g_n(\theta)g_n(\theta)'
+\right)^{-1}
+\]</span> のようにとる。</p>
+<p>通常の二段階 GMM では、第二段階の最適化をするときに <span class="math inline">\(\widehat W_n\)</span> は固定されている。一方、CU-GMM では <span class="math inline">\(\theta\)</span> を動かすたびに <span class="math inline">\(\widehat W_n(\theta)\)</span> も変わる。そのため有限標本の一階条件には、<span class="math inline">\(g_n(\theta)\)</span> の微分だけでなく、<span class="math inline">\(\widehat W_n(\theta)\)</span> の微分も入る。</p>
+<p>ただし、一次の漸近分布だけを見ると、重み行列の微分から来る項は通常は高次の項になる。理由は、真の値の近くでは <span class="math inline">\(g_n(\theta_0)=O_p(n^{-1/2})\)</span> なので、<span class="math inline">\(\widehat W_n(\theta)\)</span> の微分に掛かる <span class="math inline">\(g_n(\theta)g_n(\theta)'\)</span> 型の項は <span class="math inline">\(O_p(n^{-1})\)</span> になるからである。したがって、適当な正則条件の下で、CU-GMM も効率的 GMM と同じ一次の漸近分散をもつ。</p>
+</section>
+<section id="cu-gmm-の意味" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="cu-gmm-の意味"><span class="header-section-number">6.2</span> CU-GMM の意味</h2>
+<p>CU-GMM は形式上は GMM だが、より広くは generalized empirical likelihood の一部として理解できる。理論的には、高次のバイアス項が小さくなるなど、通常の二段階 GMM より望ましい有限標本特性をもつことがある。つまり、一次の漸近分散は二段階効率的 GMM と同じでも、有限標本や高次近似では違いが出る可能性がある。</p>
+<p>一方で、重み行列も同時に最適化対象になるため、数値計算は重くなりやすい。したがって、</p>
+<ul>
+<li>二段階 GMM</li>
+<li>one-step correction</li>
+<li>CU-GMM</li>
+</ul>
+<p>のどれが最も実用的かは、モデルの複雑さと数値最適化の難しさによって決まる。</p>
+</section>
+</section>
+<section id="まとめ" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> まとめ</h1>
+<p>この章の要点は次の通りである。</p>
+<ol type="1">
+<li>method of moments は、母集団のモーメント条件を標本版に置き換えて方程式を解く推定法である。</li>
+<li>複数のモーメント条件があり、標本では同時に 0 にできないとき、GMM は重みつき二次形式を最小化して妥協点を選ぶ。</li>
+<li>OLS は、残差が説明変数と直交するというモーメント条件を用いた GMM として見ることができる。</li>
+<li>線形 IV 推定は、操作変数が構造誤差と直交するというモーメント条件を用いた GMM として見ることができ、over identified の場合には 2SLS や効率的 GMM につながる。</li>
+<li>投資家の Euler 方程式のような応用では、複数の資産・操作変数から多くのモーメント条件が生まれるため、over identified GMM が自然に現れる。</li>
+<li>GMM 推定量の漸近分散は <span class="math display">\[
+(G'WG)^{-1}G'WSWG(G'WG)^{-1}
+\]</span> で与えられる。</li>
+<li>just identified モデルでは重み行列は漸近分散に影響しないが、over identified モデルでは影響する。</li>
+<li>効率的重みは <span class="math inline">\(W=S^{-1}\)</span> であり、そのとき漸近分散は <span class="math display">\[
+(G'S^{-1}G)^{-1}
+\]</span> に簡約される。</li>
+<li>標準誤差の推定では、独立データの下で標本モーメントの分散共分散行列を plug-in する。</li>
+<li>over identified モデルでは <span class="math inline">\(J\)</span> 検定により過剰識別制約を検定できる。</li>
+<li>効率的推定の実装法として、二段階 GMM、one-step correction、CU-GMM がある。</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>次章への接続
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>次の SMM 章では、GMM のモーメント条件 <span class="math display">\[
+g_n(\theta)=\frac1n\sum_{t=1}^n g(X_t;\theta)
+\]</span> のうち、モデル側のモーメントが閉形式で書けない場合を扱う。GMM の骨格はそのまま残るが、<strong>シミュレーション誤差</strong> が新たなノイズ源として加わる。</p>
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

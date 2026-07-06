@@ -1,0 +1,472 @@
+---
+title: "Hypothesis Testing"
+subtitle: "計量経済学大学院講義ノート"
+lang: ja
+number-sections: true
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+  pdf:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    documentclass: scrartcl
+execute:
+  echo: false
+  warning: false
+  error: false
+---
+
+::: {.callout-note}
+## この章の到達目標
+
+この章の目的は次の 5 点である。
+
+1. 推定量の漸近正規性から、単一パラメータや滑らかな関数の信頼区間・t 型検定を構成できるようにする。
+2. 複数制約
+   $$
+   H_0:\ a(\theta_0)=0
+   $$
+   に対する Wald、LM、QLR 検定の定義と直観を理解する。
+3. **最適重み付け** の下では 3 つの検定が漸近的に等価で、$\chi^2_r$ 分布に従うことを理解する。
+4. 最適重み付けでない場合、Wald はなお漸近ピボタルだが、LM・QLR は一般化カイ二乗分布になることを理解する。
+5. 実務でどの検定を選ぶべきか、数値最適化との関係を含めて整理する。
+:::
+
+::: {.callout-important}
+## 記法の確認
+
+前章までで、M 推定・GMM・SMM・MD のいずれについても
+$$
+\sqrt n(\hat\theta-\theta_0)\overset{d}{\to}N(0,\Omega),
+\qquad
+\widehat\Omega\overset{p}{\to}\Omega
+$$
+が得られていた。
+
+また、多くの場合
+$$
+\Omega=H^{-1}\Sigma H^{-1}
+$$
+と書ける。ここで
+
+- $H$：目的関数の局所曲率
+- $\Sigma$：一階条件のノイズ部分の漸近分散
+
+である。
+
+さらに、制約関数
+$$
+a:\mathbb R^p\to\mathbb R^r
+$$
+のヤコビアンを
+$$
+A(\theta)=\frac{\partial a(\theta)}{\partial\theta'}
+$$
+と書く。
+:::
+
+# 導入
+
+推定だけでなく **推論** をしたいなら、推定量がどのように揺らぐかを知るだけでなく、その揺らぎをどう検定統計量に変換するかを理解する必要がある。
+
+この章の基本出発点は非常に単純である。すなわち、
+$$
+\sqrt n(\hat\theta-\theta_0)\overset{d}{\to}N(0,\Omega)
+$$
+と
+$$
+\widehat\Omega\overset{p}{\to}\Omega
+$$
+があれば、あとは
+
+- 単一の係数
+- パラメータの滑らかな関数
+- 複数の制約
+
+のどれを検定したいかに応じて、適切な二次形式を作ればよい。
+
+# 単一パラメータと滑らかな関数の推論
+
+## 個々の成分に対する t 型統計量
+
+$\theta_0$ の第 $i$ 成分を $\theta_{0,i}$ とし、$\widehat\Omega_{ii}$ を $\widehat\Omega$ の第 $i$ 対角成分とする。このとき
+$$
+\frac{\sqrt n(\hat\theta_i-\theta_{0,i})}{\sqrt{\widehat\Omega_{ii}}}
+\overset{d}{\to}
+N(0,1)
+$$
+である。
+
+したがって、漸近的な $100(1-\alpha)\%$ 信頼区間は
+$$
+\left[
+\hat\theta_i-z_{1-\alpha/2}\sqrt{\frac{\widehat\Omega_{ii}}{n}},
+\;
+\hat\theta_i+z_{1-\alpha/2}\sqrt{\frac{\widehat\Omega_{ii}}{n}}
+\right]
+$$
+で与えられる。
+
+::: {.callout-note}
+## なぜ $t$ 分布ではなく正規分布か
+
+ここでの根拠は有限標本の exact theory ではなく **漸近理論** である。したがって、臨界値には Student の $t$ 分布ではなく標準正規分布の分位点 $z_{1-\alpha/2}$ を使う。
+:::
+
+## 滑らかな関数 $a(\theta_0)$ の推論
+
+$a:\mathbb R^p\to\mathbb R$ が $\theta_0$ で連続微分可能なら、デルタ法により
+$$
+\sqrt n\bigl(a(\hat\theta)-a(\theta_0)\bigr)
+\overset{d}{\to}
+N\bigl(0,A(\theta_0)\Omega A(\theta_0)'\bigr)
+$$
+である。したがって
+$$
+\frac{
+\sqrt n\bigl(a(\hat\theta)-a(\theta_0)\bigr)
+}{
+\sqrt{A(\hat\theta)\widehat\Omega A(\hat\theta)'}
+}
+\overset{d}{\to}
+N(0,1)
+$$
+となる。
+
+たとえば、パラメータ比率、弾力性、長期乗数など、構造モデルで興味がある量はしばしば $\theta$ の滑らかな関数として表されるので、この公式は非常に重要である。
+
+# 複数制約の仮説検定
+
+より一般に、複数の制約
+$$
+H_0:\ a(\theta_0)=0
+$$
+を考える。ここで $a:\mathbb R^p\to\mathbb R^r$ は連続微分可能で、$A(\theta_0)$ は full row rank $r$ をもつとする。これは「帰無仮説の中に冗長な制約が含まれていない」ことを意味する。
+
+## 3 つの代表的検定
+
+### Wald 検定
+
+Wald 検定は **非制約推定量** $\hat\theta$ を使う。統計量は
+$$
+\xi_W
+=
+n\,a(\hat\theta)'
+\bigl[A(\hat\theta)\widehat\Omega A(\hat\theta)'\bigr]^{-1}
+a(\hat\theta)
+$$ {#eq-wald-stat}
+である。
+
+これは「非制約推定量で見たとき、制約 $a(\theta)=0$ からどれだけ離れているか」を測っている。
+
+### LM 検定
+
+LM（Lagrange Multiplier）検定は、帰無制約
+$$
+a(\tilde\theta)=0
+$$
+を満たす **制約付き推定量** $\tilde\theta$ を使う。統計量は
+$$
+\xi_{LM}
+=
+n\left(
+\frac{\partial Q_n(\tilde\theta)}{\partial\theta}
+\right)'
+\widehat H^{-1}
+\left(
+\frac{\partial Q_n(\tilde\theta)}{\partial\theta}
+\right)
+$$ {#eq-lm-stat}
+である。
+
+これは「制約付き最適化の点で、なお勾配がどれだけ残っているか」を測る。もし勾配が大きく残っていれば、制約を課したことによって最適点が大きく歪んでいると解釈できる。
+
+### QLR 検定
+
+QLR（quasi-likelihood ratio）検定は、非制約推定量 $\hat\theta$ と制約付き推定量 $\tilde\theta$ の両方を使う。統計量は
+$$
+\xi_{QLR}
+=
+2n\bigl[Q_n(\hat\theta)-Q_n(\tilde\theta)\bigr]
+$$ {#eq-qlr-stat}
+である。
+
+これは「制約を課したために目的関数の最大値がどれだけ下がったか」を測っている。
+
+::: {.callout-tip}
+## 3 つの検定の直観
+
+- **Wald**：推定値が制約集合からどれだけ離れているかを見る。
+- **LM**：帰無のもとで勾配がどれだけ残るかを見る。
+- **QLR**：制約により目的関数値がどれだけ悪化するかを見る。
+
+3 つは同じ仮説を別々の角度から見ている。
+:::
+
+# 最適重み付けと漸近分布
+
+## 最適重み付けとは何か
+
+ここでは、目的関数が **optimally weighted** であるとは
+$$
+\Sigma=H
+$$
+すなわち
+$$
+H^{-1}\Sigma H^{-1}=H^{-1}
+$$
+となる状況を指す。
+
+講義で扱った推定法では、代表例は次の通りである。
+
+- 正しく特定された最尤法では、情報行列等式により $\Sigma=H$。
+- 効率的 GMM では $W\to S^{-1}$。
+- SMM ではさらに $\tau=0$ かつ $W\to S^{-1}$。
+- 効率的 MD では $W\to S^{-1}$。
+
+## 最適重み付けの下での結果
+
+最適重み付けの下では
+$$
+\xi_W=\xi_{LM}+o_p(1)=\xi_{QLR}+o_p(1)
+$$
+が成り立ち、いずれも帰無仮説の下で
+$$
+\chi^2_r
+$$
+に収束する。
+
+これは非常に重要である。なぜなら
+
+1. 3 つの検定は漸近的に同じ power function をもつ。
+2. 検定統計量の極限分布に nuisance parameter が残らない。
+3. 臨界値として $\chi^2_r$ の分位点をそのまま使える。
+
+からである。
+
+::: {.callout-important}
+## 最適重み付け下では「どれを使っても同じ」
+
+理論的には、最適重み付けの下では Wald・LM・QLR のどれを選んでも漸近的には同じである。したがって実務では、**どれが一番実装しやすいか** で選んでよい。
+:::
+
+## 最適重み付けでない場合
+
+最適重み付けでない場合でも、Wald 統計量は
+$$
+\xi_W\overset{d}{\to}\chi^2_r
+$$
+である。つまり Wald は依然として **漸近ピボタル** である。
+
+一方、LM と QLR はそうではない。極限分布は
+$$
+A(\theta_0),\ H,\ \Sigma
+$$
+に依存する一般化カイ二乗分布になり、モデルごとに異なる。したがって
+
+- nuisance parameter をさらに推定して近似分布を作る
+- あるいは bootstrap を使う
+
+必要がある。
+
+::: {.callout-note}
+## Wald がよく使われる理由の一つ
+
+制約付き最適化が難しい場面では Wald 検定が便利である。非制約推定量 $\hat\theta$ と分散推定量 $\widehat\Omega$ だけで作れるうえ、最適重み付けでなくても漸近カイ二乗になるからである。
+:::
+
+# 漸近理論のスケッチ
+
+ここでは 3 つの検定の背後にある理論を、必要最小限の形で見ておく。
+
+## Wald 統計量
+
+::: {#lem-wald-chi2}
+## Wald 統計量の極限分布
+
+次を仮定する。
+
+1. 
+   $$
+   \sqrt n(\hat\theta-\theta_0)\overset{d}{\to}N(0,\Omega).
+   $$
+2. 
+   $$
+   \widehat\Omega\overset{p}{\to}\Omega
+   $$
+   であり、$\Omega$ は正定値である。
+3. $a:\mathbb R^p\to\mathbb R^r$ は連続微分可能で、$A(\theta_0)$ は full row rank $r$ をもつ。
+
+このとき、帰無仮説 $H_0:a(\theta_0)=0$ の下で
+$$
+\xi_W\overset{d}{\to}\chi^2_r
+$$
+が成り立つ。
+:::
+
+::: {.proof}
+デルタ法により
+$$
+\sqrt n\bigl(a(\hat\theta)-a(\theta_0)\bigr)
+\overset{d}{\to}
+N\bigl(0,A(\theta_0)\Omega A(\theta_0)'\bigr)
+$$
+である。さらに
+$$
+A(\hat\theta)\widehat\Omega A(\hat\theta)'
+\overset{p}{\to}
+A(\theta_0)\Omega A(\theta_0)'
+$$
+だから、
+$$
+\xi_W
+=
+Y_n'Y_n+o_p(1)
+$$
+となるような $r$ 次元正規ベクトル $Y_n\overset{d}{\to}N(0,I_r)$ を作れる。よって $\chi^2_r$ 極限が得られる。
+:::
+
+## LM と QLR の局所展開
+
+LM と QLR の理論では、まず目的関数の勾配が $\theta_0$ の近くで
+$$
+\sqrt n\frac{\partial Q_n(\theta)}{\partial\theta}
+=
+\sqrt n\frac{\partial Q_n(\theta_0)}{\partial\theta}
+-
+H\sqrt n(\theta-\theta_0)
++
+o_p(1)
+$$ {#eq-local-score-expansion}
+と展開できることが出発点になる。
+
+さらに
+$$
+\sqrt n\frac{\partial Q_n(\theta_0)}{\partial\theta}
+\overset{d}{\to}
+N(0,\Sigma)
+$$
+を仮定する。
+
+### LM の場合
+
+制約付き推定量 $\tilde\theta$ とラグランジュ乗数 $\lambda_n$ は、近似的に
+$$
+\sqrt n\frac{\partial Q_n(\tilde\theta)}{\partial\theta}
+-
+A(\tilde\theta)'\sqrt n\,\lambda_n
+=
+o_p(1),
+\qquad
+\sqrt n\,a(\tilde\theta)=o_p(1)
+$$
+を満たす。これを @eq-local-score-expansion に代入し、線形方程式系を解くと
+$$
+\sqrt n\,\lambda_n
+=
+(AH^{-1}A')^{-1}AH^{-1}
+\sqrt n\frac{\partial Q_n(\theta_0)}{\partial\theta}
++
+o_p(1)
+$$
+が得られる。
+
+したがって LM 統計量は極限的に
+$$
+Z'
+\Sigma^{1/2}H^{-1}A'(AH^{-1}A')^{-1}AH^{-1}\Sigma^{1/2}
+Z
+$$
+に収束する。ここで $Z\sim N(0,I_p)$ である。
+
+- もし $\Sigma=H$ なら、内側の行列は rank $r$ の直交射影行列になるので $\chi^2_r$。
+- そうでなければ、一般化カイ二乗分布になる。
+
+### QLR の場合
+
+非制約推定量については
+$$
+\sqrt n(\hat\theta-\theta_0)
+=
+H^{-1}
+\sqrt n\frac{\partial Q_n(\theta_0)}{\partial\theta}
++
+o_p(1)
+$$
+であり、制約付き推定量との差は
+$$
+\sqrt n(\hat\theta-\tilde\theta)
+=
+H^{-1}A'(AH^{-1}A')^{-1}AH^{-1}
+\sqrt n\frac{\partial Q_n(\theta_0)}{\partial\theta}
++
+o_p(1)
+$$
+となる。
+
+さらに、やや計算は重いが
+$$
+\xi_{QLR}
+=
+\bigl(\sqrt n(\hat\theta-\tilde\theta)\bigr)'
+H
+\bigl(\sqrt n(\hat\theta-\tilde\theta)\bigr)
++
+o_p(1)
+$$
+が示せる。したがって QLR も LM と同じ二次形式極限をもち、
+
+- 最適重み付けなら $\chi^2_r$
+- そうでなければ一般化カイ二乗
+
+となる。
+
+::: {.callout-tip}
+## Wilks 現象
+
+正しく特定された尤度モデルでは、QLR 統計量が漸近的に $\chi^2_r$ に従うという事実は **Wilks phenomenon** と呼ばれる。最尤法が特別に使いやすい理由の一つである。
+:::
+
+# 実務での選び方
+
+理論上は最適重み付けの下で 3 つは同等だが、実装コストは異なる。
+
+## Wald を選びやすい場面
+
+- 制約付き最適化を避けたい
+- 推定量と分散推定量はすでに手元にある
+- 非線形制約 $a(\theta)=0$ でも、$a(\hat\theta)$ とヤコビアンが計算できる
+
+## LM を選びやすい場面
+
+- 帰無仮説の下での推定が簡単
+- 代替仮説の下で高次元最適化をしたくない
+
+たとえば、いくつかのパラメータを固定するだけの制約では、LM が実装しやすいことが多い。
+
+## QLR を選びやすい場面
+
+- 制約付き・非制約付きの両方の最適化が容易
+- 目的関数の差そのものに興味がある
+- 正しく特定された最尤法など、Wilks 現象が期待できる
+
+::: {.callout-note}
+## 有名な経験則
+
+有限標本では Wald 検定がやや over-reject しやすい、という経験則がよく語られる。ただし、これは一般則というよりモデル依存の経験則であり、どの検定が最もよいかは有限標本性能を見ないと分からない。
+:::
+
+# まとめ
+
+この章の要点は次の通りである。
+
+1. 漸近正規性と分散推定量があれば、単一パラメータや滑らかな関数に対する t 型検定と信頼区間が作れる。
+2. 複数制約 $H_0:a(\theta_0)=0$ には Wald、LM、QLR の 3 つの標準的方法がある。
+3. Wald は「制約集合からの距離」、LM は「制約下で残る勾配」、QLR は「目的関数値の低下」を測っている。
+4. 最適重み付けの下では 3 つは漸近的に等価で、いずれも $\chi^2_r$ に従う。
+5. 最適重み付けでない場合でも Wald は漸近カイ二乗だが、LM と QLR は一般に非ピボタルになる。
+6. 実務では、理論的同等性よりも「制約付き最適化がしやすいか」「分散推定が安定しているか」で検定法を選ぶのが自然である。
