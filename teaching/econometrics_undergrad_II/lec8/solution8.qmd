@@ -1,0 +1,412 @@
+---
+title: "課題8 解答：staggered rolloutの効果検証と会員ランクRDD"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(fixest)
+library(rdrobust)
+
+set.seed(20268)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+この解答例では、`assignment8.qmd`の全設問について完全に実行可能なコードと解説を示す。配点基準（部分点の目安）も各設問末に付す。
+
+## Part 1：店舗レベルstaggered rolloutのシミュレーション設計
+
+### 設問1-1（15点）：パラメータとDGPコードの実装
+
+```{r}
+G_a <- 47
+T_a <- 36
+never_frac_a <- 0.20
+adopt_lo_a <- 6
+adopt_hi_a <- 30
+
+n_never_a <- round(G_a * never_frac_a)
+n_treated_a <- G_a - n_never_a
+
+adopt_time_treated_a <- sample(adopt_lo_a:adopt_hi_a, size = n_treated_a, replace = TRUE)
+adopt_time_a <- c(adopt_time_treated_a, rep(T_a + 1000, n_never_a))
+adopt_time_a <- sample(adopt_time_a)  # 店舗にランダムに割り当て直す
+
+theta_early_a <- 0.18
+theta_late_a  <- -0.10
+
+theta_i_a <- ifelse(
+  adopt_time_a > T_a,
+  0,
+  theta_early_a + ((adopt_time_a - adopt_lo_a) / (adopt_hi_a - 1 - adopt_lo_a)) * (theta_late_a - theta_early_a)
+)
+
+store_fe_a <- rnorm(G_a, mean = 0, sd = 1.0)
+month_fe_a <- rnorm(T_a, mean = 0, sd = 0.4)
+
+rollout_df <- expand.grid(store = 1:G_a, month = 1:T_a) %>%
+  mutate(
+    adopt_t = adopt_time_a[store],
+    theta_store = theta_i_a[store],
+    treated = as.numeric(month >= adopt_t),
+    e = ifelse(treated == 1, month - adopt_t, NA_real_),
+    true_effect = ifelse(treated == 1, theta_store * e, 0),
+    y = store_fe_a[store] + month_fe_a[month] + 0.012 * month +
+      true_effect + rnorm(n(), mean = 0, sd = 0.25)
+  )
+
+head(rollout_df)
+```
+
+**解説**：`sample(adopt_time_a)`によって、あらかじめ作った「導入時点のベクトル」を店舗にランダムに再割り当てしている。これをしないと、`adopt_time_treated_a`（処置群の導入時点）と`rep(T_a + 1000, n_never_a)`（never-treated店舗）が単純に連結された順番のまま店舗IDに対応してしまい、店舗IDと処置群/対照群の割り当てが不自然に固定されてしまう（実務上は問題にならないこともあるが、シミュレーションの設計としては、店舗IDと処置タイミングが無関係であることを明示するために`sample()`で打ち直すのが安全である）。
+
+`theta_i_a`の線形補間の式は、講義ノートの数式をそのままRのベクトル演算に落とし込んだものである。`adopt_time_a > T_a`（never-treated店舗）には`theta_store = 0`を割り当てている点に注意。
+
+**配点基準**：`sample()`による再割り当てと`theta_i_a`の線形補間式が正しく実装できていれば10点。パネルデータの組み立て（`expand.grid`、`treated`・`e`・`true_effect`・`y`の計算）が正しければ残り5点。
+
+### 設問1-2（15点）：可視化
+
+**(a) 早期導入店舗と後期導入店舗の比較**
+
+```{r}
+early_store <- rollout_df %>% filter(adopt_t <= T_a) %>%
+  filter(adopt_t == min(adopt_t)) %>% pull(store) %>% unique() %>% first()
+late_store <- rollout_df %>% filter(adopt_t <= T_a) %>%
+  filter(adopt_t == max(adopt_t)) %>% pull(store) %>% unique() %>% first()
+
+compare_stores_df <- rollout_df %>%
+  filter(store %in% c(early_store, late_store)) %>%
+  mutate(store_label = ifelse(store == early_store,
+                               paste0("店舗", early_store, "（早期導入）"),
+                               paste0("店舗", late_store, "（後期導入）")))
+
+ggplot(compare_stores_df, aes(x = month, y = y, color = store_label)) +
+  geom_line(linewidth = 0.9) +
+  geom_vline(data = data.frame(store_label = unique(compare_stores_df$store_label),
+                                adopt_t = c(rollout_df$adopt_t[rollout_df$store == early_store][1],
+                                            rollout_df$adopt_t[rollout_df$store == late_store][1])),
+             aes(xintercept = adopt_t, color = store_label), linetype = "dashed", show.legend = FALSE) +
+  labs(x = "月", y = "アウトカム y", color = NULL,
+       title = "早期導入店舗と後期導入店舗の月次推移（破線=導入月）") +
+  theme(legend.position = "bottom")
+```
+
+**(b) 導入時点のヒストグラム**
+
+```{r}
+adopt_hist_df <- rollout_df %>% filter(adopt_t <= T_a) %>% distinct(store, adopt_t)
+
+ggplot(adopt_hist_df, aes(x = adopt_t)) +
+  geom_histogram(binwidth = 2, fill = "steelblue", color = "white") +
+  labs(x = "導入月", y = "店舗数", title = "導入時点の分布（staggered adoption）")
+```
+
+**(c) 経過月数ごとの真の効果**
+
+```{r}
+event_time_true_df <- rollout_df %>%
+  filter(treated == 1) %>%
+  group_by(e) %>%
+  summarise(mean_true_effect = mean(true_effect), .groups = "drop")
+
+ggplot(event_time_true_df, aes(x = e, y = mean_true_effect)) +
+  geom_line(color = "firebrick", linewidth = 0.9) +
+  geom_point(color = "firebrick") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+  labs(x = "経過月数(e)", y = "真の効果の平均", title = "真の動的効果：経過月数とともに変化")
+```
+
+**解説**：(c)の図では、経過月数が浅いうち（e=0付近）は効果がゼロに近く、経過するにつれて全体としては効果が増加していく傾向が見える。ただし個別の店舗ごとに傾き`theta_store`が異なるため、後期に行くほど（早期導入店舗の寄与が相対的に強くなるため）平均の効果はさらに大きくなる形状を示すことが多い。
+
+**配点基準**：3つの図それぞれ5点。軸ラベル・タイトルが適切で、要求された比較が正しく可視化されていれば満点。
+
+### 設問1-3（10点）：記述統計
+
+```{r}
+n_never_check <- sum(rollout_df %>% distinct(store, adopt_t) %>% pull(adopt_t) > T_a)
+
+adopt_summary <- rollout_df %>%
+  filter(adopt_t <= T_a) %>%
+  distinct(store, adopt_t) %>%
+  summarise(mean_adopt = mean(adopt_t), min_adopt = min(adopt_t), max_adopt = max(adopt_t))
+
+cat("never-treated店舗数:", n_never_check, "\n")
+knitr::kable(adopt_summary, digits = 2,
+             col.names = c("平均導入月", "最小導入月", "最大導入月"))
+```
+
+```{r}
+true_att_a <- rollout_df %>% filter(treated == 1) %>%
+  summarise(mean_effect = mean(true_effect), sd_effect = sd(true_effect))
+knitr::kable(true_att_a, digits = 3, col.names = c("真のATT（平均）", "標準偏差"))
+```
+
+```{r}
+median_adopt <- median(adopt_time_treated_a)
+
+cohort_summary <- rollout_df %>%
+  filter(adopt_t <= T_a) %>%
+  distinct(store, adopt_t, theta_store) %>%
+  mutate(cohort = ifelse(adopt_t <= median_adopt, "早期コホート", "後期コホート")) %>%
+  group_by(cohort) %>%
+  summarise(mean_theta = mean(theta_store), .groups = "drop")
+
+knitr::kable(cohort_summary, digits = 3, col.names = c("コホート", "theta_storeの平均"))
+```
+
+**解説**：早期コホートの`theta_store`平均は明確にプラス、後期コホートの平均はマイナスに近い値になっているはずである。この差こそが、次のPart 2で静的TWFEが歪む直接の原因になる。
+
+**配点基準**：3つの表それぞれについて、正しい数値が計算・提示できていれば各3〜4点（合計10点）。
+
+## Part 2：推定・推論
+
+### 設問2-1（10点）：前後比較・単純比較
+
+```{r}
+before_after <- rollout_df %>%
+  filter(adopt_t <= T_a) %>%
+  group_by(treated) %>%
+  summarise(mean_y = mean(y), .groups = "drop")
+
+naive_before_after <- before_after$mean_y[before_after$treated == 1] -
+  before_after$mean_y[before_after$treated == 0]
+
+group_compare <- rollout_df %>%
+  filter(month == max(month)) %>%
+  mutate(is_never = adopt_t > T_a) %>%
+  group_by(is_never) %>%
+  summarise(mean_y = mean(y), .groups = "drop")
+
+naive_group_diff <- group_compare$mean_y[group_compare$is_never == FALSE] -
+  group_compare$mean_y[group_compare$is_never == TRUE]
+
+true_att_value <- mean(rollout_df$true_effect[rollout_df$treated == 1])
+
+naive_comparison_tbl <- data.frame(
+  method = c("前後比較（処置群、導入前後）", "群間比較（最終月、処置群vs対照群）", "真のATT"),
+  estimate = c(naive_before_after, naive_group_diff, true_att_value)
+)
+knitr::kable(naive_comparison_tbl, digits = 3, col.names = c("手法", "推定値"))
+```
+
+**解説**：前後比較には共通トレンド（`0.012 * month`）や月固定効果の影響が混ざり込むため、真のATTから系統的にずれる。群間比較（最終月時点での処置群と対照群の比較）は、店舗固定効果の水準差の影響を受ける。どちらも次に見る固定効果込みの回帰よりも粗い推定になっていることを確認する。
+
+**配点基準**：2つの素朴な比較が正しく計算できていれば6点。真のATTとの比較についてのコメントが適切であれば残り4点。
+
+### 設問2-2（12点）：静的TWFE推定
+
+```{r}
+static_fit_a <- feols(y ~ treated | store + month, data = rollout_df)
+summary(static_fit_a)
+```
+
+```{r}
+static_coef_a <- coef(static_fit_a)["treated"]
+
+static_vs_true <- data.frame(
+  method = c("真のATT", "静的TWFE"),
+  estimate = c(true_att_value, static_coef_a)
+)
+knitr::kable(static_vs_true, digits = 3, col.names = c("手法", "推定値"))
+```
+
+**解説**：真のATTは明確にプラスであるのに対し、静的TWFEの推定値はマイナス（あるいは真値よりもかなり小さい値）になっていることが多い。これは講義ノートのRシミュ2と全く同じ現象——「早期導入店舗（`theta_store`が大きい）が、後期導入店舗を評価する際の『対照』として使われてしまい、その動学的な伸びが負のウェイトとして混入する」——が、店舗レベルの文脈でも再現されていることを意味する。
+
+**よくある間違い**：固定効果を入れているから内生性・異質性の問題は解決していると思い込んでしまうこと。単位固定効果・時間固定効果は「処置タイミングが揃っている」場合には問題を起こさないが、staggered adoption・動的異質効果が重なると、固定効果を入れていても符号すら怪しくなる。この点を「固定効果さえあれば安全」という誤解と対比させて説明できているかがポイント。
+
+**配点基準**：静的TWFEの推定が正しく実行できていれば6点。真のATTとの比較（符号・大きさのズレ）について、Goodman-Bacon分解の直感を踏まえた正しいコメントができていれば残り6点。
+
+### 設問2-3（12点）：sunabによるevent studyの復元
+
+```{r}
+sunab_fit_a <- feols(y ~ sunab(adopt_t, month) | store + month, data = rollout_df)
+summary(sunab_fit_a)
+```
+
+**(a) event studyの図**
+
+```{r}
+#| fig-cap: "sunabによるevent study：動的効果の形状を復元"
+iplot(sunab_fit_a, main = "sunabによるevent study（店舗レベル）", xlab = "処置からの相対月数")
+```
+
+**(b) 3手法の比較**
+
+```{r}
+# agg = "att" は、コホート×期間ごとの係数を全体で1つのATTに集計したオブジェクトを返す。
+sunab_agg_a <- summary(sunab_fit_a, agg = "att")
+sunab_att_a <- as.numeric(coef(sunab_agg_a))[1]
+
+three_way_comparison <- data.frame(
+  method = c("真のATT", "静的TWFE", "sunab（全体ATT集計値）"),
+  estimate = c(true_att_value, static_coef_a, sunab_att_a)
+)
+knitr::kable(three_way_comparison, digits = 3, col.names = c("手法", "推定値"))
+```
+
+```{r}
+#| fig-cap: "3手法の比較：静的TWFEは符号が異なるが、sunabは正しい方向を捉える"
+three_way_comparison$method <- factor(three_way_comparison$method, levels = three_way_comparison$method)
+ggplot(three_way_comparison, aes(x = method, y = estimate, fill = method)) +
+  geom_col(width = 0.5, show.legend = FALSE) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  labs(x = NULL, y = "推定値", title = "真のATT・静的TWFE・sunabの比較") +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+```
+
+::: {.callout-note}
+## sunabの読み方：出力を丁寧に追う
+
+`fixest::sunab()`の出力は初見だと戸惑いやすいので、対応関係を1つずつ確認しておこう。
+
+**係数名と時間の対応**：`coef(sunab_fit_a)`を実行すると、`month::-5`、`month::-1`、`month::3`のような名前の係数が並ぶ。この`month::k`という名前の`k`が「処置からの相対期間（経過月数`e`）」に対応している。`k`が負の値であれば処置前（pre-period）、0以上であれば処置後（post-period）の係数である。
+
+```{r}
+head(names(coef(sunab_fit_a)), 10)
+```
+
+**`ref.p`の意味**：sunab推定では、event studyの基準点（reference period）を1つ選び、その時点の係数をゼロに固定して他の係数を相対的に推定する。デフォルトでは処置1期前（`e = -1`）が基準点として使われることが多い。これは`fixest::feols`の`i()`構文における`ref = -1`と同じ発想であり、「処置直前を基準にすると、処置後の係数がそのまま『処置直前と比べてどれだけ変化したか』を表す」という解釈のしやすさのためである。この講義では`ref.p`を明示的に変更せず、デフォルトの挙動に任せている。もし基準点を変えたい場合は`sunab(cohort, period, ref.p = ...)`のように指定できるが、標準的な使い方では省略してデフォルトに任せるのが安全である。
+
+**`agg = "att"`の意味**：`summary(sunab_fit_a, agg = "att")`は、個別の`month::k`係数を、実際にその時点で処置されている観測の割合（コホートサイズ）に応じて重み付け平均し、「全体としてのATT（1つの数値）」に集計したものである。これは講義本文で見た「sunab（全体ATT集計値）」に対応する。個別の動的な形状を見たいときは`iplot()`や`coef()`をそのまま使い、「結局、平均していくらだったのか」という1つの数字が欲しいときは`agg = "att"`を使う、という使い分けを覚えておくとよい。
+
+**pre-periodの係数がゼロに近いことの意味**：処置前の係数（`month::-k`、`k>0`）がおおむねゼロ近辺に分布していれば、「処置前のトレンドが処置群・対照群でおおむね並行していた」という、並行トレンドの補助的な支持証拠になる。ただしこれはあくまで観測期間内の話であり、真に並行トレンドが成り立っていることの証明にはならない点は講義本文で強調した通りである。
+:::
+
+**配点基準**：sunabの推定とiplotによる可視化が正しくできていれば6点。3手法の比較表・図が適切であれば残り6点。
+
+### 設問2-4（8点）：pre-trendの確認
+
+```{r}
+coefs_a <- coef(sunab_fit_a)
+names_a <- names(coefs_a)
+pre_idx_a <- grepl("^month::-", names_a)
+pre_coefs_a <- coefs_a[pre_idx_a]
+
+cat("処置前係数の個数:", length(pre_coefs_a), "\n")
+cat("処置前係数の平均絶対値:", round(mean(abs(pre_coefs_a), na.rm = TRUE), 3), "\n")
+```
+
+**解説**：この値がゼロに近ければ（本シミュレーションのDGPでは真値も0なので、小さい値が出るはずである）、並行トレンドの補助的な支持証拠として解釈できる。ただし、これはあくまで「観測されたデータの範囲内でトレンドが並行していたように見える」という状況証拠にすぎず、「処置がなければ処置後も並行し続けていたはずだ」という反実仮想を直接検証したことにはならない、という限界も明記しておくべきである。
+
+**よくある間違い**：pre-trendの係数がゼロに近いことを「並行トレンドが証明された」と過度に強く述べてしまうこと。あくまで「補助的な支持証拠」「状況証拠」という慎重な言い回しにとどめるのが正しい態度である。
+
+**配点基準**：処置前係数の正しい抽出と平均絶対値の計算で4点。並行トレンドの解釈における慎重さ（証明ではなく補助証拠であるという理解）が示されていれば残り4点。
+
+### 設問2-5（別課題・13点）：会員ランクRDD
+
+```{r}
+n_rdd_a <- 3000
+cutoff_a <- 5.0
+
+x_rdd_a <- rgamma(n_rdd_a, shape = 3.0, scale = 1.8)
+x_rdd_a <- pmin(pmax(x_rdd_a, 0.1), 20)
+
+true_jump_a <- 1.2
+
+baseline_a <- function(x) {
+  3.0 + 0.6 * (x - cutoff_a) - 0.03 * (x - cutoff_a)^2
+}
+
+gold_a <- as.numeric(x_rdd_a >= cutoff_a)
+y_rdd_a <- baseline_a(x_rdd_a) + true_jump_a * gold_a + rnorm(n_rdd_a, mean = 0, sd = 0.8)
+
+rdd_df_a <- data.frame(
+  annual_purchase = x_rdd_a,
+  gold_status = gold_a,
+  next_year_purchase = y_rdd_a
+)
+
+head(rdd_df_a)
+```
+
+**(a) rdrobustによる推定**
+
+```{r}
+rdd_fit_a <- rdrobust(y = rdd_df_a$next_year_purchase, x = rdd_df_a$annual_purchase, c = cutoff_a)
+summary(rdd_fit_a)
+```
+
+```{r}
+cat("真の効果（ジャンプ）:", true_jump_a, "万円\n")
+```
+
+`summary()`の"Robust"行に表示される推定量が、真値1.2万円に近い値になっているはずである。
+
+**(b) rdplot**
+
+```{r}
+#| fig-cap: "会員ランクRDD：rdplotによるビン分割散布図"
+rdplot(y = rdd_df_a$next_year_purchase, x = rdd_df_a$annual_purchase, c = cutoff_a,
+       title = "会員ランクRDD", x.label = "年間購入額（万円）", y.label = "翌年購買額（万円）")
+```
+
+**(c) 走行変数のヒストグラムとbunching確認**
+
+```{r}
+#| fig-cap: "走行変数のヒストグラム：カットオフ付近も含めて滑らか"
+ggplot(rdd_df_a, aes(x = annual_purchase)) +
+  geom_histogram(binwidth = 0.5, fill = "steelblue", color = "white") +
+  geom_vline(xintercept = cutoff_a, linetype = "dashed", color = "firebrick") +
+  labs(x = "年間購入額（万円）", y = "顧客数", title = "走行変数の分布：カットオフ付近も滑らか")
+```
+
+```{r}
+count_below_a <- sum(rdd_df_a$annual_purchase >= cutoff_a - 0.5 & rdd_df_a$annual_purchase < cutoff_a)
+count_above_a <- sum(rdd_df_a$annual_purchase >= cutoff_a & rdd_df_a$annual_purchase < cutoff_a + 0.5)
+ratio_a <- count_above_a / count_below_a
+
+cat("カットオフ直下カウント:", count_below_a, "\n")
+cat("カットオフ直上カウント:", count_above_a, "\n")
+cat("直上/直下比:", round(ratio_a, 2), "\n")
+```
+
+**解説**：直上/直下比はほぼ1に近い値になっているはずである（このDGPには走行変数の操作を組み込んでいないため）。もしこの比が大きく1から乖離していれば（講義本文で見たbunchingありのケースでは3を大きく超えていた）、走行変数が操作されている可能性を疑うべきだが、今回はそのような操作がないDGPなので、滑らかな分布が確認できることが正しい結果である。
+
+**よくある間違い**：走行変数のヒストグラムを確認せずにRDD推定だけを報告してしまうこと。RDDを報告する際は、必ず走行変数の分布の滑らかさ（bunchingの有無）を確認する一手間を惜しまないことが実務上重要である。
+
+**配点基準**：(a)のrdrobust推定が真値に近い値を示していれば5点。(b)のrdplotが正しく描けていれば4点。(c)のヒストグラムとカウント比の計算・解釈が適切であれば残り4点。
+
+### 設問2-6（経営含意・5点）：経営・政策への含意を3行で書け
+
+**解答例**：
+
+> 新レジシステムの導入は店舗ごとに時期がバラバラ（staggered）で、かつ効果が導入後じわじわ育つタイプのため、単純な前後比較や店舗固定効果込みの静的な回帰だけでは、効果の符号すら取り違えるリスクがあります。実際にシミュレーションで確認したところ、静的な比較は真の効果とは異なる方向の数字を出しており、代わりに`fixest::sunab`のようなevent study型の分析で、コホートごとの効果を正しく積み上げる必要があります。次回以降のロールアウトでは、可能であれば店舗の導入順序を意図的にランダム化しておくと、後の効果検証がずっとクリーンになります。
+
+**配点基準**：(1) staggered rolloutでは静的な比較が誤りうるという指摘で2点、(2) sunab等の代替手法を明言している点で2点、(3) 今後のロールアウト設計への前向きな提案（ランダム化）で1点。
+
+## 総括
+
+この課題を通じて、次の3点を実際の手を動かして確認した。
+
+1. staggered adoption・動的異質効果のもとでは、素朴な前後比較・群間比較・静的TWFEはいずれも真のATTから系統的にずれ、特に静的TWFEは符号すら取り違えることがある。
+2. `fixest::sunab`を使ったevent study推定は、コホートごとの効果を丁寧に積み上げることで、静的TWFEの歪みを補正し、真の動的効果の形状を正しく復元できる。
+3. RDDは走行変数の滑らかさ（bunchingの有無）を必ず確認した上で報告すべきであり、`rdrobust`・`rdplot`はその標準的な道具である。
+
+次回（第9回）以降で学ぶ階層モデル・異質性推定でも、今回学んだ「コホートごとの異質性」という発想は、「個人ごとの異質性」というより細かい粒度の議論へとつながっていく。

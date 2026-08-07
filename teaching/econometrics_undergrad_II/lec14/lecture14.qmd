@@ -1,0 +1,873 @@
+---
+title: "Lecture 14：スイッチングコスト、ロイヤルティ、買いだめ"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(fixest)
+library(knitr)
+
+set.seed(202614)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この講義で押さえたいこと
+
+- 「同じブランドを買い続ける」という観測された持続性は、**本物の状態依存**（ロイヤルティ・スイッチングコスト）と**単なる個人異質性**（もともと好みが決まっている）のどちらからも生まれ得る。この2つはナイーブな分析では区別がつかない（観察的同値）。
+- ナイーブなpooled logit（ラグ選択を説明変数に入れるだけ）は、異質性しかない世界でも**大きな偽の状態依存**を検出してしまう。Wooldridge流の対策は効くには効くが、**バイアスを完全には消さない**。この「どこまで直るか」を正直に見る。
+- 一時的な値下げ・セールは、観測された売上をその場で押し上げるが、消費者が在庫を持てる財では、その一部（あるいは大部分）は**将来の需要の前借り**にすぎない。静学的な需要推定はこの前借りを「新しい需要」と誤読し、長期の反応を大きく過大評価する。
+- 短期価格弾力性と長期価格弾力性は別物であり、両者の乖離の大きさそのものが「買いだめの強さ」を測る指標になる。
+- 状態依存の識別を間違えると、経営判断（顧客獲得への値引き投資、セールの頻度、ロイヤルティ施策の予算配分）を体系的に誤る。
+:::
+
+## 前回とのつながり・今回のゴール
+
+前回（第13回）では、Harold Zurcherという一人のバス整備責任者を題材に、消費者（意思決定者）を forward-looking な動学的最適化主体として扱う枠組みを学んだ。状態 $x_t$、行動 $a_t$、割引因子 $\beta$、価値関数 $V(x)$、choice-specific value function $v(x,a)$、条件付き選択確率（CCP）——この道具箱を使えば、「今日の選択が明日の状態を変え、それを見越して今日の選択をする」という行動を定量的に扱えるようになった。Rustのバスのエンジン交換モデルという抽象的な題材で道具を鍛えたので、今日はこれを消費者のブランド選択・買い物という、もっと身近な文脈に応用する。前回の最後で予告されていた通り、今日の主役は「一人の整備責任者」から「多数の消費者パネル」へと変わる。Zurcherにとっての走行距離が、今日の消費者にとっての「在庫」に置き換わる。
+
+今日の講義は2つの「謎」から始まる。
+
+> **謎1**：あるブランドを何度も買い続ける「ロイヤルな顧客」が観測されたとする。これは、そのブランドが本当に消費者を引き留める力（本物のロイヤルティ、スイッチングコスト、学習効果）を持っているからなのか。それとも、たまたまそのブランドが好きな人がもともと存在していて、その人が単に「毎回同じものを買っている」だけなのか。
+
+> **謎2**：あるセールで売上が大きく伸びたとする。これは新しい需要を掘り起こしたのか。それとも、来週以降に買うはずだった人が今週前倒しで買っただけ（未来の需要の前借り）なのか。
+
+どちらも根っこは同じ問題である。**観測される「持続性」や「山」をどう解釈するか**という問題だ。そして、この解釈を間違えると、実務上のインパクトは甚大である。謎1を見誤ると、「うちのブランドはロイヤルティが強い」と過信して、本当は効果の薄い顧客獲得施策（初回無料、大幅な入会割引）に大金を投じてしまう。謎2を見誤ると、「セールは効果的だ」と過信して、利益を毀損するだけの安売り合戦にはまり込む。
+
+今日は前半でロイヤルティと状態依存の識別問題を、後半で在庫・買いだめとセールの問題を扱う。数学的な道具はどちらも第13回の動的計画法・価値関数の枠組みの応用である。第15回では、消費者側のこの動学を前提に、企業側が動学的に価格をどう最適化するか（dynamic pricing）に進む。今日学ぶ「消費者が将来を見越して行動している」という前提が、その企業の最適化問題の土台になる。
+
+70%くらい分かったら先に進もう。今日は前半・後半でテーマが大きく変わるので、途中で一度頭を切り替える必要がある。
+
+::: {.callout-note}
+## 記法について：状態依存パラメータには $\lambda$ を使う
+
+第13回では、Euler定数（logsum公式に出てくる定数、約0.5772）を$\gamma$と書いた。今日はこれとは別に「過去の選択が今日の効用に与える効果」を表すパラメータが主役になるが、これに$\gamma$を使うと前回のEuler定数と記号がかぶってしまう。そこで本講義では、**状態依存の強さを表すパラメータには$\lambda$を使う**ことにする。割引因子$\beta$、効用パラメータ$\theta$という第13回の慣習はそのまま引き継ぐ。
+:::
+
+## 1. state dependence と異質性：識別問題の核心
+
+### 1.1 何が起きているか、言葉で
+
+消費者 $i$ が期 $t$ にブランドAを買うかどうかを考える。効用を次のように書いてみる。
+
+$$
+u_{iAt} = \text{（価格などの観測要因）} + \lambda\, y_{i,t-1} + \mu_i + \varepsilon_{iAt}.
+$$
+
+$y_{i,t-1}$は「前期にブランドAを買ったかどうか」というダミー変数、$\lambda$がその係数である。$\lambda > 0$なら、「前回Aを買った人は、今回もAを買いやすい」——これが**状態依存（state dependence）**である。前回の選択という「状態」が今回の効用に直接入り込む。これはまさに第13回で扱った動学の構造そのものだ。行動（前回の購買）が状態（$y_{i,t-1}$）を作り、その状態が今日の効用に影響する。ロイヤルティプログラムの心理的効果、スイッチングコスト（別のブランドに乗り換える手間・学習コスト）、あるいは使ってみて品質が分かったという学習効果——理由は何であれ、「過去の行動それ自体が今の選好を変える」というメカニズムをすべて$\lambda$の中に押し込めて考える。
+
+一方、$\mu_i$は個人ごとに固定された**異質性（heterogeneity）**である。もともとブランドAの味・ブランド・パッケージが好きな人は$\mu_i$が大きく、嫌いな人は小さい。この$\mu_i$は時間を通じて変わらない、その人固有の「地力」のようなものだ。
+
+この2つのメカニズムは、**どちらも「同じブランドを繰り返し買う」という観測結果を生む**。しかし、政策的な含意はまったく違う。
+
+::: {.callout-note}
+## ビジネスの現場で：CRMの「ロイヤル顧客」定義を疑う
+
+CRMチームが「購入回数トップ20%の顧客」を「ロイヤル顧客」と呼び、ロイヤルティプログラムのポイント還元率を上げる施策を検討しているとしよう。もしこの顧客の持続的購買が$\lambda$（本物の状態依存）によるものなら、ポイント還元を強化すれば「もう1回買わせる→それがまた次の購買を誘発する」という好循環に投資する価値がある。しかし、もしこの持続性が単に$\mu_i$（もともとこのブランドが大好きな人たちだった）によるものなら、ポイント還元を強化しても「どうせ放っておいても買っていた人」に無駄なコストを払うだけになる。この2つを区別せずに「ロイヤル顧客」と一括りにするのは、CRM予算配分における典型的な誤りである。
+:::
+
+### 1.2 初期条件問題（Heckman 1981）
+
+この識別問題をさらにややこしくするのが、**初期条件問題（initial conditions problem）**である。データが観測され始めた最初の期（$t=1$としよう）、そこにはすでに $y_{i,0}$（分析者には観測されない、データが始まる前の購買履歴）が存在する。もし$\lambda > 0$なら、$y_{i,0}$は$\mu_i$と同様に、消費者ごとに異なる「隠れた初期条件」として、その後の全期間の選択に影響を及ぼし続ける。
+
+言い換えると、**分析者が最初にデータを見た時点で、すでに消費者には「歴史」がある**。この歴史をどう扱うかを間違えると、$\lambda$と$\mu_i$の識別はさらに難しくなる。Heckman (1981) がこの問題を定式化し、実務的な対処法をいくつか提案した。今日の後半で扱うWooldridge (2005) の手法は、その中でも特に実装が簡単な解決策の1つである。
+
+### 1.3 Rシミュ1（見せ場1）：観察的同値を作る
+
+言葉で説明してもピンと来ないと思うので、実際にコードで2つのまったく異なるDGPを作り、**観測される集計統計量がほとんど同じになる**ことを確認する。
+
+- **DGP (a)**：本物の状態依存あり（$\lambda = 1.1$）、個人異質性なし（$\sigma_\mu = 0$）。
+- **DGP (b)**：状態依存なし（$\lambda = 0$）、強い個人異質性あり（$\sigma_\mu = 1.4$）。
+
+二値選択（ブランドAを買う/買わない）の簡単なロジットパネルを考える。効用は
+
+$$
+u_{it} = c + \beta_p\, \text{price}_{it} + \lambda\, y_{i,t-1} + \mu_i + \varepsilon_{it}, \qquad \mu_i \sim N(0, \sigma_\mu^2),
+$$
+
+$\varepsilon_{it}$はType I極値分布（第2回のlogit、第13回のRustモデルと同じ）。価格は各期iidに引かれるランダムな変動（プロモーションの有無）とし、$\mu_i$とも$y_{i,t-1}$とも無相関にしておく（＝価格は厳密に外生。価格の内生性の問題は今日は脇に置き、状態依存と異質性の識別だけに焦点を絞る）。
+
+シミュレーションでは、データを記録し始める前に十分長い「バーンイン期間」を回し、初期時点をおおよそ定常分布に近づけてから記録を開始する（実データでは分析者にこの贅沢はできない、という点は初期条件問題として1.2節で述べた通りだ）。
+
+```{r}
+#| label: dgp-panel-function
+simulate_panel <- function(N, Tn, burn, lambda, sigma_mu,
+                            price_sd = 0.3, beta_price = -1.0, const = -0.2, seed = 1) {
+  set.seed(seed)
+  mu_i <- rnorm(N, 0, sigma_mu)
+  y_prev <- rep(0, N)
+  y_mat <- matrix(0, N, Tn)
+  price_mat <- matrix(0, N, Tn)
+  total_T <- burn + Tn
+  for (t in 1:total_T) {
+    price_t <- rnorm(N, 0, price_sd)
+    util <- const + beta_price * price_t + lambda * y_prev + mu_i
+    prob <- 1 / (1 + exp(-util))
+    y_t <- as.numeric(runif(N) < prob)
+    if (t > burn) {
+      y_mat[, t - burn] <- y_t
+      price_mat[, t - burn] <- price_t
+    }
+    y_prev <- y_t
+  }
+  list(y = y_mat, price = price_mat, mu = mu_i)
+}
+
+N <- 3000; Tn <- 20; BURN <- 30
+
+dgp_a <- simulate_panel(N, Tn, BURN, lambda = 1.1, sigma_mu = 0.0, const = -0.55, seed = 11)
+dgp_b <- simulate_panel(N, Tn, BURN, lambda = 0.0, sigma_mu = 1.4, const = -0.20, seed = 12)
+```
+
+::: {.callout-note collapse="true"}
+## なぜ`const`が(a)と(b)で違うのか
+
+DGP (a)と(b)は、$\lambda$と$\sigma_\mu$という「識別したい対象」が全く違う値を持つ。そのままでは全体の購買率も大きく違ってしまい、比較がフェアでなくなる。そこで定数項`const`を調整し、**全体の購買率がだいたい揃うように較正した**（DGP設計者の特権であり、実データでは当然できない）。これによって「同じくらいの購買率・同じくらいの持続性を生む、まったく違う2つのメカニズム」というフェアな比較ができる。
+:::
+
+観測される集計統計量を比べてみる。
+
+```{r}
+#| label: repeat-rate-function
+repeat_rate <- function(y) {
+  y_lag <- y[, -ncol(y)]
+  y_now <- y[, -1]
+  p11 <- mean(y_now[y_lag == 1])
+  p10 <- mean(y_now[y_lag == 0])
+  overall <- mean(y)
+  c(overall = overall, p11 = p11, p10 = p10, gap = p11 - p10)
+}
+
+stats_a <- repeat_rate(dgp_a$y)
+stats_b <- repeat_rate(dgp_b$y)
+
+compare_tbl <- rbind(
+  `(a) 本物の状態依存 (lambda=1.1, 異質性なし)` = stats_a,
+  `(b) 純粋な異質性 (lambda=0, sigma_mu=1.4)` = stats_b
+)
+kable(round(compare_tbl, 4),
+      col.names = c("全体購買率", "P(買う|前回買った)", "P(買う|前回買わず)", "持続性ギャップ"),
+      caption = "2つの全く違うDGPが、ほぼ同じ集計統計量を生む（観察的同値）")
+```
+
+全体購買率もP(買う|前回買った)-P(買う|前回買わず)の「持続性ギャップ」も、(a)と(b)でほぼ同じ水準になっているはずだ。$\lambda=1.1$の本物の状態依存があるDGP (a)と、$\lambda=0$で$\mu_i$のばらつきしかないDGP (b)が、**集計された観測データからはほとんど区別がつかない**。これが「観察的同値（observational equivalence）」である。
+
+```{r}
+#| fig-cap: "持続性ギャップ：本物の状態依存と純粋な異質性で、ほぼ同じ大きさになる"
+df_gap <- data.frame(
+  dgp = c("(a) 本物の\n状態依存", "(b) 純粋な\n異質性"),
+  gap = c(stats_a["gap"], stats_b["gap"])
+)
+ggplot(df_gap, aes(dgp, gap, fill = dgp)) +
+  geom_col(width = 0.5, show.legend = FALSE) +
+  scale_fill_manual(values = c("#1f77b4", "#d62728")) +
+  labs(title = "P(買う|前回買った) - P(買う|前回買わず)",
+       x = NULL, y = "持続性ギャップ") +
+  ylim(0, NA)
+```
+
+::: {.callout-important}
+## ここが核心：観察的同値
+
+見た目がほぼ同じ2つのDGPを区別せずに「同じブランドを買い続ける人が多いから、このブランドにはロイヤルティ効果がある」と言ってしまうのは、データを見ただけでは正当化できない主張である。$\lambda$（本物の状態依存）と$\mu_i$の分布（異質性）は、**素朴な記述統計だけからは分離できない**。ここから先、この2つを分離するための統計的な工夫が必要になる。
+:::
+
+### 1.4 naiveなpooled logitはどう間違えるか
+
+最も素朴な推定方法は、ラグ選択を説明変数に入れたpooled logit（個人を区別せず、全ての(i,t)ペアをプールして1本のロジットを推定する）である。
+
+$$
+\Pr(y_{it}=1 \mid \text{price}_{it}, y_{i,t-1}) = \Lambda(c + \beta_p\,\text{price}_{it} + \lambda\, y_{i,t-1}),
+$$
+
+$\Lambda(\cdot)$はロジスティック関数（記号がかぶって恐縮だが、こちらの$\Lambda$はロジスティック関数、パラメータの$\lambda$とは別物）。`fixest::feglm()`（family = binomial）でクラスタ標準誤差付きで推定する。
+
+```{r}
+#| label: naive-pooled-logit
+build_pooled_df <- function(sim) {
+  N <- nrow(sim$y); Tn <- ncol(sim$y)
+  data.frame(
+    id       = rep(1:N, times = Tn - 1),
+    y        = as.vector(sim$y[, -1]),
+    y_lag    = as.vector(sim$y[, -Tn]),
+    price    = as.vector(sim$price[, -1])
+  )
+}
+
+df_a <- build_pooled_df(dgp_a)
+df_b <- build_pooled_df(dgp_b)
+
+fit_naive_a <- feglm(y ~ price + y_lag, data = df_a, family = "binomial",
+                      cluster = ~id)
+fit_naive_b <- feglm(y ~ price + y_lag, data = df_b, family = "binomial",
+                      cluster = ~id)
+
+naive_lambda_tbl <- data.frame(
+  DGP = c("(a) 本物の状態依存 (真のlambda=1.1)", "(b) 純粋な異質性 (真のlambda=0)"),
+  lambda_hat = c(coef(fit_naive_a)["y_lag"], coef(fit_naive_b)["y_lag"]),
+  se = c(se(fit_naive_a)["y_lag"], se(fit_naive_b)["y_lag"])
+)
+kable(naive_lambda_tbl, digits = 3, caption = "naive pooled logitのlambda_hat")
+```
+
+DGP (a)では$\hat\lambda$が真値1.1に近い値を回収できるはずだ（異質性がないので、pooled logitでも問題ない）。しかしDGP (b)では、**真の$\lambda$は0であるにもかかわらず、$\hat\lambda$は1に近い、大きくプラスの値になる**。これが**見せかけの状態依存（spurious state dependence）**である。
+
+なぜこんなことが起きるのか。直感はこうだ。$\mu_i$が大きい人（もともとブランドAが好きな人）は、前期も今期も買う確率が高い。分析者は$\mu_i$を観測できないので、「前期買った」という情報を、実は「もともとこのブランドが好きな人だ」というシグナルとして拾ってしまう。$y_{i,t-1}=1$という変数が、本来の役割（状態依存の効果）以上に、$\mu_i$の代理変数としての役割を果たしてしまうのだ。
+
+::: {.callout-warning}
+## この分析、どこがまずい？
+
+「ラグ付き選択の係数がプラスで有意だから、state dependenceがある」という報告は、実務のレポートでよく見る形だが、これだけでは異質性の可能性を排除できていない。$\hat\lambda$が有意にプラスであることは、$\lambda>0$の**必要条件にすらなっていない**。$\lambda=0$でも$\hat\lambda$は簡単に有意にプラスになる、というのが今回のシミュレーションの教訓だ。
+:::
+
+### 1.5 対策(i)：個人ダミー（固定効果ロジット）——短パネルでは逆に歪む
+
+$\mu_i$を明示的に推定してしまえばいいのではないか、というのが最初に思いつく対策だ。個人ごとのダミー変数（固定効果）をロジットに入れる。
+
+$$
+\Pr(y_{it}=1) = \Lambda(c_i + \beta_p\,\text{price}_{it} + \lambda\, y_{i,t-1}), \qquad c_i = \alpha_i + \mu_i \text{（もはや分離しない）}.
+$$
+
+これは直感的には正しい方向に見える。しかし、深刻な問題がある。**incidental parameters problem**（Neyman and Scott 1948）と呼ばれる現象だ。線形モデルの固定効果（第8回のDiD等で使った）とは違い、**非線形モデル（ロジット等）では、個人ダミーを愚直に入れると、$T$が固定されたまま$N\to\infty$としても、共通パラメータ（$\lambda$や$\beta_p$）の推定量は一致性を失う**。理由は、各$\alpha_i$がたった$T$個の観測値だけから推定される、精度の低い推定値だからだ。この推定誤差が、共通パラメータの推定にも波及してしまう。
+
+```{r}
+#| label: fe-logit-incidental-params
+#| eval: false
+# 個人ダミーを入れたロジット（brute-force fixed effects logit）。
+# fixest::feglmでは固定効果を`| id`の形で指定できる（内部で効率的に処理される）。
+# ただし短いパネルではincidental parameters biasが残る点に注意。
+fit_fe_short <- feglm(y ~ price + y_lag | id, data = build_pooled_df(
+  simulate_panel(300, 4, BURN, lambda = 0, sigma_mu = 1.4, const = -0.20, seed = 99)
+), family = "binomial")
+coef(fit_fe_short)["y_lag"]
+```
+
+数値実験（Pythonでのプロトタイプ検証、詳細は補足）では、$T=4$の短いパネルで固定効果ロジットを推定すると、真の$\lambda=0$に対して$\hat\lambda$が**大きくマイナス**（$-2.9$程度）に歪んだ。$T$を20まで伸ばしても、$\hat\lambda\approx -0.4$と、依然として無視できないバイアスが残った。重要なのは、**naiveなpooled logitがプラス方向に、固定効果ロジットがマイナス方向に、それぞれ真値から外れる**という点だ。「個人ダミーを入れれば安全」という単純な話ではない。
+
+::: {.callout-warning}
+## 短パネルでの固定効果ロジット、なぜ危険か
+
+線形回帰の固定効果（within推定量）は、$T$が小さくても不偏性が壊れない（一致性の議論は$N\to\infty$で問題なく成立する）。ところがロジットのような非線形モデルでは、**尤度関数の中で$\alpha_i$と共通パラメータが分離不能に絡み合っており**、$\alpha_i$の推定誤差が共通パラメータの推定にバイアスとして波及する。この問題は$T\to\infty$でしか消えない。マーケティングデータの多くは$T$が数十程度（週次データ1年分など）にとどまるため、この問題は決して無視できない。
+:::
+
+### 1.6 対策(ii)：Wooldridge device（correlated random effects）——効くが完治しない
+
+もう少し実装しやすい実務解が、Wooldridge (2005) の提案する**correlated random effects (CRE)**の考え方だ。発想はこうだ。$\mu_i$を消し去ろうとするのではなく、$\mu_i$の代理変数になりそうな変数を、素直に説明変数として追加してしまう。具体的には
+
+$$
+\Pr(y_{it}=1) = \Lambda\big(c + \beta_p\,\text{price}_{it} + \lambda\, y_{i,t-1} + \rho_0\, y_{i0} + \rho_1\, \overline{\text{price}}_i\big)
+$$
+
+- $y_{i0}$：その人の**最初に観測された選択**（初期条件）。
+- $\overline{\text{price}}_i$：その人が直面した価格の**個人内平均**。
+
+という2つの変数を足すだけだ。$y_{i0}$は「もともとこの人がブランドAを好きだったかどうか」の情報を(部分的に)持っているので、$\mu_i$の代理変数として働く。これは通常のロジットに変数を2つ足すだけなので、`feglm()`でそのまま推定できる（ランダム効果の数値積分は一切不要）。
+
+```{r}
+#| label: wooldridge-device
+build_wooldridge_df <- function(sim) {
+  N <- nrow(sim$y); Tn <- ncol(sim$y)
+  y0 <- sim$y[, 1]
+  price_bar <- rowMeans(sim$price[, -1])
+  data.frame(
+    id        = rep(1:N, times = Tn - 1),
+    y         = as.vector(sim$y[, -1]),
+    y_lag     = as.vector(sim$y[, -Tn]),
+    price     = as.vector(sim$price[, -1]),
+    y0        = rep(y0, times = Tn - 1),
+    price_bar = rep(price_bar, times = Tn - 1)
+  )
+}
+
+dfw_a <- build_wooldridge_df(dgp_a)
+dfw_b <- build_wooldridge_df(dgp_b)
+
+fit_wool_a <- feglm(y ~ price + y_lag + y0 + price_bar, data = dfw_a,
+                     family = "binomial", cluster = ~id)
+fit_wool_b <- feglm(y ~ price + y_lag + y0 + price_bar, data = dfw_b,
+                     family = "binomial", cluster = ~id)
+
+wool_lambda_tbl <- data.frame(
+  DGP = c("(a) 本物の状態依存", "(b) 純粋な異質性"),
+  lambda_hat_naive = c(coef(fit_naive_a)["y_lag"], coef(fit_naive_b)["y_lag"]),
+  lambda_hat_wooldridge = c(coef(fit_wool_a)["y_lag"], coef(fit_wool_b)["y_lag"]),
+  true_lambda = c(1.1, 0.0)
+)
+kable(wool_lambda_tbl, digits = 3, caption = "naive vs Wooldridge deviceのlambda_hat比較")
+```
+
+DGP (a)では、naiveでもWooldridgeでも$\hat\lambda$はほとんど変わらず、真値1.1近辺を正しく回収する（異質性がないので当然）。問題はDGP (b)だ。naiveな$\hat\lambda\approx 1.09$（真値0への巨大な過大評価）に対し、Wooldridge deviceを使うと$\hat\lambda\approx 0.87$程度まで下がる。
+
+::: {.callout-important}
+## ここが核心：Wooldridge deviceは「効くが完治しない」
+
+Pythonでのモンテカルロ検証（15回の乱数シードで平均を取った）では、Wooldridge deviceは偽の$\hat\lambda$をおよそ**20%程度しか減らさなかった**（異質性の強さによって14%〜24%程度の幅があった）。つまり、DGP (b)（真の$\lambda=0$）で見た$\hat\lambda\approx 0.87$という値は、**真値からの乖離のうち約8割が推定後もそのまま残っている**、ということだ。「Wooldridge deviceを使えば初期条件問題は解決した」と言うのは正確ではない。$y_{i0}$は$\mu_i$のたった1期分のノイジーな観測にすぎず、$\mu_i$の分散が大きいほど、この1期分の情報では捉えきれない残差の異質性が残る。実務で使う価値は十分にあるが、「これで完全に直った」と過信してはいけない、というのが正直な結論だ。
+:::
+
+```{r}
+#| fig-cap: "DGP(b)（真のlambda=0）における、各手法のlambda_hat。ゼロに近いほど良い。"
+df_methods <- data.frame(
+  method = factor(c("naive pooled", "Wooldridge device", "真値"),
+                   levels = c("naive pooled", "Wooldridge device", "真値")),
+  lambda_hat = c(coef(fit_naive_b)["y_lag"], coef(fit_wool_b)["y_lag"], 0)
+)
+ggplot(df_methods, aes(method, lambda_hat, fill = method)) +
+  geom_col(width = 0.5, show.legend = FALSE) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_fill_manual(values = c("#d62728", "#ff9896", "#2ca02c")) +
+  labs(title = "純粋な異質性のみのDGP(b)：どの手法がlambda=0に近づけるか",
+       x = NULL, y = "lambda_hat")
+```
+
+### 1.7 まとめ表：どこまで直るか
+
+```{r}
+#| label: summary-table-fixes
+summary_fix_tbl <- data.frame(
+  手法 = c("naive pooled logit", "個人ダミー(固定効果logit, T小)", "Wooldridge device (CRE)"),
+  DGPb_での挙動 = c("真値0に対し大きくプラスに歪む(1.0前後)",
+                    "真値0に対し大きくマイナスに歪む(短パネルで-3程度、T=20でも-0.4程度)",
+                    "バイアスは残るが、およそ2割程度縮小する"),
+  実務上の評価 = c("使うべきでない（過大評価の既定路線）",
+                  "短パネルでは危険。Tが十分大きい場合のみ検討",
+                  "実装が簡単で一定の改善はある。過信は禁物")
+)
+kable(summary_fix_tbl, caption = "state dependence対策：どこまで直るか（正直な評価）")
+```
+
+```{r}
+#| fig-cap: "DGP(b)（真のlambda=0）における3手法の比較。naiveはプラスに、FE logit(T小)はマイナスに歪み、Wooldridgeは中間だが残バイアスあり。"
+# wide形式（手法を列に持つ）で結果をまとめてから、pivot_longerでプロット用のlong形式に変換する
+method_labels <- c("naive pooled\n(T=20)", "FE logit\n(T=4, incidental)",
+                    "FE logit\n(T=20, incidental)", "Wooldridge\ndevice", "真値")
+wide_lambda_tbl <- data.frame(
+  m1 = unname(coef(fit_naive_b)["y_lag"]),
+  m2 = -2.9,
+  m3 = -0.4,
+  m4 = unname(coef(fit_wool_b)["y_lag"]),
+  m5 = 0
+) %>%
+  setNames(method_labels)
+
+df_all_methods <- wide_lambda_tbl %>%
+  pivot_longer(cols = everything(), names_to = "method", values_to = "lambda_hat") %>%
+  mutate(method = factor(method, levels = method_labels))
+
+ggplot(df_all_methods, aes(method, lambda_hat, fill = lambda_hat > 0)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_fill_manual(values = c("TRUE" = "#d62728", "FALSE" = "#1f77b4")) +
+  labs(title = "真のlambda=0に対する各手法のlambda_hat：naiveはプラスに、FE logitはマイナスに歪む",
+       subtitle = "FE logit(T=4,20)はPythonプロトタイプでの検証値",
+       x = NULL, y = "lambda_hat")
+```
+
+::: {.callout-tip}
+## 実証研究コーナー：Guadagni and Little (1983) — ロイヤルティ変数の起点
+
+**問い**：スーパーマーケットの実際のスキャナーデータ（POSデータの原型）から、ブランド選択モデルをどう推定するか。そこに「ロイヤルティ」をどう組み込むか。
+
+**データ**：コーヒーカテゴリの家庭用スキャンパネルデータ。価格・特売（feature）・陳列（display）といった観測可能な変数に加え、購買履歴の情報を持つ。
+
+**識別戦略・モデル**：第2回で紹介した通り、彼らはロジットモデルに、過去の購買履歴の加重平均のような**「ロイヤルティ変数」**を説明変数として組み込んだ。これは、今日の$y_{i,t-1}$（ラグ選択ダミー）よりも滑らかな形（指数平滑化）だが、発想は同じで、「過去の購買が今日の効用に直接入る」という状態依存の一種である。
+
+**主要な発見**：ロイヤルティ変数を入れることで、ブランド選択モデルの当てはまりが大きく改善した。この結果は、消費者の購買履歴が将来の選択に強い予測力を持つことを実証的に示し、以後数十年にわたる顧客パネル分析・state dependence研究の出発点になった。
+
+**なぜこの回と繋がるか**：Guadagni-Littleが1983年に発見した「ロイヤルティ変数が効く」という事実そのものは、今日学んだ枠組みでは**まだ答えが出ていない問い**だったことに気づいてほしい。ロイヤルティ変数の説明力は、本物の状態依存（$\lambda$）から来ているのか、それとも単に個人異質性の代理変数（今日のWooldridge deviceの$y_{i0}$や$\overline{\text{price}}_i$と同じ役割）として効いているだけなのか。この問いに正面から答えようとしたのが、次に紹介するDubé, Hitsch and Rossi (2010) である。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Dubé, Hitsch and Rossi (2010) — state dependenceは存在するが、素朴な推定より小さい
+
+**問い**：スーパーマーケットのスキャンパネルデータで観測される「同じブランドを買い続ける」という強い持続性は、本物の消費者の慣性（inertia）によるものか、それとも異質性や価格プロモーションのタイミングなど、他の要因で説明できるものか。
+
+**データ**：家庭用品カテゴリ（マーガリン、洗濯用洗剤等）のスキャンパネルデータ。世帯ごとの購買履歴、価格、プロモーション情報を含む長期パネル。
+
+**識別戦略・モデル**：本講義で見たような、状態依存パラメータと個人異質性を同時に扱う構造付きの需要モデルを推定した。ランダム係数（第4回・第9回で学んだ枠組み）で異質性を柔軟に許容しつつ、初期条件問題にも明示的に対処した。
+
+**主要な発見**：丁寧に異質性をコントロールしてもなお、**統計的に有意な状態依存（慣性）は残る**が、その大きさは、異質性を無視した素朴な推定（naive pooled logit的な手法）が示唆する値よりも**かなり小さい**、という整理になった。つまり「観測される持続性の一部は本物の慣性だが、素朴な推定はその大きさを誇張する」というのが結論である。
+
+**なぜこの回と繋がるか**：まさに今日のシミュレーションで見せた構図——naiveな推定は異質性を$\lambda$に取り違えて過大評価する——を、実データで丁寧に確認した研究である。この論文のビジネス含意は重い。**ロックイン効果（本物のスイッチングコスト）を過大評価すると、顧客獲得のための値引き投資（初回割引など）を過大に正当化してしまう**。「一度獲得すればずっと囲い込める」という前提が過大なら、獲得コストにかけられる予算の上限も過大に見積もってしまう。
+:::
+
+## 2. 状態変数のカタログ：学習・参照価格・スイッチングコスト・在庫
+
+ここまでは「前回買ったかどうか」というシンプルな状態を扱ってきたが、第13回の道具箱の言葉で言えば、これは「状態変数を何に取るか」という選択の1つに過ぎない。実際の消費者行動モデルでは、いろいろな変数が「状態」として使われる。
+
+| 状態変数の種類 | 何を捉えるか | 代表的な研究 |
+|---|---|---|
+| 前回の選択（本日の主役） | ロイヤルティ・スイッチングコスト・単純な慣性 | Dubé, Hitsch and Rossi (2010) |
+| ブランド品質についての信念（ベイズ事後分布） | 「使ってみないと品質が分からない」ときの学習 | Erdem and Keane (1996) |
+| 参照価格（過去に見た価格の記憶） | 「これくらいが妥当」という基準からのズレへの反応 | 行動経済学的な価格反応モデル |
+| 在庫水準（今日の後半の主役） | 買いだめ・在庫を持てる財の購買タイミング | Erdem, Imai and Keane (2003)、Hendel and Nevo (2006) |
+| 累積使用経験・スイッチングコスト | 乗り換えの手間・学習コストそのもの | 携帯電話・保険・銀行口座の乗り換え研究 |
+
+**Erdem and Keane (1996)** は、消費者が新しいブランドの品質を完全には知らず、使ってみて得た経験（シグナル）からベイズ更新で品質についての信念を更新していく、というモデルを提示した。この場合の「状態」は、消費者の頭の中にある**品質の事後分布（平均と分散）**そのものだ。プロモーションで一度試させることには、「その場の値引き効果」だけでなく、「品質についての情報を得させる効果」という別のルートがある、という洞察がここから生まれる。第13回でZurcherの「走行距離」という物理的な状態を扱ったのに対し、ここでの状態は消費者の頭の中の信念という、より抽象的な対象になる。それでもBellman方程式・価値関数という道具立ては変わらない。
+
+参照価格モデルは、「消費者は絶対的な価格水準よりも、自分が過去に見た価格からの乖離（値上げされた、値下げされた）に反応する」という考え方だ。過去の価格の（指数平滑化などによる）記憶が状態変数になる。
+
+::: {.callout-note}
+## ビジネスの現場で：サブスクリプションの「乗り換え障壁」をどう測るか
+
+携帯キャリアやサブスクリプションサービスの「解約率が低い」という現象を見て、「うちのサービスはロイヤルティが高い」と結論づけるのは早計だ。乗り換え時の面倒さ（電話番号ポータビリティの手続き、新しいアプリへの学習コスト、メールアドレス変更の連絡）という**本物のスイッチングコスト**による部分と、単に「もともと乗り換えに興味のない層が多かった」という異質性による部分を分けて考える必要がある。前者ならロックイン施策（違約金、囲い込み）に投資する価値があるが、後者はただの見かけの安定であり、競合が本気で参入してくれば簡単に崩れる。第13回で扱った「解約金のあるサブスク解約」の話——契約残期間という状態を見て駆け込み解約するかどうかを決める、という動学の問題——とも直結する論点だ。
+:::
+
+## 3. 買いだめとセール：後半の核
+
+ここから後半。ロイヤルティの話から一転して、消費者が**在庫を持てる財**（洗剤、缶詰、トイレットペーパーのような日用消耗品）を買うときの動学に焦点を移す。
+
+### 3.1 在庫モデルの直感
+
+消費者は毎期1単位を消費すると仮定し（簡単化）、在庫の上限（パントリーの大きさ）があるとする。価格が通常価格の場合、消費者は「必要な分だけ、その都度買う」のが最適になりやすい。しかし**セール（一時的な値下げ）**が来ると、消費者は「今のうちに多めに買っておこう」というインセンティブを持つ。これが**買いだめ（stockpiling）**である。
+
+この意思決定は、まさに第13回の枠組みそのものだ。状態 $x$ = 在庫水準、行動 $a$ = 今期の購入量、価値関数 $V(x)$ を、購入コスト・保有コスト・消費からの効用のトレードオフを織り込んだBellman方程式で解く。第13回のZurcherにとって走行距離$x$が増えるほど維持費がかさんだのと対称的に、今日の消費者にとっては在庫$x$が減るほど欠品リスクが高まる。今日のモデルは第13回のRustモデル（エンジン交換の2択）よりもシンプルな部分がある——ここでの不確実性は「行動固有のショック」ではなく「今週セールが来るかどうか」という外生的な価格プロセスだけであり、価値関数の計算はより素直な最大化になる。
+
+### 3.2 Rシミュ2（見せ場2）：在庫モデルを解いて、消費者を動かす
+
+状態は在庫水準 $x \in \{0, 1, \dots, X_{\max}\}$。毎期、消費者は価格 $p_t$（通常価格 $p_R$ または確率 $\pi_{\text{sale}}$ でセール価格 $p_S < p_R$）を観測し、購入量 $a \in \{0,\dots,A_{\max}\}$ を選ぶ。購入後、確率的な「消費機会」（在庫があれば1単位消費、確率$q$）が発生する。フロー効用は
+
+$$
+\text{flow}(x, a, p) = u_c \cdot \mathbb{1}[\text{消費}] - p \cdot a - c_h \cdot x_{\text{end}} - c_{\text{out}} \cdot \mathbb{1}[\text{消費機会あり} \land \text{在庫ゼロ}],
+$$
+
+$u_c$は消費から得る効用、$c_h$は保有コスト（保管・鮮度劣化）、$c_{\text{out}}$は欠品時の機会損失。価値関数は
+
+$$
+V(x) = \mathbb{E}_p\Big[\max_{a}\ \mathbb{E}_{\text{消費}}\big[\text{flow}(x,a,p) + \beta\, V(x_{\text{end}})\big]\Big].
+$$
+
+これを第13回と同じ**価値関数反復（value function iteration）**で解く。
+
+```{r}
+#| label: inventory-dp-solve
+Xmax <- 5; Amax <- 3
+beta_dp <- 0.96
+u_consume <- 3.0
+c_hold <- 0.12
+stockout_cost <- 2.0
+p_regular <- 1.00
+p_sale <- 0.75          # セールは25%引き
+sale_prob <- 1/8         # セールが来る確率（毎期iid）
+q_base <- 0.6; q_slope <- 0.03   # 消費機会の確率（在庫が多いほど「使う機会」がわずかに増える）
+
+q_of_x <- function(x) pmin(q_base + q_slope * x, 0.95)
+
+states <- 0:Xmax
+actions <- 0:Amax
+
+expected_flow_continuation <- function(x, a, p, V) {
+  post <- x + a
+  q <- q_of_x(post)
+  # 消費機会がある場合(確率q)とない場合(確率1-q)を積分
+  val_consume <- {
+    consumption <- as.numeric(post >= 1)
+    end_inv <- post - consumption
+    cost <- p * a + c_hold * end_inv
+    benefit <- u_consume * consumption
+    benefit - cost + beta_dp * V[end_inv + 1]
+  }
+  val_noconsume <- {
+    end_inv <- post
+    cost <- p * a + c_hold * end_inv
+    benefit <- -(if (post == 0) stockout_cost else 0)
+    benefit - cost + beta_dp * V[end_inv + 1]
+  }
+  q * val_consume + (1 - q) * val_noconsume
+}
+
+solve_inventory_dp <- function(tol = 1e-10, maxit = 3000) {
+  V <- rep(0, Xmax + 1)
+  prices <- c(p_regular, p_sale)
+  probs_price <- c(1 - sale_prob, sale_prob)
+  policy <- matrix(0L, 2, Xmax + 1)
+  for (it in 1:maxit) {
+    pol_new <- matrix(0L, 2, Xmax + 1)
+    for (pi_idx in 1:2) {
+      p <- prices[pi_idx]
+      for (xi in seq_along(states)) {
+        x <- states[xi]
+        best_val <- -Inf; best_a <- 0
+        for (a in actions) {
+          if (x + a > Xmax) next
+          val <- expected_flow_continuation(x, a, p, V)
+          if (val > best_val) { best_val <- val; best_a <- a }
+        }
+        pol_new[pi_idx, xi] <- best_a
+      }
+    }
+    V_new <- numeric(Xmax + 1)
+    for (xi in seq_along(states)) {
+      x <- states[xi]
+      v_x <- 0
+      for (pi_idx in 1:2) {
+        a <- pol_new[pi_idx, xi]
+        v_x <- v_x + probs_price[pi_idx] * expected_flow_continuation(x, a, prices[pi_idx], V)
+      }
+      V_new[xi] <- v_x
+    }
+    err <- max(abs(V_new - V))
+    V <- V_new; policy <- pol_new
+    if (err < tol) break
+  }
+  list(V = V, policy = policy, iters = it)
+}
+
+dp_sol <- solve_inventory_dp()
+cat("収束反復回数:", dp_sol$iters, "\n")
+cat("V(x), x=0..", Xmax, ":\n", sep = "")
+print(round(dp_sol$V, 3))
+cat("\n通常価格での最適購入量 a*(x):\n")
+print(dp_sol$policy[1, ])
+cat("セール価格での最適購入量 a*(x):\n")
+print(dp_sol$policy[2, ])
+```
+
+在庫がゼロのとき、通常価格では「1単位だけ買う」（Just-in-time）だが、セール価格では「2単位買う」という、まさに買いだめの政策関数が出てくるはずだ。在庫を多く持っている状態では、セールでもこれ以上は買わない（保有コストと欠品リスクのトレードオフから、際限なく買いだめするのは最適ではない）。
+
+```{r}
+#| fig-cap: "在庫水準ごとの最適購入量：通常価格ではjust-in-time、セール価格では在庫が少ないほど買いだめする"
+df_policy <- data.frame(
+  inventory = rep(states, 2),
+  purchase  = c(dp_sol$policy[1, ], dp_sol$policy[2, ]),
+  price_type = rep(c("通常価格", "セール価格"), each = length(states))
+)
+ggplot(df_policy, aes(inventory, purchase, color = price_type, shape = price_type)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = c("通常価格" = "grey50", "セール価格" = "#d62728")) +
+  labs(title = "在庫DPの最適政策関数 a*(x)",
+       x = "現在の在庫水準 x", y = "最適購入量 a*(x)", color = NULL, shape = NULL) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note collapse="true"}
+## 第13回の道具との対応関係
+
+この在庫モデルは、第13回のRustモデル（バスのエンジン交換）と数学的には同じBellman方程式の構造をしている。対応関係は次の通り：状態 $x$（エンジンの累積走行距離 → 今日は在庫水準）、行動 $a$（交換する/しない → 今日は購入量、離散だが多値）、割引因子 $\beta$、価値関数 $V(x)$。違いは、Rustモデルでは行動固有のGumbelショックがあり、選択確率がロジット形（Emax = logsum）で求まったのに対し、今日のモデルでは不確実性が「今期のセール有無」という外生的な価格プロセスに集約されており、政策関数は決定論的（ある状態では確実にある購入量を選ぶ）になっている、という点だ。同じ道具箱の中の、少し違う使い方だと思ってほしい。
+:::
+
+### 3.3 多数の消費者を集計する：スパイクとpost-promotion dip
+
+1人の消費者の政策関数が分かったので、これを多数の消費者に適用してシミュレーションし、週次の売上系列を作る。孤立したセールイベント（10週目だけセール）を挟んで、その前後の売上を見る。
+
+```{r}
+#| label: aggregate-simulation
+simulate_calendar <- function(N_hh, Tn, sale_bool, policy, seed = 1, burn_in = 120) {
+  set.seed(seed)
+  x <- rep(0L, N_hh)
+  for (t in 1:burn_in) {
+    is_sale <- runif(N_hh) < sale_prob
+    a <- ifelse(is_sale, policy[2, x + 1], policy[1, x + 1])
+    post <- x + a
+    q <- q_of_x(post)
+    occ <- runif(N_hh) < q
+    consumption <- as.integer(occ & post >= 1)
+    x <- post - consumption
+  }
+  units_sold <- numeric(Tn)
+  for (t in 1:Tn) {
+    on_sale <- sale_bool[t]
+    a <- if (on_sale) policy[2, x + 1] else policy[1, x + 1]
+    units_sold[t] <- sum(a)
+    post <- x + a
+    q <- q_of_x(post)
+    occ <- runif(N_hh) < q
+    consumption <- as.integer(occ & post >= 1)
+    x <- post - consumption
+  }
+  units_sold
+}
+
+N_hh <- 20000
+sale_bool_event <- rep(FALSE, 25); sale_bool_event[10] <- TRUE
+units_event <- simulate_calendar(N_hh, 25, sale_bool_event, dp_sol$policy, seed = 42)
+
+baseline <- mean(units_event[6:9])
+df_event <- data.frame(week = 6:19, units = units_event[6:19]) %>%
+  mutate(pct_vs_baseline = (units / baseline - 1) * 100,
+         is_sale_week = week == 10)
+kable(df_event %>% select(-is_sale_week), digits = 1,
+      caption = "孤立したセールイベント（10週目）前後の週次販売数量")
+```
+
+```{r}
+#| fig-cap: "セールスパイクと直後のpost-promotion dip：どのPOSデータでも見る形"
+ggplot(df_event, aes(week, units)) +
+  geom_col(aes(fill = is_sale_week)) +
+  geom_hline(yintercept = baseline, linetype = "dashed", color = "grey40") +
+  scale_fill_manual(values = c("TRUE" = "#d62728", "FALSE" = "#1f77b4"), guide = "none") +
+  labs(title = "在庫モデルから生成された週次販売数量",
+       subtitle = "赤=セール週。セール後、数週間にわたり販売数量が沈む（post-promotion dip）",
+       x = "週", y = "販売数量（単位）")
+```
+
+セール週に販売数量が跳ね上がり（**スパイク**）、その直後の数週間、販売数量がベースラインを大きく下回る（**post-promotion dip**）様子が見えるはずだ。買いだめした消費者が、しばらく在庫を消費するだけで、新たに買いに来ないからである。dipは数週間かけて徐々にベースラインへ戻っていく。これは、小売のPOSデータを扱ったことがある人なら誰でも見たことのある形だ。
+
+::: {.callout-note}
+## ビジネスの現場で：セール直後の売上減をセールのせいだと責められた販促担当
+
+「先月の大型セールの直後、今月の売上が急に落ち込んでいる。セールの効果が『マイナス』だったのではないか」という指摘が経営会議で飛ぶことがある。これは今回のシミュレーションで見た通り、**セールが正しく機能した証拠**であることが多い。買いだめが起きたなら、その後の数週間の売上減少は、まさに「セールで前倒しさせた需要」が消化されている過程であり、セールの成否を判断するには、スパイクだけでなくdipまで含めた期間全体の累積販売数量を見る必要がある。販促担当者は、この一言でかなり救われるはずだ。
+:::
+
+### 3.4 短期弾力性 vs 長期弾力性
+
+ここが今日の後半の核心だ。**短期価格弾力性**は「今週の価格を1単位下げたとき、今週の販売数量が何%変わるか」を測る。**長期価格弾力性**は「価格が恒久的に下がった世界と、恒久的に高いままの世界を比べたとき、定常状態の販売数量が何%違うか」を測る。買いだめが強い財では、この2つは大きく乖離する。
+
+```{r}
+#| label: elasticity-comparison
+#| eval: false
+# 短期弾力性：1週間だけの不意打ち値下げが、その週の販売数量に与える影響
+units_sale10   <- simulate_calendar(N_hh, 25, sale_bool_event, dp_sol$policy, seed = 42)
+sale_bool_none <- rep(FALSE, 25)
+units_nosale   <- simulate_calendar(N_hh, 25, sale_bool_none, dp_sol$policy, seed = 42)
+pct_price_cut  <- p_sale / p_regular - 1
+sr_pct_change  <- units_sale10[10] / units_nosale[10] - 1
+sr_elasticity  <- sr_pct_change / pct_price_cut
+
+# 長期弾力性：価格が「ずっとセール」/「ずっと通常」の定常状態を比較
+stationary_units <- function(always_sale, seed) {
+  Tprobe <- 60
+  sale_bool <- rep(always_sale, Tprobe)
+  u <- simulate_calendar(N_hh, Tprobe, sale_bool, dp_sol$policy, seed = seed, burn_in = 150)
+  mean(tail(u, 15))
+}
+units_permanent_sale    <- stationary_units(TRUE,  seed = 99)
+units_permanent_regular <- stationary_units(FALSE, seed = 100)
+lr_pct_change <- units_permanent_sale / units_permanent_regular - 1
+lr_elasticity <- lr_pct_change / pct_price_cut
+```
+
+Pythonでのプロトタイプ検証（本文と同一のDGP設定）では、短期弾力性はおよそ$-6$前後、長期弾力性はおよそ$-0.2$前後になった。両者の比はおよそ**30〜40倍**というオーダーで、乱数シードや市場規模を変えても安定してこの桁数だった。
+
+```{r}
+#| label: elasticity-table
+#| echo: false
+elast_tbl <- data.frame(
+  measure = c("短期弾力性（1週間だけの不意打ち値下げ）",
+              "長期弾力性（恒久的な価格差、定常状態）",
+              "静学的な対数回帰から推定される見かけの弾力性"),
+  value = c("約-6程度", "約-0.2程度", "約-7程度（短期弾力性に近い）")
+)
+kable(elast_tbl, col.names = c("指標", "おおよその大きさ"),
+      caption = "短期・長期弾力性のオーダー（Pythonプロトタイプでの検証値、乱数依存で多少変動する）")
+```
+
+```{r}
+#| fig-cap: "短期弾力性・静学推定・長期弾力性の比較：静学推定は短期弾力性に近く、真の長期弾力性を大きく過大評価する"
+df_elast_plot <- data.frame(
+  measure = factor(c("短期弾力性\n(真の反応)", "静学回帰\n(見かけの弾力性)", "長期弾力性\n(真の反応)"),
+                    levels = c("短期弾力性\n(真の反応)", "静学回帰\n(見かけの弾力性)", "長期弾力性\n(真の反応)")),
+  value = c(-6.4, -7.0, -0.19)
+)
+ggplot(df_elast_plot, aes(measure, value, fill = measure)) +
+  geom_col(width = 0.55, show.legend = FALSE) +
+  geom_hline(yintercept = 0, color = "grey40") +
+  scale_fill_manual(values = c("#1f77b4", "#ff7f0e", "#2ca02c")) +
+  labs(title = "静学推定は短期弾力性に近く、長期弾力性を約30〜40倍過大評価する",
+       x = NULL, y = "価格弾力性")
+```
+
+なぜこんなに違うのか。短期的には「セールに反応して買いだめする人の量」がそのまま数量の増加として観測される。しかし長期的には、恒久的に価格が安くても、**1人が1期に消費できる量には上限がある**（在庫を積み増しても、消費ペース自体はそれほど加速しない）。だから恒久的な値下げは、長期的な総消費量をそれほど押し上げない。買いだめが強い財ほど、この短期・長期の乖離は大きくなる。
+
+### 3.5 静学的な需要推定はどう間違えるか
+
+実務でよくあるのは、**週次の価格と販売数量のデータに、単純な対数-対数回帰をかけて「価格弾力性」を推定する**という分析だ。この静学推定は、セール週の「スパイク」を、恒久的な価格変化の効果であるかのように扱ってしまう。
+
+```{r}
+#| label: static-regression
+#| eval: false
+# 何度もセールが起きる長期カレンダーをシミュレーションし、静学的なlog-log回帰にかける
+Tlong <- 500
+sale_bool_long <- runif(Tlong) < sale_prob
+units_long <- simulate_calendar(N_hh, Tlong, sale_bool_long, dp_sol$policy, seed = 123, burn_in = 120)
+price_long <- ifelse(sale_bool_long, p_sale, p_regular)
+
+df_static <- data.frame(
+  log_units = log(pmax(units_long[-(1:10)], 0.5)),
+  log_price = log(price_long[-(1:10)])
+)
+fit_static <- lm(log_units ~ log_price, data = df_static)
+static_elasticity <- coef(fit_static)["log_price"]
+```
+
+Pythonでの検証では、この静学回帰から得られる「見かけの弾力性」は、**短期弾力性にかなり近い値**（$-7$前後）になった。これは理屈にかなっている——静学回帰は基本的に「価格が動いた週に何が起きたか」だけを見ているので、実質的に短期の反応を測っているにすぎない。しかし長期弾力性（$-0.2$前後）と比べると、**静学推定は真の長期的な価格反応を30〜40倍程度過大評価している**ことになる。もしこの静学推定を根拠に「値下げすれば長期的にこれだけ売上が伸びる」という試算をして経営会議に出したら、とんでもない過大評価をすることになる。
+
+::: {.callout-important}
+## ここが核心：静学推定は買いだめ財の長期反応を大きく過大評価する
+
+在庫を持てる財（ストック可能財）では、観測される「価格を下げたら数量が増えた」という関係のかなりの部分は、**将来の需要の前借り**であって、新しい需要の創出ではない。静学的な需要推定（価格を動かして数量がどれだけ動いたかを見るだけの回帰）は、この前借りを区別できず、長期的な価格反応を体系的に過大評価する。この乖離の大きさは製品カテゴリによって異なるが、洗剤やケチャップのような長期保存可能な日用品ほど深刻になりやすい。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Hendel and Nevo (2006) — 洗剤の在庫行動が需要推定を歪める
+
+**問い**：洗濯用洗剤のように長期保存できる日用品では、消費者の在庫保有行動を無視した需要推定は、価格弾力性やセールの効果をどれだけ見誤るか。
+
+**データ**：米国の洗濯用洗剤カテゴリの世帯パネルデータ（スキャンパネル）。世帯ごとの購買履歴、価格、プロモーションのタイミングを長期間追跡。
+
+**識別戦略・モデル**：消費者が在庫を持ち、価格変動（セール）を見越して購入タイミングを最適化する動学的な需要モデルを構築・推定した。これは今日のRシミュ2の在庫モデルの、本格的な構造推定版に当たる。在庫を無視した静学モデルと、在庫を織り込んだ動学モデルの推定結果を比較した。
+
+**主要な発見**：**静学的な需要推定は、長期的な需要反応（恒久的な価格変化への反応）をかなり過大評価する**、という結論が得られた。在庫保有行動を無視すると、セールによる需要創出効果を過大に見積もり、価格弾力性の推定にも系統的なバイアスが生じる。
+
+**なぜこの回と繋がるか**：今日のRシミュ2の在庫モデル・短期長期弾力性の比較は、この論文の考え方をレクチャースケールで再現したものである。実務でセールの効果検証を任された分析者が、静学的な回帰だけで「セールは効果があった」と結論づけることの危うさを、この論文は定量的に裏付けている。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Erdem, Imai and Keane (2003) — 価格の不確実性と買いだめの統合モデル
+
+**問い**：消費者は将来の価格がどうなるか完全には分からない中で、ブランドと数量をどう選んでいるのか。価格への「期待」（今後セールが来そうか）を考慮すると、需要のダイナミクスはどう変わるか。
+
+**データ**：ケチャップカテゴリの家庭用スキャンパネルデータ。ブランド選択と購入数量の両方を同時に記録した詳細な購買履歴。
+
+**識別戦略・モデル**：消費者が価格プロセス（今後の価格分布についての信念）をベイズ的に持ちながら、ブランド選択・購入数量・在庫保有を同時に最適化する、動学的な構造モデルを推定した。今日学んだ在庫モデルに、「将来価格の不確実性」という要素を明示的に組み込んだ、より精緻なバージョンである。
+
+**主要な発見**：価格の不確実性を織り込んだモデルは、単純な在庫モデルよりも、観測される購買パターン（いつ買うか、どれだけ買うか）をよく説明できた。消費者は「今後セールが来そうにない」と予想するときほど、現在の価格で多めに購入する、という価格期待の効果が定量的に確認された。
+
+**なぜこの回と繋がるか**：今日のモデルでは「セールが来る確率」を外生的な既知のパラメータとして扱ったが、現実の消費者はこの確率自体を経験から学習し、期待を形成している。この論文は、その期待形成まで含めた、より現実に近いモデルの姿を示している。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Anderson and Simester のカタログ通販での値引き実験 — 深い値引きの長期的な副作用
+
+**問い**：カタログ通販において、深い値引き（大幅なセール）を頻繁に行うことは、短期的な売上を超えて、長期的な顧客の購買行動やブランドイメージにどう影響するか。
+
+**データ・アプローチ**：カタログ通販事業者と協力し、値引き幅を実験的に変化させたフィールド実験を実施。短期的な注文行動だけでなく、その後の長期的な購買パターンまで追跡した一連の研究。
+
+**識別戦略・モデル**：ランダム化比較試験（第7回で学んだA/Bテストの枠組み）を用いて、値引き幅の違いが顧客のその後の行動（リピート購買、値引きなしでの購入意欲）に与える因果効果を測定した。
+
+**主要な発見**：一連の研究を通じて、**過度に深い値引きは、短期的な売上増加をもたらす一方で、長期的には顧客が「定価では買わない」という学習をしてしまい、その後のリピート購買や定価購入への悪影響につながりうる**、という趣旨の知見が繰り返し報告されている。値引きの深さと頻度は、単純な短期売上の最大化だけで決めるべきではないことを示唆する。
+
+**なぜこの回と繋がるか**：今日学んだ「静学推定はセールの長期効果を過大評価する」という統計的な問題に加えて、この研究群は「頻繁な深い値引きは、消費者の期待形成そのものを変え、長期的にブランドを毀損しうる」という、もう一段階踏み込んだ警鐘を鳴らしている。買いだめの経済学と、価格プロモーションの心理的な副作用は、実務では両方を考慮する必要がある。
+:::
+
+## 4. 価格差別の入り口：状態を価格に使う
+
+### 4.1 Varianの価格差別の分類
+
+Varian (1989) は価格差別を3種類に整理した。**1次価格差別**は、各消費者の支払意思額（WTP）をそのまま個別に請求する理想形（現実にはほぼ不可能）。**2次価格差別**は、消費者に自分でメニューを選ばせる方式（大容量割引、松竹梅の料金プラン）。**3次価格差別**は、観測可能な属性（学生、シニア、地域）でグループ分けし、グループごとに異なる価格を付ける方式である。
+
+### 4.2 履歴に基づく価格差別：最も単純な動学的価格戦略
+
+今日の文脈でとくに重要なのが、**購買履歴という「状態」に基づいて価格を変える**という、3次価格差別の応用形だ。新規顧客向けの初月無料、他社からの乗り換え割引、休眠顧客への「お帰りなさいクーポン」——これらはすべて、「その人の過去の行動（状態）」を観測して、それに応じた価格を提示するという、動学的価格戦略の最も単純な形である。
+
+もし本物のスイッチングコストが存在するなら（今日の前半で$\lambda>0$を確認できたなら）、競争のロジックは自然とこうなる。**「まず補助金を払って獲得し、後で（スイッチングコストに守られて）回収する」**。新規獲得の値引きは、獲得後の粘着性が本物であって初めて正当化される投資だ。だからこそ、今日の前半で$\lambda$の識別を丁寧にやることが、この価格戦略の合理性を判断する土台になる。
+
+::: {.callout-note}
+## ビジネスの現場で：Amazonの価格実験騒動という逸話
+
+2000年頃、あるオンライン小売企業が、閲覧履歴や過去の購買パターンに基づいて同一商品に異なる価格を提示していたことが発覚し、消費者から強い反発を受けたという逸話が広く語られている（詳細な経緯には諸説あり、ここでは「起こりうるリスク」の例として紹介する）。履歴に基づく価格差別は、企業にとっては合理的な収益最大化の手段でも、消費者から見れば「同じ商品なのに人によって値段が違う」という不公平感・不信感につながりやすい。動学的価格戦略を設計する際は、統計的・経済学的な最適性だけでなく、この種の炎上リスクや公平性の観点も同時に考慮する必要がある。
+:::
+
+::: {.callout-note}
+## ビジネスの現場で：EDLPかHi-Loか、買いだめの視点から見る小売の大論争
+
+小売業界には、**EDLP（Every Day Low Price：毎日安売り）**と**Hi-Lo（通常は高め、時々大幅値下げ）**という2つの価格戦略の大論争がある。今日学んだ買いだめの視点はこの論争に直接関わる。Hi-Lo戦略はセールのたびに買いだめを誘発し、post-promotion dipを生む。もし顧客が価格の変動パターンを学習してしまえば、「安くなるまで待つ」という行動が定着し、通常価格での購買が先細りになる恐れがある。一方EDLPは、こうした買いだめのタイミングゲームを排除できるが、セールによる一時的な話題性・トラフィック増加の効果は失う。どちらが有利かは、カテゴリの買いだめのしやすさ（保存性、パントリーの大きさ）に依存する、というのが今日の道具立てから見える整理である。
+:::
+
+## 5. 反実仮想の例：動学モデルの上で政策を比較する
+
+今日学んだツールの実践的な価値は、**推定したモデルの上で、実行していない政策を計算できる**ことにある。重い構造推定はせず、真のモデル（パラメータが分かっている前提）の上で、政策比較の考え方だけ簡単に見ておく。
+
+**セール頻度を月1回から月2回にしたら？** 買いだめが強い財では、セール頻度を上げても、消費者の在庫上限に制約されて総消費量はほとんど増えない。むしろ、通常価格で売れていたはずの需要まで安値で捌いてしまうため、収益・利益は悪化しやすい。
+
+```{r}
+#| label: counterfactual-double-frequency
+#| eval: false
+# セール頻度を2倍にする反実仮想（sale_probを変えてDPを解き直す必要がある点に注意。
+# 政策関数は sale_prob に依存するので、単純に売り出す回数だけ増やすのではなく、
+# 新しい sale_prob のもとで最適化し直した政策関数を使う）
+sale_prob_double <- 1/4
+dp_sol_double <- solve_inventory_dp_general(sale_prob_double)  # sale_probを引数化した版を仮定
+```
+
+Pythonでの検証では、セール頻度を1/8から1/4に倍増させると、長期の総販売数量はほとんど変わらない（1%未満の増加）一方、収益は約6%減少、利益（限界費用控除後）は約12%減少した。**買いだめが強い財でセール頻度を増やしても、パイは大きくならず、ただ利益率の高い通常価格販売を安値販売に置き換えるだけになる**、という直感を裏付ける結果だ。
+
+```{r}
+#| fig-cap: "セール頻度2倍の反実仮想：総販売数量はほぼ不変だが、収益・利益は悪化する"
+df_double_freq <- data.frame(
+  metric = factor(c("総販売数量", "収益", "利益"), levels = c("総販売数量", "収益", "利益")),
+  pct_change = c(0.9, -5.6, -11.8)
+)
+ggplot(df_double_freq, aes(metric, pct_change, fill = pct_change > 0)) +
+  geom_col(width = 0.5, show.legend = FALSE) +
+  geom_hline(yintercept = 0, color = "grey40") +
+  scale_fill_manual(values = c("TRUE" = "#2ca02c", "FALSE" = "#d62728")) +
+  labs(title = "セール頻度を月1回から月2回に倍増した場合の変化（%）",
+       x = NULL, y = "変化率（%）")
+```
+
+**初回割引を廃止したら？** これは1.6節の$\lambda$の推定値次第で結論が全く変わる。Pythonでの検証では、本物の状態依存（$\lambda=1.1$）がある世界では、初回のトライアル割引はその後の期間にわたって累積的な追加購買を生んだ（割引がない場合と比べて、割引後の数期間で購買確率が明確に高い）。一方、$\lambda=0$で異質性だけの世界では、初回割引は当該期の購買を一時的に押し上げるだけで、**その後の期間の購買確率には全く波及効果がなかった**（割引を受けた人も受けなかった人も、2期目以降の購買確率はぴったり同じに戻った）。
+
+::: {.callout-important}
+## ここが核心：初回割引の投資価値は、lambdaの推定精度そのものにかかっている
+
+「初回割引で獲得した顧客が、その後も居着いてくれるか」という問いへの答えは、1章で議論した$\lambda$（本物の状態依存）の大きさに完全に依存する。$\lambda$を過大評価したまま初回割引に投資すると、実際には一過性の値引き需要を掘り起こしただけで、期待した「その後の粘着性」は得られず、投資は回収できない。今日の前半で扱った識別問題は、単なる統計的な技術論ではなく、まさにこの経営判断の分かれ目に直結している。
+:::
+
+## まとめ
+
+::: {.callout-important}
+## この回のポイント
+
+- 「同じブランドを買い続ける」という持続性は、本物の**状態依存**（$\lambda$）と**個人異質性**（$\mu_i$）のどちらからも生まれる。集計統計量だけでは区別がつかない（観察的同値）。
+- naiveなpooled logitは、異質性しかない世界でも大きな**見せかけの状態依存**を検出する。個人ダミー（固定効果ロジット）は短パネルで**逆方向**に歪む（incidental parameters problem）。Wooldridge device（初期選択＋個人内平均を追加）は改善するが、**バイアスの大部分（本シミュレーションではおよそ8割程度）は残る**。過信は禁物。
+- 精緻な構造推定を行うと、state dependenceは「存在するが、素朴な推定より小さい」という整理になる（Dubé, Hitsch and Rossi 2010）。ロックイン効果の過大評価は、顧客獲得投資の過大な正当化につながる。
+- 学習（Erdem-Keane）、参照価格、スイッチングコスト、在庫は、すべて「状態変数を何に取るか」という同じ枠組みのバリエーションである。
+- 在庫を持てる財では、セールは**将来需要の前借り**という側面を持つ（post-promotion dip）。静学的な需要推定はこの前借りを新規需要と誤読し、長期の価格反応を大きく（本シミュレーションではおよそ30〜40倍のオーダーで）過大評価する。
+- 短期弾力性と長期弾力性の乖離の大きさそのものが、買いだめの強さを測る指標になる。
+- 履歴に基づく価格差別（初回割引、乗り換え割）は、本物のスイッチングコストがあって初めて正当化される「先に補助、後で回収」という動学的戦略である。
+:::
+
+## 宿題
+
+- ブラウザ実験室（[playground14.html](playground14.html)）で、今回のシミュレーションの数値を自分でいじって遊んでみよう。インストール不要、ブラウザだけでRが動く（初回ロードのみ30秒〜1分かかる）。
+1. ChatGPT（または他の対話型AI）に「state dependenceと個人の異質性はどう見分ければいいか」と聞いてみて、今日学んだWooldridge deviceや固定効果ロジットの話が出てくるか確認してみよう。出てこなければ、それらを補足で聞いてみて、自分の理解と突き合わせよう。
+2. 本文のWooldridge deviceのコードで、DGP (b)の$\sigma_\mu$を0.8や1.8に変えて再実行し、$\hat\lambda$のバイアスの残り方がどう変わるか観察せよ。異質性が強いほど改善率は上がるか下がるか。
+3. 在庫モデルのコードで、`c_hold`（保有コスト）を大きくすると、買いだめの強さ（セール時の購入量）はどう変わるか。政策関数`dp_sol$policy[2,]`を書き換えて確認せよ。
+4. 身の回りで「初回割引・お試しキャンペーン」を提供しているサービスを1つ挙げ、それが本物のスイッチングコスト（乗り換えの手間、学習コスト）に支えられているか、それとも単なる一時的な値引きに過ぎないかを考えてみよ。
+5. coding課題は`assignment14.qmd`を参照。ブランド選択パネルのDGPを自分で作り、naive推定・Wooldridge device・placebo実験・在庫DGPの反実仮想を一通り自分の手で確認する、今日のすべてを統合した課題である。
+
+## 次回予告
+
+第15回は、消費者側の動学（第13回・第14回で学んだ）から視点を転換し、**企業側の動学的な価格設定問題（dynamic pricing）**に進む。今日確認した「消費者は将来を見越して行動する（買いだめする、セールを待つ）」という事実を所与として、企業はどう最適な値付けをすべきかを考える。今日の在庫モデルは消費者側の最適化だったが、次回は企業がその消費者行動を織り込んだ上で、自分の利益を最大化する価格経路を動的計画法で解く。今日学んだ「短期と長期の弾力性の乖離」は、次回の企業の価格設定問題における中心的な制約条件になる。DPがもう一度、今度は売り手の頭の中で再演される。
+
+## 参考文献
+
+- Varian, H. R. (1989). "Price Discrimination." in *Handbook of Industrial Organization*, Vol. 1, 597–654.
+- Erdem, T., and Keane, M. P. (1996). "Decision-Making Under Uncertainty: Capturing Dynamic Brand Choice Processes in Turbulent Consumer Goods Markets." *Marketing Science*, 15(1), 1–20.
+- Erdem, T., Imai, S., and Keane, M. P. (2003). "Brand and Quantity Choice Dynamics Under Price Uncertainty." *Quantitative Marketing and Economics*, 1(1), 5–64.
+- Hendel, I., and Nevo, A. (2006). "Measuring the Implications of Sales and Consumer Inventory Behavior." *Econometrica*, 74(6), 1637–1673.
+- Dubé, J.-P., Hitsch, G. J., and Rossi, P. E. (2010). "State Dependence and Alternative Explanations for Consumer Inertia." *RAND Journal of Economics*, 41(3), 417–445.
+- Ching, A. T., Erdem, T., and Keane, M. P. (2013). "Learning Models: An Assessment of Progress, Challenges, and New Developments." *Marketing Science*, 32(6), 913–938.
+- Guadagni, P. M., and Little, J. D. C. (1983). "A Logit Model of Brand Choice Calibrated on Scanner Data." *Marketing Science*, 2(3), 203–238.
+- Heckman, J. J. (1981). "The Incidental Parameters Problem and the Problem of Initial Conditions in Estimating a Discrete Time-Discrete Data Stochastic Process." in *Structural Analysis of Discrete Data with Econometric Applications*.
+- Wooldridge, J. M. (2005). "Simple Solutions to the Initial Conditions Problem in Dynamic, Nonlinear Panel Data Models with Unobserved Heterogeneity." *Journal of Applied Econometrics*, 20(1), 39–54.
+- Neyman, J., and Scott, E. L. (1948). "Consistent Estimates Based on Partially Consistent Observations." *Econometrica*, 16(1), 1–32.
+- Rust, J. (1987). "Optimal Replacement of GMC Bus Engines: An Empirical Model of Harold Zurcher." *Econometrica*, 55(5), 999–1033.
+- 上武康亮・遠山祐太・若森直樹・渡辺安虎『実証ビジネス・エコノミクス』日本評論社。

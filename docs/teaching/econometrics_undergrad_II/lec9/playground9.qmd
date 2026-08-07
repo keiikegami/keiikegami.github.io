@@ -1,0 +1,243 @@
+---
+title: "Playground 9：shrinkageの実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture9.html`）。ここでは「shrinkage（縮小推定）がいつ・どれくらい効くのか」を、数値をいじって体感することに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（講義ノートと同じ関数群。編集不可・自動実行）----
+
+# 店舗データを1セット生成する：真の効果 theta_i と観測された店舗平均 y_i
+simulate_stores <- function(N, mu, tau, sigma2, n_range) {
+  n_vals <- n_range[1]:n_range[2]
+  n_i    <- n_vals[sample.int(length(n_vals), N, replace = TRUE)]  # 店ごとの観測数
+  s2     <- sigma2 / n_i                    # 店舗平均 y_i のノイズ分散
+  theta  <- rnorm(N, mu, tau)               # 真の店舗効果
+  y      <- rnorm(N, theta, sqrt(s2))       # 観測された店舗平均（no pooling 推定）
+  list(n_i = n_i, s2 = s2, theta = theta, y = y)
+}
+
+# 経験ベイズ：モーメント法で全体平均とtau2を推定し、shrinkage推定を返す
+eb_fit <- function(y, s2) {
+  mu_hat   <- mean(y)
+  tau2_hat <- max(var(y) - mean(s2), 1e-6)  # 観測の散らばりからノイズの分を引いた残り
+  B        <- s2 / (s2 + tau2_hat)          # 縮小係数（店ごと）
+  list(mu_hat = mu_hat, tau2_hat = tau2_hat, B = B,
+       est = B * mu_hat + (1 - B) * y)
+}
+
+# Gibbsサンプラー（講義ノート§6と同じ20行。draws 800 / burn-in 200 に軽量化）
+gibbs_hier <- function(ybar, n_i, sigma2, n_draws = 800, burn = 200,
+                       mu0 = 0, kappa2 = 1e6, a0 = 0.01, b0 = 0.01) {
+  N     <- length(ybar)
+  theta <- ybar                             # 初期値
+  mu    <- mean(ybar)
+  tau2  <- max(var(ybar), 0.1)
+  keep_theta <- matrix(0, n_draws, N)
+  keep_mu    <- numeric(n_draws)
+  keep_tau2  <- numeric(n_draws)
+  for (it in 1:(n_draws + burn)) {
+    # (1) theta_i を引く（店ごと、ベクトル化）
+    v_i   <- 1 / (n_i / sigma2 + 1 / tau2)
+    m_i   <- v_i * (n_i * ybar / sigma2 + mu / tau2)
+    theta <- rnorm(N, m_i, sqrt(v_i))
+    # (2) mu（全体平均）を引く
+    prec  <- N / tau2 + 1 / kappa2
+    mean_ <- (sum(theta) / tau2 + mu0 / kappa2) / prec
+    mu    <- rnorm(1, mean_, sqrt(1 / prec))
+    # (3) tau2（店舗間分散）を引く：逆ガンマ = 1/ガンマ
+    shape <- a0 + N / 2
+    rate  <- b0 + 0.5 * sum((theta - mu)^2)
+    tau2  <- 1 / rgamma(1, shape = shape, rate = rate)
+    if (it > burn) {
+      k <- it - burn
+      keep_theta[k, ] <- theta
+      keep_mu[k]      <- mu
+      keep_tau2[k]    <- tau2
+    }
+  }
+  list(theta = keep_theta, mu = keep_mu, tau2 = keep_tau2)
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：shrinkageの綱引き — 矢印はどこまで引かれるか
+
+店舗効果の推定は「自分のデータ $y_i$」と「全体平均 $\bar\theta$」の綱引きだ。真の店舗効果は $\theta_i \sim N(2, \tau^2)$ から生まれ、各店は $n_i$ 個の観測を持つので、店舗平均 $y_i$ のノイズ分散は $\sigma^2 / n_i$ になる。経験ベイズはこの $y_i$（no pooling 推定）を、次の式で全体平均へ引き寄せる。
+
+$$
+\hat\theta_i = B_i \, \bar\theta + (1 - B_i) \, y_i, \qquad B_i = \frac{\sigma_i^2}{\sigma_i^2 + \tau^2}
+$$
+
+縮小の強さ $B_i$ は「店ごとの測定ノイズ」と「店舗間の本物のばらつき」の比で決まる。**データが語るなら聞き、語らないなら全体に頼る**——この標語が矢印の長さにそのまま現れる。$\tau$ と $n_i$ をいじって確かめよう。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+tau     <- 1.0        # 店舗間異質性（真の効果のばらつき）。3や0.2も試そう
+n_range <- c(5, 30)   # 各店舗の観測数の範囲。c(50, 100)にすると？
+# -----------------------
+
+set.seed(20269)
+N      <- 40     # 店舗数
+mu     <- 2.0    # 真の全体平均
+sigma2 <- 4.0    # 1観測あたりのノイズ分散
+
+sim <- simulate_stores(N, mu, tau, sigma2, n_range)
+eb  <- eb_fit(sim$y, sim$s2)
+
+data.frame(
+  quantity = c("estimated grand mean", "estimated tau2", "mean shrinkage B"),
+  value = round(c(eb$mu_hat, eb$tau2_hat, mean(eb$B)), 3)
+)
+
+df_arrow <- data.frame(nopool = sim$y, eb = eb$est, n_i = sim$n_i)
+ggplot(df_arrow) +
+  geom_segment(aes(x = 1, xend = 2, y = nopool, yend = eb, color = n_i),
+               arrow = arrow(length = unit(0.12, "cm")), alpha = 0.85) +
+  geom_hline(yintercept = eb$mu_hat, linetype = "dashed", color = "gray40") +
+  annotate("text", x = 2.05, y = eb$mu_hat, label = "grand mean",
+           hjust = 0, color = "gray40", size = 3.4) +
+  scale_x_continuous(breaks = c(1, 2), labels = c("no pooling", "after shrinkage"),
+                     limits = c(0.9, 2.45)) +
+  scale_color_viridis_c(name = "n_i (obs per store)") +
+  labs(x = NULL, y = "estimated store effect")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `tau <- 3`（店舗どうしが全然似ていない世界）にすると、矢印はほとんど動かなくなる。逆に `tau <- 0.2` ではほぼ全店が全体平均へ潰される。表の `mean shrinkage B` と合わせて、縮小が弱まる・強まるを確認しよう。
+- `n_range <- c(50, 100)`（どの店もデータが厚い）にすると、$\tau$ が同じでも矢印が短くなることを確認しよう。`c(2, 8)` にすれば逆のことが起きる。
+- 矢印が長い店と短い店の色（$n_i$）を見比べよう。同じ $\tau$・同じ $\sigma^2$ のもとで、店ごとに縮小の強さを変えているものは何か。「データが語るなら聞き、語らないなら全体に頼る」は、$B_i$ の式のどの部分に対応しているだろうか。
+:::
+
+## 実験2：MSE対決 — 3つのpooling、どれが当たるか
+
+綱引きの絵がきれいでも、「本当に当たるのか」は別の問題だ。真値 $\theta_i$ を知っているシミュレーションだからこそ、真値との二乗誤差（MSE）で答え合わせができる。データ生成を200回繰り返し、complete pooling（全店に全体平均）・no pooling（各店の $y_i$ をそのまま）・partial pooling（経験ベイズ）のMSEを平均する。`win_rate` は「そのデータセットで最小MSEだった回数の割合」だ。どんな世界でどれが勝つのか、$\tau$ と店舗数・観測数をいじって探そう。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+tau     <- 1.0        # 店舗間異質性（0.1や5も試そう）
+N       <- 40         # 店舗数
+n_range <- c(5, 30)   # 各店舗の観測数の範囲
+# -----------------------
+
+set.seed(20269)
+mu     <- 2.0    # 真の全体平均
+sigma2 <- 4.0    # 1観測あたりのノイズ分散
+R      <- 200    # モンテカルロ反復回数
+
+one_rep <- function() {
+  sim <- simulate_stores(N, mu, tau, sigma2, n_range)
+  eb  <- eb_fit(sim$y, sim$s2)
+  c(complete = mean((eb$mu_hat - sim$theta)^2),
+    nopool   = mean((sim$y - sim$theta)^2),
+    partial  = mean((eb$est - sim$theta)^2))
+}
+res  <- replicate(R, one_rep())
+best <- apply(res, 2, which.min)
+
+data.frame(
+  method   = c("complete pooling", "no pooling", "partial pooling (EB)"),
+  MSE      = round(rowMeans(res), 4),
+  win_rate = round(as.numeric(table(factor(best, levels = 1:3))) / R, 3)
+)
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `tau <- 5`（店舗が全く似ていない世界）にすると、partial pooling の優位は消えるか。no pooling とのMSEの差と `win_rate` を、`tau <- 1` のときと見比べよう。
+- `tau <- 0.1` かつ `N <- 100`（全店ほぼ同じ効果）にすると、complete pooling が勝ちに来ることを確認しよう。次に `n_range <- c(100, 200)` として、no pooling と partial pooling の差がほぼ消えることも見よう。
+- いろいろ動かしても、partial pooling が「大負け」する設定はなかなか見つからないはずだ。それはなぜか。ヒント：経験ベイズは $\hat\tau^2$ を通じて縮小の強さを自分で調整する。$\tau$ が大きいデータでは、自動的に no pooling に近づいていく。
+:::
+
+## 実験3：ミニGibbsサンプラー — 事後分布を自分の目で見る
+
+経験ベイズは $\tau^2$ を1点に固定したが、その値自体にも不確実性がある。それごと扱うのがフルベイズで、道具は講義ノート§6のGibbsサンプラーだ（ここでは軽量版：draws 800・burn-in 200）。「条件付き分布から交互に乱数を引くだけ」のループが、$\tau^2$ の事後分布をまるごと吐き出す。traceplotが一定の帯の中をランダムに行き来する「毛虫」に見えれば、収束の目安だ。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+tau_true <- 1.0   # 店舗間異質性の真値。0.3や2も試そう
+N        <- 30    # 店舗数。5に減らすと？
+# -----------------------
+
+set.seed(20269)
+mu_true <- 2.0    # 真の全体平均
+sigma2  <- 4.0    # 1観測あたりのノイズ分散
+
+sim <- simulate_stores(N, mu_true, tau_true, sigma2, c(5, 30))
+fit <- gibbs_hier(sim$y, sim$n_i, sigma2, n_draws = 800, burn = 200)
+
+data.frame(
+  quantity = c("posterior mean of mu", "posterior mean of tau2",
+               "95% interval of tau2 (low)", "95% interval of tau2 (high)",
+               "true tau2"),
+  value = round(as.numeric(c(mean(fit$mu), mean(fit$tau2),
+                             quantile(fit$tau2, 0.025), quantile(fit$tau2, 0.975),
+                             tau_true^2)), 3)
+)
+
+df_trace <- data.frame(iter = seq_along(fit$mu), mu = fit$mu, tau2 = fit$tau2) |>
+  pivot_longer(c(mu, tau2), names_to = "param", values_to = "value")
+ggplot(df_trace, aes(iter, value)) +
+  geom_line(color = "steelblue", linewidth = 0.3) +
+  facet_wrap(~param, scales = "free_y") +
+  labs(title = "traceplot", x = "iteration", y = NULL)
+
+ggplot(data.frame(tau2 = fit$tau2), aes(tau2)) +
+  geom_histogram(bins = 40, fill = "steelblue", alpha = 0.6) +
+  geom_vline(xintercept = tau_true^2, linetype = "dashed", color = "firebrick") +
+  annotate("text", x = tau_true^2, y = Inf, label = "true tau2",
+           vjust = 2, hjust = -0.1, color = "firebrick", size = 3.4) +
+  labs(title = "posterior distribution of tau2",
+       x = "tau2 (between-store variance)", y = "count")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `N <- 5`（店舗が5つしかない世界）にすると、$\tau^2$ の事後分布はどれくらい横に広がるか。表の95%区間の幅を `N <- 30` のときと見比べよう。店舗間のばらつきは「店舗の数」からしか学べないので、少数グループでは階層モデルでも $\tau^2$ をほぼ特定できない——これが階層モデルの限界だ。
+- `tau_true <- 0.3` にすると、事後分布は0の近くに寄る。traceplotで $\tau^2$ がときどき0のすぐ上まで潜る様子も観察しよう。`tau_true <- 2` なら分布ごと右へ動く。
+- $\tau^2$ の推定を良くするには、各店の観測数 $n_i$ を増やすのと店舗数 $N$ を増やすのと、どちらが本質的に効くのか。コード中の `c(5, 30)` を `c(100, 300)` に変えた場合と、`N` を増やした場合とで、95%区間の縮み方を比べて考えよう。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture9.html`（shrinkage公式の導出、James-Stein、ベイズ入門、Gibbsと信用区間の完全版）
+- coding課題：`assignment9.qmd`（60店舗のクーポン施策DGPを自作し、経験ベイズとGibbsをゼロから実装して、確率ベースのターゲティングまで通す）

@@ -1,0 +1,244 @@
+---
+title: "Playground 10：顧客ベース分析の実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture10.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（講義ノートと同じ関数群。編集不可・自動実行）----
+
+# BG/NBDのDGP：1顧客の購買イベント時刻を生成する
+# 生きている間はrate=lambdaのPoisson過程で購買し、各購買の直後に確率p_dropで離脱する
+simulate_customer_events <- function(lambda, p_drop, T) {
+  t <- 0
+  events <- c()
+  repeat {
+    wait <- rexp(1, rate = lambda)
+    t_next <- t + wait
+    if (t_next > T) break
+    t <- t_next
+    events <- c(events, t)
+    if (runif(1) < p_drop) break
+  }
+  events
+}
+
+# N人の顧客ベースを生成し、(x, t_x) に要約する
+simulate_customer_base <- function(N, r, alpha, a, b, T) {
+  lambda <- rgamma(N, shape = r, rate = alpha)
+  p <- rbeta(N, a, b)
+  x <- numeric(N); tx <- numeric(N)
+  for (i in 1:N) {
+    ev <- simulate_customer_events(lambda[i], p[i], T)
+    x[i] <- length(ev)
+    tx[i] <- if (length(ev) == 0) 0 else max(ev)
+  }
+  data.frame(x = x, tx = tx, lambda = lambda, p = p)
+}
+
+# logsumexp: log(exp(a) + exp(b)) を数値的に安定に計算する
+logsumexp2 <- function(log_a, log_b) {
+  m <- pmax(log_a, log_b)
+  m + log(exp(log_a - m) + exp(log_b - m))
+}
+
+# BG/NBDの対数尤度（ベクトル化。x, tx, Tは同じ長さのベクトル）
+# 第1項 = Tまで生きている経路、第2項 = t_xで離脱していた経路（x>0のときだけ）
+bgnbd_loglik <- function(r, alpha, a, b, x, tx, T) {
+  ln_Bab <- lbeta(a, b)
+  ln_A0 <- lbeta(a, b + x) - ln_Bab +
+    lgamma(r + x) - lgamma(r) +
+    r * log(alpha) - (r + x) * log(alpha + T)
+  ln_A1 <- ifelse(
+    x > 0,
+    lbeta(a + 1, b + x - 1) - ln_Bab +
+      lgamma(r + x) - lgamma(r) +
+      r * log(alpha) - (r + x) * log(alpha + tx),
+    -Inf
+  )
+  logsumexp2(ln_A0, ln_A1)
+}
+
+# optimに渡す負の対数尤度。log変換した(r, alpha, a, b)を受け取る（正値制約を外すため）
+neg_loglik_bgnbd <- function(theta_log, x, tx, T) {
+  params <- exp(theta_log)
+  -sum(bgnbd_loglik(params[1], params[2], params[3], params[4], x, tx, T))
+}
+
+# P(alive)の閉形式（x=0のときは常に1）
+palive_bgnbd <- function(r, alpha, a, b, x, tx, T) {
+  ratio <- (alpha + T) / (alpha + tx)
+  term <- ifelse(x > 0, (a / (b + x - 1)) * ratio^(r + x), 0)
+  1 / (1 + term)
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：BG/NBDの4つのツマミ — 顧客ベースの形を決める
+
+BG/NBDは、顧客ベース全体の姿をたった4つの数で記述する。$r, \alpha$ が個人の購買率 $\lambda_i$ のGamma分布を、$a, b$ が離脱確率 $p_i$ のBeta分布を決める。
+
+$$
+x_i \mid \lambda_i \sim \text{Poisson}(\lambda_i T), \qquad \lambda_i \sim \text{Gamma}(r, \alpha), \qquad p_i \sim \text{Beta}(a, b)
+$$
+
+なお、この回の $\alpha$ はGamma分布のrateパラメータであり、第2〜4回の需要推定で使った価格係数 $\alpha$ とは無関係である。4つのツマミを回して、購買回数の分布がどう変形するかを体感しよう。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+r     <- 0.8   # 購買率lambdaのGamma分布：形状（講義の真値）
+alpha <- 6     # 購買率lambdaのGamma分布：rate（大きいほど購買率が低い）
+a     <- 0.7   # 離脱確率pのBeta分布
+b     <- 2.5   # 離脱確率pのBeta分布
+# -----------------------
+
+set.seed(202610)
+N <- 2000      # 顧客数
+T_obs <- 52    # 観測期間（週）
+base <- simulate_customer_base(N, r, alpha, a, b, T_obs)
+
+cat("平均購買率 E[lambda] = r/alpha =", round(r / alpha, 4), "回/週\n")
+cat("平均離脱確率 E[p] = a/(a+b) =", round(a / (a + b), 4), "\n")
+cat("購買回数xの平均 =", round(mean(base$x), 2),
+    "/ x=0の顧客の割合 =", round(mean(base$x == 0), 3), "\n")
+
+ggplot(base, aes(x = x)) +
+  geom_histogram(binwidth = 1, center = 0, fill = "#4C72B0", color = "white") +
+  labs(x = "purchases in the observation window (x)", y = "number of customers")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `alpha <- 1.5; r <- 0.2` にしてみよう。平均購買率 $r/\alpha$ はほぼ元のまま（約0.133）なのに、x=0の山と右の尻尾が**同時に**膨らむ。平均が同じでも、異質性の大きさが分布の形を決める——これが過分散の正体。
+- `a <- 2; b <- 1`（平均離脱確率 $a/(a+b) = 2/3$ の「離脱が早い市場」）にすると、分布のどこが削れるか。元の値と見比べよう。
+- 問い：ヘビーユーザーの尻尾を最も素直に伸ばすツマミは4つのうちどれか。仮説を立ててから、1つずつ動かして検証しよう。
+:::
+
+## 実験2：P(alive)の直感 — 沈黙は何のシグナルか
+
+パラメータが手に入れば、顧客ごとの $(x, t_x, T)$ という3つの数字だけから「この顧客はまだ生きているか」の確率が閉形式で計算できる。$x > 0$ のとき
+
+$$
+P(\text{alive} \mid x, t_x, T) = \left[ 1 + \frac{a}{b+x-1} \left( \frac{\alpha+T}{\alpha+t_x} \right)^{r+x} \right]^{-1}
+$$
+
+であり、$x = 0$ のときは常に1とする（一度も買っていない顧客に「離脱した」という証拠は存在しない）。1人の顧客のプロフィールをいじって、判定がどう動くかを見よう。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+x     <- 5    # 観測期間中の購買回数
+tx    <- 40   # 最終購買時点（週）
+T_obs <- 52   # 観測期間の長さ（週）
+r <- 0.8; alpha <- 6; a <- 0.7; b <- 2.5  # モデルのパラメータ（実験3の推定値を貼ってもよい）
+# -----------------------
+
+p_alive <- palive_bgnbd(r, alpha, a, b, x, tx, T_obs)
+cat("この顧客：購買", x, "回 / 最終購買", tx, "週 / 観測", T_obs,
+    "週（沈黙", T_obs - tx, "週間）\n")
+cat("P(alive) =", round(p_alive, 4), "\n")
+
+tx_grid <- seq(0, T_obs, by = 0.5)
+curve_df <- data.frame(tx_val = tx_grid,
+                       palive = palive_bgnbd(r, alpha, a, b, x, tx_grid, T_obs))
+
+ggplot(curve_df, aes(tx_val, palive)) +
+  geom_line(color = "#4C72B0", linewidth = 1) +
+  geom_point(data = data.frame(tx_val = tx, palive = p_alive),
+             color = "#C44E52", size = 3) +
+  annotate("text", x = tx, y = p_alive, label = "this customer",
+           vjust = -1.2, color = "#C44E52") +
+  ylim(0, 1) +
+  labs(x = "time of last purchase t_x (weeks)", y = "P(alive)")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `tx <- 40` のまま、`x <- 2` と `x <- 20` でP(alive)を比べよう。同じ12週間の沈黙が、ライトユーザーには「いつも通り」、ヘビーユーザーには「ほぼ死亡宣告」になることを数値で確認する。「たくさん買っていた顧客ほど、沈黙が続くと死亡判定が早い」のである。
+- `x <- 20` のまま `tx <- 52`（観測終了の直前に購買）にすると、P(alive)はほぼ1に戻るか。曲線の右端の跳ね上がり方を、xを変えながら見比べよう。
+- 問い：なぜ頻繁に買う顧客ほど沈黙が致命的なシグナルになるのか。「離脱のチャンスは購買の直後にしか来ない」というモデルの仮定から説明してみよう。
+:::
+
+## 実験3：自作MLEの真値回収 — 観測期間はどれだけ必要か
+
+講義の核心手順の再演。自分で決めた真値から顧客ベースを生成し、自作の対数尤度を`optim()`で最大化して、真値が戻ってくるかを確かめる。尤度は「Tまで生きている経路」と「$t_x$ で死んでいた経路」の確率の和で、$(x, t_x, T)$ だけで書ける——RFMのRとFが十分統計量になる、という講義の主張をコードで確認する場面でもある。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+r_true <- 0.8; alpha_true <- 6; a_true <- 0.7; b_true <- 2.5  # 真値（講義と同じ）
+N     <- 1000   # 顧客数（2000までにしておこう）
+T_cal <- 52     # 観測期間（週）。26に半分にすると？
+# -----------------------
+
+set.seed(202610)
+base <- simulate_customer_base(N, r_true, alpha_true, a_true, b_true, T_cal)
+
+opt <- optim(
+  par = log(c(r = 1, alpha = 1, a = 1, b = 1)),
+  fn = neg_loglik_bgnbd,
+  x = base$x, tx = base$tx, T = rep(T_cal, N),
+  method = "L-BFGS-B",
+  hessian = TRUE
+)
+
+theta_hat <- exp(opt$par)
+se <- theta_hat * sqrt(diag(solve(opt$hessian)))  # delta法：logスケールのSEを元のスケールへ
+
+data.frame(
+  parameter = c("r", "alpha", "a", "b"),
+  true_value = c(r_true, alpha_true, a_true, b_true),
+  estimate = round(theta_hat, 4),
+  se = round(se, 4),
+  ci_low = round(theta_hat - 1.96 * se, 4),
+  ci_high = round(theta_hat + 1.96 * se, 4)
+)
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `T_cal <- 26` に半分にしてみよう。4つのパラメータのうち、SEの膨らみ方が一番激しいのはどれか。真値が信頼区間から外れる場面も出てくるはずだ。
+- `N <- 2000` に倍増するとSEはおよそ $1/\sqrt{2}$ 倍に縮むか。あわせて `set.seed(1)` などseedを変えて、推定値のブレ幅も体感しよう。
+- 問い：離脱パラメータ $a, b$ の推定が購買率パラメータ $r, \alpha$ より常に苦しいのはなぜか。「離脱の情報はどの顧客のどんな行動から来るか」を考えよう。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture10.html`（尤度の導出・P(alive)ヒートマップ・holdout検証・CLVの完全版）
+- coding課題：`assignment10.qmd`（ネットスーパーの顧客ベースを題材に、真値回収からCLV試算までを自分で実装する）

@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Kei Ikegami">
+
+<title>Playground 7：A/Bテストの実験室</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="playground7_files/libs/clipboard/clipboard.min.js"></script>
+<script src="playground7_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="playground7_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="playground7_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="playground7_files/libs/quarto-html/popper.min.js"></script>
+<script src="playground7_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="playground7_files/libs/quarto-html/anchor.min.js"></script>
+<link href="playground7_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="playground7_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="playground7_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="playground7_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="playground7_files/libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="playground7_files/libs/quarto-contrib/live-runtime/live-runtime.js" type="module"></script>
+<link href="playground7_files/libs/quarto-contrib/live-runtime/live-runtime.css" rel="stylesheet">
+<script type="module" src="playground7_files/libs/quarto-ojs/quarto-ojs-runtime.js"></script>
+<link href="playground7_files/libs/quarto-ojs/quarto-ojs.css" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul class="collapse">
+  <li><a href="#実験1検出力シミュレーター-見つけられる確率を測る" id="toc-実験1検出力シミュレーター-見つけられる確率を測る" class="nav-link active" data-scroll-target="#実験1検出力シミュレーター-見つけられる確率を測る">実験1：検出力シミュレーター — 「見つけられる確率」を測る</a></li>
+  <li><a href="#実験2peekingの罠-覗くほどtype-i-errorが膨らむ" id="toc-実験2peekingの罠-覗くほどtype-i-errorが膨らむ" class="nav-link" data-scroll-target="#実験2peekingの罠-覗くほどtype-i-errorが膨らむ">実験2：peekingの罠 — 覗くほどType I errorが膨らむ</a></li>
+  <li><a href="#実験3ittとtot-配る効果と使う効果は別物" id="toc-実験3ittとtot-配る効果と使う効果は別物" class="nav-link" data-scroll-target="#実験3ittとtot-配る効果と使う効果は別物">実験3：ITTとTOT — 「配る効果」と「使う効果」は別物</a></li>
+  <li><a href="#実験4cuped-実験前データで分散を削る" id="toc-実験4cuped-実験前データで分散を削る" class="nav-link" data-scroll-target="#実験4cuped-実験前データで分散を削る">実験4：CUPED — 実験前データで分散を削る</a></li>
+  <li><a href="#次に読むもの" id="toc-次に読むもの" class="nav-link" data-scroll-target="#次に読むもの">次に読むもの</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Playground 7：A/Bテストの実験室</h1>
+<p class="subtitle lead">計量経済学II（ブラウザ上でRが動きます）</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">作者</div>
+    <div class="quarto-title-meta-contents">
+             <p>Kei Ikegami </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>このページの使い方
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>このページのRコードは、<strong>あなたのブラウザの中で</strong>動いている（WebAssembly + webR）。インストールは一切不要。</li>
+<li><strong>初回だけ、ページ読み込みに30秒〜1分かかる</strong>（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。</li>
+<li>各セルのコードは自由に書き換えて「Run Code」で実行できる。<strong>何をどう壊しても誰にも迷惑はかからない</strong>。おかしくなったらページを再読み込みすれば元に戻る。</li>
+<li>元ネタは講義ノート（<code>lecture7.html</code>）。ここでは「数値をいじって挙動を体感する」ことに集中する。</li>
+</ul>
+</div>
+</div>
+<div class="cell" data-edit="false" data-autorun="true" data-timelimit="120">
+<div>
+<div id="webr-1" class="exercise-cell">
+
+</div>
+<script type="webr-1-contents">
+eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVkaXQiOmZhbHNlLCJldmFsIjp0cnVlLCJvdXRwdXQiOmZhbHNlLCJ0aW1lbGltaXQiOjEyMH0sImNvZGUiOiIjIC0tLS0g5YWx6YCa44Gu6YGT5YW3566x77yI57eo6ZuG5LiN5Y+v44O76Ieq5YuV5a6f6KGM77yJLS0tLVxuXG4jIDLnvqTjga7lubPlnYfmr5TovIPvvIjkuKHlgbQ1JeaknOWumu+8ieOBruaknOWHuuWKm+OCkuato+imj+i/keS8vOOBp+i/lOOBmemWouaVsFxucG93ZXJfdHdvX21lYW4gPC0gZnVuY3Rpb24odGF1LCBzZCwgbl9wZXJfYXJtKSB7XG4gIHNlIDwtIHNkICogc3FydCgyIC8gbl9wZXJfYXJtKVxuICB6IDwtIGFicyh0YXUpIC8gc2VcbiAgcG5vcm0oeiAtIHFub3JtKDAuOTc1KSkgKyBwbm9ybSgteiAtIHFub3JtKDAuOTc1KSlcbn1cblxudGhlbWVfc2V0KHRoZW1lX21pbmltYWwoYmFzZV9zaXplID0gMTMpKSJ9
+</script>
+</div>
+</div>
+<section id="実験1検出力シミュレーター-見つけられる確率を測る" class="level2">
+<h2 class="anchored" data-anchor-id="実験1検出力シミュレーター-見つけられる確率を測る">実験1：検出力シミュレーター — 「見つけられる確率」を測る</h2>
+<p>真に効果がある施策でも、<span class="math inline">\(N\)</span>が足りなければ検定は「有意」と言ってくれない。ここでは真の効果量・サンプルサイズ・アウトカムのばらつきを自分で決め、その世界でA/Bテストを200回繰り返して、p &lt; 0.05になった割合（= 検出力）を数える。2群の平均比較で検出力<span class="math inline">\(1-\beta\)</span>を達成するのに必要な片群サンプルサイズは</p>
+<p><span class="math display">\[
+n = \frac{2 \sigma^2 (z_{\alpha/2} + z_{\beta})^2}{\tau^2}
+\]</span></p>
+<p>で近似できる（<span class="math inline">\(\tau\)</span>は真の効果、<span class="math inline">\(\sigma\)</span>はアウトカムのSD）。シミュレーションの検出力がこの公式とどれくらい一致するかも見る。</p>
+<div class="cell" data-timelimit="60">
+<div>
+<div id="webr-2" class="exercise-cell">
+
+</div>
+<script type="webr-2-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG50cnVlX2VmZmVjdCA8LSAzMDAgICAgIyDmlr3nrZbjga7nnJ/jga7lirnmnpzvvIjlhobvvIlcbm5fcGVyX2FybSAgIDwtIDUwMCAgICAjIOeJh+e+pOOBguOBn+OCiuOBruOCteODs+ODl+ODq+OCteOCpOOCulxuc2Rfb3V0Y29tZSAgPC0gMzAwMCAgICMg44Ki44Km44OI44Kr44Og77yI6LO86LK36aGN77yJ44GuU0TvvIjlhobvvIlcbiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cblxuc2V0LnNlZWQoMjAyNjcpXG5uX21jIDwtIDIwMFxucHZhbHMgPC0gbnVtZXJpYyhuX21jKVxuZm9yIChzIGluIDE6bl9tYykge1xuICB5MCA8LSBybm9ybShuX3Blcl9hcm0sIG1lYW4gPSA1MDAwLCBzZCA9IHNkX291dGNvbWUpXG4gIHkxIDwtIHJub3JtKG5fcGVyX2FybSwgbWVhbiA9IDUwMDAgKyB0cnVlX2VmZmVjdCwgc2QgPSBzZF9vdXRjb21lKVxuICBwdmFsc1tzXSA8LSB0LnRlc3QoeTEsIHkwKSRwLnZhbHVlXG59XG5wb3dlcl9tYyA8LSBtZWFuKHB2YWxzIDwgMC4wNSlcblxucG93ZXJfdGhlb3J5IDwtIHBvd2VyX3R3b19tZWFuKHRydWVfZWZmZWN0LCBzZF9vdXRjb21lLCBuX3Blcl9hcm0pXG5uX25lZWRlZCA8LSBjZWlsaW5nKDIgKiAocW5vcm0oMC45NzUpICsgcW5vcm0oMC44MCkpXjIgKiAoc2Rfb3V0Y29tZSAvIHRydWVfZWZmZWN0KV4yKVxuXG5jYXQoXCLmpJzlh7rlipvvvIhNQyAyMDDlm57vvIk6XCIsIHJvdW5kKHBvd2VyX21jLCAzKSwgXCJcXG5cIilcbmNhdChcIuaknOWHuuWKm++8iOWFrOW8j++8iTpcIiwgcm91bmQocG93ZXJfdGhlb3J5LCAzKSwgXCJcXG5cIilcbmNhdChcIuaknOWHuuWKmzgwJeOBq+W/heimgeOBqk7vvIjniYfnvqTvvIk6XCIsIG5fbmVlZGVkLCBcIlxcblwiKVxuXG5uX2dyaWQgPC0gc2VxKDUwLCBtYXgoMiAqIG5fcGVyX2FybSwgcm91bmQoMS42ICogbl9uZWVkZWQpKSwgbGVuZ3RoLm91dCA9IDIwMClcbmN1cnZlX2RmIDwtIGRhdGEuZnJhbWUobiA9IG5fZ3JpZCwgcG93ZXIgPSBwb3dlcl90d29fbWVhbih0cnVlX2VmZmVjdCwgc2Rfb3V0Y29tZSwgbl9ncmlkKSlcbmdncGxvdChjdXJ2ZV9kZiwgYWVzKG4sIHBvd2VyKSkgK1xuICBnZW9tX2xpbmUoY29sb3IgPSBcInN0ZWVsYmx1ZVwiLCBsaW5ld2lkdGggPSAxKSArXG4gIGdlb21faGxpbmUoeWludGVyY2VwdCA9IDAuOCwgbGluZXR5cGUgPSBcImRhc2hlZFwiLCBjb2xvciA9IFwiZ3JheTQwXCIpICtcbiAgZ2VvbV92bGluZSh4aW50ZXJjZXB0ID0gbl9uZWVkZWQsIGxpbmV0eXBlID0gXCJkYXNoZWRcIiwgY29sb3IgPSBcImdyYXk0MFwiKSArXG4gIGFubm90YXRlKFwicG9pbnRcIiwgeCA9IG5fcGVyX2FybSwgeSA9IHBvd2VyX21jLCBjb2xvciA9IFwiZmlyZWJyaWNrXCIsIHNpemUgPSAzKSArXG4gIGFubm90YXRlKFwidGV4dFwiLCB4ID0gbl9wZXJfYXJtLCB5ID0gcG93ZXJfbWMsIGxhYmVsID0gXCJNQyBlc3RpbWF0ZVwiLFxuICAgICAgICAgICB2anVzdCA9IC0xLCBjb2xvciA9IFwiZmlyZWJyaWNrXCIpICtcbiAgbGFicyh4ID0gXCJzYW1wbGUgc2l6ZSBwZXIgYXJtXCIsIHkgPSBcInBvd2VyXCIsXG4gICAgICAgdGl0bGUgPSBwYXN0ZTAoXCJwb3dlciBjdXJ2ZSAoZWZmZWN0ID0gXCIsIHRydWVfZWZmZWN0LCBcIiwgc2QgPSBcIiwgc2Rfb3V0Y29tZSwgXCIpXCIpKSJ9
+</script>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>true_effect &lt;- 150</code>（効果を半分）にすると、「検出力80%に必要なN」は何倍になるか。予想してから実行しよう。</li>
+<li><code>sd_outcome &lt;- 6000</code>（ばらつき2倍。売上のように分散の大きい指標を想像しよう）にすると、必要Nは何倍になるか。</li>
+<li>上の2つが同じ倍率になったのは偶然だろうか。公式の中で<span class="math inline">\(\tau\)</span>と<span class="math inline">\(\sigma\)</span>がどういう形で入っているかから説明できるか？</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="実験2peekingの罠-覗くほどtype-i-errorが膨らむ" class="level2">
+<h2 class="anchored" data-anchor-id="実験2peekingの罠-覗くほどtype-i-errorが膨らむ">実験2：peekingの罠 — 覗くほどType I errorが膨らむ</h2>
+<p>真の効果がゼロの実験を200回行い、「途中経過を<span class="math inline">\(k\)</span>回チェックして、一度でも有意なら『効果あり』と宣言して止める」という運用の誤検出率（Type I error）を<span class="math inline">\(k\)</span>ごとに数える。最後に1回だけ検定する<span class="math inline">\(k=1\)</span>なら、誤検出率は設計通り5%前後になるはずだ（MC 200回なので数ポイントはぶれる）。毎日ダッシュボードを眺めて「有意になった瞬間に展開」する運用が何を壊すかを見よう。</p>
+<div class="cell" data-timelimit="60">
+<div>
+<div id="webr-3" class="exercise-cell">
+
+</div>
+<script type="webr-3-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5uX3RvdGFsIDwtIDIwMDAgICAgICAgICAgICAgICAgICMg5a6f6aiT57WC5LqG5pmC44Gu57eP44K144Oz44OX44Or44K144Kk44K677yI5Lih576k5ZCI6KiI77yJXG5rX2xpc3QgIDwtIGMoMSwgMiwgNSwgMTAsIDIwKSAgICMg6YCU5Lit57WM6YGO44KS44OB44Kn44OD44Kv44GZ44KL5Zue5pWw77yIbl9jaGVja3NfZmluZeOBrue0hOaVsOOBq+OBmeOCi++8iVxuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2Nylcbm5fbWMgPC0gMjAwXG5uX2NoZWNrc19maW5lIDwtIDIwICAgICAgICAgICAgICMg5YaF6YOo44Gn6KiI566X44GZ44KL5pyA44KC57Sw44GL44GE44OB44Kn44OD44Kv5Zue5pWwXG5zdGVwIDwtIG5fdG90YWwgJS8lIG5fY2hlY2tzX2ZpbmVcblxucmVqZWN0IDwtIG1hdHJpeChGQUxTRSwgbl9tYywgbGVuZ3RoKGtfbGlzdCkpXG5mb3IgKHMgaW4gMTpuX21jKSB7XG4gIGQgPC0gcmJpbm9tKG5fdG90YWwsIDEsIDAuNSkgICAgICAgICAgICAgICAgICAjIOWJsuS7mO+8iOODqeODs+ODgOODoOWMlu+8iVxuICB5IDwtIHJub3JtKG5fdG90YWwsIG1lYW4gPSA1MDAwLCBzZCA9IDMwMDApICAgIyDnnJ/jga7lirnmnpzjgrzjg63vvJrlibLku5jjgajnhKHplqLkv4LjgavnlJ/miJBcbiAgel9hdCA8LSBudW1lcmljKG5fY2hlY2tzX2ZpbmUpXG4gIGZvciAoaiBpbiAxOm5fY2hlY2tzX2ZpbmUpIHtcbiAgICBpZHggPC0gMTooaiAqIHN0ZXApXG4gICAgeTEgPC0geVtpZHhdW2RbaWR4XSA9PSAxXVxuICAgIHkwIDwtIHlbaWR4XVtkW2lkeF0gPT0gMF1cbiAgICB6X2F0W2pdIDwtIChtZWFuKHkxKSAtIG1lYW4oeTApKSAvXG4gICAgICBzcXJ0KHZhcih5MSkgLyBsZW5ndGgoeTEpICsgdmFyKHkwKSAvIGxlbmd0aCh5MCkpXG4gIH1cbiAgZm9yIChtIGluIHNlcV9hbG9uZyhrX2xpc3QpKSB7XG4gICAgY2hlY2tzIDwtIHNlcShuX2NoZWNrc19maW5lICUvJSBrX2xpc3RbbV0sIG5fY2hlY2tzX2ZpbmUsXG4gICAgICAgICAgICAgICAgICBieSA9IG5fY2hlY2tzX2ZpbmUgJS8lIGtfbGlzdFttXSlcbiAgICAjIOS4gOW6puOBp+OCgnx6fCA+IDEuOTbjgavjgarjgaPjgZ/jgonjgIzlirnmnpzjgYLjgorjgI3jgajlrqPoqIDjgZnjgovpgYvnlKhcbiAgICByZWplY3RbcywgbV0gPC0gYW55KGFicyh6X2F0W2NoZWNrc10pID4gMS45NiwgbmEucm0gPSBUUlVFKVxuICB9XG59XG5cbnJlc19wZWVrIDwtIGRhdGEuZnJhbWUoayA9IGtfbGlzdCwgdHlwZTFfZXJyb3IgPSByb3VuZChjb2xNZWFucyhyZWplY3QpLCAzKSlcbnJlc19wZWVrXG5cbmdncGxvdChyZXNfcGVlaywgYWVzKGssIHR5cGUxX2Vycm9yKSkgK1xuICBnZW9tX2xpbmUoY29sb3IgPSBcImZpcmVicmlja1wiLCBsaW5ld2lkdGggPSAxKSArXG4gIGdlb21fcG9pbnQoY29sb3IgPSBcImZpcmVicmlja1wiLCBzaXplID0gMi41KSArXG4gIGdlb21faGxpbmUoeWludGVyY2VwdCA9IDAuMDUsIGxpbmV0eXBlID0gXCJkYXNoZWRcIiwgY29sb3IgPSBcImdyYXk0MFwiKSArXG4gIGxhYnMoeCA9IFwibnVtYmVyIG9mIGludGVyaW0gY2hlY2tzIChrKVwiLCB5ID0gXCJUeXBlIEkgZXJyb3IgcmF0ZVwiLFxuICAgICAgIHRpdGxlID0gXCJ0cnVlIGVmZmVjdCA9IDA6IHN0b3AgYXQgZmlyc3Qgc2lnbmlmaWNhbnQgcGVla1wiKSJ9
+</script>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>n_checks_fine &lt;- 40</code>、<code>k_list &lt;- c(1, 2, 5, 10, 20, 40)</code> にして、40回覗くと誤検出率がどこまで膨らむか確認しよう。</li>
+<li><code>n_total &lt;- 10000</code> に増やしても膨張は消えないことを確認しよう。これはサンプルサイズの問題ではなく、検定を繰り返すという運用の問題である。</li>
+<li>このコードで誤検出を膨らませている「犯人」はどの行だろうか。<code>any(...)</code> の行を「最後のチェックだけで判定」に書き換えたら、<span class="math inline">\(k\)</span>によらず5%前後に戻るだろうか？</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="実験3ittとtot-配る効果と使う効果は別物" class="level2">
+<h2 class="anchored" data-anchor-id="実験3ittとtot-配る効果と使う効果は別物">実験3：ITTとTOT — 「配る効果」と「使う効果」は別物</h2>
+<p>クーポンは配っても全員が使うわけではない。配信<span class="math inline">\(Z\)</span>はランダムだが、使用<span class="math inline">\(X\)</span>は顧客の自己選択で決まる（購買意欲の高い人ほど使う）。このとき配信の効果（ITT）と使用の効果（TOT）は別の量であり、one-sided noncompliance（配られない人は使えない）のもとでは</p>
+<p><span class="math display">\[
+\text{TOT} = \frac{\text{ITT}}{P(X = 1 \mid Z = 1)}
+\]</span></p>
+<p>というWald推定量で結ばれる（分母は配信群の使用率）。一方、実務で頻出の「使用者vs非使用者」の単純比較はセレクションで汚染される。3つの数字を並べて見比べよう。</p>
+<div class="cell" data-timelimit="60">
+<div>
+<div id="webr-4" class="exercise-cell">
+
+</div>
+<script type="webr-4-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5jb21wbGlhbmNlIDwtIDAuNCAgICAjIOmFjeS/oee+pOOBruOBhuOBoeWun+mam+OBq+OCr+ODvOODneODs+OCkuS9v+OBhuWJsuWQiO+8iOW5s+Wdh+eahOOBquS9v+eUqOeOh++8iVxudHJ1ZV90b3QgICA8LSA4MDAgICAgIyDjgq/jg7zjg53jg7PjgpLjgIzkvb/jgaPjgZ/jgI3jgZPjgajjga7nnJ/jga7lirnmnpzvvIjlhobvvIlcbk4gICAgICAgICAgPC0gNDAwMFxuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2NylcblogPC0gcmJpbm9tKE4sIDEsIDAuNSkgICAgICAgICAgICAgICAgICAgICMg6YWN5L+h77yI44Op44Oz44OA44Og5YyW77yJXG5hYmlsaXR5IDwtIHJub3JtKE4pICAgICAgICAgICAgICAgICAgICAgICAjIOims+a4rOOBleOCjOOBquOBhOizvOiyt+aEj+asslxudXNlX3Byb2IgPC0gcG1pbihwbWF4KGNvbXBsaWFuY2UgKyAwLjI1ICogYWJpbGl0eSwgMC4wMiksIDAuOTgpXG5YIDwtIGlmZWxzZShaID09IDEsIHJiaW5vbShOLCAxLCB1c2VfcHJvYiksIDApICAgIyDkvb/nlKjvvIjphY3kv6HjgZXjgozjgarjgYTjgajkvb/jgYjjgarjgYTvvIlcblkgPC0gNTAwMCArIDE1MDAgKiBhYmlsaXR5ICsgdHJ1ZV90b3QgKiBYICsgcm5vcm0oTiwgbWVhbiA9IDAsIHNkID0gMjAwMClcbmFiX2RmIDwtIGRhdGEuZnJhbWUoWiwgWCwgWSlcblxuaXR0X2hhdCAgIDwtIGNvZWYobG0oWSB+IFosIGRhdGEgPSBhYl9kZikpW1wiWlwiXVxudXNhZ2UgICAgIDwtIG1lYW4oYWJfZGYkWFthYl9kZiRaID09IDFdKVxubmFpdmVfaGF0IDwtIGNvZWYobG0oWSB+IFgsIGRhdGEgPSBzdWJzZXQoYWJfZGYsIFogPT0gMSkpKVtcIlhcIl1cbndhbGRfaGF0ICA8LSBpdHRfaGF0IC8gdXNhZ2VcblxuY2F0KFwi5L2/55So546H77yI6YWN5L+h576k44Gu44GG44Gh5L2/44Gj44Gf5Ymy5ZCI77yJOlwiLCByb3VuZCh1c2FnZSwgMyksIFwiXFxuXCIpXG5jYXQoXCLnnJ/jga5JVFTvvIg9IOecn+OBrlRPVCB4IOS9v+eUqOeOh++8iTog57SEXCIsIHJvdW5kKHRydWVfdG90ICogdXNhZ2UsIDEpLCBcIuWGhlxcblwiKVxuXG5yZXNfdG90IDwtIGRhdGEuZnJhbWUoXG4gIG1ldGhvZCA9IGMoXCJJVFQgKGRlbGl2ZXJlZCB2cyBub3QpXCIsIFwibmFpdmUgKHVzZXJzIHZzIG5vbi11c2VycylcIixcbiAgICAgICAgICAgICBcIldhbGQgKElUVCAvIHVzYWdlIHJhdGUpXCIsIFwidHJ1ZSBUT1RcIiksXG4gIGVzdGltYXRlID0gcm91bmQoYXMubnVtZXJpYyhjKGl0dF9oYXQsIG5haXZlX2hhdCwgd2FsZF9oYXQsIHRydWVfdG90KSksIDEpXG4pXG5yZXNfdG90XG5cbmdncGxvdChyZXNfdG90LCBhZXMoeCA9IHJlb3JkZXIobWV0aG9kLCBlc3RpbWF0ZSksIHkgPSBlc3RpbWF0ZSkpICtcbiAgZ2VvbV9jb2woZmlsbCA9IFwic3RlZWxibHVlXCIsIHdpZHRoID0gMC42KSArXG4gIGdlb21faGxpbmUoeWludGVyY2VwdCA9IHRydWVfdG90LCBsaW5ldHlwZSA9IFwiZGFzaGVkXCIsIGNvbG9yID0gXCJmaXJlYnJpY2tcIikgK1xuICBjb29yZF9mbGlwKCkgK1xuICBsYWJzKHggPSBOVUxMLCB5ID0gXCJlc3RpbWF0ZSAoeWVuKVwiLCB0aXRsZSA9IFwiZGFzaGVkIGxpbmUgPSB0cnVlIFRPVFwiKSJ9
+</script>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>compliance</code> を0.8、0.4、0.2と下げて、ITTとWald（TOT）の乖離がどう開くかを見よう。ITTはおおよそ「TOT × 使用率」で縮んでいく。使用率が下がるとWald推定量のぶれも大きくなることに注意。</li>
+<li><code>1500 * ability</code> の1500を0にして（セレクションを消して）、単純比較が真のTOTにほぼ一致することを確かめよう。単純比較のバイアスの正体は施策ではなく「使う人はもともと違う」ことにある。</li>
+<li>1500を-1500（購買意欲の低い人ほどクーポンを使う世界）にしたら、単純比較は過大評価と過小評価のどちらになるか。予想してから実行しよう。</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="実験4cuped-実験前データで分散を削る" class="level2">
+<h2 class="anchored" data-anchor-id="実験4cuped-実験前データで分散を削る">実験4：CUPED — 実験前データで分散を削る</h2>
+<p>実験1で見た通り、検出力は<span class="math inline">\(N\)</span>だけでなくアウトカムの分散でも決まる。CUPEDは、実験前の同じ指標<span class="math inline">\(X\)</span>（例：実験前30日の購買額）を使ってアウトカムを<span class="math inline">\(Y_i - \theta (X_i - \bar X)\)</span>と調整する（<span class="math inline">\(\theta\)</span>は<span class="math inline">\(Y\)</span>を<span class="math inline">\(X\)</span>に回帰した係数）。<span class="math inline">\(X\)</span>と<span class="math inline">\(Y\)</span>の相関を<span class="math inline">\(\rho\)</span>とすると、調整後の分散は</p>
+<p><span class="math display">\[
+\text{Var}(Y^{c}) = \text{Var}(Y) (1 - \rho^2)
+\]</span></p>
+<p>になる。つまりSEは<span class="math inline">\(\sqrt{1 - \rho^2}\)</span>倍に縮む。追加のサンプルなしで検出力を買える、実務標準の手法である。</p>
+<div class="cell" data-timelimit="60">
+<div>
+<div id="webr-5" class="exercise-cell">
+
+</div>
+<script type="webr-5-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5yaG8gICAgICA8LSAwLjYgICAgIyDlrp/pqJPliY3mjIfmqJnjgajlrp/pqJPmnJ/plpPjgqLjgqbjg4jjgqvjg6Djga7nm7jplqJcbnRydWVfYXRlIDwtIDI1MCAgICAjIOaWveetluOBruecn+OBruWKueaenO+8iOWGhu+8iVxuTiAgICAgICAgPC0gMjAwMFxuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2NylcbnoxIDwtIHJub3JtKE4pXG56MiA8LSBybm9ybShOKVxucHJlIDwtIDUwMDAgKyAxODAwICogejEgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAjIOWun+mok+WJjTMw5pel44Gu6LO86LK36aGNXG5EIDwtIHJiaW5vbShOLCAxLCAwLjUpXG5ZIDwtIDUyMDAgKyAxODAwICogKHJobyAqIHoxICsgc3FydCgxIC0gcmhvXjIpICogejIpICsgdHJ1ZV9hdGUgKiBEXG5cbmZpdF9yYXcgPC0gbG0oWSB+IEQpXG50aGV0YSA8LSBjb2VmKGxtKFkgfiBwcmUpKVtcInByZVwiXSAgICAgICAgIyBDVVBFROOBruiqv+aVtOS/guaVsO+8iOWbnuW4sOOBp+aOqOWumu+8iVxuWV9jdXBlZCA8LSBZIC0gdGhldGEgKiAocHJlIC0gbWVhbihwcmUpKVxuZml0X2N1cGVkIDwtIGxtKFlfY3VwZWQgfiBEKVxuXG5lc3QgPC0gYyhjb2VmKGZpdF9yYXcpW1wiRFwiXSwgY29lZihmaXRfY3VwZWQpW1wiRFwiXSlcbnNlICA8LSBjKHN1bW1hcnkoZml0X3JhdykkY29lZmZpY2llbnRzW1wiRFwiLCAyXSxcbiAgICAgICAgIHN1bW1hcnkoZml0X2N1cGVkKSRjb2VmZmljaWVudHNbXCJEXCIsIDJdKVxucmhvX2FjdHVhbCA8LSBjb3IocHJlLCBZKVxuXG5yZXNfY3VwZWQgPC0gZGF0YS5mcmFtZShtZXRob2QgPSBjKFwicmF3IGRpZmZlcmVuY2VcIiwgXCJDVVBFRFwiKSxcbiAgICAgICAgICAgICAgICAgICAgICAgIGVzdGltYXRlID0gcm91bmQoYXMubnVtZXJpYyhlc3QpLCAxKSxcbiAgICAgICAgICAgICAgICAgICAgICAgIHNlID0gcm91bmQoYXMubnVtZXJpYyhzZSksIDEpKVxucmVzX2N1cGVkXG5cbmNhdChcIuWun+mam+OBruebuOmWojpcIiwgcm91bmQocmhvX2FjdHVhbCwgMyksIFwiXFxuXCIpXG5jYXQoXCLliIbmlaPliYrmuJvnjofvvIjoprPmuKzvvIk6XCIsIHJvdW5kKDEgLSAoc2VbMl0gLyBzZVsxXSleMiwgMyksXG4gICAgXCIg55CG6KuW5YCkIHJob14yOlwiLCByb3VuZChyaG9fYWN0dWFsXjIsIDMpLCBcIlxcblwiKVxuXG5jdXJ2ZV9kZiA8LSBkYXRhLmZyYW1lKHIgPSBzZXEoMCwgMC45OSwgYnkgPSAwLjAxKSlcbmN1cnZlX2RmJHNlX3JhdGlvIDwtIHNxcnQoMSAtIGN1cnZlX2RmJHJeMilcbm9ic19kZiA8LSBkYXRhLmZyYW1lKHIgPSBhYnMocmhvX2FjdHVhbCksIHNlX3JhdGlvID0gc2VbMl0gLyBzZVsxXSlcbmdncGxvdChjdXJ2ZV9kZiwgYWVzKHIsIHNlX3JhdGlvKSkgK1xuICBnZW9tX2xpbmUoY29sb3IgPSBcInN0ZWVsYmx1ZVwiLCBsaW5ld2lkdGggPSAxKSArXG4gIGdlb21fcG9pbnQoZGF0YSA9IG9ic19kZiwgY29sb3IgPSBcImZpcmVicmlja1wiLCBzaXplID0gMykgK1xuICBhbm5vdGF0ZShcInRleHRcIiwgeCA9IG9ic19kZiRyLCB5ID0gb2JzX2RmJHNlX3JhdGlvLCBsYWJlbCA9IFwidGhpcyBleHBlcmltZW50XCIsXG4gICAgICAgICAgIHZqdXN0ID0gLTEsIGNvbG9yID0gXCJmaXJlYnJpY2tcIikgK1xuICBsYWJzKHggPSBcImNvcnJlbGF0aW9uIHdpdGggcHJlLXBlcmlvZCBtZXRyaWMgKHJobylcIixcbiAgICAgICB5ID0gXCJTRSByYXRpbyAoQ1VQRUQgLyByYXcpXCIsXG4gICAgICAgdGl0bGUgPSBcIlNFIHNocmlua3MgYnkgZmFjdG9yIHNxcnQoMSAtIHJob14yKVwiKSJ9
+</script>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>rho</code> を0.3と0.9にして、SEの縮み方を比べよう。削減率は<span class="math inline">\(\rho^2\)</span>で効くので、0.3ではほとんど削れないが、0.9では劇的に縮む。実験前指標の「予測力」がすべてを決める。</li>
+<li><code>true_ate &lt;- 0</code> にしても、推定値が0付近のままSEだけが縮むことを確認しよう。CUPEDは効果を作り出さない。見つけやすくするだけである。</li>
+<li><span class="math inline">\(\rho = 0.6\)</span> のCUPEDは、<span class="math inline">\(N\)</span>を何%増やしたのと同じ価値があるか。実験1の公式（必要Nは分散に比例する）とつなげて考えてみよう。</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="次に読むもの" class="level2">
+<h2 class="anchored" data-anchor-id="次に読むもの">次に読むもの</h2>
+<ul>
+<li>講義ノート本体：<code>lecture7.html</code>（ランダム化推論・MDE公式・大規模実験の落とし穴集の完全版）</li>
+<li>coding課題：<code>assignment7.qmd</code>（ECサイトのメールクーポン実験を題材に、ITT/TOT・CUPED・peeking診断を今日の手順でゼロから実装する）</li>
+</ul>
+<script type="webr-data">
+eyJvcHRpb25zIjp7ImJhc2VVcmwiOiJodHRwczovL3dlYnIuci13YXNtLm9yZy92MC42LjAvIn0sInBhY2thZ2VzIjp7InBrZ3MiOlsiZXZhbHVhdGUiLCJrbml0ciIsImh0bWx0b29scyIsImdncGxvdDIiLCJkcGx5ciIsInRpZHlyIl0sInJlcG9zIjpbImh0dHBzOi8vcmVwby5yLXdhc20ub3JnIiwiaHR0cHM6Ly9jcmFuLnItdW5pdmVyc2UuZGV2Il19LCJyZW5kZXJfZGYiOiJkZWZhdWx0In0=
+</script>
+<script type="ojs-module-contents">
+eyJjb250ZW50cyI6W3siY2VsbE5hbWUiOiJ3ZWJyLXdpZGdldC01IiwiaW5saW5lIjpmYWxzZSwibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoie1xuICAvLyBXYWl0IGZvciBvdXRwdXQgdG8gYmUgd3JpdHRlbiB0byB0aGUgRE9NLCB0aGVuIHRyaWdnZXIgd2lkZ2V0IHJlbmRlcmluZ1xuICBhd2FpdCBfd2Vicl92YWx1ZV81O1xuICBpZiAod2luZG93LkhUTUxXaWRnZXRzKSB7XG4gICAgd2luZG93LkhUTUxXaWRnZXRzLnN0YXRpY1JlbmRlcigpO1xuICB9XG4gIGlmICh3aW5kb3cuUGFnZWRUYWJsZURvYykge1xuICAgIHdpbmRvdy5QYWdlZFRhYmxlRG9jLmluaXRBbGwoKTtcbiAgfVxufVxuIn0seyJjZWxsTmFtZSI6IndlYnItNSIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXQiLCJzb3VyY2UiOiJ2aWV3b2YgX3dlYnJfZWRpdG9yXzUgPSB7XG4gIGNvbnN0IHsgV2ViUkV4ZXJjaXNlRWRpdG9yLCBiNjREZWNvZGUgfSA9IHdpbmRvdy5fZXhlcmNpc2Vfb2pzX3J1bnRpbWU7XG4gIGNvbnN0IHNjcmlwdENvbnRlbnQgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yKGBzY3JpcHRbdHlwZT1cXFwid2Vici01LWNvbnRlbnRzXFxcIl1gKS50ZXh0Q29udGVudDtcbiAgY29uc3QgYmxvY2sgPSBKU09OLnBhcnNlKGI2NERlY29kZShzY3JpcHRDb250ZW50KSk7XG5cbiAgY29uc3Qgb3B0aW9ucyA9IE9iamVjdC5hc3NpZ24oeyBpZDogYHdlYnItNS1jb250ZW50c2AgfSwgYmxvY2suYXR0cik7XG4gIGNvbnN0IGVkaXRvciA9IG5ldyBXZWJSRXhlcmNpc2VFZGl0b3Iod2ViUk9qcy53ZWJSUHJvbWlzZSwgYmxvY2suY29kZSwgb3B0aW9ucyk7XG5cbiAgcmV0dXJuIGVkaXRvci5jb250YWluZXI7XG59XG5fd2Vicl92YWx1ZV81ID0gd2ViUk9qcy5wcm9jZXNzKF93ZWJyX2VkaXRvcl81LCB7fSk7XG4ifSx7ImNlbGxOYW1lIjoid2Vici13aWRnZXQtNCIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXRRdWlldCIsInNvdXJjZSI6IntcbiAgLy8gV2FpdCBmb3Igb3V0cHV0IHRvIGJlIHdyaXR0ZW4gdG8gdGhlIERPTSwgdGhlbiB0cmlnZ2VyIHdpZGdldCByZW5kZXJpbmdcbiAgYXdhaXQgX3dlYnJfdmFsdWVfNDtcbiAgaWYgKHdpbmRvdy5IVE1MV2lkZ2V0cykge1xuICAgIHdpbmRvdy5IVE1MV2lkZ2V0cy5zdGF0aWNSZW5kZXIoKTtcbiAgfVxuICBpZiAod2luZG93LlBhZ2VkVGFibGVEb2MpIHtcbiAgICB3aW5kb3cuUGFnZWRUYWJsZURvYy5pbml0QWxsKCk7XG4gIH1cbn1cbiJ9LHsiY2VsbE5hbWUiOiJ3ZWJyLTQiLCJpbmxpbmUiOmZhbHNlLCJtZXRob2ROYW1lIjoiaW50ZXJwcmV0Iiwic291cmNlIjoidmlld29mIF93ZWJyX2VkaXRvcl80ID0ge1xuICBjb25zdCB7IFdlYlJFeGVyY2lzZUVkaXRvciwgYjY0RGVjb2RlIH0gPSB3aW5kb3cuX2V4ZXJjaXNlX29qc19ydW50aW1lO1xuICBjb25zdCBzY3JpcHRDb250ZW50ID0gZG9jdW1lbnQucXVlcnlTZWxlY3Rvcihgc2NyaXB0W3R5cGU9XFxcIndlYnItNC1jb250ZW50c1xcXCJdYCkudGV4dENvbnRlbnQ7XG4gIGNvbnN0IGJsb2NrID0gSlNPTi5wYXJzZShiNjREZWNvZGUoc2NyaXB0Q29udGVudCkpO1xuXG4gIGNvbnN0IG9wdGlvbnMgPSBPYmplY3QuYXNzaWduKHsgaWQ6IGB3ZWJyLTQtY29udGVudHNgIH0sIGJsb2NrLmF0dHIpO1xuICBjb25zdCBlZGl0b3IgPSBuZXcgV2ViUkV4ZXJjaXNlRWRpdG9yKHdlYlJPanMud2ViUlByb21pc2UsIGJsb2NrLmNvZGUsIG9wdGlvbnMpO1xuXG4gIHJldHVybiBlZGl0b3IuY29udGFpbmVyO1xufVxuX3dlYnJfdmFsdWVfNCA9IHdlYlJPanMucHJvY2Vzcyhfd2Vicl9lZGl0b3JfNCwge30pO1xuIn0seyJjZWxsTmFtZSI6IndlYnItd2lkZ2V0LTMiLCJpbmxpbmUiOmZhbHNlLCJtZXRob2ROYW1lIjoiaW50ZXJwcmV0UXVpZXQiLCJzb3VyY2UiOiJ7XG4gIC8vIFdhaXQgZm9yIG91dHB1dCB0byBiZSB3cml0dGVuIHRvIHRoZSBET00sIHRoZW4gdHJpZ2dlciB3aWRnZXQgcmVuZGVyaW5nXG4gIGF3YWl0IF93ZWJyX3ZhbHVlXzM7XG4gIGlmICh3aW5kb3cuSFRNTFdpZGdldHMpIHtcbiAgICB3aW5kb3cuSFRNTFdpZGdldHMuc3RhdGljUmVuZGVyKCk7XG4gIH1cbiAgaWYgKHdpbmRvdy5QYWdlZFRhYmxlRG9jKSB7XG4gICAgd2luZG93LlBhZ2VkVGFibGVEb2MuaW5pdEFsbCgpO1xuICB9XG59XG4ifSx7ImNlbGxOYW1lIjoid2Vici0zIiwiaW5saW5lIjpmYWxzZSwibWV0aG9kTmFtZSI6ImludGVycHJldCIsInNvdXJjZSI6InZpZXdvZiBfd2Vicl9lZGl0b3JfMyA9IHtcbiAgY29uc3QgeyBXZWJSRXhlcmNpc2VFZGl0b3IsIGI2NERlY29kZSB9ID0gd2luZG93Ll9leGVyY2lzZV9vanNfcnVudGltZTtcbiAgY29uc3Qgc2NyaXB0Q29udGVudCA9IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoYHNjcmlwdFt0eXBlPVxcXCJ3ZWJyLTMtY29udGVudHNcXFwiXWApLnRleHRDb250ZW50O1xuICBjb25zdCBibG9jayA9IEpTT04ucGFyc2UoYjY0RGVjb2RlKHNjcmlwdENvbnRlbnQpKTtcblxuICBjb25zdCBvcHRpb25zID0gT2JqZWN0LmFzc2lnbih7IGlkOiBgd2Vici0zLWNvbnRlbnRzYCB9LCBibG9jay5hdHRyKTtcbiAgY29uc3QgZWRpdG9yID0gbmV3IFdlYlJFeGVyY2lzZUVkaXRvcih3ZWJST2pzLndlYlJQcm9taXNlLCBibG9jay5jb2RlLCBvcHRpb25zKTtcblxuICByZXR1cm4gZWRpdG9yLmNvbnRhaW5lcjtcbn1cbl93ZWJyX3ZhbHVlXzMgPSB3ZWJST2pzLnByb2Nlc3MoX3dlYnJfZWRpdG9yXzMsIHt9KTtcbiJ9LHsiY2VsbE5hbWUiOiJ3ZWJyLXdpZGdldC0yIiwiaW5saW5lIjpmYWxzZSwibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoie1xuICAvLyBXYWl0IGZvciBvdXRwdXQgdG8gYmUgd3JpdHRlbiB0byB0aGUgRE9NLCB0aGVuIHRyaWdnZXIgd2lkZ2V0IHJlbmRlcmluZ1xuICBhd2FpdCBfd2Vicl92YWx1ZV8yO1xuICBpZiAod2luZG93LkhUTUxXaWRnZXRzKSB7XG4gICAgd2luZG93LkhUTUxXaWRnZXRzLnN0YXRpY1JlbmRlcigpO1xuICB9XG4gIGlmICh3aW5kb3cuUGFnZWRUYWJsZURvYykge1xuICAgIHdpbmRvdy5QYWdlZFRhYmxlRG9jLmluaXRBbGwoKTtcbiAgfVxufVxuIn0seyJjZWxsTmFtZSI6IndlYnItMiIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXQiLCJzb3VyY2UiOiJ2aWV3b2YgX3dlYnJfZWRpdG9yXzIgPSB7XG4gIGNvbnN0IHsgV2ViUkV4ZXJjaXNlRWRpdG9yLCBiNjREZWNvZGUgfSA9IHdpbmRvdy5fZXhlcmNpc2Vfb2pzX3J1bnRpbWU7XG4gIGNvbnN0IHNjcmlwdENvbnRlbnQgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yKGBzY3JpcHRbdHlwZT1cXFwid2Vici0yLWNvbnRlbnRzXFxcIl1gKS50ZXh0Q29udGVudDtcbiAgY29uc3QgYmxvY2sgPSBKU09OLnBhcnNlKGI2NERlY29kZShzY3JpcHRDb250ZW50KSk7XG5cbiAgY29uc3Qgb3B0aW9ucyA9IE9iamVjdC5hc3NpZ24oeyBpZDogYHdlYnItMi1jb250ZW50c2AgfSwgYmxvY2suYXR0cik7XG4gIGNvbnN0IGVkaXRvciA9IG5ldyBXZWJSRXhlcmNpc2VFZGl0b3Iod2ViUk9qcy53ZWJSUHJvbWlzZSwgYmxvY2suY29kZSwgb3B0aW9ucyk7XG5cbiAgcmV0dXJuIGVkaXRvci5jb250YWluZXI7XG59XG5fd2Vicl92YWx1ZV8yID0gd2ViUk9qcy5wcm9jZXNzKF93ZWJyX2VkaXRvcl8yLCB7fSk7XG4ifSx7ImNlbGxOYW1lIjoid2Vici13aWRnZXQtMSIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXRRdWlldCIsInNvdXJjZSI6IntcbiAgLy8gV2FpdCBmb3Igb3V0cHV0IHRvIGJlIHdyaXR0ZW4gdG8gdGhlIERPTSwgdGhlbiB0cmlnZ2VyIHdpZGdldCByZW5kZXJpbmdcbiAgYXdhaXQgX3dlYnJfdmFsdWVfMTtcbiAgaWYgKHdpbmRvdy5IVE1MV2lkZ2V0cykge1xuICAgIHdpbmRvdy5IVE1MV2lkZ2V0cy5zdGF0aWNSZW5kZXIoKTtcbiAgfVxuICBpZiAod2luZG93LlBhZ2VkVGFibGVEb2MpIHtcbiAgICB3aW5kb3cuUGFnZWRUYWJsZURvYy5pbml0QWxsKCk7XG4gIH1cbn1cbiJ9LHsiY2VsbE5hbWUiOiJ3ZWJyLTEiLCJpbmxpbmUiOmZhbHNlLCJtZXRob2ROYW1lIjoiaW50ZXJwcmV0Iiwic291cmNlIjoiX3dlYnJfdmFsdWVfMSA9IHtcbiAgY29uc3QgeyBoaWdobGlnaHRSLCBiNjREZWNvZGUgfSA9IHdpbmRvdy5fZXhlcmNpc2Vfb2pzX3J1bnRpbWU7XG4gIGNvbnN0IHNjcmlwdENvbnRlbnQgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yKGBzY3JpcHRbdHlwZT1cXFwid2Vici0xLWNvbnRlbnRzXFxcIl1gKS50ZXh0Q29udGVudDtcbiAgY29uc3QgYmxvY2sgPSBKU09OLnBhcnNlKGI2NERlY29kZShzY3JpcHRDb250ZW50KSk7XG5cbiAgLy8gRGVmYXVsdCBldmFsdWF0aW9uIGNvbmZpZ3VyYXRpb25cbiAgY29uc3Qgb3B0aW9ucyA9IE9iamVjdC5hc3NpZ24oe1xuICAgIGlkOiBcIndlYnItMS1jb250ZW50c1wiLFxuICAgIGVjaG86IHRydWUsXG4gICAgb3V0cHV0OiB0cnVlXG4gIH0sIGJsb2NrLmF0dHIpO1xuXG4gIC8vIEV2YWx1YXRlIHRoZSBwcm92aWRlZCBSIGNvZGVcbiAgY29uc3QgcmVzdWx0ID0gd2ViUk9qcy5wcm9jZXNzKHtjb2RlOiBibG9jay5jb2RlLCBvcHRpb25zfSwge30pO1xuXG4gIC8vIEVhcmx5IHlpZWxkIHdoaWxlIHdlIHdhaXQgZm9yIHRoZSBmaXJzdCBldmFsdWF0aW9uIGFuZCByZW5kZXJcbiAgaWYgKG9wdGlvbnMub3V0cHV0ICYmICEoXCIxXCIgaW4gd2ViUk9qcy5yZW5kZXJlZE9qcykpIHtcbiAgICBjb25zdCBjb250YWluZXIgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KFwiZGl2XCIpO1xuICAgIGNvbnN0IHNwaW5uZXIgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KFwiZGl2XCIpO1xuXG4gICAgaWYgKG9wdGlvbnMuZWNobykge1xuICAgICAgLy8gU2hvdyBvdXRwdXQgYXMgaGlnaGxpZ2h0ZWQgc291cmNlXG4gICAgICBjb25zdCBwcmVFbGVtID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudChcInByZVwiKTtcbiAgICAgIGNvbnRhaW5lci5jbGFzc05hbWUgPSBcInNvdXJjZUNvZGVcIjtcbiAgICAgIHByZUVsZW0uY2xhc3NOYW1lID0gXCJzb3VyY2VDb2RlIHJcIjtcbiAgICAgIHByZUVsZW0uYXBwZW5kQ2hpbGQoaGlnaGxpZ2h0UihibG9jay5jb2RlKSk7XG4gICAgICBzcGlubmVyLmNsYXNzTmFtZSA9IFwic3Bpbm5lci1ncm93IHNwaW5uZXItZ3Jvdy1zbSBtLTIgcG9zaXRpb24tYWJzb2x1dGUgdG9wLTAgZW5kLTBcIjtcbiAgICAgIHByZUVsZW0uYXBwZW5kQ2hpbGQoc3Bpbm5lcik7XG4gICAgICBjb250YWluZXIuYXBwZW5kQ2hpbGQocHJlRWxlbSk7XG4gICAgfSBlbHNlIHtcbiAgICAgIHNwaW5uZXIuY2xhc3NOYW1lID0gXCJzcGlubmVyLWJvcmRlciBzcGlubmVyLWJvcmRlci1zbVwiO1xuICAgICAgY29udGFpbmVyLmFwcGVuZENoaWxkKHNwaW5uZXIpO1xuICAgIH1cblxuICAgIHlpZWxkIGNvbnRhaW5lcjtcbiAgfVxuXG4gIHdlYlJPanMucmVuZGVyZWRPanNbXCIxXCJdID0gdHJ1ZTtcbiAgeWllbGQgYXdhaXQgcmVzdWx0O1xufVxuIn0seyJjZWxsTmFtZSI6IndlYnItcHJlbHVkZSIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXRRdWlldCIsInNvdXJjZSI6IndlYlJPanMgPSB7XG4gIGNvbnN0IHsgV2ViUiwgQ2hhbm5lbFR5cGUgfSA9IHdpbmRvdy5fZXhlcmNpc2Vfb2pzX3J1bnRpbWUuV2ViUjtcbiAgY29uc3Qge1xuICAgIFdlYlJFdmFsdWF0b3IsXG4gICAgV2ViUkVudmlyb25tZW50TWFuYWdlcixcbiAgICBzZXR1cFIsXG4gICAgYjY0RGVjb2RlLFxuICAgIGNvbGxhcHNlUGF0aFxuICB9ID0gd2luZG93Ll9leGVyY2lzZV9vanNfcnVudGltZTtcblxuICBjb25zdCBzdGF0dXNDb250YWluZXIgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZChcImV4ZXJjaXNlLWxvYWRpbmctc3RhdHVzXCIpO1xuICBjb25zdCBpbmRpY2F0b3JDb250YWluZXIgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZChcImV4ZXJjaXNlLWxvYWRpbmctaW5kaWNhdG9yXCIpO1xuICBpbmRpY2F0b3JDb250YWluZXIuY2xhc3NMaXN0LnJlbW92ZShcImQtbm9uZVwiKTtcblxuICBsZXQgc3RhdHVzVGV4dCA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoXCJkaXZcIilcbiAgc3RhdHVzVGV4dC5jbGFzc0xpc3QgPSBcImV4ZXJjaXNlLWxvYWRpbmctZGV0YWlsc1wiO1xuICBzdGF0dXNUZXh0ID0gc3RhdHVzQ29udGFpbmVyLmFwcGVuZENoaWxkKHN0YXR1c1RleHQpO1xuICBzdGF0dXNUZXh0LnRleHRDb250ZW50ID0gYEluaXRpYWxpc2VgO1xuXG4gIC8vIEhvaXN0IGluZGljYXRvciBvdXQgZnJvbSBmaW5hbCBzbGlkZSB3aGVuIHJ1bm5pbmcgdW5kZXIgcmV2ZWFsXG4gIGNvbnN0IHJldmVhbFN0YXR1cyA9IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoXCIucmV2ZWFsIC5leGVyY2lzZS1sb2FkaW5nLWluZGljYXRvclwiKTtcbiAgaWYgKHJldmVhbFN0YXR1cykge1xuICAgIHJldmVhbFN0YXR1cy5yZW1vdmUoKTtcbiAgICBkb2N1bWVudC5xdWVyeVNlbGVjdG9yKFwiLnJldmVhbCA+IC5zbGlkZXNcIikuYXBwZW5kQ2hpbGQocmV2ZWFsU3RhdHVzKTtcbiAgfVxuXG4gIC8vIE1ha2UgYW55IHJldmVhbCBzbGlkZXMgd2l0aCBsaXZlIGNlbGxzIHNjcm9sbGFibGVcbiAgZG9jdW1lbnQucXVlcnlTZWxlY3RvckFsbChcIi5yZXZlYWwgLmV4ZXJjaXNlLWNlbGxcIikuZm9yRWFjaCgoZWwpID0+IHtcbiAgICBlbC5jbG9zZXN0KCdzZWN0aW9uLnNsaWRlJykuY2xhc3NMaXN0LmFkZChcInNjcm9sbGFibGVcIik7XG4gIH0pXG5cbiAgLy8gd2ViUiBzdXBwbGVtZW50YWwgZGF0YSBhbmQgb3B0aW9uc1xuICBjb25zdCBkYXRhQ29udGVudCA9IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoYHNjcmlwdFt0eXBlPVxcXCJ3ZWJyLWRhdGFcXFwiXWApLnRleHRDb250ZW50O1xuICBjb25zdCBkYXRhID0gSlNPTi5wYXJzZShiNjREZWNvZGUoZGF0YUNvbnRlbnQpKTtcblxuICAvLyBHcmFiIGxpc3Qgb2YgcmVzb3VyY2VzIHRvIGJlIGRvd25sb2FkZWRcbiAgY29uc3QgZmlsZXNDb250ZW50ID0gZG9jdW1lbnQucXVlcnlTZWxlY3Rvcihgc2NyaXB0W3R5cGU9XFxcInZmcy1maWxlXFxcIl1gKS50ZXh0Q29udGVudDtcbiAgY29uc3QgZmlsZXMgPSBKU09OLnBhcnNlKGI2NERlY29kZShmaWxlc0NvbnRlbnQpKTtcblxuICAvLyBJbml0aWFsaXNlIHdlYlIgYW5kIHNldHVwIGZvciBSIGNvZGUgZXZhbHVhdGlvblxuICBsZXQgd2ViUlByb21pc2UgPSAoYXN5bmMgKHdlYlIpID0+IHtcbiAgICBzdGF0dXNUZXh0LnRleHRDb250ZW50ID0gYERvd25sb2FkaW5nIHdlYlJgO1xuICAgIGF3YWl0IHdlYlIuaW5pdCgpO1xuXG4gICAgLy8gSW5zdGFsbCBwcm92aWRlZCBsaXN0IG9mIHBhY2thZ2VzXG4gICAgLy8gRW5zdXJlIHdlYlIgZGVmYXVsdCByZXBvIGlzIGluY2x1ZGVkXG4gICAgZGF0YS5wYWNrYWdlcy5yZXBvcy5wdXNoKFwiaHR0cHM6Ly9yZXBvLnItd2FzbS5vcmdcIilcbiAgICBhd2FpdCBkYXRhLnBhY2thZ2VzLnBrZ3MubWFwKChwa2cpID0+ICgpID0+IHtcbiAgICAgIHN0YXR1c1RleHQudGV4dENvbnRlbnQgPSBgRG93bmxvYWRpbmcgcGFja2FnZTogJHtwa2d9YDtcbiAgICAgIHJldHVybiB3ZWJSLmV2YWxSVm9pZChgXG4gICAgICAgIHdlYnI6Omluc3RhbGwocGtnLCByZXBvcyA9IHJlcG9zKVxuICAgICAgICBsaWJyYXJ5KHBrZywgY2hhcmFjdGVyLm9ubHkgPSBUUlVFKVxuICAgICAgYCwgeyBlbnY6IHtcbiAgICAgICAgcGtnOiBwa2csXG4gICAgICAgIHJlcG9zOiBkYXRhLnBhY2thZ2VzLnJlcG9zLFxuICAgICAgfX0pO1xuICAgIH0pLnJlZHVjZSgoY3VyLCBuZXh0KSA9PiBjdXIudGhlbihuZXh0KSwgUHJvbWlzZS5yZXNvbHZlKCkpO1xuXG4gICAgLy8gRG93bmxvYWQgYW5kIGluc3RhbGwgcmVzb3VyY2VzXG4gICAgYXdhaXQgZmlsZXMubWFwKChmaWxlKSA9PiBhc3luYyAoKSA9PiB7XG4gICAgICBjb25zdCBuYW1lID0gZmlsZS5zdWJzdHJpbmcoZmlsZS5sYXN0SW5kZXhPZignLycpICsgMSk7XG4gICAgICBzdGF0dXNUZXh0LnRleHRDb250ZW50ID0gYERvd25sb2FkaW5nIHJlc291cmNlOiAke25hbWV9YDtcbiAgICAgIGNvbnN0IHJlc3BvbnNlID0gYXdhaXQgZmV0Y2goZmlsZSk7XG4gICAgICBpZiAoIXJlc3BvbnNlLm9rKSB7XG4gICAgICAgIHRocm93IG5ldyBFcnJvcihgQ2FuJ3QgZG93bmxvYWQgXFxgJHtmaWxlfVxcYC4gRXJyb3IgJHtyZXNwb25zZS5zdGF0dXN9OiBcIiR7cmVzcG9uc2Uuc3RhdHVzVGV4dH1cIi5gKTtcbiAgICAgIH1cbiAgICAgIGNvbnN0IGRhdGEgPSBhd2FpdCByZXNwb25zZS5hcnJheUJ1ZmZlcigpO1xuXG4gICAgICAvLyBTdG9yZSBVUkxzIGluIHRoZSBjd2Qgd2l0aG91dCBhbnkgc3ViZGlyZWN0b3J5IHN0cnVjdHVyZVxuICAgICAgaWYgKGZpbGUuaW5jbHVkZXMoXCI6Ly9cIikpIHtcbiAgICAgICAgZmlsZSA9IG5hbWU7XG4gICAgICB9XG5cbiAgICAgIC8vIENvbGxhcHNlIGhpZ2hlciBkaXJlY3Rvcnkgc3RydWN0dXJlXG4gICAgICBmaWxlID0gY29sbGFwc2VQYXRoKGZpbGUpO1xuXG4gICAgICAvLyBDcmVhdGUgZGlyZWN0b3J5IHRyZWUsIGlnbm9yaW5nIFwiZGlyZWN0b3J5IGV4aXN0c1wiIFZGUyBlcnJvcnNcbiAgICAgIGNvbnN0IHBhcnRzID0gZmlsZS5zcGxpdCgnLycpLnNsaWNlKDAsIC0xKTtcbiAgICAgIGxldCBwYXRoID0gJyc7XG4gICAgICB3aGlsZSAocGFydHMubGVuZ3RoID4gMCkge1xuICAgICAgICBwYXRoICs9IHBhcnRzLnNoaWZ0KCkgKyAnLyc7XG4gICAgICAgIGNvbnN0IGFuYWx5c2lzID0gYXdhaXQgd2ViUi5GUy5hbmFseXplUGF0aChwYXRoKTtcbiAgICAgICAgaWYgKCFhbmFseXNpcy5leGlzdHMpIHtcbiAgICAgICAgICB0cnkge1xuICAgICAgICAgICAgYXdhaXQgd2ViUi5GUy5ta2RpcihwYXRoKTtcbiAgICAgICAgICB9IGNhdGNoIChlKSB7XG4gICAgICAgICAgICB0aHJvdyBuZXcgRXJyb3IoYEZpbGVzeXN0ZW0gRXJyb3I6IFwiJHtlLm1lc3NhZ2V9XCIuYCk7XG4gICAgICAgICAgfVxuICAgICAgICB9XG4gICAgICB9XG5cbiAgICAgIC8vIFdyaXRlIHRoaXMgZmlsZSB0byB0aGUgVkZTXG4gICAgICByZXR1cm4gYXdhaXQgd2ViUi5GUy53cml0ZUZpbGUoZmlsZSwgbmV3IFVpbnQ4QXJyYXkoZGF0YSkpO1xuICAgIH0pLnJlZHVjZSgoY3VyLCBuZXh0KSA9PiBjdXIudGhlbihuZXh0KSwgUHJvbWlzZS5yZXNvbHZlKCkpO1xuXG4gICAgc3RhdHVzVGV4dC50ZXh0Q29udGVudCA9IGBJbnN0YWxsaW5nIHdlYlIgc2hpbXNgO1xuICAgIGF3YWl0IHdlYlIuZXZhbFJWb2lkKGB3ZWJyOjpzaGltX2luc3RhbGwoKWApO1xuXG4gICAgc3RhdHVzVGV4dC50ZXh0Q29udGVudCA9IGBXZWJSIGVudmlyb25tZW50IHNldHVwYDtcbiAgICBhd2FpdCBzZXR1cFIod2ViUiwgZGF0YSk7XG5cbiAgICBzdGF0dXNUZXh0LnJlbW92ZSgpO1xuICAgIGlmIChzdGF0dXNDb250YWluZXIuY2hpbGRyZW4ubGVuZ3RoID09IDApIHtcbiAgICAgIHN0YXR1c0NvbnRhaW5lci5wYXJlbnROb2RlLnJlbW92ZSgpO1xuICAgIH1cbiAgICByZXR1cm4gd2ViUjtcbiAgfSkobmV3IFdlYlIoZGF0YS5vcHRpb25zKSk7XG5cbiAgLy8gS2VlcCB0cmFjayBvZiBpbml0aWFsIE9KUyBibG9jayByZW5kZXJcbiAgY29uc3QgcmVuZGVyZWRPanMgPSB7fTtcblxuICBjb25zdCBwcm9jZXNzID0gYXN5bmMgKGNvbnRleHQsIGlucHV0cykgPT4ge1xuICAgIGNvbnN0IHdlYlIgPSBhd2FpdCB3ZWJSUHJvbWlzZTtcbiAgICBjb25zdCBldmFsdWF0b3IgPSBuZXcgV2ViUkV2YWx1YXRvcih3ZWJSLCBjb250ZXh0KVxuICAgIGF3YWl0IGV2YWx1YXRvci5wcm9jZXNzKGlucHV0cyk7XG4gICAgcmV0dXJuIGV2YWx1YXRvci5jb250YWluZXI7XG4gIH1cblxuICByZXR1cm4ge1xuICAgIHByb2Nlc3MsXG4gICAgd2ViUlByb21pc2UsXG4gICAgcmVuZGVyZWRPanMsXG4gIH07XG59XG4ifV19
+</script>
+<div id="exercise-loading-indicator" class="exercise-loading-indicator d-none d-flex align-items-center gap-2">
+<div id="exercise-loading-status" class="d-flex gap-2">
+
+</div>
+<div class="spinner-grow spinner-grow-sm">
+
+</div>
+</div>
+<script type="vfs-file">
+W10=
+</script>
+</section>
+
+</main>
+<!-- /main column -->
+<script type="ojs-module-contents">
+eyJjb250ZW50cyI6W119
+</script>
+<script type="module">
+if (window.location.protocol === "file:") { alert("The OJS runtime does not work with file:// URLs. Please use a web server to view this document."); }
+window._ojs.paths.runtimeToDoc = "../../..";
+window._ojs.paths.runtimeToRoot = "../../../..";
+window._ojs.paths.docToRoot = "..";
+window._ojs.selfContained = false;
+window._ojs.runtime.interpretFromScriptTags();
+</script>
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

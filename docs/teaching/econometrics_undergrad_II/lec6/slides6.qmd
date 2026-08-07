@@ -1,0 +1,1100 @@
+---
+title: "Lecture 6：商品設計とコンジョイント分析"
+subtitle: "離散選択モデルと多属性ランダム化実験｜計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  revealjs:
+    theme: [default, ../slides_theme.scss]
+    slide-number: c/t
+    incremental: true
+    embed-resources: true
+    transition: none
+    center: false
+    width: 1180
+    height: 700
+    margin: 0.08
+    fig-width: 8
+    fig-height: 4.2
+    code-line-numbers: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(fixest)
+library(knitr)
+
+set.seed(20266)
+
+theme_slide <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 15, base_family = fam)
+}
+theme_set(theme_slide())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+## 今日の流れ（90分）
+
+| 時間 | 内容 |
+|---|---|
+| 10分 | Quiz（解答5分 + 解説5分）※第4回の内容から出題 |
+| 8分 | 導入：市場データ（revealed preference）の限界 |
+| 10分 | choice-based conjoint（CBC）の設計 |
+| 10分 | 2つの読み方が交差する（今日の核心） |
+| 15分 | Rシミュレーション：AMCEの推定とクラスターSE |
+| 10分 | logit MLEと2つのスケール |
+| 13分 | WTPとデルタ法 |
+| 7分 | 交互作用とセグメント別AMCE |
+| 2分 | まとめ・宿題・次回予告 |
+
+::: {.notes}
+- 今日のメイン：CBC設計 → 「2つの読み方」 → AMCE → WTP、という一本道。
+- 「内生性が設計によって消える」が今日一番の爽快ポイントであることを最初に宣言しておく。
+- 前回はゲスト講義だったので、Quizは第4回の内容から出す、と冒頭で断る。
+:::
+
+## Quiz（前回の復習・10分）
+
+::: {.nonincremental}
+
+- 配布した Quiz 6 に解答する（**5分**、メモ・ノート参照可）
+- そのあと解説（**5分**）
+- 採点はしない。セルフチェックとして使うこと
+- **前回（第5回）はゲスト講義（競争政策）だったため、出題範囲は第4回**：random coefficient logit・消費者異質性・合併分析
+
+:::
+
+::: {.notes}
+- 解答5分 → 解説5分。解説は別資料 quiz6_solution を使う（スライドには載せない）。
+- 3問は第4回の核心（異質性がIIAを破る理由、シェア計算にシミュレーションが要る理由、合併の単独効果）に対応。
+- 設問1の「係数の異質性」は、今日のCBCシミュレーションのDGP（mixed logit的な回答者）にそのまま再登場する、と解説時に一言。
+:::
+
+# 導入：市場データの限界を越える {background-color="#1f3552"}
+
+::: {.notes}
+- ここから本編75分。この節は8分。
+:::
+
+## 前回までとのつながり
+
+- 第2〜4回：**実際に売れたデータ**（revealed preference）から需要を推定してきた
+- 第5回（ゲスト講義）：その道具（diversion ratio・単独効果）が合併審査の実務でどう使われるかを見た
+- 今日は発想を転換する——**選好を測るためのデータを、実験で自分で作る**
+
+::: {.keybox .fragment}
+今日のゴール：conjoint analysis（コンジョイント分析）を、**離散選択モデル**と**ランダム化実験**という2つの目で読み解き、AMCEとWTPを信頼区間つきで推定できるようになる。
+:::
+
+::: {.notes}
+- 「今までは市場が作ったデータを拾っていた。今日はデータの生成過程を自分が設計する側に回る」という転換を強調。
+:::
+
+## 今日押さえたいこと
+
+1. stated preference と revealed preference の長所・短所を整理できる
+2. choice-based conjoint（CBC）の設計手順が分かる
+3. 属性のランダム化によって、第3回で苦しんだ**内生性が設計によって消える**ことを説明できる
+4. **AMCE** を「水準ダミーのOLS + 回答者クラスターSE」で推定できる
+5. **WTP** = 属性係数と価格係数の比、を**デルタ法**で信頼区間つきで出せる
+
+::: {.notes}
+- 3が今日の理論的な核心。4と5が手を動かすパート。
+- デルタ法が今日の新しい統計道具。
+:::
+
+## Revealed preference の2つの限界
+
+第2〜4回のデータ（POS・市場シェア）が抱えていた制約：
+
+1. **まだ存在しない商品の需要は観測しようがない**
+   - 「バッテリー24時間のイヤホンを出したら売れるか」に過去データは答えられない
+2. **価格の内生性**
+   - 価格は企業が需要ショックを見てつける → 観測されない魅力と相関
+   - 第3回で丸ごと1回分を使って2SLSで格闘した
+
+::: {.notes}
+- 1つ目：反実仮想の中でも「商品空間の外」への外挿は、観測データでは原理的に無理。
+- 2つ目：xi と価格の相関。IVという手間のかかる道具が必要だった、という記憶を呼び起こす。
+:::
+
+## 発想の転換：データを実験で作る
+
+- 属性の組み合わせ（プロファイル）を**乱数で生成**し、被験者に見せて選ばせる
+- これが **stated preference（表明選好）**、代表的手法が **conjoint analysis**
+- 中でも「複数プロファイルから1つを選ばせる」**choice-based conjoint（CBC）**が今日の主役
+
+. . .
+
+> 実在しない商品でも作れる。属性は完全にランダム化できる。
+
+::: {.notes}
+- rating型（1つずつ点数をつける）より、choice型は実際の購買行動に形式が近い。だから離散選択モデルと直結する。
+- 「選ぶ」という行為の形式が第2回のRUMそのもの、というのが後の伏線。
+:::
+
+## Stated preference と revealed preference
+
+| | Revealed preference | Stated preference |
+|---|---|---|
+| データ源泉 | 実際の購買記録（POS・ECログ） | 実験的に設計した仮想の選択課題 |
+| 長所 | 本物の行動。金銭的コミットメント | 属性を自由にランダム化。新商品も扱える |
+| 短所 | 属性を動かせない。価格に内生性 | 仮想回答バイアス（hypothetical bias） |
+| 典型例 | 第2〜4回の缶コーヒー・自動車 | 今日のコンジョイント調査 |
+
+. . .
+
+どちらが優れているという話ではない。**発売前にSPで当たりをつけ、発売後にRPで答え合わせ**が実務の型。
+
+::: {.notes}
+- hypothetical bias：本当にお金を払うとなったら違う選択をするかも、という代償。
+- ノートの実証研究コーナー（Hainmueller-Hangartner-Yamamoto 2015, PNAS）：スイスの帰化住民投票で、コンジョイントのAMCEが本物の投票行動と高い整合性を示した。SPへの過度な悲観は不要、という安心材料。
+:::
+
+# CBCの設計：ワイヤレスイヤホン {background-color="#1f3552"}
+
+::: {.notes}
+- この節は10分。通し例の導入と、設計の実務作法。
+:::
+
+## 通し例：ワイヤレスイヤホンの新製品設計
+
+| 属性 | 水準 |
+|---|---|
+| 価格 | 8,000円 / 12,000円 / 16,000円 |
+| バッテリー持続時間 | 6時間 / 12時間 |
+| ノイズキャンセリング | なし / あり |
+| ブランド | 新興ブランド / 大手ブランド |
+
+- 回答者1人あたり**8回の選択タスク**
+- 各タスク：2つのプロファイル（A・B）+「どちらも買わない」から1つを選ぶ
+
+::: {.notes}
+- 4属性・水準数のバランス（3,2,2,2）はわざと近づけてある。水準数が偏ると統計的効率が落ちる。
+- 8タスクは fatigue effect（疲労で回答の質が落ちる）を避ける実務的な上限感覚（8〜12程度）。
+:::
+
+## outside option を忘れない
+
+「どちらも買わない」を選択肢に入れる理由：
+
+- これがないと、**2種類の情報を区別できない**
+  - 「そもそもこのカテゴリに興味がない」
+  - 「AよりBが好き」
+- 第2回の缶コーヒー棚と同じ構造：買わない自由こそが**需要の水準**を教えてくれる
+
+::: {.notes}
+- outside optionなしのCBCは「絶対に何か買う人」の相対選好しか測れない。価格を上げたときの「市場からの退出」が測れない。
+- 第2回でやった市場規模の議論とつながる。
+:::
+
+## プロファイルをランダム生成する
+
+```{r}
+#| label: s6-profiles
+#| echo: true
+#| output-location: fragment
+price_levels_yen <- c(8000, 12000, 16000)
+
+generate_profiles <- function(n) {
+  data.frame(
+    price        = sample(price_levels_yen, n, replace = TRUE),
+    battery12    = as.numeric(sample(c(6, 12), n, replace = TRUE) == 12),
+    noise_cancel = sample(c(0, 1), n, replace = TRUE),
+    major_brand  = sample(c(0, 1), n, replace = TRUE)
+  )
+}
+generate_profiles(4)
+```
+
+各属性を**独立に**乱数で割り付ける。これがCBCの心臓部。
+
+::: {.notes}
+- コードはこれだけ。sample() を属性ごとに独立に呼ぶ、が全て。
+- 「独立に」がキーワード。次のスライドで相関行列を確認する。
+:::
+
+## ランダム化チェック：属性間の相関
+
+```{r}
+#| label: s6-randomization-check
+profiles_check <- generate_profiles(20000)
+kable(round(cor(profiles_check), 3))
+```
+
+- 非対角成分はすべてゼロ近傍——**属性同士が無相関**になるよう設計されている
+- 実データでも、プロファイル生成後に必ずこの表を確認する習慣を
+
+::: {.notes}
+- 「当然の結果」だが、この当然が今日の核心（内生性が消える）の土台。
+- ランダム化アルゴリズムにバグがあると、ここに相関が出てすぐ発覚する。実務の品質チェックとして本当に使う。
+:::
+
+## 実務の作法
+
+- **水準数のバランス**：属性間で水準数を近づける（統計的効率）
+- **非現実的な組合せ**：混乱を招くものだけ除外する「制約付きランダム化」
+- **attention check**：「この設問ではAを選んでください」でいい加減な回答者を検出
+- **タスク数の上限**：8〜12タスク程度。疲労（fatigue effect）で質が落ちる
+
+::: {.warnbox .fragment}
+完全ランダム化を崩すほど、後で使う「ランダム化ゆえの識別」が弱くなる。除外は最小限に。
+:::
+
+::: {.notes}
+- 制約付きランダム化は実務の妥協。統計的にはフルランダムの方がきれい（交互作用の識別にも必要）。
+- attention check で落とすのは回答の質の管理。ここをサボると全部が汚れる。
+:::
+
+# 2つの読み方が交差する {background-color="#1f3552"}
+
+::: {.notes}
+- この節は10分。今日の理論の核心。
+:::
+
+## 読み方A：離散選択モデルとして読む
+
+CBCの1タスクは、第2回で作ったモデルそのもの。回答者 $i$ がタスク $t$ でプロファイル $j$ を選ぶ効用：
+
+$$
+u_{ijt} = x_{jt}'\beta_i - \alpha_i p_{jt} + \varepsilon_{ijt}
+$$
+
+- $x_{jt}$：属性ベクトル（バッテリー・ノイキャン・ブランド）、$p_{jt}$：価格
+- $\varepsilon_{ijt}$：いつも通り Type I 極値分布（Gumbel）
+- 係数に $i$ がついている——第4回の **random coefficient** もそのまま持ち込める
+
+::: {.notes}
+- 「複数の選択肢から1つ選ぶ」という形式が完全に一致しているので、第2回のMLEのコードがほぼコピペで動く（後で実演）。
+- で、第3回の主役 xi はどこへ行った？と問いかけて次のスライドへ。
+:::
+
+## 第3回の主役 ξ がいない
+
+- 市場データ：価格が高い商品には「観測されない理由」（ブランド力・評判）がある → $\xi_{jt}$ と価格が相関 → OLSは歪む
+- CBCのプロファイルは**コンピュータが乱数で作った架空の組み合わせ**
+- 観測されない魅力があったとしても、属性・価格とは**無関係にランダム**に割り振られている
+
+::: {.keybox .fragment}
+**内生性が設計によって消える。** 第3回で操作変数を探し回った悩みが、属性をランダム化できる世界では最初から存在しない。
+:::
+
+::: {.notes}
+- ここで感じてほしいのは一種の爽快感。IV探し・弱操作変数・2SLSの手間が全部不要になる。
+- ただしその代償が hypothetical bias。タダ飯はない。
+:::
+
+## 読み方B：多属性ランダム化実験として読む
+
+同じデータを因果推論の言葉で読む：
+
+- 各属性（価格・バッテリー・ノイキャン・ブランド）＝**多次元の処置**
+- **AMCE（average marginal component effect）**：ある属性を1水準変えたとき、**他の属性が実験計画の分布に従ってランダムに変動するもとで**、平均して選択確率がどれだけ変わるか
+
+「平均」という言葉が入っている——第4回で「異質性を平均すると何が起きるか」を考えたのと同じ発想。
+
+::: {.notes}
+- AMCEはHainmueller, Hopkins and Yamamoto (2014) が確立した統計量。コンジョイントに厳密な因果推論の基礎を与えた論文。
+- 「他の属性の周辺分布で平均」がミソ。実験計画（水準の出現割合）に依存する統計量である点も口頭で。
+:::
+
+## AMCEはOLSで推定できる
+
+- ランダム化されていれば、平均処置効果は**単純な比較（=OLS）**で推定できる——計量Iの命題そのもの
+- 水準ダミーを並べた線形回帰でよい
+- ただし同じ回答者が8タスクに登場 → 誤差が回答者内で相関 → **回答者単位のクラスターSE**が必須
+
+. . .
+
+さらに強い性質：AMCEの推定は**logitという関数形を仮定しない**。真の選択メカニズムが何であれ、ランダム化さえあればOLSで一致推定できる。
+
+::: {.notes}
+- 関数形フリーの一致性がHainmueller et al. (2014)の主要な貢献のひとつ。
+- クラスターSEの重要性は後でシミュレーションで数値検証する。
+:::
+
+## ここが核心
+
+::: {.keybox .fragment}
+CBCデータの2つの読み方：
+
+- 離散選択モデルの目：**属性がランダム化されたおかげで内生性が消えたlogitモデル**
+- 因果推論の目：**多属性のランダム化実験**（属性＝多次元の処置、効果＝AMCE）
+
+**この2つは同じデータの2つの読み方にすぎない。** 前者は効用スケール（WTPに変換できる）、後者は選択確率スケール（そのまま解釈できる）を与える。
+:::
+
+::: {.notes}
+- 今日の1枚を選ぶならこれ。以降のシミュレーションは、この2つの読み方を両方実行して見せる構成。
+- 次回のA/Bテストは「属性のランダム化」を「施策のランダム化」に広げたもの。今日はその先取り。
+:::
+
+# Rシミュレーション：AMCEを回収する {background-color="#1f3552"}
+
+::: {.notes}
+- この節は15分。今日のメインの手を動かすパート。
+- DGP → OLS+クラスターSE → 真値回収 → クラスターSEの必要性の検証、の順。
+:::
+
+## DGP：mixed logit 的な回答者を作る
+
+$N = 500$ 人 × 8タスク。各タスクでA・B・「どちらも買わない」から選択。
+
+$$
+u_{ijt} = x_{jt}'\beta_i - \alpha_i p_{jt} + \varepsilon_{ijt}
+$$
+
+. . .
+
+$$
+\beta_{x,i} = \beta_x + \sigma_x z_{x,i}, \qquad z_{x,i} \sim N(0,1)
+$$
+
+- 回答者ごとの係数は8タスクすべてで**同じ**——「同じ人は毎回似た好みで選ぶ」
+- これがタスク間の誤差相関（**クラスター構造**）の源になる
+
+::: {.notes}
+- 第4回のrandom coefficientそのもの。個人条件付きではただのlogit。
+- 「係数を8タスクで固定する」という設定が、後のクラスターSEの必要性に直結する。DGPを自分で書くからこそ、この因果関係が見える。
+:::
+
+## DGPのパラメータ設定
+
+```{r}
+#| label: s6-dgp-params
+#| include: false
+true_params <- list(
+  beta_batt_mean  = 0.5,   # バッテリー12h vs 6h の平均選好
+  beta_nc_mean    = 0.8,   # ノイキャンあり vs なし の平均選好
+  beta_brand_mean = 0.3,   # 大手 vs 新興 の平均選好
+  alpha_mean      = 0.12,  # 価格係数（千円あたり）
+  sigma_batt  = 0.3,
+  sigma_nc    = 0.6,
+  sigma_brand = 0.4,
+  sigma_alpha = 0.05
+)
+
+price_levels <- c(8, 12, 16)   # 千円単位
+
+draw_gumbel <- function(n) {
+  u <- runif(n)
+  -log(-log(u))
+}
+
+simulate_cbc <- function(n_resp, n_task, params) {
+  resp_id <- rep(1:n_resp, each = n_task)
+  N <- n_resp * n_task
+
+  z_batt  <- rnorm(n_resp)
+  z_nc    <- rnorm(n_resp)
+  z_brand <- rnorm(n_resp)
+  z_alpha <- rnorm(n_resp)
+
+  beta_batt_i  <- params$beta_batt_mean  + params$sigma_batt  * z_batt
+  beta_nc_i    <- params$beta_nc_mean    + params$sigma_nc    * z_nc
+  beta_brand_i <- params$beta_brand_mean + params$sigma_brand * z_brand
+  alpha_i      <- pmax(params$alpha_mean + params$sigma_alpha * z_alpha, 0.01)
+
+  beta_batt_n  <- rep(beta_batt_i,  each = n_task)
+  beta_nc_n    <- rep(beta_nc_i,    each = n_task)
+  beta_brand_n <- rep(beta_brand_i, each = n_task)
+  alpha_n      <- rep(alpha_i,      each = n_task)
+
+  priceA <- sample(price_levels, N, replace = TRUE)
+  battA  <- as.numeric(sample(c(6, 12), N, replace = TRUE) == 12)
+  ncA    <- sample(c(0, 1), N, replace = TRUE)
+  brandA <- sample(c(0, 1), N, replace = TRUE)
+
+  priceB <- sample(price_levels, N, replace = TRUE)
+  battB  <- as.numeric(sample(c(6, 12), N, replace = TRUE) == 12)
+  ncB    <- sample(c(0, 1), N, replace = TRUE)
+  brandB <- sample(c(0, 1), N, replace = TRUE)
+
+  vA <- beta_batt_n * battA + beta_nc_n * ncA + beta_brand_n * brandA - alpha_n * priceA
+  vB <- beta_batt_n * battB + beta_nc_n * ncB + beta_brand_n * brandB - alpha_n * priceB
+
+  eps <- matrix(draw_gumbel(N * 3), nrow = N, ncol = 3)
+  U <- cbind(eps[, 1], vA + eps[, 2], vB + eps[, 3])
+  choice3 <- apply(U, 1, which.max) - 1  # 0=outside, 1=A, 2=B
+
+  data.frame(
+    resp_id = resp_id, choice3 = choice3,
+    priceA = priceA, battA = battA, ncA = ncA, brandA = brandA,
+    priceB = priceB, battB = battB, ncB = ncB, brandB = brandB
+  )
+}
+
+n_resp <- 500
+n_task <- 8
+cbc_raw <- simulate_cbc(n_resp, n_task, true_params)
+```
+
+真のパラメータ（平均と、人によるばらつき）：
+
+- バッテリー12h：平均 0.5（ばらつき 0.3）
+- ノイキャンあり：平均 0.8（ばらつき **0.6**——好みが人によってかなり違う設定）
+- 大手ブランド：平均 0.3（ばらつき 0.4）
+- 価格係数：千円あたり 0.12（ばらつき 0.05、正に切り詰め）
+
+価格は千円単位（8, 12, 16）で扱う。
+
+::: {.notes}
+- ノイキャンのばらつきをわざと大きくしてある：「刺さる人には刺さる」機能の典型。
+- 価格係数の正値保証（pmax）は第4回の対数正規のかわりの簡便版。
+:::
+
+## 生成された回答の分布
+
+```{r}
+#| label: s6-fig-choice-dist
+#| fig-height: 3.8
+choice_share <- cbc_raw %>%
+  mutate(choice_label = factor(choice3, levels = c(0, 1, 2),
+                               labels = c("どちらも買わない", "プロファイルA", "プロファイルB"))) %>%
+  count(choice_label) %>%
+  mutate(share = n / sum(n))
+
+ggplot(choice_share, aes(x = choice_label, y = share, fill = choice_label)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  scale_fill_manual(values = c("gray70", "#4C72B0", "#DD8452")) +
+  labs(x = NULL, y = "選択割合", title = "CBC回答の選択分布（500人 x 8タスク = 4,000タスク）")
+```
+
+- outside optionが2〜3割、A・Bはほぼ拮抗（ランダム生成なので理論上対称）
+- 妥当な分布。DGPを書いたら**必ず記述統計で正気を確認する**
+
+::: {.notes}
+- AとBの差は乱数のブレ。系統的な差があったらプロファイル生成のバグを疑う。
+:::
+
+## AMCE回帰：水準ダミーのOLS + クラスターSE
+
+```{r}
+#| label: s6-to-long
+#| include: false
+to_long <- function(cbc_raw) {
+  keep <- cbc_raw$choice3 != 0
+  d <- cbc_raw[keep, ]
+
+  rowsA <- data.frame(
+    resp_id = d$resp_id, price = d$priceA, battery12 = d$battA,
+    noise_cancel = d$ncA, major_brand = d$brandA,
+    chosen = as.numeric(d$choice3 == 1)
+  )
+  rowsB <- data.frame(
+    resp_id = d$resp_id, price = d$priceB, battery12 = d$battB,
+    noise_cancel = d$ncB, major_brand = d$brandB,
+    chosen = as.numeric(d$choice3 == 2)
+  )
+  rbind(rowsA, rowsB)
+}
+
+cbc_long <- to_long(cbc_raw)
+cbc_long$price12 <- as.numeric(cbc_long$price == 12)
+cbc_long$price16 <- as.numeric(cbc_long$price == 16)
+```
+
+「提示された各プロファイル＝1行」のlong形式に変換してから：
+
+```{r}
+#| label: s6-amce-ols
+#| echo: true
+#| output-location: fragment
+amce_fit <- feols(
+  chosen ~ price12 + price16 + battery12 + noise_cancel + major_brand,
+  data = cbc_long, cluster = ~resp_id
+)
+```
+
+- 被説明変数：そのプロファイルが選ばれたか（0/1）
+- 説明変数：属性の水準ダミー（価格は8,000円が基準）
+- `cluster = ~resp_id`：**回答者単位**のクラスターSE
+
+::: {.notes}
+- outside を選んだタスクは、標準的なconjointの作法に従いA対Bの回帰から除外している（ノートの補足参照）。
+- feolsのcluster引数ひとつでクラスターSEになる。この1行を惜しむとどうなるかを後で見せる。
+:::
+
+## 真のAMCEはどう作るか
+
+AMCEは「他の属性の分布で平均した選択確率の変化」——解析的な閉形式を書き下すのは面倒。
+
+. . .
+
+そこで**DGPを知っている者の特権**を使う：
+
+- 同じDGPを**桁違いに大きい標本**（5万人）で走らせ、同じOLSをかける
+- 大数の法則で、その値は真のAMCEに収束する → これを真値の近似とする
+
+```{r}
+#| label: s6-true-amce
+#| include: false
+compute_true_amce <- function(n_resp_big, n_task, params) {
+  big_raw <- simulate_cbc(n_resp_big, n_task, params)
+  big_long <- to_long(big_raw)
+  big_long$price12 <- as.numeric(big_long$price == 12)
+  big_long$price16 <- as.numeric(big_long$price == 16)
+  fit <- lm(chosen ~ price12 + price16 + battery12 + noise_cancel + major_brand, data = big_long)
+  coef(fit)
+}
+
+true_amce_vec <- compute_true_amce(50000, n_task, true_params)
+```
+
+第4回で「シミュレーションで真値を作る」を何度も使ったのと同じ精神。
+
+::: {.notes}
+- モンテカルロ積分の発想の再登場：積分（平均）が解けなければ、乱数で大量に引いて平均すればいい。
+- Quiz設問2（シェアのシミュレーション計算）とここが直結している、と口頭でつなぐ。
+:::
+
+## 真値回収の確認
+
+::: {.fragment}
+
+```{r}
+#| label: s6-recovery-table
+amce_hat <- coef(amce_fit)
+se_cluster <- sqrt(diag(vcov(amce_fit)))
+
+recovery_df <- data.frame(
+  attribute = names(amce_hat),
+  amce_hat = round(amce_hat, 4),
+  true_amce = round(true_amce_vec, 4),
+  se_cluster = round(se_cluster, 4),
+  ci_lower = round(amce_hat - 1.96 * se_cluster, 4),
+  ci_upper = round(amce_hat + 1.96 * se_cluster, 4)
+)
+kable(recovery_df, row.names = FALSE,
+      col.names = c("属性", "AMCE推定値", "真値", "SE(cluster)", "95%CI下限", "95%CI上限"))
+```
+
+:::
+
+- 推定値は真のAMCEの近くに戻り、95%信頼区間が真値をおおむね捉えている
+- 操作変数なし、ただのOLSで——**ランダム化の力**
+
+::: {.notes}
+- 真値回収は計量IIの毎回の型。新しい推定量を実装したら必ず最初にやる検証。
+- ノイキャンのAMCEが最大（選択確率を10%ポイント以上動かす規模）である点を読み上げる。
+:::
+
+## AMCEを図で見る
+
+```{r}
+#| label: s6-fig-amce-plot
+#| fig-height: 4.0
+plot_df <- recovery_df %>%
+  filter(attribute != "(Intercept)") %>%
+  mutate(attribute_label = c("価格12,000円\n(vs 8,000円)", "価格16,000円\n(vs 8,000円)",
+                             "バッテリー12h\n(vs 6h)", "ノイキャンあり\n(vs なし)", "大手ブランド\n(vs 新興)"))
+
+ggplot(plot_df, aes(x = attribute_label, y = amce_hat)) +
+  geom_hline(yintercept = 0, linewidth = 0.3, color = "gray50") +
+  geom_point(size = 2.5, color = "#4C72B0") +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.15, color = "#4C72B0") +
+  geom_point(aes(y = true_amce), shape = 4, size = 3, color = "#C44E52", stroke = 1.2) +
+  labs(x = NULL, y = "AMCE（選択確率の変化）",
+       title = "AMCE推定値（点・エラーバー）と真値（x印）") +
+  theme(axis.text.x = element_text(size = 10))
+```
+
+単位は「選択確率の変化」——「ノイキャンをつけると選ばれる確率が約何ポイント上がる」とそのまま読める。
+
+::: {.notes}
+- 価格ダミーは負（値上げは選ばれにくくする）、機能は正。真値（x印）がCIの中かごく近く。
+- この図がそのまま新製品会議の1枚資料になる、というイメージを伝える。
+:::
+
+## クラスターSE vs 通常のロバストSE
+
+::: {.fragment}
+
+```{r}
+#| label: s6-cluster-vs-naive
+amce_fit_naive <- feols(chosen ~ price12 + price16 + battery12 + noise_cancel + major_brand,
+                        data = cbc_long, vcov = "hetero")
+
+se_compare_df <- data.frame(
+  attribute = names(coef(amce_fit)),
+  se_cluster = round(sqrt(diag(vcov(amce_fit))), 4),
+  se_naive = round(sqrt(diag(vcov(amce_fit_naive))), 4)
+)
+se_compare_df$ratio <- round(se_compare_df$se_cluster / se_compare_df$se_naive, 2)
+kable(se_compare_df, row.names = FALSE,
+      col.names = c("属性", "クラスターSE", "通常のロバストSE", "比"))
+```
+
+:::
+
+- 通常のロバストSE（各行が独立と仮定）は、クラスターSEより**はっきり小さい**
+- 同じ人の8タスクは「実質的に重複した情報」——それを4,000個の独立な情報のように扱うと信頼区間が不当に狭くなる
+
+::: {.notes}
+- 独立な情報の単位は「タスク数」ではなく「回答者数」に近い、が本質。
+- DGPを自分で書いたから、相関の源（回答者ごとに固定したランダム係数）がどこにあるか分かる。
+:::
+
+## この分析、どこがまずい？
+
+> 「N=500人 × 8タスク = 約4,000観測もあるので、通常の標準誤差で十分精密に推定できました」
+
+::: {.warnbox .fragment}
+コンジョイント分析で**最もよくある誤り**。独立なのは回答者であってタスクではない。クラスターを無視すると、本来有意でない効果を有意だと誤認するリスクが上がる。`cluster = ~resp_id` のひと手間を惜しまない。
+:::
+
+. . .
+
+次回のA/Bテストでも、ランダム化単位（ユーザー・店舗）とデータの行の単位がズレる場面で同じ問題が再登場する。
+
+::: {.notes}
+- 学生に30秒考えさせてからwarnboxを出す運用でもよい。
+- 次回への伏線：ランダム化の単位と分析の単位を一致させる、はA/Bテスト設計の基本原則。
+:::
+
+# logit MLEと2つのスケール {background-color="#1f3552"}
+
+::: {.notes}
+- この節は10分。もう1つの読み方（離散選択モデル）を実行し、AMCEとの使い分けを整理する。
+:::
+
+## 第2回のMLEがそのまま使える
+
+```{r}
+#| label: s6-mle
+#| include: false
+neg_loglik_cbc <- function(theta, d) {
+  vA <- theta[1] * d$battA + theta[2] * d$ncA + theta[3] * d$brandA - theta[4] * d$priceA
+  vB <- theta[1] * d$battB + theta[2] * d$ncB + theta[3] * d$brandB - theta[4] * d$priceB
+
+  V <- cbind(0, vA, vB)
+  V <- V - apply(V, 1, max)
+  expV <- exp(V)
+  denom <- rowSums(expV)
+  chosen_idx <- cbind(1:nrow(d), d$choice3 + 1)
+  logprob <- V[chosen_idx] - log(denom)
+  -sum(logprob)
+}
+
+opt_cbc <- optim(par = c(0.1, 0.1, 0.1, 0.1), fn = neg_loglik_cbc, d = cbc_raw,
+                 method = "BFGS", hessian = TRUE)
+
+theta_hat_cbc <- opt_cbc$par
+names(theta_hat_cbc) <- c("beta_batt", "beta_nc", "beta_brand", "alpha")
+vcov_cbc <- solve(opt_cbc$hessian)
+se_cbc <- sqrt(diag(vcov_cbc))
+```
+
+同じデータを、今度は離散選択モデルとして推定する：
+
+- 3択（outside / A / B）のlogitの対数尤度を書く——第2回の `neg_loglik_mnl` とほぼ同じ
+- `optim()` でBFGS、`hessian = TRUE` でSEも取る
+- 属性がランダム化されているので、**IVなしのMLEで価格係数がまっすぐ推定できる**
+
+::: {.notes}
+- コードの中身はノート参照。第2回とほぼ同じなので、スライドでは構造だけ。
+- 市場データなら価格係数のMLEは内生性で歪むところ。ここがCBCのありがたみ。
+:::
+
+## MLEの真値回収
+
+```{r}
+#| label: s6-mle-table
+mle_true <- c(true_params$beta_batt_mean, true_params$beta_nc_mean,
+              true_params$beta_brand_mean, true_params$alpha_mean)
+
+mle_recovery_df <- data.frame(
+  parameter = names(theta_hat_cbc),
+  true_value = round(mle_true, 4),
+  estimate = round(theta_hat_cbc, 4),
+  se = round(se_cbc, 4),
+  ci_lower = round(theta_hat_cbc - 1.96 * se_cbc, 4),
+  ci_upper = round(theta_hat_cbc + 1.96 * se_cbc, 4)
+)
+kable(mle_recovery_df, row.names = FALSE,
+      col.names = c("パラメータ", "真値(平均)", "推定値", "SE", "95%CI下限", "95%CI上限"))
+```
+
+- MLEは**集団平均のランダム係数**を信頼区間の中に捉えている
+- 単位は「効用」——それ自体は解釈しにくいが、次節で**円に変換**する
+
+::: {.notes}
+- DGPはmixed logitだが、推定は同質logit。それでも平均パラメータはおおむね回収できる（AMCEと同様、平均的な効果を見ている）。
+- 「効用スケールは為替レート（価格係数）で円に直せる」が次節への橋。
+:::
+
+## 効用スケール vs 選択確率スケール
+
+| | logit MLEの係数 | AMCE（OLS） |
+|---|---|---|
+| 単位 | 効用（それ自体は解釈しづらい） | 選択確率の変化（そのまま読める） |
+| 関数形 | Gumbel仮定に依存 | 関数形フリー（ランダム化のみ必要） |
+| 強み | WTPに変換できる。価格を外挿できる | 頑健。実務報告にそのまま使える |
+
+. . .
+
+使い分け：**「何ポイント選ばれやすくなるか」だけならAMCE**。**「円でいくらの価値か」「実験にない価格への外挿」なら効用モデル**。
+
+::: {.notes}
+- 両方とも同じDGPから同じ方向の結論（ノイキャンが好まれ、価格が嫌われる）を出している。モデルの整合性チェックにもなる。
+- 2つの読み方の使い分けが今日の実務的な結論のひとつ。
+:::
+
+# WTPとデルタ法 {background-color="#1f3552"}
+
+::: {.notes}
+- この節は13分。今日の新しい統計道具＝デルタ法。
+:::
+
+## WTPの定義
+
+「ノイキャンにいくら払う気があるか」を効用係数から作る：
+
+- 属性を「なし→あり」にしたときの効用の変化：$\beta_{\mathrm{attr}}$
+- 価格を1単位上げたときの効用の変化：$-\alpha$
+- 属性の効用増と**ちょうど釣り合う値上げ幅**が支払意思額
+
+. . .
+
+$$
+\mathrm{WTP}_{\mathrm{attr}} = \frac{\beta_{\mathrm{attr}}}{\alpha}
+$$
+
+$\alpha$ は「効用1単位あたりの価格」——効用を金額に変換する**為替レート**。
+
+::: {.notes}
+- 真値はノイキャンで 0.8 / 0.12 = 約6.7千円。
+- WTPは経営会議の言葉：「追加コスト3,000円でノイキャンを載せるべきか」に直接答える数字。
+:::
+
+## 比のSEはどう計算する？：デルタ法
+
+WTPは2つの推定量の**比**。それぞれのSEを見るだけでは比のSEは分からない。
+
+推定量 $\hat\theta$ が漸近正規で共分散行列 $V$ を持つとき、関数 $g(\hat\theta)$ の分散は
+
+$$
+\mathrm{Var}(g(\hat\theta)) \approx \nabla g(\theta)' V \nabla g(\theta)
+$$
+
+. . .
+
+種明かしは1階のテイラー展開：
+
+$$
+g(\hat\theta) \approx g(\theta) + \nabla g(\theta)'(\hat\theta - \theta)
+$$
+
+両辺の分散を取るだけ（定数 $g(\theta)$ は消える）。
+
+::: {.notes}
+- 「非線形な変換をしたあとの推定量の不確実性」を扱う汎用道具。今日以降も比・関数の推定のたびに使う。
+- 1階近似なので、g が強く非線形な場面（後述：alphaが小さいとき）では精度が落ちる。この弱点も込みで教える。
+:::
+
+## WTPに当てはめる
+
+$g(\beta_{\mathrm{attr}}, \alpha) = \beta_{\mathrm{attr}} / \alpha$ の勾配は
+
+$$
+\nabla g = \left( \frac{1}{\alpha}, \quad -\frac{\beta_{\mathrm{attr}}}{\alpha^2} \right)
+$$
+
+. . .
+
+これとMLEのHessianから得た共分散行列 $V$（該当する2x2部分）を挟めば
+
+$$
+\mathrm{SE} = \sqrt{\nabla g' V \nabla g}
+$$
+
+::: {.notes}
+- 偏微分は商の微分をするだけ。板書するならここ。
+- Hessianからのvcovは第2回でやった手順の再利用。
+:::
+
+## ノイキャンのWTPを計算する
+
+```{r}
+#| label: s6-wtp-delta
+#| echo: true
+#| output-location: fragment
+beta_nc_hat <- unname(theta_hat_cbc["beta_nc"])
+alpha_hat   <- unname(theta_hat_cbc["alpha"])
+wtp_nc_hat  <- beta_nc_hat / alpha_hat
+
+grad_wtp <- c(1 / alpha_hat, -beta_nc_hat / alpha_hat^2)
+vcov_sub <- vcov_cbc[c(2, 4), c(2, 4)]   # beta_nc と alpha の2x2部分
+se_wtp   <- sqrt(as.numeric(t(grad_wtp) %*% vcov_sub %*% grad_wtp))
+
+round(c(WTP = wtp_nc_hat, SE = se_wtp), 3)
+```
+
+数式をそのままコードにしただけ。単位は千円。
+
+::: {.notes}
+- vcov_cbcの並び：theta = (beta_batt, beta_nc, beta_brand, alpha) なので2行目と4行目。
+- インデックスのズレはよくあるバグ。namesで確認する癖を。
+:::
+
+## WTPの結果：真値との比較
+
+::: {.fragment}
+
+```{r}
+#| label: s6-wtp-table
+true_wtp_nc <- true_params$beta_nc_mean / true_params$alpha_mean
+
+wtp_df <- data.frame(
+  quantity = "ノイキャンのWTP（千円）",
+  true_value = round(true_wtp_nc, 3),
+  estimate = round(wtp_nc_hat, 3),
+  se_delta = round(se_wtp, 3),
+  ci_lower = round(wtp_nc_hat - 1.96 * se_wtp, 3),
+  ci_upper = round(wtp_nc_hat + 1.96 * se_wtp, 3)
+)
+kable(wtp_df, row.names = FALSE,
+      col.names = c("量", "真値", "推定値", "SE(デルタ法)", "95%CI下限", "95%CI上限"))
+```
+
+:::
+
+- 真値（約6.7千円）が95%信頼区間に収まっている
+- 報告の作法：「約7,000円、ただし95%CIは○○〜○○円」と**幅を持たせて**伝える
+
+::: {.notes}
+- 「追加コストが3,000円なら採算が取れる」という経営判断の材料になる数字。
+- 点推定だけの報告は不誠実。計量Iから変わらない推論の作法。
+:::
+
+## 比が暴れる：価格係数が小さいとき
+
+```{r}
+#| label: s6-wtp-stability
+#| include: false
+simulate_wtp_stability <- function(alpha_true_val, n_resp = 400, n_task = 8) {
+  params_try <- true_params
+  params_try$alpha_mean <- alpha_true_val
+  params_try$sigma_alpha <- alpha_true_val * 0.3
+
+  d <- simulate_cbc(n_resp, n_task, params_try)
+  opt_try <- optim(par = c(0.1, 0.1, 0.1, max(alpha_true_val, 0.02)),
+                   fn = neg_loglik_cbc, d = d, method = "BFGS", hessian = TRUE)
+
+  beta_nc_try <- opt_try$par[2]; alpha_try <- opt_try$par[4]
+  wtp_try <- beta_nc_try / alpha_try
+
+  vcov_try <- tryCatch(solve(opt_try$hessian), error = function(e) NULL)
+  se_try <- NA
+  if (!is.null(vcov_try)) {
+    grad_try <- c(1 / alpha_try, -beta_nc_try / alpha_try^2)
+    var_try <- as.numeric(t(grad_try) %*% vcov_try[c(2, 4), c(2, 4)] %*% grad_try)
+    if (var_try > 0) se_try <- sqrt(var_try)
+  }
+  c(alpha_true = alpha_true_val, wtp_hat = wtp_try, se_delta = se_try)
+}
+
+alpha_grid <- c(0.15, 0.05, 0.02, 0.005)
+wtp_stability_list <- lapply(alpha_grid, simulate_wtp_stability)
+wtp_stability_df <- as.data.frame(do.call(rbind, wtp_stability_list))
+wtp_stability_df$cv <- wtp_stability_df$se_delta / abs(wtp_stability_df$wtp_hat)
+```
+
+```{r}
+#| label: s6-fig-wtp-instability
+#| fig-height: 3.8
+ggplot(wtp_stability_df, aes(x = alpha_true, y = cv)) +
+  geom_line(color = "#C44E52", linewidth = 1) +
+  geom_point(size = 2.5, color = "#C44E52") +
+  scale_y_log10() +
+  labs(x = "価格係数の真値", y = "変動係数 SE/|WTP|（対数目盛）",
+       title = "価格係数が小さいほどWTP推定が不安定になる")
+```
+
+- 価格に鈍感な集団（分母が0に近い）ほど、比の推定は**桁違いに**不安定化
+- デルタ法SEの急膨張は、その危険信号
+
+::: {.notes}
+- 分母がゼロに近い割り算特有の不安定性。デルタ法自体も1階近似なので、この領域では近似精度も落ちる（二重に危ない）。
+- alphaの真値を0.15から0.005まで動かすと、変動係数が2桁近く悪化する。
+:::
+
+## WTPが暴れたときの実務対処
+
+::: {.warnbox}
+価格係数 $\alpha$ がゼロと有意に区別できないなら、WTPという指標自体が意味を持たない。まず分母の有意性を確認する。
+:::
+
+1. **$\alpha$ 自体の統計的有意性を確認**——ダメなら回答者が価格情報を使っていない
+2. **ブートストラップ**でWTPの標本分布を直接見る（デルタ法の近似が怪しい場面で頑健）
+3. **価格帯を広げて調査を再設計**——価格の変動が乏しいと $\alpha$ の識別自体が弱い（第3回の弱操作変数と似た構図）
+
+::: {.notes}
+- 3は「実験を設計できる」というSPの強みの裏返し：識別が弱ければ設計からやり直せる。RPでは不可能な選択肢。
+:::
+
+# 交互作用とセグメント別AMCE {background-color="#1f3552"}
+
+::: {.notes}
+- この節は7分。平均の先＝異質性への入り口。後続回（第9・11回）への橋渡し。
+:::
+
+## 属性の相乗効果：交互作用
+
+- ここまでのAMCEは各属性が**独立に**効く前提の集計
+- 「バッテリー長持ち × ノイキャン」は、長時間移動の文脈で**組み合わさって初めて**効くかもしれない
+- 水準ダミーの**交互作用項**を回帰に足せば検定できる（Egami and Imai 2019 の因果的交互作用）
+
+. . .
+
+今回のDGPは効用を線形和で作った——つまり**真の交互作用はゼロ**に設計してある。
+
+::: {.notes}
+- 「真がゼロと分かっているものを推定して、ちゃんとゼロ近傍が出るか」もDGP自作の教育的な使い方。
+- 宿題で、交互作用ありのDGPに書き換えて有意になることを確認してもらう。
+:::
+
+## 交互作用の推定結果
+
+```{r}
+#| label: s6-interaction
+#| include: false
+interaction_fit <- feols(chosen ~ price12 + price16 + battery12 * noise_cancel + major_brand,
+                         data = cbc_long, cluster = ~resp_id)
+
+interaction_coef_df <- data.frame(
+  term = names(coef(interaction_fit)),
+  estimate = coef(interaction_fit),
+  se = sqrt(diag(vcov(interaction_fit)))
+)
+```
+
+```{r}
+#| label: s6-fig-interaction
+#| fig-height: 3.9
+interaction_coef_df %>%
+  filter(term != "(Intercept)") %>%
+  ggplot(aes(x = term, y = estimate)) +
+  geom_hline(yintercept = 0, linewidth = 0.3, color = "gray50") +
+  geom_point(size = 2.5, color = "#4C72B0") +
+  geom_errorbar(aes(ymin = estimate - 1.96 * se, ymax = estimate + 1.96 * se),
+                width = 0.15, color = "#4C72B0") +
+  coord_flip() +
+  labs(x = NULL, y = "係数（95%CI、回答者クラスターSE）",
+       title = "バッテリー x ノイキャンの交互作用モデル")
+```
+
+- 交互作用項（battery12:noise_cancel）のCIはゼロを跨ぐ——真がゼロのDGPと整合的
+- 実データでこの項が立てば「2つの機能をセットで売りにする」根拠になる
+
+::: {.notes}
+- 有意になったとしたら標本のブレ。系統的な交互作用ではない、と説明。
+- サブスクのバンドル設計（広告なし×オフライン再生）が実務での典型例。
+:::
+
+## セグメント別AMCE：誰に刺さる機能か
+
+```{r}
+#| label: s6-segment
+#| include: false
+segment_df <- data.frame(resp_id = 1:n_resp,
+                         heavy_user = rbinom(n_resp, 1, 0.5))
+cbc_long_seg <- cbc_long %>% left_join(segment_df, by = "resp_id")
+
+fit_heavy <- feols(chosen ~ price12 + price16 + battery12 + noise_cancel + major_brand,
+                   data = cbc_long_seg %>% filter(heavy_user == 1), cluster = ~resp_id)
+fit_light <- feols(chosen ~ price12 + price16 + battery12 + noise_cancel + major_brand,
+                   data = cbc_long_seg %>% filter(heavy_user == 0), cluster = ~resp_id)
+
+seg_compare_df <- data.frame(
+  segment = c("ヘビーユーザー", "ライトユーザー"),
+  amce_nc = c(coef(fit_heavy)["noise_cancel"], coef(fit_light)["noise_cancel"]),
+  se_nc   = c(sqrt(diag(vcov(fit_heavy)))["noise_cancel"],
+              sqrt(diag(vcov(fit_light)))["noise_cancel"])
+)
+```
+
+```{r}
+#| label: s6-fig-segment
+#| fig-height: 3.7
+ggplot(seg_compare_df, aes(x = segment, y = amce_nc)) +
+  geom_col(width = 0.5, fill = "#4C72B0", alpha = 0.7) +
+  geom_errorbar(aes(ymin = amce_nc - 1.96 * se_nc, ymax = amce_nc + 1.96 * se_nc), width = 0.15) +
+  labs(x = NULL, y = "ノイキャンのAMCE", title = "セグメント別に見たノイキャンのAMCE")
+```
+
+- 回答者を利用頻度などで分割し、セグメントごとにAMCEを計算し直す
+- 今回はセグメントを**ランダムに割り振った**演示なので、2本の棒はほぼ同じ高さになるはず
+
+::: {.notes}
+- 実データではセグメントは調査で別途聞いた属性（利用頻度・年齢層・購買履歴）から作る。それが選好と相関しているか自体が関心事。
+- ここで差が出たときに初めて「ヘビーユーザーにはノイキャンを強く訴求」という結論が言える。
+:::
+
+## 平均で設計を決め、異質性でターゲティングを考える
+
+::: {.keybox}
+- **AMCE（平均）**：「この機能を全体に載せるべきか」という**設計判断**に向く
+- **セグメント別・個人別の異質性**：「誰にその機能を訴求するか」という**ターゲティング判断**に向く
+:::
+
+この先の展開：
+
+- 第9回：階層ベイズ（HB conjoint）で**個人レベル**の部分効用を安定推定
+- 第11回：異質性を使って「誰に何を売るか」を最適化（uplift・policy learning）
+
+::: {.notes}
+- Goplerud, Imai and Pashley (2025)：属性が数十個ある高次元コンジョイントでの異質性推定が最前線（ノート参照）。
+- 今日のセグメント2分割はその一番素朴な入り口。
+:::
+
+## ここが核心
+
+::: {.keybox .fragment}
+- SP（コンジョイント）は属性をランダム化した仮想選択で、**まだ存在しない商品**の需要を測れる。代償はhypothetical bias
+- CBCデータ＝**内生性が設計によって消えたlogit** ＝ **多属性ランダム化実験**。同じデータの2つの読み方
+- AMCEは水準ダミーのOLSで推定。**回答者クラスターSE**を忘れない（忘れるとSEを過小評価）
+- WTPは係数の比 $\beta_{\mathrm{attr}} / \alpha$。SEは**デルタ法**。ただし $\alpha$ が小さいと比が暴れる
+- 平均（AMCE）で設計を決め、異質性（セグメント・個人）でターゲティングを考える → 第9回・第11回へ
+:::
+
+::: {.notes}
+- 1枚で今日を振り返る。ここまでで73分目安。
+:::
+
+# まとめ {background-color="#1f3552"}
+
+## 宿題
+
+::: {.nonincremental}
+
+- DGPに明示的な交互作用（バッテリー12h かつ ノイキャンありのときだけボーナス効用）を追加し、交互作用項が統計的に有意になることを確認する
+- 生成AIに「hedonic pricingとコンジョイント分析は何が違うのか」と聞いて、今日のWTPの考え方と関係を整理する
+- 「比が暴れる」シミュレーションで価格係数の真値をもっと細かく動かし、デルタ法SEが発散していく様子を折れ線で描く
+- **coding課題は `assignment6.qmd`**：フードデリバリーのサブスクプランを題材に、CBC設計→DGP→AMCE→WTP→交互作用→セグメント別分析を通しで実装
+
+:::
+
+::: {.notes}
+- 課題は手を動かせば2〜4時間の分量。今日の手順の完全な再演になっている。
+:::
+
+## 次回予告：属性のランダム化から施策のランダム化へ
+
+- 今日のコンジョイントは、実は**A/Bテストの特殊だが強力な先取り**だった
+- 次回は施策そのものをランダム化する：**ランダム化推論・検出力設計・CUPED**（分散削減）
+- 今日の「クラスターSE」は、ランダム化単位がユーザー・店舗になった瞬間にそのまま再登場する
+
+**Reading**：Hainmueller, Hopkins and Yamamoto (2014)、Green and Srinivasan (1990)
+
+::: {.notes}
+- 「ランダム化の単位と分析の単位」という今日の教訓が次回の主役級の論点になる、という円環で締める。
+:::

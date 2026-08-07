@@ -1,0 +1,927 @@
+---
+title: "Lecture 2：離散選択モデル1"
+subtitle: "logitで需要を考える｜計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  revealjs:
+    theme: [default, ../slides_theme.scss]
+    slide-number: c/t
+    embed-resources: true
+    transition: none
+    center: false
+    width: 1180
+    height: 700
+    margin: 0.08
+    fig-width: 8
+    fig-height: 4.2
+    code-line-numbers: false
+    incremental: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+
+set.seed(20262)
+
+theme_slide <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 15, base_family = fam)
+}
+theme_set(theme_slide())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+## 今日の流れ（90分）
+
+| 時間 | 内容 |
+|---|---|
+| 10分 | Quiz（解答5分 + 解説5分） |
+| 8分 | 導入：なぜ回帰では足りないか |
+| 10分 | Random Utility Model（RUM） |
+| 12分 | Gumbel分布とlogit公式 |
+| 4分 | シミュレーションで公式を確かめる |
+| 3分 | Outside option |
+| 14分 | 最尤法（今日の新しい道具） |
+| 12分 | 自作MLEでlogitを推定する |
+| 10分 | 価格弾力性とプライシング |
+| 2分 | まとめ・宿題・次回予告 |
+
+::: {.notes}
+- 今日のメイン: RUM → logit公式 → 最尤法 → 弾力性、という一本道。
+- 「最尤法が今日の一番の新出概念」であることを最初に宣言しておく。
+:::
+
+## Quiz（前回の復習・10分）
+
+::: {.nonincremental}
+
+- 配布した Quiz 2 に解答する（**5分**、メモ・ノート参照可）
+- そのあと解説（**5分**）
+- 採点はしない。前回の内容のセルフチェックとして使うこと
+
+:::
+
+::: {.notes}
+- 解答5分 → 解説5分。解説は別資料 quiz2_solution を使う（スライドには載せない）。
+- 3問とも第1回の核心（予測vs因果、価格の内生性、反実仮想）に対応。
+- 設問2（価格の内生性）が次回・第3回の主役になる、という伏線を解説時に一言。
+:::
+
+# 導入：なぜ回帰では足りないか {background-color="#1f3552"}
+
+::: {.notes}
+- ここから本編75分。この節は8分。
+:::
+
+## 前回とのつながり
+
+- 第1回：予測・因果効果・反実仮想は**別のタスク**
+- 「価格を上げたら需要はどう動くか」という反実仮想には、単純な回帰では役不足だった
+- 今回から数回かけて、**反実仮想に答えるための道具**＝離散選択モデルを作る
+
+::: {.keybox .fragment}
+今日のゴール：最も基本的な離散選択モデル **multinomial logit（MNL）** を、自分の手で書き、推定し、プライシングの問いに答えるところまで。
+:::
+
+::: {.notes}
+- 「覚えていなくても大丈夫、これから何度も出てくる」と安心させる。
+:::
+
+## 今日押さえたいこと
+
+1. 「複数の商品から1つ選ぶ」状況を **random utility model（RUM）** として定式化できる
+2. Gumbel分布を仮定すると選択確率が**閉形式（logit公式）**になる理由が分かる
+3. **最尤法（MLE）**をコイン投げから出発してlogitまで追える
+4. `optim()` で自作対数尤度を最大化し、**真値回収**を確認できる
+5. **価格弾力性**の式から「値上げしたら客がどこへ流れるか」に答えられる
+
+::: {.notes}
+- 3が今日一番の新出概念。計量Iでは最尤法は未習。
+:::
+
+## 缶コーヒー棚の問題
+
+あなたはコンビニの飲料担当。棚には3ブランドの缶コーヒー（A, B, C）。
+
+客の選択肢は4つ：
+
+- ブランドAを買う / Bを買う / Cを買う
+- **何も買わずに立ち去る**（outside option）
+
+本当に知りたい問い：
+
+> Aを10円値上げしたら、Aの売上は何%減るか。減った分の客は **Bに流れるのか、Cに流れるのか、「買わない」を選ぶのか**。
+
+::: {.notes}
+- アウトカムは売上金額でも購入量でもなく「どれを選んだか」というカテゴリカルな1つの選択。
+- この「どこへ流れるか」が今日から3回分のテーマ。
+:::
+
+## 単品回帰では答えられない
+
+- 「Aの売上」を「Aの価格」に回帰 → 弾力性らしき数字は出る
+- しかし**流出先の情報が式に入っていない**
+- B・C・outsideのシェアが**同時にどう動くか**を記述する枠組みが必要
+
+::: {.keybox .fragment}
+離散選択モデル＝「商品属性を条件とした、**選択の条件付き分布**」を書くこと。計量Iの「モデル＝条件付き分布の束」の続きである。
+:::
+
+::: {.notes}
+- 棚割り・価格改定の実務はまさに「シェアの再配分」の予測。POSデータから代替関係を読むにはこの枠組みが要る。
+:::
+
+# Random Utility Model {background-color="#1f3552"}
+
+::: {.notes}
+- この節は10分。
+:::
+
+## 効用の分解
+
+消費者 $i$ が財 $j = 0, 1, \ldots, J$ から1つを選ぶ（$j=0$ はoutside option）。
+
+$$
+u_{ij} = v_{ij} + \varepsilon_{ij}
+$$
+
+- $v_{ij}$：**観測できる属性**（価格・甘さ・ブランド）から決まる決定的な部分
+- $\varepsilon_{ij}$：分析者には**観測できない**ランダムな部分
+
+::: {.notes}
+- 「分析者にとってランダム」であって、消費者本人にとってランダムとは限らない、というニュアンスを口頭で。
+:::
+
+## 選択ルール
+
+消費者は効用が最大の財を選ぶ。つまり、$i$ が財 $j$ を選ぶのは次のとき：
+
+$$
+u_{ij} \geq u_{ik} \quad \forall k = 0, 1, \ldots, J
+$$
+
+- $\varepsilon_{ij}$ がランダム → 選択も（分析者から見て）確率的
+- $\varepsilon$ の**分布を仮定**すれば、選択確率＝条件付き分布が書ける
+
+これが **random utility model（RUM）**。
+
+::: {.notes}
+- どの分布を仮定するかで選択確率の式の形が変わる。今日はGumbelを選ぶ、という流れを予告。
+:::
+
+## $\varepsilon_{ij}$ の中身：Manski (1977) の4分類
+
+1. **観測されない商品属性**：パッケージのデザインが好き、など
+2. **観測されない個人属性**：その日の気分・体調
+3. **関数形の誤指定**：真の効用が線形の $v_{ij}$ とズレている
+4. **選好そのものの不安定性**：同じ状況でも日によって違う選択
+
+. . .
+
+→ $\varepsilon_{ij}$ は「その他いろいろ」の受け皿
+
+::: {.notes}
+- この解釈は最尤法の話（モデルが確率を割り当てる）で効いてくる。
+- 記法の注意も口頭で：今回は単一市場なので v_ij。次回から複数市場で δ_jt = x'β − αp + ξ という記法になる。
+:::
+
+# Gumbel分布とlogit公式 {background-color="#1f3552"}
+
+::: {.notes}
+- この節は12分。今日の理論の山場その1。
+:::
+
+## $\varepsilon$ に何を仮定するか
+
+標準的な出発点：**Type I 極値分布（Gumbel分布）**
+
+$$
+F(\varepsilon) = \exp(-\exp(-\varepsilon))
+$$
+
+なぜ正規分布ではなくGumbelなのか？ → 次のスライドの3つの性質
+
+::: {.notes}
+- 正規分布を仮定するとprobitモデル。選択確率が多次元積分になり計算が重い。
+:::
+
+## Gumbelを選ぶ3つの理由
+
+1. 2つの独立なGumbelの**差はロジスティック分布** → 2財の選択確率が閉形式
+2. 独立なGumbelの**最大値は再びGumbel**（max-stability）→ 選択肢が何個でも式が閉じる
+3. 結果として選択確率が**積分を含まない閉形式**で書ける
+
+::: {.warnbox .fragment}
+正規分布（probit）だと選択確率は多次元積分になり、数値計算が格段に重くなる。
+:::
+
+::: {.notes}
+- 「計算の都合で選んでいる」ことを隠さない。それでも実用上十分うまく機能してきた、という歴史。
+:::
+
+## logit公式
+
+消費者 $i$ が財 $j$ を選ぶ確率：
+
+$$
+s_{ij} = \frac{\exp(v_{ij})}{\sum_{k=0}^{J} \exp(v_{ik})}
+$$
+
+- 分子：その財の魅力度 $\exp(v_{ij})$
+- 分母：全選択肢の魅力度の合計
+- **multinomial logit（MNL）** の選択確率
+
+::: {.keybox .fragment}
+70%理解できたら先へ。導出はノートの折りたたみcalloutにある。あとで戻ればいい。
+:::
+
+::: {.notes}
+- 「魅力度のシェア」という読み方を強調。exp は魅力度を正に保つ変換。
+:::
+
+## 導出の入り口：2財の場合
+
+財0と財1のみ。財1を選ぶ確率は
+
+$$
+P(u_{i1} > u_{i0}) = P(\varepsilon_{i0} - \varepsilon_{i1} < v_{i1} - v_{i0})
+$$
+
+. . .
+
+Gumbelの差はロジスティック分布 $\Lambda(x) = 1/(1+e^{-x})$ に従うので
+
+$$
+P(u_{i1} > u_{i0}) = \Lambda(v_{i1} - v_{i0}) = \frac{\exp(v_{i1})}{\exp(v_{i0}) + \exp(v_{i1})}
+$$
+
+. . .
+
+→ logit公式の $J = 1$ の場合そのもの
+
+::: {.notes}
+- J財の一般証明は max-stability を使って積分が閉じる（ノート参照）。板書するならここで2財版だけ。
+- 「他の分布ではこの積分は閉じない」を再度強調。
+:::
+
+## $J$ 財の場合（結論だけ）
+
+- 財 $j$ を選ぶ確率を $\varepsilon_{ij}$ で条件付け → 独立性から積の形
+- Gumbel密度で積分すると、**max-stabilityのおかげで積分が閉じる**
+
+$$
+s_{ij} = \frac{\exp(v_{ij})}{\sum_{k=0}^{J}\exp(v_{ik})}
+$$
+
+- 完全な導出はノートの「導出：logitの選択確率」callout
+
+でも、導出を信じられなくても大丈夫。**シミュレーションが正しさを教えてくれる。**
+
+::: {.notes}
+- ここから計量IIの一貫した立場：「モデルを書ければシミュレーションできる。シミュレーションできれば数式を実験で確かめられる」。
+:::
+
+# シミュレーションで公式を確かめる {background-color="#1f3552"}
+
+::: {.notes}
+- この節は4分。
+:::
+
+## Gumbel乱数は `runif()` から作れる
+
+$U \sim \text{Uniform}(0,1)$ のとき $-\log(-\log(U))$ はGumbel分布に従う（逆関数法）。
+
+```{r}
+#| label: gumbel-sim
+#| echo: true
+#| output-location: fragment
+draw_gumbel <- function(n) -log(-log(runif(n)))
+
+J <- 3; N <- 100000
+delta_true <- c(0.8, 0.3, -0.2)              # ブランドA, B, C（outside = 0）
+
+eps    <- matrix(draw_gumbel(N * (J + 1)), N, J + 1)
+u      <- sweep(eps, 2, c(0, delta_true), "+")
+choice <- apply(u, 1, which.max) - 1          # 0 = outside, 1..3 = A, B, C
+```
+
+10万人に効用を引かせて、最大の選択肢を選ばせるだけ。
+
+::: {.notes}
+- RUMの定義をそのままコードにしただけ、という点を強調。logit公式はどこにも書いていない。
+:::
+
+## 経験頻度 vs logit理論確率
+
+```{r}
+#| label: fig-gumbel-check
+#| fig-height: 3.8
+emp_freq <- sapply(0:J, function(j) mean(choice == j))
+denom <- 1 + sum(exp(delta_true))
+theory_prob <- c(1 / denom, exp(delta_true) / denom)
+
+compare_df <- data.frame(
+  alt = factor(c("outside", "A", "B", "C"), levels = c("outside", "A", "B", "C")),
+  empirical = emp_freq,
+  logit_formula = theory_prob
+)
+
+plot_df <- compare_df %>%
+  pivot_longer(cols = c(empirical, logit_formula), names_to = "type", values_to = "prob")
+
+ggplot(plot_df, aes(x = alt, y = prob, fill = type)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  scale_fill_manual(values = c("empirical" = "#4C72B0", "logit_formula" = "#DD8452"),
+                    labels = c("シミュレーション頻度", "logit理論確率")) +
+  labs(x = "選択肢", y = "確率", fill = "",
+       title = "Gumbel乱数からの選択 vs logit公式（N = 100,000）") +
+  theme(legend.position = "top")
+```
+
+2本の棒はほぼ完全に重なる。logit公式は「魔法の数式」ではなく、**Gumbel + RUM の機械的な帰結**。
+
+::: {.notes}
+- 「導出を信じられない人も、これで納得してほしい」。
+- Nを増やせば理論値に収束していく（大数の法則）。
+:::
+
+# Outside option {background-color="#1f3552"}
+
+::: {.notes}
+- この節は3分。短いが実務では重要な論点。
+:::
+
+## 効用は「差」しか意味を持たない
+
+- 選択確率に効くのは $u_{ij} - u_{ik}$ のみ → 効用の**レベルには意味がない**
+- どれか1つの選択肢の決定的効用を**0に正規化**する必要
+- 慣習：outside option（$j = 0$）を $v_{i0} = 0$ とする
+
+::: {.notes}
+- 全員の効用に定数を足しても選択は変わらない、という説明で十分。
+:::
+
+## 実務の悩み：市場規模の定義
+
+「買わない」に**誰を含めるか**：
+
+- 棚の前を通って買わなかった人？ 来店客全員？ 商圏人口？
+- ペットボトルコーヒーを買った人は「缶コーヒーを買わない」に含める？
+
+::: {.warnbox .fragment}
+市場規模の設定次第で outside のシェアが変わり、**価格弾力性の計算結果も変わる**。実務ではこの定義自体が分析の質を左右する。
+:::
+
+今日は単純化して「棚の前でN人が選ぶ」という設定で進める。
+
+::: {.notes}
+- 第4-5回の合併分析・市場画定でこの論点が本格的に再登場する、と予告。
+:::
+
+# 最尤法 {background-color="#1f3552"}
+
+::: {.notes}
+- この節は14分。今日の理論の山場その2。計量IIで初出の推定方法なのでじっくり。
+:::
+
+## 推定量とは「関数」である
+
+計量Iの言い方：**推定量＝データをパラメータの推定値に変換する関数**
+
+- OLS：$(X, Y) \mapsto \hat\beta = (X'X)^{-1}X'Y$
+- 最尤法：**同じくデータから推定値への関数**。ただし関数の「作り方」の発想が違う
+
+今日の課題：$v_{ij}$ の中の価格係数・属性への好みを、選択データから推定したい。
+
+::: {.notes}
+- 「新しい推定原理を1つ手に入れる回」という位置づけ。
+- GMM（第3回以降）も同じく「関数の作り方」の別の発想、と軽く予告してもよい。
+:::
+
+## コイン投げから始める
+
+コインを $n$ 回投げて表が $x$ 回。表の出る確率 $p$ が未知パラメータ。
+
+このデータが観測される確率（**尤度**）：
+
+$$
+L(p) = \binom{n}{x} p^x (1-p)^{n-x}
+$$
+
+::: {.keybox .fragment}
+最尤法のアイデア：「**今観測されたデータが得られる確率が一番高くなる $p$** を推定値として採用する」
+:::
+
+::: {.notes}
+- 尤度＝「パラメータの候補値ごとに、手元のデータの出やすさを測ったもの」。
+- pを横軸に取り直した関数として見る、という頭の切り替えが肝。
+:::
+
+## 対数尤度
+
+実際には対数を取った**対数尤度**を最大化する：
+
+$$
+\ell(p) = \ln L(p) = \text{const} + x \ln p + (n - x)\ln(1 - p)
+$$
+
+- 対数は単調変換 → 最大化する $p$ は同じ
+- 多数の観測の尤度は**積** → 対数を取れば**和**になり数値的に安定
+
+::: {.notes}
+- 「確率の積は瞬時にアンダーフローする」ことを口頭で。10^-300の世界。
+:::
+
+## 対数尤度のかたち：n = 20, x = 14
+
+```{r}
+#| label: fig-coin-likelihood
+#| fig-height: 3.9
+n_coin <- 20
+x_coin <- 14
+p_grid <- seq(0.01, 0.99, by = 0.01)
+loglik_coin <- x_coin * log(p_grid) + (n_coin - x_coin) * log(1 - p_grid)
+
+coin_df <- data.frame(p = p_grid, loglik = loglik_coin)
+p_hat_coin <- x_coin / n_coin
+
+ggplot(coin_df, aes(x = p, y = loglik)) +
+  geom_line(color = "#4C72B0", linewidth = 1) +
+  geom_vline(xintercept = p_hat_coin, linetype = "dashed", color = "#C44E52") +
+  annotate("text", x = p_hat_coin + 0.07, y = min(loglik_coin) + 3,
+           label = paste0("p_hat = ", p_hat_coin), color = "#C44E52", size = 5) +
+  labs(x = "p（表が出る確率の候補値）", y = "対数尤度",
+       title = "対数尤度を最大にする p を探す")
+```
+
+- ピークは $\hat p = x/n = 0.7$（標本比率そのもの。直感と一致）
+- コインは解析解が出る。**logitは出ない → 数値的にピークを探す**
+
+::: {.notes}
+- 微分して0とおけば x/n が出る、と一言。
+- 「山を数値的に登る」＝optim、という次の話へのブリッジ。
+:::
+
+## logitの対数尤度
+
+$y_{ij}$：消費者 $i$ が財 $j$ を選んだら1。選択確率を $s_{ij}(\theta)$ と書くと
+
+$$
+\ell(\theta) = \sum_{i=1}^{N} \sum_{j=0}^{J} y_{ij} \ln s_{ij}(\theta)
+$$
+
+- 「各消費者が**実際に選んだ財**の選択確率の対数」を足し合わせたもの
+- 観測された選択パターンに高い確率を割り当てる $\theta$ ほど $\ell(\theta)$ が大きい
+
+::: {.notes}
+- θには価格係数や属性への好みが入っている。
+- y_ij はダミーなので、実質「選んだ財のlog確率の合計」。
+:::
+
+## うれしい性質：大域凹性
+
+logitの対数尤度は $\theta$ について**大域的に凹**（山が1つ）
+
+- どこから探索を始めても同じ頂上（大域的最適解）に着く
+- 初期値の選び方に神経質にならなくてよい
+
+::: {.warnbox .fragment}
+これはlogitの特権。後の回の動学的離散選択モデルなどでは、こうはいかない。
+:::
+
+::: {.notes}
+- 後で optim の初期値を全部0にするが、その安心感の根拠がこれ。
+:::
+
+# 自作MLEでlogitを推定する {background-color="#1f3552"}
+
+::: {.notes}
+- この節は12分。手を動かすパート。
+:::
+
+## DGP：缶コーヒー棚に戻る
+
+N = 3,000人が、3ブランド + outside から選択。属性は**価格**と**甘さ**。
+
+$$
+v_{ij} = c_j + \beta_s \cdot \mathrm{sweet}_j - \alpha \cdot \mathrm{price}_j
+$$
+
+- ブランド固有の切片：$c_A = \mathrm{const}_A$、$c_B = \mathrm{const}_B$、$c_C = 0$（Cが基準）
+- outside option：$v_{i0} = 0$
+
+```{r}
+#| label: dgp-params
+#| echo: true
+#| output-location: fragment
+N <- 3000
+true_params <- list(const_A = 1.2, const_B = 0.6,
+                    beta_sweet = 0.5, alpha_price = 0.02)
+price_base <- c(130, 120, 110)   # 円
+sweetness  <- c(3, 6, 5)          # 1-10スケール
+```
+
+::: {.notes}
+- alpha_price = 0.02 は恣意的でない：0.02 × 130円 ≈ 2.6 の効用差になるスケール合わせ。
+- このスケール感覚はシミュレーションを自分で書いて初めて身につく（宿題）。
+:::
+
+## 生成されたデータ：選択シェア
+
+```{r}
+#| label: dgp-run
+#| include: false
+simulate_coffee_choice <- function(n, price_base, sweetness, params) {
+  price_noise <- matrix(rnorm(n * 3, mean = 0, sd = 8), nrow = n, ncol = 3)
+  price <- sweep(price_noise, 2, price_base, "+")
+  price <- pmin(pmax(price, 60), 200)
+
+  delta <- cbind(
+    params$const_A + params$beta_sweet * sweetness[1] - params$alpha_price * price[, 1],
+    params$const_B + params$beta_sweet * sweetness[2] - params$alpha_price * price[, 2],
+    0              + params$beta_sweet * sweetness[3] - params$alpha_price * price[, 3]
+  )
+  delta_full <- cbind(0, delta)
+
+  eps <- matrix(draw_gumbel(n * 4), nrow = n, ncol = 4)
+  u <- delta_full + eps
+  choice <- apply(u, 1, which.max) - 1
+
+  list(choice = choice, price = price)
+}
+
+sim_data <- simulate_coffee_choice(N, price_base, sweetness, true_params)
+choice_vec <- sim_data$choice
+price_mat  <- sim_data$price
+```
+
+```{r}
+#| label: fig-share
+#| fig-height: 3.8
+share_df <- data.frame(
+  alt = factor(c("outside", "A", "B", "C"), levels = c("outside", "A", "B", "C")),
+  share = as.numeric(table(factor(choice_vec, levels = 0:3)) / N)
+)
+
+ggplot(share_df, aes(x = alt, y = share, fill = alt)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  scale_fill_manual(values = c("outside" = "gray70", "A" = "#4C72B0",
+                               "B" = "#DD8452", "C" = "#55A868")) +
+  labs(x = "選択肢", y = "シェア", title = "缶コーヒー棚：選択シェア（N = 3,000）")
+```
+
+- Bが最も甘く（sweet = 6）、シェアも最大。直感的に妥当な分布
+- 価格には個人ごとの変動（プロモーション・店舗差）を入れてある
+
+::: {.notes}
+- 価格変動がないと価格係数が識別できない、という点を口頭で（次回の内生性の伏線でもある）。
+:::
+
+## 負の対数尤度を自分で書く
+
+```{r}
+#| label: loglik-def
+#| echo: true
+#| output-location: fragment
+neg_loglik_mnl <- function(theta, X, choice) {
+  n <- dim(X)[1]; J1 <- dim(X)[2]
+  V <- matrix(0, nrow = n, ncol = J1)
+  for (j in 1:J1) V[, j] <- X[, j, ] %*% theta
+  V <- V - apply(V, 1, max)          # オーバーフロー対策（確率は不変）
+  expV <- exp(V)
+  denom <- rowSums(expV)
+  chosen_idx <- cbind(1:n, choice + 1)
+  logprob <- V[chosen_idx] - log(denom)
+  -sum(logprob)
+}
+```
+
+- `X` は（消費者 × 選択肢 × パラメータ）の説明変数の配列
+- 数式 $\ell(\theta) = \sum_i \sum_j y_{ij} \ln s_{ij}(\theta)$ をそのまま書いただけ
+- `optim()` は最小化するので**負**の対数尤度を返す
+
+::: {.notes}
+- 各行の最大値を引くトリック：exp のオーバーフロー対策。分母分子に同じ定数がかかるので確率は変わらない。実装上の定番。
+:::
+
+## `optim()` で最大化
+
+```{r}
+#| label: build-design
+#| include: false
+build_design <- function(price, sweetness) {
+  n <- nrow(price)
+  X <- array(0, dim = c(n, 4, 4))
+  X[, 2, 1] <- 1
+  X[, 2, 3] <- sweetness[1]
+  X[, 2, 4] <- -price[, 1]
+  X[, 3, 2] <- 1
+  X[, 3, 3] <- sweetness[2]
+  X[, 3, 4] <- -price[, 2]
+  X[, 4, 3] <- sweetness[3]
+  X[, 4, 4] <- -price[, 3]
+  X
+}
+X_design <- build_design(price_mat, sweetness)
+```
+
+```{r}
+#| label: optim-run
+#| echo: true
+#| output-location: fragment
+opt_result <- optim(
+  par = c(0, 0, 0, 0),               # 初期値は全部0でよい（大域凹性）
+  fn = neg_loglik_mnl,
+  X = X_design, choice = choice_vec,
+  method = "BFGS", hessian = TRUE
+)
+theta_hat <- opt_result$par
+names(theta_hat) <- c("const_A", "const_B", "beta_sweet", "alpha_price")
+round(theta_hat, 4)
+```
+
+::: {.notes}
+- BFGS：勾配を使う準ニュートン法。凹な山を登るには十分。
+- hessian = TRUE は次の推論ステップの布石。
+:::
+
+## 真値回収の確認
+
+```{r}
+#| label: recovery-table
+true_theta <- c(true_params$const_A, true_params$const_B,
+                true_params$beta_sweet, true_params$alpha_price)
+
+recovery_df <- data.frame(
+  parameter = c("const_A", "const_B", "beta_sweet", "alpha_price"),
+  true_value = true_theta,
+  estimate = round(theta_hat, 4)
+)
+knitr::kable(recovery_df, col.names = c("パラメータ", "真値", "MLE推定値"))
+```
+
+::: {.keybox .fragment}
+**真値回収（parameter recovery）**：DGPを自分で書き、真のパラメータでデータを作り、推定量がそれを復元できるか確かめる。**新しい推定量を実装したら、必ず最初にやるべき検証**。
+:::
+
+::: {.notes}
+- 実データでは真値は分からない。シミュレーションでだけ分かる。だからこの手順に価値がある。
+- 計量IIを通して毎回この型を使う。
+:::
+
+## 推論：HessianからSEと信頼区間
+
+MLEの漸近論：$\hat\theta$ は正規分布に近づき、分散共分散行列は（負の対数尤度の）**Hessianの逆行列**で近似できる。
+
+```{r}
+#| label: se-ci
+vcov_hat <- solve(opt_result$hessian)
+se_hat <- sqrt(diag(vcov_hat))
+
+inference_df <- data.frame(
+  parameter = c("const_A", "const_B", "beta_sweet", "alpha_price"),
+  true_value = true_theta,
+  estimate = round(theta_hat, 4),
+  se = round(se_hat, 5),
+  ci_lower = round(theta_hat - 1.96 * se_hat, 4),
+  ci_upper = round(theta_hat + 1.96 * se_hat, 4)
+)
+knitr::kable(inference_df,
+             col.names = c("パラメータ", "真値", "推定値", "SE", "95%CI下限", "95%CI上限"))
+```
+
+- 真値はすべて95%信頼区間の中
+- **推定値だけでなく不確実性まで報告する**——計量Iから変わらない推論の作法
+
+::: {.notes}
+- optim(hessian=TRUE) が返すのは負の対数尤度のHessianなので、そのままsolveすればよい。
+:::
+
+## モンテカルロ：95%CIは本当に95%か
+
+同じDGPからデータを引き直し、推定→CI構築を繰り返して**被覆率**を数える。
+
+::: {.fragment}
+
+```{r}
+#| label: montecarlo
+#| fig-height: 3.7
+n_mc <- 200
+alpha_hat_mc <- numeric(n_mc)
+covered_mc <- logical(n_mc)
+
+for (m in 1:n_mc) {
+  sim_m <- simulate_coffee_choice(N, price_base, sweetness, true_params)
+  X_m <- build_design(sim_m$price, sweetness)
+  opt_m <- optim(par = c(0, 0, 0, 0), fn = neg_loglik_mnl,
+                 X = X_m, choice = sim_m$choice, method = "BFGS", hessian = TRUE)
+  alpha_hat_mc[m] <- opt_m$par[4]
+  vcov_m <- tryCatch(solve(opt_m$hessian), error = function(e) NULL)
+  if (!is.null(vcov_m)) {
+    se_m <- sqrt(diag(vcov_m))[4]
+    covered_mc[m] <- (opt_m$par[4] - 1.96 * se_m <= true_params$alpha_price) &&
+                     (true_params$alpha_price <= opt_m$par[4] + 1.96 * se_m)
+  } else {
+    covered_mc[m] <- NA
+  }
+}
+coverage_rate <- mean(covered_mc, na.rm = TRUE)
+
+mc_df <- data.frame(alpha_hat = alpha_hat_mc)
+ggplot(mc_df, aes(x = alpha_hat)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30, fill = "#4C72B0", alpha = 0.7) +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(alpha_hat_mc), sd = sd(alpha_hat_mc)),
+                color = "#C44E52", linewidth = 1) +
+  geom_vline(xintercept = true_params$alpha_price, linetype = "dashed", color = "black") +
+  labs(x = expression(hat(alpha)), y = "density",
+       title = paste0("alpha_price の標本分布（モンテカルロ", n_mc,
+                      "回、被覆率 = ", round(coverage_rate, 3), "）"))
+```
+
+:::
+
+::: {.notes}
+- ヒストグラムは正規分布に近く、被覆率もおおむね0.95近辺（乱数次第で0.93〜0.97程度に上下）。
+- 「モデルを書く→シミュレーション→推定→反復して性質を確かめる」は計量IIで何度も使う型。
+:::
+
+# 価格弾力性とプライシング {background-color="#1f3552"}
+
+::: {.notes}
+- この節は10分。推定結果をビジネスの問いに接続するパート。
+:::
+
+## 推定の先にある問い
+
+パラメータが手に入った。次は本題：
+
+> **Aを値上げしたら、Aのシェアはどれくらい減るか。客はどこへ流れるか。**
+
+. . .
+
+logitモデルなら、弾力性が**閉形式**で書ける。
+
+$$
+\eta_{jj} = -\alpha \, p_j \,(1 - s_j), \qquad
+\eta_{jk} = \alpha \, p_k \, s_k \quad (k \neq j)
+$$
+
+- $\eta_{jj}$：自己価格弾力性（自分の値上げで自分のシェアが減る）
+- $\eta_{jk}$：交差価格弾力性（他財 $k$ の値上げで自分のシェアが増える）
+
+::: {.notes}
+- 導出はシェアの式を価格で微分するだけ（ノートの折りたたみcallout）。
+- ∂s_j/∂p_j = −α s_j(1−s_j)、∂s_j/∂p_k = α s_j s_k。
+:::
+
+## 推定値で弾力性行列を計算する
+
+```{r}
+#| label: elasticity
+compute_shares <- function(theta, price, sweetness) {
+  X_j <- build_design(price, sweetness)
+  n <- dim(X_j)[1]; J1 <- dim(X_j)[2]
+  V <- matrix(0, nrow = n, ncol = J1)
+  for (j in 1:J1) V[, j] <- X_j[, j, ] %*% theta
+  V <- V - apply(V, 1, max)
+  expV <- exp(V)
+  expV / rowSums(expV)
+}
+
+avg_price_mat <- matrix(price_base, nrow = 1)
+shares_avg <- compute_shares(theta_hat, avg_price_mat, sweetness)[1, ]
+alpha_est <- theta_hat[4]
+p_full <- c(NA, price_base)
+
+elasticity_mat <- matrix(NA, 3, 3, dimnames = list(c("A", "B", "C"), c("A", "B", "C")))
+for (j in 1:3) {
+  for (k in 1:3) {
+    if (j == k) {
+      elasticity_mat[j, k] <- -alpha_est * p_full[j + 1] * (1 - shares_avg[j + 1])
+    } else {
+      elasticity_mat[j, k] <- alpha_est * p_full[k + 1] * shares_avg[k + 1]
+    }
+  }
+}
+knitr::kable(round(elasticity_mat, 4),
+             caption = "弾力性行列（行 = シェアが変化する財、列 = 価格が変化する財）")
+```
+
+::: {.notes}
+- 対角：自己弾力性（負）。非対角：交差弾力性（正）。
+- 「この表、よく見ると変なところがある」と問いかけてから次のスライドへ。学生に1分考えさせてもよい。
+:::
+
+## この表、どこか変じゃないか？
+
+. . .
+
+**B列（Bの値上げ）を縦に見る**：$\eta_{A,B} = \eta_{C,B}$ —— 完全に同じ値。
+
+- Bの値上げから受ける恩恵が、AとCで**まったく同じ**
+- 交差弾力性 $\eta_{jk} = \alpha p_k s_k$ に**自分（$j$）の情報が入っていない**
+- Aが「Bと似た甘い缶コーヒー」でもCが「無糖ブラック」でも、流入シェアは同じ？
+
+::: {.warnbox .fragment}
+**IIA（Independence of Irrelevant Alternatives）**：logitモデルに内在する制約。財の「似ている度合い」を代替パターンに反映できない。→ **次回のテーマ**
+:::
+
+::: {.notes}
+- 今日は「へえ、そうなんだ」で十分。次回nested logitでこの制約を緩める。
+- 実務でも新プラン追加時のカニバリゼーション予測でIIAが問題になる。
+:::
+
+## 価格を動かすと：シェアと収入
+
+```{r}
+#| label: fig-pricing-curve
+#| fig-height: 3.9
+price_grid <- seq(80, 200, by = 2)
+share_A_grid <- numeric(length(price_grid))
+revenue_A_grid <- numeric(length(price_grid))
+
+for (i in seq_along(price_grid)) {
+  p_try <- price_base
+  p_try[1] <- price_grid[i]
+  s_try <- compute_shares(theta_hat, matrix(p_try, nrow = 1), sweetness)[1, ]
+  share_A_grid[i] <- s_try[2]
+  revenue_A_grid[i] <- price_grid[i] * s_try[2]
+}
+
+pricing_df <- data.frame(price = price_grid, share = share_A_grid, revenue = revenue_A_grid)
+
+p1 <- ggplot(pricing_df, aes(x = price, y = share)) +
+  geom_line(color = "#4C72B0", linewidth = 1) +
+  labs(x = "ブランドAの価格（円）", y = "予測シェア", title = "価格 vs 予測シェア")
+
+p2 <- ggplot(pricing_df, aes(x = price, y = revenue)) +
+  geom_line(color = "#DD8452", linewidth = 1) +
+  geom_vline(xintercept = pricing_df$price[which.max(pricing_df$revenue)],
+             linetype = "dashed", color = "gray40") +
+  labs(x = "ブランドAの価格（円）", y = "予測収入（価格 × シェア）", title = "価格 vs 予測収入")
+
+p1 + p2
+```
+
+- 収入曲線に**山の頂点**＝収入を最大化する価格が現れる
+- シェアの下がり方と価格の上がり方のバランスから、最適な一点が定まる
+
+::: {.notes}
+- これが「需要推定がプライシングの意思決定に直結する瞬間」。
+- サブスクのプラン価格・POSデータからの棚割りも同じ構造（ノートの「ビジネスの現場で」参照）。
+:::
+
+## ここが核心
+
+::: {.keybox .fragment}
+- RUM：$u_{ij} = v_{ij} + \varepsilon_{ij}$、効用最大の財を選ぶ
+- Gumbel仮定 → 選択確率が閉形式のlogit公式になる（シミュレーションで確認済み）
+- 最尤法：「観測されたデータが最も出やすいパラメータ」を選ぶ。`optim()` で自作できる
+- HessianからSE・CI。モンテカルロで被覆率を検証できる
+- 弾力性は閉形式：$\eta_{jj} = -\alpha p_j(1-s_j)$、$\eta_{jk} = \alpha p_k s_k$ → プライシングに直結
+- ただし**IIA**という制約つき → 次回
+:::
+
+::: {.notes}
+- 1枚で今日を振り返る。ここまでで73分目安。
+:::
+
+# まとめ {background-color="#1f3552"}
+
+## 宿題
+
+::: {.nonincremental}
+
+- `optim()` の `method` を `"Nelder-Mead"` や `"CG"` に変えて、推定値がどう変わるか（変わらないか）確認する
+- 生成AIに「なぜ離散選択モデルはGumbel分布を使うのか、正規分布ではダメなのか」と聞いて、今日の説明と比べる
+- **coding課題は `assignment2.qmd`**：動画配信サービスのプラン選択を題材に、DGP→自作MLE→推論→反実仮想を自分の手で実装
+
+:::
+
+::: {.notes}
+- 課題は手を動かせば2〜4時間の分量。ヒントcalloutも用意してある。
+:::
+
+## 次回予告：logitの限界に切り込む
+
+- 今日の弾力性表で見た違和感の正体＝**IIA**を正面から扱う
+- 代替性を柔軟にする **nested logit**
+- 価格が需要ショックと相関する**内生性**（Quiz設問2の世界）と、**Berry反転 + 操作変数法**
+- 缶コーヒーの例が、さらに複雑になって再登場する
+
+**Reading**：上武ほか『実証ビジネス・エコノミクス』第3章、Berry (1994)
+
+::: {.notes}
+- Quiz設問2（価格の内生性）が次回の主役になる、という円環を最後に示す。
+:::

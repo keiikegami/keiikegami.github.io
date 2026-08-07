@@ -1,0 +1,276 @@
+---
+title: "課題11：動画サブスクの解約引き留めクーポンとuplift targeting"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(fixest)
+library(grf)
+
+set.seed(20261)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+## この課題について
+
+第11回の講義では、通信キャリアの解約引き留めクーポンRCTを題材に、「解約リスクが高い人ほど施策が効く」という直感が裏切られうること（Ascarza 2018 の教訓）、CATEの推定（T-learner、causal forest）、Qini曲線によるターゲティング評価、IPWによる政策価値評価を学んだ。
+
+この課題では、**動画配信サブスクリプションの解約引き留めクーポンRCT**という別の設定で、同じ一連の技術を自分の手で実装する。
+
+- **Part 1**：自分でデータ生成過程（DGP）を書き、20,000人分の顧客RCTデータをシミュレーションで作る。「解約リスク」と「クーポンの効果（uplift）」が非単調な関係を持つように設計する。
+- **Part 2**：(i) ATEの推定、(ii) T-learnerによるCATE推定、(iii) causal forestによるCATE推定と2手法の比較、(iv) churnスコアtargeting vs upliftターゲティングのQini曲線と予算25%時点の比較、(v) 3つの候補ポリシーのIPW政策価値評価、(vi) 経営含意のとりまとめ、を行う。
+
+配点は合計100点。手を動かせば2〜4時間程度で終わる分量である。各設問にヒントcalloutを用意しているので、詰まったら遠慮なく開いてほしい。
+
+::: {.callout-important}
+## この課題のゴール
+
+- 「解約リスクの高さ」と「施策への感応度（uplift）」が別の量であることを、自分で作ったDGPの中で確認できるようになる。
+- T-learner（`feols`ベース）とcausal forest（`grf::causal_forest`）の両方でCATEを推定し、真値との対応を比較できるようになる。
+- Qini曲線を自分の手で実装し、churnスコア順のターゲティングがランダム以下になりうることを確認する。
+- IPW政策価値推定量を実装し、複数の候補ポリシーを信頼区間つきで比較できるようになる。
+:::
+
+## Part 1：RCTデータのシミュレーション設計（配点35点）
+
+### モデルの設定
+
+動画配信サービスの契約者20,000人を対象に、解約引き留めクーポン（月額の一部割引）を50%の確率でランダムに配布するRCTを実施したとする。共変量 $X$ は次の5つとする。
+
+- `usage_hours`：週あたりの視聴時間
+- `tenure_months`：契約継続月数
+- `billing_trouble`：過去の請求トラブル（クレーム・問い合わせ）の有無（0/1）
+- `satisfaction_score`：満足度アンケートに基づく潜在スコア（連続変数、平均0）
+- `device_count`：登録デバイス数
+
+クーポンなしでの解約確率は、次のロジスティックモデルに従うとする。
+
+$$
+\text{logit}\, P(\text{churn}=1 \mid X, D=0) = \beta_0 - \beta_1 \cdot \text{usage\_hours} - \beta_2 \cdot \text{tenure\_months} + \beta_3 \cdot \text{billing\_trouble} - \beta_4 \cdot \text{satisfaction\_score} + \beta_5 \cdot \text{device\_count}
+$$
+
+クーポンの真の効果（CATE）$\tau(x)$ は、解約確率を引き下げる量として定義し、次のような**非単調**な構造を持たせる。
+
+- 解約リスクが中位の層で効果が最大になる（山型のボーナス項）。
+- 過去に請求トラブルがあった層では効果が**負**になる（sleeping dogs）。
+- 解約リスクが非常に高い層では効果がほぼ消える。
+
+::: {.callout-tip}
+## ヒント：DGPを書く順番
+
+1. 5つの共変量を生成する（`runif`, `rgamma`, `rbinom`, `rnorm`, `sample`などを使い分ける）。
+2. `billing_trouble`は、他の共変量（例えば`satisfaction_score`）とゆるく相関する形で生成すると、後の分析で「解約リスクとuplift」の非単調性が見えやすくなる。
+3. クーポンなしの解約確率 `p_churn0` をロジスティックモデルで計算する。
+4. 真のCATE `tau_true` を、「中位リスクで山、`billing_trouble`で負、高リスクでほぼゼロ」という3つの項の和として作る。山の項は `exp(-0.5 * ((p_churn0 - center) / width)^2)` のような正規分布の密度に似た形が扱いやすい。
+5. 潜在アウトカム（クーポンありの解約確率 `p_churn0 - tau_true`、クーポンなしの解約確率 `p_churn0`）をそれぞれ `pmin(pmax(..., 0.001), 0.999)` でクリップしてから、`rbinom()`で実現値を作る。
+6. ランダムな処置割り当て`D`（50%）に応じて、観測される解約`churn_obs`を`ifelse()`で作る。
+:::
+
+### 設問1-1（15点）：パラメータとDGPコードの実装
+
+以下のパラメータを使って、20,000人分のデータを生成せよ。
+
+- ベース解約確率のロジット切片：$\beta_0 = -0.9$
+- `usage_hours`の係数：$-0.06$（`usage_hours ~ rgamma(shape=2.2, scale=2.5)`）
+- `tenure_months`の係数：$-0.015$（`tenure_months ~ runif(1, 48)`）
+- `billing_trouble`の係数：$+0.85$
+- `satisfaction_score`の係数：$-0.30$（`satisfaction_score ~ rnorm(0, 1)`）
+- `device_count`の係数：$+0.05$（`device_count`は1〜5の整数、`sample(1:5, ..., replace=TRUE)`）
+- `billing_trouble`の生成：`satisfaction_score`が低いほど、`usage_hours`が短いほど発生しやすいロジスティックモデル（切片$-1.5$、`satisfaction_score`の係数$+0.3$、`usage_hours`の係数$-0.02$）で確率を作り、`pmin(pmax(p, 0.02), 0.7)`でクリップしてから`rbinom()`
+- 真のCATEの山の中心：解約確率0.22、幅0.08、山の高さ0.14
+- `billing_trouble`によるsleeping dogs効果の大きさ：$-0.20$
+- 高リスク層（`p_churn0 > 0.45`）でのペナルティ：$-0.04$
+
+```{r}
+#| eval: false
+n <- 20000
+
+usage_hours <- ____________________
+tenure_months <- ____________________
+device_count <- ____________________
+satisfaction_score <- ____________________
+
+# billing_troubleの生成（satisfaction_score, usage_hoursに依存）
+logit_billing <- ____________________
+p_billing <- 1 / (1 + exp(-logit_billing))
+billing_trouble <- rbinom(n, 1, pmin(pmax(p_billing, 0.02), 0.7))
+
+# クーポンなしの解約確率
+logit_churn0 <- ____________________
+p_churn0 <- 1 / (1 + exp(-logit_churn0))
+risk_score <- pmin(pmax(p_churn0 + rnorm(n, 0, 0.02), 0.001), 0.999)
+
+# クーポンのランダム割り当て
+D <- rbinom(n, 1, 0.5)
+
+# 真のCATE
+mid_risk_bump <- ____________________
+tau_true <- ____________________
+
+# 潜在アウトカムと観測値の生成
+p_churn1 <- pmin(pmax(p_churn0 - tau_true, 0.001), 0.999)
+p_churn0_clipped <- pmin(pmax(p_churn0, 0.001), 0.999)
+
+churn_potential_0 <- rbinom(n, 1, p_churn0_clipped)
+churn_potential_1 <- rbinom(n, 1, p_churn1)
+churn_obs <- ifelse(D == 1, churn_potential_1, churn_potential_0)
+stay_obs <- 1 - churn_obs
+
+sub_df <- data.frame(
+  usage_hours = usage_hours, tenure_months = tenure_months,
+  billing_trouble = billing_trouble, satisfaction_score = satisfaction_score,
+  device_count = device_count, risk_score = risk_score,
+  D = D, churn = churn_obs, stay = stay_obs, tau_true = tau_true, p_churn0 = p_churn0
+)
+head(sub_df)
+```
+
+### 設問1-2（10点）：非単調性の可視化
+
+`risk_score`（横軸）と`tau_true`（縦軸）の散布図を、`geom_smooth()`（平滑化線）付きで描け。また、`cor(risk_score, tau_true)`を計算し、値の符号と大きさについてコメントせよ。
+
+::: {.callout-tip}
+## ヒント
+
+講義ノートの該当図とほぼ同じコードで描ける。負の相関になっていれば、「解約リスクが高いほどクーポンが効く」という直感が、このDGPでは成り立っていないことの数値的な確認になる。
+:::
+
+### 設問1-3（10点）：記述統計
+
+以下を表にまとめよ。
+
+- 5つの共変量それぞれの平均・標準偏差。
+- 処置群・対照群それぞれの解約率（`churn`の平均）。
+- `billing_trouble`が1の人と0の人それぞれの、平均`tau_true`（sleeping dogsの存在を数値で確認する）。
+
+## Part 2：推定・推論（配点65点）
+
+### 設問2-1（10点）：ATEの推定
+
+RCTデータなので、単純な群間差でATEが不偏に推定できる。`stay`（継続したかどうか）を使い、処置群と対照群の平均の差を計算し、その標準誤差・95%信頼区間も求めよ（`t.test()`を使ってよい）。真の値（`mean(tau_true)`）と比較せよ。
+
+::: {.callout-tip}
+## ヒント
+
+`t.test(stay ~ D, data = sub_df)`で群間差の検定と信頼区間が一度に得られる。ただし符号（処置群−対照群）に注意すること。
+:::
+
+### 設問2-2（10点）：T-learnerによるCATE推定
+
+`feols()`を使い、処置群・対照群それぞれで`stay ~ usage_hours + tenure_months + billing_trouble + satisfaction_score + device_count`を推定し、その予測値の差からCATE推定値 `tau_hat_tlearner` を作れ。`cor(tau_hat_tlearner, tau_true)`を計算し、講義ノートの数値（corr ≈ 0.9前後）と比較せよ。
+
+::: {.callout-tip}
+## ヒント：T-learnerの実装手順
+
+1. `mu1_fit <- feols(stay ~ ..., data = sub_df %>% filter(D == 1))`
+2. `mu0_fit <- feols(stay ~ ..., data = sub_df %>% filter(D == 0))`
+3. `predict(mu1_fit, newdata = sub_df)`と`predict(mu0_fit, newdata = sub_df)`を**全データ**に対して計算し、その差を取る（学習に使った標本だけでなく、全員に対して両方のモデルで予測値を計算する点に注意）。
+:::
+
+### 設問2-3（15点）：causal forestによるCATE推定と比較
+
+`grf::causal_forest(X, Y, W)`を使ってCATEを推定せよ。共変量行列`X`は5つの変数を`as.matrix()`でまとめたもの、`Y`は`stay`、`W`は`D`とする。`predict(cf)$predictions`で個人ごとのCATE推定値を取り出し、`tau_hat_cf`とせよ。
+
+(a) `cor(tau_hat_cf, tau_true)`を計算し、T-learnerの相関係数と比較する表を作れ。
+(b) `tau_true`（横軸）と`tau_hat_tlearner`・`tau_hat_cf`（縦軸、facetで2パネル）の散布図を、45度線付きで描け。
+(c) `average_treatment_effect(cf)`でATEを推定し、設問2-1の単純な群間差、真の値（`mean(tau_true)`）と並べた比較表を作れ。
+
+```{r}
+#| eval: false
+X_mat <- as.matrix(sub_df %>% select(____________________))
+Y_vec <- ____________________
+W_vec <- ____________________
+
+cf <- causal_forest(X_mat, Y_vec, W_vec)
+sub_df$tau_hat_cf <- predict(cf)$predictions
+```
+
+::: {.callout-tip}
+## ヒント：grfのAPIは最小限に
+
+`causal_forest()`と`predict()`、`average_treatment_effect()`以外のgrfの機能（tuning、variable importance、best linear projectionなど）は今回は使わなくてよい。この3つの関数だけで十分に今回の課題は完結する。
+:::
+
+### 設問2-4（15点）：Qini曲線と予算25%時点の比較
+
+講義ノートと同じ考え方で、以下を実装せよ。
+
+(a) `risk_score`順、`tau_hat_cf`順、ランダムの3つのターゲティング方針について、配布割合を横軸、累積増分継続者数（$(\overline{Y}_{D=1,\text{top-}k} - \overline{Y}_{D=0,\text{top-}k}) \times k$）を縦軸としたQini曲線を1枚の図に重ねて描け。
+(b) 配布割合25%の時点における3方針の累積増分継続者数を表にまとめよ。
+(c) churnスコア順のターゲティングが、25%時点でランダムと比べてどうなっているか（上回るか、下回るか、ほぼ同じか）を1〜2行でコメントせよ。
+
+::: {.callout-tip}
+## ヒント：Qini曲線の関数化
+
+講義ノートの`qini_curve()`関数をそのまま流用してよい。ランダムのベンチマークは、全体のATE（設問2-1で求めた値）に配布人数`k`を掛けた直線になる。
+:::
+
+### 設問2-5（10点）：3つの候補ポリシーのIPW評価
+
+次の3つの候補ポリシーについて、IPW政策価値とその95%信頼区間を計算し、1つの図（点推定＋エラーバー）で比較せよ。
+
+1. 全員にクーポンを配布する。
+2. `risk_score`上位25%にクーポンを配布する。
+3. `tau_hat_cf > 0`の人にクーポンを配布する。
+
+```{r}
+#| eval: false
+ipw_policy_value <- function(policy_mask, D, Y, e = 0.5) {
+  p_realized <- ifelse(D == 1, e, 1 - e)
+  matched <- ____________________
+  contrib <- ifelse(matched, Y / p_realized, 0)
+  n <- length(Y)
+  v_hat <- mean(contrib)
+  se_hat <- sd(contrib) / sqrt(n)
+  data.frame(v_hat = v_hat, se = se_hat,
+             ci_low = v_hat - 1.96 * se_hat, ci_high = v_hat + 1.96 * se_hat)
+}
+```
+
+::: {.callout-tip}
+## ヒント：matchedの中身
+
+`matched`は「実際の割り当て`D_i`が、評価したいポリシー`policy_mask[i]`と一致しているかどうか」を表す論理値ベクトルである。`policy_mask`は`TRUE`/`FALSE`（あるいは`1`/`0`）で「そのポリシーがこの人にクーポンを配るかどうか」を表しているので、`(D == 1) == policy_mask`のように書けばよい。
+:::
+
+### 設問2-6（5点）：経営含意3行
+
+あなたはこの動画配信サービスのCRM部門のアナリストである。上司から「解約リスクが高い会員に絞ってクーポンを配りたいので、リスクスコア上位のリストを月次で送ってほしい」と言われた。この課題の分析結果を踏まえて、**3行程度**で返信メモを書け。何が問題で、代わりにどうすべきかを簡潔に述べること。
+
+::: {.callout-tip}
+## ヒント
+
+(1) リスクスコアと施策効果（uplift）が別物であり、今回のデータではむしろ逆相関していたこと、(2) 実際に使うべきはuplift（causal forestの推定値）に基づくターゲティングであること、(3) 今後の運用では一部をランダムなholdoutとして残し、政策評価を継続できるようにすべきこと、の3点を意識するとよい。
+:::
+
+## 提出物
+
+- 本ファイル（`assignment11.qmd`）をレンダリングしたHTMLファイル。
+- 全てのコードチャンクが上から順に実行可能であること（`eval: false`のチャンクは自分で`eval: true`に直すか、コードをコピーして実行すること）。

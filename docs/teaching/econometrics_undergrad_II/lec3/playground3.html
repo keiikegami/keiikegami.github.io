@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Kei Ikegami">
+
+<title>Playground 3：代替性と内生性の実験室</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="playground3_files/libs/clipboard/clipboard.min.js"></script>
+<script src="playground3_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="playground3_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="playground3_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="playground3_files/libs/quarto-html/popper.min.js"></script>
+<script src="playground3_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="playground3_files/libs/quarto-html/anchor.min.js"></script>
+<link href="playground3_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="playground3_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="playground3_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="playground3_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="playground3_files/libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="playground3_files/libs/quarto-contrib/live-runtime/live-runtime.js" type="module"></script>
+<link href="playground3_files/libs/quarto-contrib/live-runtime/live-runtime.css" rel="stylesheet">
+<script type="module" src="playground3_files/libs/quarto-ojs/quarto-ojs-runtime.js"></script>
+<link href="playground3_files/libs/quarto-ojs/quarto-ojs.css" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul class="collapse">
+  <li><a href="#実験1ρをいじってiiaを壊す" id="toc-実験1ρをいじってiiaを壊す" class="nav-link active" data-scroll-target="#実験1ρをいじってiiaを壊す">実験1：ρをいじってIIAを壊す</a></li>
+  <li><a href="#実験2berry反転を目で見る" id="toc-実験2berry反転を目で見る" class="nav-link" data-scroll-target="#実験2berry反転を目で見る">実験2：Berry反転を目で見る</a></li>
+  <li><a href="#実験3価格内生性の強さとivによる回収" id="toc-実験3価格内生性の強さとivによる回収" class="nav-link" data-scroll-target="#実験3価格内生性の強さとivによる回収">実験3：価格内生性の強さとIVによる回収</a></li>
+  <li><a href="#実験4弾力性への波及-olsかivかで値上げの判断が変わる" id="toc-実験4弾力性への波及-olsかivかで値上げの判断が変わる" class="nav-link" data-scroll-target="#実験4弾力性への波及-olsかivかで値上げの判断が変わる">実験4：弾力性への波及 — OLSかIVかで値上げの判断が変わる</a></li>
+  <li><a href="#次に読むもの" id="toc-次に読むもの" class="nav-link" data-scroll-target="#次に読むもの">次に読むもの</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Playground 3：代替性と内生性の実験室</h1>
+<p class="subtitle lead">計量経済学II（ブラウザ上でRが動きます）</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">作者</div>
+    <div class="quarto-title-meta-contents">
+             <p>Kei Ikegami </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>このページの使い方
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>このページのRコードは、<strong>あなたのブラウザの中で</strong>動いている（WebAssembly + webR）。インストールは一切不要。</li>
+<li><strong>初回だけ、ページ読み込みに30秒〜1分かかる</strong>（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。</li>
+<li>各セルのコードは自由に書き換えて「Run Code」で実行できる。<strong>何をどう壊しても誰にも迷惑はかからない</strong>。おかしくなったらページを再読み込みすれば元に戻る。</li>
+<li>元ネタは講義ノート（<code>lecture3.html</code>）。ここでは「数値をいじって挙動を体感する」ことに集中する。</li>
+</ul>
+</div>
+</div>
+<div class="cell" data-edit="false" data-autorun="true" data-timelimit="120">
+<div>
+<div id="webr-1" class="exercise-cell">
+
+</div>
+<script type="webr-1-contents">
+eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVkaXQiOmZhbHNlLCJldmFsIjp0cnVlLCJvdXRwdXQiOmZhbHNlLCJ0aW1lbGltaXQiOjEyMH0sImNvZGUiOiIjIC0tLS0g5YWx6YCa44Gu6YGT5YW3566x77yI6Kyb576p44OO44O844OI44Go5ZCM44GY6Zai5pWw576k44CC57eo6ZuG5LiN5Y+v44O76Ieq5YuV5a6f6KGM77yJLS0tLVxuXG5wbGFpbl9sb2dpdF9zaGFyZXMgPC0gZnVuY3Rpb24oZGVsdGEpIHtcbiAgZXYgPC0gZXhwKGRlbHRhKVxuICBkZW5vbSA8LSAxICsgc3VtKGV2KVxuICBsaXN0KHMgPSBldiAvIGRlbm9tLCBzMCA9IDEgLyBkZW5vbSlcbn1cblxubmVzdGVkX2xvZ2l0X3NoYXJlcyA8LSBmdW5jdGlvbihkZWx0YSwgbmVzdHMsIHJobykge1xuICAjIGRlbHRhOiDplbfjgZVK44Gu44OZ44Kv44OI44OrKOW5s+Wdh+WKueeUqClcbiAgIyBuZXN0czog44Oq44K544OI44CC5ZCE6KaB57Sg44GM5ZCM44GY44ON44K544OI44Gr5bGe44GZ44KL6LKh44Gu44Kk44Oz44OH44OD44Kv44K5XG4gICMgcmhvOiAgIOODjeOCueODiOWGheebuOmWoigw44GncGxhaW4gbG9naXTjgavkuIDoh7QpXG4gIGxhbWJkYSA8LSAxIC0gcmhvXG4gIEogPC0gbGVuZ3RoKGRlbHRhKVxuICBuX25lc3RzIDwtIGxlbmd0aChuZXN0cylcbiAgSVYgPC0gbnVtZXJpYyhuX25lc3RzKSAgIyBpbmNsdXNpdmUgdmFsdWVcbiAgZm9yIChnIGluIHNlcV9sZW4obl9uZXN0cykpIHtcbiAgICBJVltnXSA8LSBzdW0oZXhwKGRlbHRhW25lc3RzW1tnXV1dIC8gbGFtYmRhKSlcbiAgfVxuICBkZW5vbSA8LSAxICsgc3VtKElWXmxhbWJkYSlcbiAgczAgPC0gMSAvIGRlbm9tXG4gIHNfZyA8LSAoSVZebGFtYmRhKSAvIGRlbm9tXG4gIHMgPC0gbnVtZXJpYyhKKVxuICBzX3dpdGhpbiA8LSBudW1lcmljKEopXG4gIGZvciAoZyBpbiBzZXFfbGVuKG5fbmVzdHMpKSB7XG4gICAgZm9yIChqIGluIG5lc3RzW1tnXV0pIHtcbiAgICAgIHNfd2l0aGluW2pdIDwtIGV4cChkZWx0YVtqXSAvIGxhbWJkYSkgLyBJVltnXVxuICAgICAgc1tqXSA8LSBzX3dpdGhpbltqXSAqIHNfZ1tnXVxuICAgIH1cbiAgfVxuICBsaXN0KHMgPSBzLCBzMCA9IHMwLCBzX2cgPSBzX2csIHNfd2l0aGluID0gc193aXRoaW4pXG59XG5cbm1ha2VfbWFya2V0X2RhdGEgPC0gZnVuY3Rpb24oVF9ta3QsIEpfbWt0LCBhbHBoYV90cnVlLCBiZXRhX3RydWUsIGthcHBhLCBnYW1tYV93ID0gMC44KSB7XG4gICMg6Kyb576p44OO44O844OIUuOCt+ODn+ODpTPjgajlkIzjgZjluILloLTjg6zjg5njg6tER1BcbiAgIyBrYXBwYTogICDlhoXnlJ/mgKfjga7lvLfjgZUobWFya3Vw44GMeGnjgavjganjgozjgaDjgZHlj43lv5zjgZnjgovjgYspXG4gICMgZ2FtbWFfdzog44Kz44K544OI44K344OV44K/44O8d+OBjOmZkOeVjOiyu+eUqOOBq+WKueOBj+W8t+OBlSjmk43kvZzlpInmlbDjga7lvLfjgZUpXG4gIHggIDwtIG1hdHJpeChybm9ybShUX21rdCAqIEpfbWt0LCBtZWFuID0gMS4wLCBzZCA9IDAuNSksIFRfbWt0LCBKX21rdClcbiAgdyAgPC0gbWF0cml4KHJub3JtKFRfbWt0ICogSl9ta3QsIG1lYW4gPSA0LjAsIHNkID0gMS4wKSwgVF9ta3QsIEpfbWt0KVxuICB4aSA8LSBtYXRyaXgocm5vcm0oVF9ta3QgKiBKX21rdCwgbWVhbiA9IDAsIHNkID0gMC42KSwgVF9ta3QsIEpfbWt0KVxuICBtYyA8LSAxLjAgKyBnYW1tYV93ICogdyArIG1hdHJpeChybm9ybShUX21rdCAqIEpfbWt0LCBzZCA9IDAuMyksIFRfbWt0LCBKX21rdClcbiAgbWFya3VwIDwtIHBtYXgoMS4wICsga2FwcGEgKiB4aSwgMC4wNSlcbiAgcHJpY2UgPC0gbWMgKyBtYXJrdXBcbiAgZGVsdGEgPC0gYmV0YV90cnVlICogeCAtIGFscGhhX3RydWUgKiBwcmljZSArIHhpXG4gIGV2IDwtIGV4cChkZWx0YSlcbiAgZGVub20gPC0gMSArIHJvd1N1bXMoZXYpXG4gIGRhdGEuZnJhbWUoXG4gICAgbWFya2V0ICA9IHJlcCgxOlRfbWt0LCB0aW1lcyA9IEpfbWt0KSxcbiAgICBwcm9kdWN0ID0gcmVwKDE6Sl9ta3QsIGVhY2ggPSBUX21rdCksXG4gICAgeCA9IGFzLnZlY3Rvcih4KSwgdyA9IGFzLnZlY3Rvcih3KSwgeGkgPSBhcy52ZWN0b3IoeGkpLFxuICAgIHByaWNlID0gYXMudmVjdG9yKHByaWNlKSxcbiAgICBzaGFyZSA9IGFzLnZlY3RvcihldiAvIGRlbm9tKSxcbiAgICBzaGFyZTAgPSByZXAoMSAvIGRlbm9tLCB0aW1lcyA9IEpfbWt0KVxuICApXG59XG5cbnRoZW1lX3NldCh0aGVtZV9taW5pbWFsKGJhc2Vfc2l6ZSA9IDEzKSkifQ==
+</script>
+</div>
+</div>
+<section id="実験1ρをいじってiiaを壊す" class="level2">
+<h2 class="anchored" data-anchor-id="実験1ρをいじってiiaを壊す">実験1：ρをいじってIIAを壊す</h2>
+<p>logitモデルでは、ある財が値上げされたとき、流出した需要は残りの財へ「シェアの比率」だけで機械的に配分される（IIA）。似ているかどうかは一切関係ない。nested logitは財をネスト（グループ）に分け、ネスト内相関 <span class="math inline">\(\rho\)</span> を1つ足すだけで「似た財ほど強く競合する」を表現する。選択確率は「どのネストを選ぶか」と「ネスト内でどれを選ぶか」に分解できる。</p>
+<p><span class="math display">\[
+s_{jt} = \bar{s}_{j|g,t} \times s_{gt}
+\]</span></p>
+<p>ここでは講義ノートと同じ4財市場（ネストA = 財1・2、ネストB = 財3・4）で、財3を20%値上げしたときの流出先をplain logitと見比べる。<span class="math inline">\(\rho\)</span> を動かして、同ネストの財4への流出がどう変わるかを見よう。</p>
+<div class="cell" data-timelimit="60">
+<div>
+<div id="webr-2" class="exercise-cell">
+
+</div>
+<script type="webr-2-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5yaG8gPC0gMC41ICAgICAgICAjIOODjeOCueODiOWGheebuOmWou+8iDDjgadwbGFpbiBsb2dpdOOBq+S4gOiHtOOAgTHjgavov5HjgYTjgbvjganjg43jgrnjg4jlhoXjgYzjgZ3jgaPjgY/jgorvvIlcbnByaWNlX3VwIDwtIDEuMjAgICMg6LKhM+OBruS+oeagvOWAjeeOh++8iDEuMjAgPSAyMCXlgKTkuIrjgZLvvIlcbiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cblxuYWxwaGFfbiA8LSAxLjBcbmJldGFfbiAgPC0gYygyLjIsIDIuMCwgMi4zLCAyLjEpXG5wcmljZV9uIDwtIGMoMy4wLCAzLjIsIDMuNSwgMy4zKVxubmVzdHM0ICA8LSBsaXN0KGMoMSwgMiksIGMoMywgNCkpICAgIyDjg43jgrnjg4hBID0ge+iyoTEsIOiyoTJ9LCDjg43jgrnjg4hCID0ge+iyoTMsIOiyoTR9XG5cbmRlbHRhX2JlZm9yZSA8LSBiZXRhX24gLSBhbHBoYV9uICogcHJpY2VfblxucHJpY2VfYWZ0ZXIgIDwtIHByaWNlX25cbnByaWNlX2FmdGVyWzNdIDwtIHByaWNlX2FmdGVyWzNdICogcHJpY2VfdXBcbmRlbHRhX2FmdGVyICA8LSBiZXRhX24gLSBhbHBoYV9uICogcHJpY2VfYWZ0ZXJcblxuZF9wbGFpbiAgPC0gcGxhaW5fbG9naXRfc2hhcmVzKGRlbHRhX2FmdGVyKSRzIC0gcGxhaW5fbG9naXRfc2hhcmVzKGRlbHRhX2JlZm9yZSkkc1xuZF9uZXN0ZWQgPC0gbmVzdGVkX2xvZ2l0X3NoYXJlcyhkZWx0YV9hZnRlciwgbmVzdHM0LCByaG8pJHMgLVxuICBuZXN0ZWRfbG9naXRfc2hhcmVzKGRlbHRhX2JlZm9yZSwgbmVzdHM0LCByaG8pJHNcblxuZ29vZF9sYWIgPC0gYyhcImdvb2QgMSAoQSlcIiwgXCJnb29kIDIgKEEpXCIsIFwiZ29vZCAzIChCLCB1cClcIiwgXCJnb29kIDQgKEIpXCIpXG5kZiA8LSBkYXRhLmZyYW1lKFxuICBnb29kID0gZmFjdG9yKHJlcChnb29kX2xhYiwgMiksIGxldmVscyA9IGdvb2RfbGFiKSxcbiAgbW9kZWwgPSBmYWN0b3IocmVwKGMoXCJwbGFpbiBsb2dpdFwiLCBcIm5lc3RlZCBsb2dpdFwiKSwgZWFjaCA9IDQpLFxuICAgICAgICAgICAgICAgICBsZXZlbHMgPSBjKFwicGxhaW4gbG9naXRcIiwgXCJuZXN0ZWQgbG9naXRcIikpLFxuICBjaGFuZ2UgPSBjKGRfcGxhaW4sIGRfbmVzdGVkKVxuKVxuZ2dwbG90KGRmLCBhZXMoZ29vZCwgY2hhbmdlLCBmaWxsID0gbW9kZWwpKSArXG4gIGdlb21fY29sKHBvc2l0aW9uID0gcG9zaXRpb25fZG9kZ2UoMC43KSwgd2lkdGggPSAwLjYpICtcbiAgZ2VvbV9obGluZSh5aW50ZXJjZXB0ID0gMCwgbGluZXdpZHRoID0gMC4zKSArXG4gIGxhYnMoeCA9IE5VTEwsIHkgPSBcImNoYW5nZSBpbiBzaGFyZVwiLCBmaWxsID0gTlVMTCkgK1xuICB0aGVtZShsZWdlbmQucG9zaXRpb24gPSBcInRvcFwiKSJ9
+</script>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>rho &lt;- 0</code> にすると、2色の棒が4財すべてで完全に一致する。nested logitがplain logit（IIAの世界）に戻ることを確かめよう。</li>
+<li><code>rho &lt;- 0.9</code> にすると、流出先はほぼ財4に独占され、別ネストの財1・2の棒はほとんど消える。<code>price_up &lt;- 1.50</code> に上げても「流出量」は変わるが「行き先の偏り方」を決めているのは <span class="math inline">\(\rho\)</span> だと確認しよう。</li>
+<li>考えてみよう：ネストの割り方を <code>nests4 &lt;- list(c(1, 3), c(2, 4))</code> に変えると（分析者がネストを間違えた世界）、どの財への代替が過大・過小に描かれるか。ネスト構造は推定される前に「分析者が置く仮定」だ、という点の怖さを考えよう。</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="実験2berry反転を目で見る" class="level2">
+<h2 class="anchored" data-anchor-id="実験2berry反転を目で見る">実験2：Berry反転を目で見る</h2>
+<p>市場シェアが正確にわかっているなら、logitのシェア式は代数的に反転できて、平均効用 <span class="math inline">\(\delta\)</span> がそのまま取り出せる。</p>
+<p><span class="math display">\[
+\ln s_{jt} - \ln s_{0t} = \delta_{jt}
+\]</span></p>
+<p>ただし現実のシェアは「M人の購買を集計した割合」なので、Mが有限である限り測定ノイズが乗る。特にシェアの小さい財は、logの中に入るカウントが小さく、復元した <span class="math inline">\(\delta\)</span> が大きく暴れる。市場サイズMを動かして、この不安定さを体感しよう（橙の点が真の <span class="math inline">\(\delta\)</span>、箱が200回の観測から復元した <span class="math inline">\(\delta\)</span> の分布）。</p>
+<div class="cell" data-timelimit="60">
+<div>
+<div id="webr-3" class="exercise-cell">
+
+</div>
+<script type="webr-3-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5NIDwtIDIwMDAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAjIDHluILloLTjgYLjgZ/jgorjga7mtojosrvogIXmlbDvvIjluILloLTjgrXjgqTjgrrvvIlcbmRlbHRhX3RydWUgPC0gYygxLjAsIDAuMCwgLTEuMCwgLTMuMCkgICMg6LKhMeOAnDTjga7nnJ/jga7lubPlnYflirnnlKjvvIhvdXRzaWRl44GvMO+8iVxubl9yZXAgPC0gMjAwICAgICAgICAgICAgICAgICAgICAgICAgICAgIyDjgrfjgqfjgqLjgpLoprPmuKzjgZfnm7TjgZnlm57mlbDvvIgyMDDku6XkuIvvvIlcbiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cblxuc2V0LnNlZWQoMjAyNjMpXG50cnV0aCA8LSBwbGFpbl9sb2dpdF9zaGFyZXMoZGVsdGFfdHJ1ZSlcbnByb2IgPC0gYyh0cnV0aCRzMCwgdHJ1dGgkcykgICAjIDHooYznm67jgYxvdXRzaWRl44CB57aa44GE44Gm6LKhMeOAnDRcblxuY291bnRzIDwtIHJtdWx0aW5vbShuX3JlcCwgc2l6ZSA9IE0sIHByb2IgPSBwcm9iKVxuZGVsdGFfaGF0IDwtIHN3ZWVwKGxvZyhjb3VudHNbLTEsICwgZHJvcCA9IEZBTFNFXSksIDIsIGxvZyhjb3VudHNbMSwgXSksIFwiLVwiKVxuZGVsdGFfaGF0WyFpcy5maW5pdGUoZGVsdGFfaGF0KV0gPC0gTkEgICAjIOiyqeWjsuOCvOODreOBruiyoeOBr2RlbHRh44GM6KiI566X5LiN6IO944Gr44Gq44KLXG5cbmdvb2RfbGFiIDwtIHBhc3RlMChcImdvb2QgXCIsIDE6NCwgXCIgKHNoYXJlIFwiLCByb3VuZCgxMDAgKiB0cnV0aCRzLCAxKSwgXCIlKVwiKVxuZGYgPC0gZGF0YS5mcmFtZShcbiAgZ29vZCA9IGZhY3RvcihyZXAoZ29vZF9sYWIsIHRpbWVzID0gbl9yZXApLCBsZXZlbHMgPSBnb29kX2xhYiksXG4gIGRlbHRhX2hhdCA9IGFzLnZlY3RvcihkZWx0YV9oYXQpXG4pXG50cnV0aF9kZiA8LSBkYXRhLmZyYW1lKGdvb2QgPSBmYWN0b3IoZ29vZF9sYWIsIGxldmVscyA9IGdvb2RfbGFiKSwgZGVsdGEgPSBkZWx0YV90cnVlKVxuXG5nZ3Bsb3QoZGYsIGFlcyhnb29kLCBkZWx0YV9oYXQpKSArXG4gIGdlb21fYm94cGxvdChmaWxsID0gXCIjNEM3MkIwXCIsIGFscGhhID0gMC41LCBvdXRsaWVyLnNpemUgPSAwLjYsIG5hLnJtID0gVFJVRSkgK1xuICBnZW9tX3BvaW50KGRhdGEgPSB0cnV0aF9kZiwgYWVzKGdvb2QsIGRlbHRhLCBjb2xvciA9IFwidHJ1ZSBkZWx0YVwiKSwgc2l6ZSA9IDMpICtcbiAgc2NhbGVfY29sb3JfbWFudWFsKHZhbHVlcyA9IGMoXCJ0cnVlIGRlbHRhXCIgPSBcIiNERDg0NTJcIikpICtcbiAgbGFicyh4ID0gTlVMTCwgeSA9IFwicmVjb3ZlcmVkIGRlbHRhIChsb2cgc2hhcmUgcmF0aW8pXCIsIGNvbG9yID0gTlVMTCkgK1xuICB0aGVtZShsZWdlbmQucG9zaXRpb24gPSBcInRvcFwiLCBheGlzLnRleHQueCA9IGVsZW1lbnRfdGV4dChhbmdsZSA9IDE1LCBoanVzdCA9IDEpKSJ9
+</script>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>M &lt;- 100</code> にしてみよう。財4（シェア約1%）は「1人も買わない市場」が続出して <span class="math inline">\(\delta\)</span> が計算不能（log 0）になり、箱も歪む。逆に <code>M &lt;- 100000</code> でどこまで箱が潰れるか見よう。</li>
+<li><code>delta_true</code> の4番目を <code>-5</code> にする（シェア0.1%以下）。この財の <span class="math inline">\(\delta\)</span> を安定して復元するにはMがどの桁まで必要か、感覚を掴もう。</li>
+<li>考えてみよう：財1と財4で箱の縦幅がまるで違うのはなぜか。カウントの相対誤差はおおよそ「1/√(期待カウント)」で決まる、という観点から説明してみよう。シェアの小さい財の扱いは、この先BLP系の実証で必ず悩まされる論点である。</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="実験3価格内生性の強さとivによる回収" class="level2">
+<h2 class="anchored" data-anchor-id="実験3価格内生性の強さとivによる回収">実験3：価格内生性の強さとIVによる回収</h2>
+<p>Berry反転で得た回帰式の右辺には、観測されない需要ショック <span class="math inline">\(\xi_{jt}\)</span> が残っている。</p>
+<p><span class="math display">\[
+\ln s_{jt} - \ln s_{0t} = \beta x_{jt} - \alpha p_{jt} + \xi_{jt}
+\]</span></p>
+<p>企業は人気（高い <span class="math inline">\(\xi\)</span>）を知って強気の値付けをするので価格と <span class="math inline">\(\xi\)</span> は正に相関し、OLSは <span class="math inline">\(\alpha\)</span> を過小評価する。ここではコストシフター <span class="math inline">\(w\)</span> を操作変数に、2SLSを <code>lm()</code> だけで手実装する（第1段階：<code>lm(price ~ x + w)</code>、第2段階：その予測値 <code>price_hat</code> で <code>lm(y ~ price_hat + x)</code>）。各反復で50市場×4財のデータを作り直し、真値 <span class="math inline">\(\alpha = 2\)</span> の回収ぶりを比較する。1つ注意：手実装の第2段階が返すSEは第1段階の推定誤差を無視しているため正しくない。だからこの表ではSEではなく反復間のばらつき（sd）で精度を見る（実務では <code>fixest</code> などIV対応パッケージのSEを使うこと）。</p>
+<div class="cell" data-timelimit="60">
+<div>
+<div id="webr-4" class="exercise-cell">
+
+</div>
+<script type="webr-4-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5rYXBwYSAgIDwtIDEuMSAgICAjIOWGheeUn+aAp+OBruW8t+OBle+8iG1hcmt1cOOBjHhp44Gr44Gp44KM44Gg44GR5Y+N5b+c44GZ44KL44GL44CCMOOBp+WGheeUn+aAp+OCvOODre+8iVxuZ2FtbWFfdyA8LSAwLjggICAgIyDjgrPjgrnjg4jjgrfjg5Xjgr/jg7x344Gu5Yq544GN5pa577yI5pON5L2c5aSJ5pWw44Gu5by344GV44CCMC4wNeOBq+OBmeOCi+OBqOW8seOBhElW77yJXG5uX3JlcCAgIDwtIDEwMCAgICAjIOODouODs+ODhuOCq+ODq+ODreWPjeW+qe+8iDIwMOS7peS4i++8iVxuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2MylcbmFscGhhX3RydWUgPC0gMi4wXG5iZXRhX3RydWUgIDwtIDEuNVxuXG5vbmVfcnVuIDwtIGZ1bmN0aW9uKCkge1xuICBkZiA8LSBtYWtlX21hcmtldF9kYXRhKFRfbWt0ID0gNTAsIEpfbWt0ID0gNCwgYWxwaGFfdHJ1ZSwgYmV0YV90cnVlLFxuICAgICAgICAgICAgICAgICAgICAgICAgIGthcHBhID0ga2FwcGEsIGdhbW1hX3cgPSBnYW1tYV93KVxuICBkZiR5IDwtIGxvZyhkZiRzaGFyZSkgLSBsb2coZGYkc2hhcmUwKSAgICAgICMgQmVycnnlj43ou6Ljga7lt6bovrpcbiAgb2xzIDwtIGxtKHkgfiBwcmljZSArIHgsIGRhdGEgPSBkZikgICAgICAgICAjIE9MU++8iOWGheeUn+aAp+OCkueEoeimlu+8iVxuICBmcyAgPC0gbG0ocHJpY2UgfiB4ICsgdywgZGF0YSA9IGRmKSAgICAgICAgICMg56ysMeautemajlxuICBkZiRwcmljZV9oYXQgPC0gZml0dGVkKGZzKVxuICBzcyAgPC0gbG0oeSB+IHByaWNlX2hhdCArIHgsIGRhdGEgPSBkZikgICAgICMg56ysMuautemajlxuICBjKG9scyA9IC1jb2VmKG9scylbW1wicHJpY2VcIl1dLFxuICAgIGl2ICA9IC1jb2VmKHNzKVtbXCJwcmljZV9oYXRcIl1dLFxuICAgIEYxICA9IHN1bW1hcnkoZnMpJGNvZWZmaWNpZW50c1tcIndcIiwgXCJ0IHZhbHVlXCJdXjIpICAjIOmZpOWklklW44GuZmlyc3Qtc3RhZ2UgRlxufVxucmVzIDwtIHQocmVwbGljYXRlKG5fcmVwLCBvbmVfcnVuKCkpKVxuXG5kYXRhLmZyYW1lKFxuICBtZXRob2QgPSBjKFwidHJ1ZSB2YWx1ZVwiLCBcIk9MU1wiLCBcIjJTTFMgKG1hbnVhbClcIiksXG4gIG1lYW5fYWxwaGEgPSByb3VuZChjKGFscGhhX3RydWUsIG1lYW4ocmVzWywgXCJvbHNcIl0pLCBtZWFuKHJlc1ssIFwiaXZcIl0pKSwgMyksXG4gIG1lZGlhbl9hbHBoYSA9IHJvdW5kKGMoYWxwaGFfdHJ1ZSwgbWVkaWFuKHJlc1ssIFwib2xzXCJdKSwgbWVkaWFuKHJlc1ssIFwiaXZcIl0pKSwgMyksXG4gIHNkX2FscGhhID0gYyhOQSwgcm91bmQoc2QocmVzWywgXCJvbHNcIl0pLCAzKSwgcm91bmQoc2QocmVzWywgXCJpdlwiXSksIDMpKSxcbiAgZmlyc3Rfc3RhZ2VfRiA9IGMoTkEsIE5BLCByb3VuZChtZWFuKHJlc1ssIFwiRjFcIl0pLCAxKSlcbikifQ==
+</script>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>kappa &lt;- 0</code>（内生性ゼロ）にすると、OLSも2SLSも真値2.0を当てる。sdを見比べると2SLSの方がわずかに大きいはずだ（IVは価格変動のうち <span class="math inline">\(w\)</span> で説明できる部分しか使わないため）。内生性がないのにIVを使う「損」を確認しよう。</li>
+<li><code>gamma_w &lt;- 0.05</code>（弱い操作変数）にしてみよう。first-stage Fが1を切るあたりまで落ち、2SLSのmeanもsdも盛大に暴れ出す。Fの経験則「10以上」が何を守ってくれているのか体感しよう。</li>
+<li>考えてみよう：<code>kappa</code> を3まで上げるとOLSのバイアスは深刻になるのに、2SLSはなぜ平気なのか。<code>make_market_data</code> の中で <span class="math inline">\(w\)</span> がどう生成されているか（<span class="math inline">\(\xi\)</span> と無関係に引かれている）に注目して説明してみよう。</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="実験4弾力性への波及-olsかivかで値上げの判断が変わる" class="level2">
+<h2 class="anchored" data-anchor-id="実験4弾力性への波及-olsかivかで値上げの判断が変わる">実験4：弾力性への波及 — OLSかIVかで値上げの判断が変わる</h2>
+<p><span class="math inline">\(\alpha\)</span> の推定を誤ると、そこから計算する自己価格弾力性 <span class="math inline">\(\eta_{jj} = -\alpha p_j (1 - s_j)\)</span> も全部歪む。収入は <span class="math inline">\(R = p \times s\)</span> なので、小さな値上げ率に対する収入の変化率はおよそ「(1 + 弾力性) × 値上げ率」になる。つまり弾力性が <span class="math inline">\(-1\)</span> より浅ければ「値上げで収入増」、<span class="math inline">\(-1\)</span> より深ければ「値上げで収入減」と判断が割れる。ここではDGPの構造は実験3と同じまま、弾力性がちょうど <span class="math inline">\(-1\)</span> をまたぐ帯に来るよう価格係数のスケールだけ小さくして、OLSとIVで意思決定がどう変わるかを1枚の表にする（弾力性は市場平均の価格・シェアで評価。SEを載せない理由は実験3で述べた通り）。</p>
+<div class="cell" data-timelimit="60">
+<div>
+<div id="webr-5" class="exercise-cell">
+
+</div>
+<script type="webr-5-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5hbHBoYV90cnVlIDwtIDAuNCAgICMg55yf44Gu5L6h5qC85L+C5pWw77yI44GT44Gu44K544Kx44O844Or44Gg44Go55yf44Gu5by+5Yqb5oCn44GMLTHjgojjgormt7HjgY/jgarjgovvvIlcbmthcHBhICAgICAgPC0gMS4xICAgIyDlhoXnlJ/mgKfjga7lvLfjgZVcbnByaWNlX3VwICAgPC0gMC4xMCAgIyDmpJzoqI7kuK3jga7lgKTkuIrjgZLnjofvvIgwLjEwID0gMTAl77yJXG4jIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tXG5cbnNldC5zZWVkKDIwMjYzKVxuZGYgPC0gbWFrZV9tYXJrZXRfZGF0YShUX21rdCA9IDEwMCwgSl9ta3QgPSA0LCBhbHBoYV90cnVlLCBiZXRhX3RydWUgPSAxLjUsXG4gICAgICAgICAgICAgICAgICAgICAgIGthcHBhID0ga2FwcGEsIGdhbW1hX3cgPSAwLjgpXG5kZiR5IDwtIGxvZyhkZiRzaGFyZSkgLSBsb2coZGYkc2hhcmUwKVxuXG5vbHMgPC0gbG0oeSB+IHByaWNlICsgeCwgZGF0YSA9IGRmKVxuZnMgIDwtIGxtKHByaWNlIH4geCArIHcsIGRhdGEgPSBkZilcbmRmJHByaWNlX2hhdCA8LSBmaXR0ZWQoZnMpXG5zcyAgPC0gbG0oeSB+IHByaWNlX2hhdCArIHgsIGRhdGEgPSBkZilcblxuYWxwaGFfaGF0IDwtIGMoYWxwaGFfdHJ1ZSwgLWNvZWYob2xzKVtbXCJwcmljZVwiXV0sIC1jb2VmKHNzKVtbXCJwcmljZV9oYXRcIl1dKVxuXG5wX2JhciA8LSBtZWFuKGRmJHByaWNlKVxuc19iYXIgPC0gbWVhbihkZiRzaGFyZSlcbmV0YSA8LSAtYWxwaGFfaGF0ICogcF9iYXIgKiAoMSAtIHNfYmFyKSAgICAgIyDoh6rlt7HkvqHmoLzlvL7lipvmgKfvvIjluILloLTlubPlnYfjgafoqZXkvqHvvIlcbnJldl9jaGFuZ2UgPC0gKDEgKyBldGEpICogcHJpY2VfdXAgKiAxMDAgICAgIyDlgKTkuIrjgZLjgavjgojjgovlj47lhaXlpInljJbnjofjga7ov5HkvLwoJSlcblxuZGF0YS5mcmFtZShcbiAgbWV0aG9kID0gYyhcInRydWUgdmFsdWVcIiwgXCJPTFNcIiwgXCIyU0xTIChtYW51YWwpXCIpLFxuICBhbHBoYV9oYXQgPSByb3VuZChhbHBoYV9oYXQsIDMpLFxuICBvd25fZWxhc3RpY2l0eSA9IHJvdW5kKGV0YSwgMiksXG4gIHJldmVudWVfY2hhbmdlX3BjdCA9IHJvdW5kKHJldl9jaGFuZ2UsIDEpLFxuICBkZWNpc2lvbiA9IGlmZWxzZShldGEgPiAtMSwgXCJyYWlzZSB0aGUgcHJpY2VcIiwgXCJkbyBub3QgcmFpc2VcIilcbikifQ==
+</script>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>kappa &lt;- 0</code> にすると3行の弾力性はほぼ揃い、decisionも一致することを確認しよう。意思決定を割っていたのは内生性だとわかる。</li>
+<li><code>alpha_true &lt;- 0.15</code>（もともと非弾力的な市場）にすると、バイアス自体は残るのにdecisionは3行とも「raise」で一致する。バイアスが意思決定に効くかどうかは、真の弾力性が <span class="math inline">\(-1\)</span> にどれだけ近いか次第だ。</li>
+<li>考えてみよう：<code>kappa</code> を大きくしていくと、OLSの弾力性がプラス（値上げすると売れる?!）になることがある。第1回イントロのデモと同じ現象だ。人気（<span class="math inline">\(\xi\)</span>）と価格が同時に動くとき、価格とシェアの散布図の上で何が起きているのか説明してみよう。</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="次に読むもの" class="level2">
+<h2 class="anchored" data-anchor-id="次に読むもの">次に読むもの</h2>
+<ul>
+<li>講義ノート本体：<code>lecture3.html</code>（IIA・nested logit・Berry反転・2SLSの導出とシミュレーションの完全版）</li>
+<li>coding課題：<code>assignment3.qmd</code>（炭酸飲料市場を題材に、nested logitの市場レベル需要推定と価格内生性への対処をゼロから自分で実装する）</li>
+</ul>
+<script type="webr-data">
+eyJvcHRpb25zIjp7ImJhc2VVcmwiOiJodHRwczovL3dlYnIuci13YXNtLm9yZy92MC42LjAvIn0sInBhY2thZ2VzIjp7InBrZ3MiOlsiZXZhbHVhdGUiLCJrbml0ciIsImh0bWx0b29scyIsImdncGxvdDIiLCJkcGx5ciIsInRpZHlyIl0sInJlcG9zIjpbImh0dHBzOi8vcmVwby5yLXdhc20ub3JnIiwiaHR0cHM6Ly9jcmFuLnItdW5pdmVyc2UuZGV2Il19LCJyZW5kZXJfZGYiOiJkZWZhdWx0In0=
+</script>
+<script type="ojs-module-contents">
+eyJjb250ZW50cyI6W3siY2VsbE5hbWUiOiJ3ZWJyLXdpZGdldC01IiwiaW5saW5lIjpmYWxzZSwibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoie1xuICAvLyBXYWl0IGZvciBvdXRwdXQgdG8gYmUgd3JpdHRlbiB0byB0aGUgRE9NLCB0aGVuIHRyaWdnZXIgd2lkZ2V0IHJlbmRlcmluZ1xuICBhd2FpdCBfd2Vicl92YWx1ZV81O1xuICBpZiAod2luZG93LkhUTUxXaWRnZXRzKSB7XG4gICAgd2luZG93LkhUTUxXaWRnZXRzLnN0YXRpY1JlbmRlcigpO1xuICB9XG4gIGlmICh3aW5kb3cuUGFnZWRUYWJsZURvYykge1xuICAgIHdpbmRvdy5QYWdlZFRhYmxlRG9jLmluaXRBbGwoKTtcbiAgfVxufVxuIn0seyJjZWxsTmFtZSI6IndlYnItNSIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXQiLCJzb3VyY2UiOiJ2aWV3b2YgX3dlYnJfZWRpdG9yXzUgPSB7XG4gIGNvbnN0IHsgV2ViUkV4ZXJjaXNlRWRpdG9yLCBiNjREZWNvZGUgfSA9IHdpbmRvdy5fZXhlcmNpc2Vfb2pzX3J1bnRpbWU7XG4gIGNvbnN0IHNjcmlwdENvbnRlbnQgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yKGBzY3JpcHRbdHlwZT1cXFwid2Vici01LWNvbnRlbnRzXFxcIl1gKS50ZXh0Q29udGVudDtcbiAgY29uc3QgYmxvY2sgPSBKU09OLnBhcnNlKGI2NERlY29kZShzY3JpcHRDb250ZW50KSk7XG5cbiAgY29uc3Qgb3B0aW9ucyA9IE9iamVjdC5hc3NpZ24oeyBpZDogYHdlYnItNS1jb250ZW50c2AgfSwgYmxvY2suYXR0cik7XG4gIGNvbnN0IGVkaXRvciA9IG5ldyBXZWJSRXhlcmNpc2VFZGl0b3Iod2ViUk9qcy53ZWJSUHJvbWlzZSwgYmxvY2suY29kZSwgb3B0aW9ucyk7XG5cbiAgcmV0dXJuIGVkaXRvci5jb250YWluZXI7XG59XG5fd2Vicl92YWx1ZV81ID0gd2ViUk9qcy5wcm9jZXNzKF93ZWJyX2VkaXRvcl81LCB7fSk7XG4ifSx7ImNlbGxOYW1lIjoid2Vici13aWRnZXQtNCIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXRRdWlldCIsInNvdXJjZSI6IntcbiAgLy8gV2FpdCBmb3Igb3V0cHV0IHRvIGJlIHdyaXR0ZW4gdG8gdGhlIERPTSwgdGhlbiB0cmlnZ2VyIHdpZGdldCByZW5kZXJpbmdcbiAgYXdhaXQgX3dlYnJfdmFsdWVfNDtcbiAgaWYgKHdpbmRvdy5IVE1MV2lkZ2V0cykge1xuICAgIHdpbmRvdy5IVE1MV2lkZ2V0cy5zdGF0aWNSZW5kZXIoKTtcbiAgfVxuICBpZiAod2luZG93LlBhZ2VkVGFibGVEb2MpIHtcbiAgICB3aW5kb3cuUGFnZWRUYWJsZURvYy5pbml0QWxsKCk7XG4gIH1cbn1cbiJ9LHsiY2VsbE5hbWUiOiJ3ZWJyLTQiLCJpbmxpbmUiOmZhbHNlLCJtZXRob2ROYW1lIjoiaW50ZXJwcmV0Iiwic291cmNlIjoidmlld29mIF93ZWJyX2VkaXRvcl80ID0ge1xuICBjb25zdCB7IFdlYlJFeGVyY2lzZUVkaXRvciwgYjY0RGVjb2RlIH0gPSB3aW5kb3cuX2V4ZXJjaXNlX29qc19ydW50aW1lO1xuICBjb25zdCBzY3JpcHRDb250ZW50ID0gZG9jdW1lbnQucXVlcnlTZWxlY3Rvcihgc2NyaXB0W3R5cGU9XFxcIndlYnItNC1jb250ZW50c1xcXCJdYCkudGV4dENvbnRlbnQ7XG4gIGNvbnN0IGJsb2NrID0gSlNPTi5wYXJzZShiNjREZWNvZGUoc2NyaXB0Q29udGVudCkpO1xuXG4gIGNvbnN0IG9wdGlvbnMgPSBPYmplY3QuYXNzaWduKHsgaWQ6IGB3ZWJyLTQtY29udGVudHNgIH0sIGJsb2NrLmF0dHIpO1xuICBjb25zdCBlZGl0b3IgPSBuZXcgV2ViUkV4ZXJjaXNlRWRpdG9yKHdlYlJPanMud2ViUlByb21pc2UsIGJsb2NrLmNvZGUsIG9wdGlvbnMpO1xuXG4gIHJldHVybiBlZGl0b3IuY29udGFpbmVyO1xufVxuX3dlYnJfdmFsdWVfNCA9IHdlYlJPanMucHJvY2Vzcyhfd2Vicl9lZGl0b3JfNCwge30pO1xuIn0seyJjZWxsTmFtZSI6IndlYnItd2lkZ2V0LTMiLCJpbmxpbmUiOmZhbHNlLCJtZXRob2ROYW1lIjoiaW50ZXJwcmV0UXVpZXQiLCJzb3VyY2UiOiJ7XG4gIC8vIFdhaXQgZm9yIG91dHB1dCB0byBiZSB3cml0dGVuIHRvIHRoZSBET00sIHRoZW4gdHJpZ2dlciB3aWRnZXQgcmVuZGVyaW5nXG4gIGF3YWl0IF93ZWJyX3ZhbHVlXzM7XG4gIGlmICh3aW5kb3cuSFRNTFdpZGdldHMpIHtcbiAgICB3aW5kb3cuSFRNTFdpZGdldHMuc3RhdGljUmVuZGVyKCk7XG4gIH1cbiAgaWYgKHdpbmRvdy5QYWdlZFRhYmxlRG9jKSB7XG4gICAgd2luZG93LlBhZ2VkVGFibGVEb2MuaW5pdEFsbCgpO1xuICB9XG59XG4ifSx7ImNlbGxOYW1lIjoid2Vici0zIiwiaW5saW5lIjpmYWxzZSwibWV0aG9kTmFtZSI6ImludGVycHJldCIsInNvdXJjZSI6InZpZXdvZiBfd2Vicl9lZGl0b3JfMyA9IHtcbiAgY29uc3QgeyBXZWJSRXhlcmNpc2VFZGl0b3IsIGI2NERlY29kZSB9ID0gd2luZG93Ll9leGVyY2lzZV9vanNfcnVudGltZTtcbiAgY29uc3Qgc2NyaXB0Q29udGVudCA9IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoYHNjcmlwdFt0eXBlPVxcXCJ3ZWJyLTMtY29udGVudHNcXFwiXWApLnRleHRDb250ZW50O1xuICBjb25zdCBibG9jayA9IEpTT04ucGFyc2UoYjY0RGVjb2RlKHNjcmlwdENvbnRlbnQpKTtcblxuICBjb25zdCBvcHRpb25zID0gT2JqZWN0LmFzc2lnbih7IGlkOiBgd2Vici0zLWNvbnRlbnRzYCB9LCBibG9jay5hdHRyKTtcbiAgY29uc3QgZWRpdG9yID0gbmV3IFdlYlJFeGVyY2lzZUVkaXRvcih3ZWJST2pzLndlYlJQcm9taXNlLCBibG9jay5jb2RlLCBvcHRpb25zKTtcblxuICByZXR1cm4gZWRpdG9yLmNvbnRhaW5lcjtcbn1cbl93ZWJyX3ZhbHVlXzMgPSB3ZWJST2pzLnByb2Nlc3MoX3dlYnJfZWRpdG9yXzMsIHt9KTtcbiJ9LHsiY2VsbE5hbWUiOiJ3ZWJyLXdpZGdldC0yIiwiaW5saW5lIjpmYWxzZSwibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoie1xuICAvLyBXYWl0IGZvciBvdXRwdXQgdG8gYmUgd3JpdHRlbiB0byB0aGUgRE9NLCB0aGVuIHRyaWdnZXIgd2lkZ2V0IHJlbmRlcmluZ1xuICBhd2FpdCBfd2Vicl92YWx1ZV8yO1xuICBpZiAod2luZG93LkhUTUxXaWRnZXRzKSB7XG4gICAgd2luZG93LkhUTUxXaWRnZXRzLnN0YXRpY1JlbmRlcigpO1xuICB9XG4gIGlmICh3aW5kb3cuUGFnZWRUYWJsZURvYykge1xuICAgIHdpbmRvdy5QYWdlZFRhYmxlRG9jLmluaXRBbGwoKTtcbiAgfVxufVxuIn0seyJjZWxsTmFtZSI6IndlYnItMiIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXQiLCJzb3VyY2UiOiJ2aWV3b2YgX3dlYnJfZWRpdG9yXzIgPSB7XG4gIGNvbnN0IHsgV2ViUkV4ZXJjaXNlRWRpdG9yLCBiNjREZWNvZGUgfSA9IHdpbmRvdy5fZXhlcmNpc2Vfb2pzX3J1bnRpbWU7XG4gIGNvbnN0IHNjcmlwdENvbnRlbnQgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yKGBzY3JpcHRbdHlwZT1cXFwid2Vici0yLWNvbnRlbnRzXFxcIl1gKS50ZXh0Q29udGVudDtcbiAgY29uc3QgYmxvY2sgPSBKU09OLnBhcnNlKGI2NERlY29kZShzY3JpcHRDb250ZW50KSk7XG5cbiAgY29uc3Qgb3B0aW9ucyA9IE9iamVjdC5hc3NpZ24oeyBpZDogYHdlYnItMi1jb250ZW50c2AgfSwgYmxvY2suYXR0cik7XG4gIGNvbnN0IGVkaXRvciA9IG5ldyBXZWJSRXhlcmNpc2VFZGl0b3Iod2ViUk9qcy53ZWJSUHJvbWlzZSwgYmxvY2suY29kZSwgb3B0aW9ucyk7XG5cbiAgcmV0dXJuIGVkaXRvci5jb250YWluZXI7XG59XG5fd2Vicl92YWx1ZV8yID0gd2ViUk9qcy5wcm9jZXNzKF93ZWJyX2VkaXRvcl8yLCB7fSk7XG4ifSx7ImNlbGxOYW1lIjoid2Vici13aWRnZXQtMSIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXRRdWlldCIsInNvdXJjZSI6IntcbiAgLy8gV2FpdCBmb3Igb3V0cHV0IHRvIGJlIHdyaXR0ZW4gdG8gdGhlIERPTSwgdGhlbiB0cmlnZ2VyIHdpZGdldCByZW5kZXJpbmdcbiAgYXdhaXQgX3dlYnJfdmFsdWVfMTtcbiAgaWYgKHdpbmRvdy5IVE1MV2lkZ2V0cykge1xuICAgIHdpbmRvdy5IVE1MV2lkZ2V0cy5zdGF0aWNSZW5kZXIoKTtcbiAgfVxuICBpZiAod2luZG93LlBhZ2VkVGFibGVEb2MpIHtcbiAgICB3aW5kb3cuUGFnZWRUYWJsZURvYy5pbml0QWxsKCk7XG4gIH1cbn1cbiJ9LHsiY2VsbE5hbWUiOiJ3ZWJyLTEiLCJpbmxpbmUiOmZhbHNlLCJtZXRob2ROYW1lIjoiaW50ZXJwcmV0Iiwic291cmNlIjoiX3dlYnJfdmFsdWVfMSA9IHtcbiAgY29uc3QgeyBoaWdobGlnaHRSLCBiNjREZWNvZGUgfSA9IHdpbmRvdy5fZXhlcmNpc2Vfb2pzX3J1bnRpbWU7XG4gIGNvbnN0IHNjcmlwdENvbnRlbnQgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yKGBzY3JpcHRbdHlwZT1cXFwid2Vici0xLWNvbnRlbnRzXFxcIl1gKS50ZXh0Q29udGVudDtcbiAgY29uc3QgYmxvY2sgPSBKU09OLnBhcnNlKGI2NERlY29kZShzY3JpcHRDb250ZW50KSk7XG5cbiAgLy8gRGVmYXVsdCBldmFsdWF0aW9uIGNvbmZpZ3VyYXRpb25cbiAgY29uc3Qgb3B0aW9ucyA9IE9iamVjdC5hc3NpZ24oe1xuICAgIGlkOiBcIndlYnItMS1jb250ZW50c1wiLFxuICAgIGVjaG86IHRydWUsXG4gICAgb3V0cHV0OiB0cnVlXG4gIH0sIGJsb2NrLmF0dHIpO1xuXG4gIC8vIEV2YWx1YXRlIHRoZSBwcm92aWRlZCBSIGNvZGVcbiAgY29uc3QgcmVzdWx0ID0gd2ViUk9qcy5wcm9jZXNzKHtjb2RlOiBibG9jay5jb2RlLCBvcHRpb25zfSwge30pO1xuXG4gIC8vIEVhcmx5IHlpZWxkIHdoaWxlIHdlIHdhaXQgZm9yIHRoZSBmaXJzdCBldmFsdWF0aW9uIGFuZCByZW5kZXJcbiAgaWYgKG9wdGlvbnMub3V0cHV0ICYmICEoXCIxXCIgaW4gd2ViUk9qcy5yZW5kZXJlZE9qcykpIHtcbiAgICBjb25zdCBjb250YWluZXIgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KFwiZGl2XCIpO1xuICAgIGNvbnN0IHNwaW5uZXIgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KFwiZGl2XCIpO1xuXG4gICAgaWYgKG9wdGlvbnMuZWNobykge1xuICAgICAgLy8gU2hvdyBvdXRwdXQgYXMgaGlnaGxpZ2h0ZWQgc291cmNlXG4gICAgICBjb25zdCBwcmVFbGVtID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudChcInByZVwiKTtcbiAgICAgIGNvbnRhaW5lci5jbGFzc05hbWUgPSBcInNvdXJjZUNvZGVcIjtcbiAgICAgIHByZUVsZW0uY2xhc3NOYW1lID0gXCJzb3VyY2VDb2RlIHJcIjtcbiAgICAgIHByZUVsZW0uYXBwZW5kQ2hpbGQoaGlnaGxpZ2h0UihibG9jay5jb2RlKSk7XG4gICAgICBzcGlubmVyLmNsYXNzTmFtZSA9IFwic3Bpbm5lci1ncm93IHNwaW5uZXItZ3Jvdy1zbSBtLTIgcG9zaXRpb24tYWJzb2x1dGUgdG9wLTAgZW5kLTBcIjtcbiAgICAgIHByZUVsZW0uYXBwZW5kQ2hpbGQoc3Bpbm5lcik7XG4gICAgICBjb250YWluZXIuYXBwZW5kQ2hpbGQocHJlRWxlbSk7XG4gICAgfSBlbHNlIHtcbiAgICAgIHNwaW5uZXIuY2xhc3NOYW1lID0gXCJzcGlubmVyLWJvcmRlciBzcGlubmVyLWJvcmRlci1zbVwiO1xuICAgICAgY29udGFpbmVyLmFwcGVuZENoaWxkKHNwaW5uZXIpO1xuICAgIH1cblxuICAgIHlpZWxkIGNvbnRhaW5lcjtcbiAgfVxuXG4gIHdlYlJPanMucmVuZGVyZWRPanNbXCIxXCJdID0gdHJ1ZTtcbiAgeWllbGQgYXdhaXQgcmVzdWx0O1xufVxuIn0seyJjZWxsTmFtZSI6IndlYnItcHJlbHVkZSIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXRRdWlldCIsInNvdXJjZSI6IndlYlJPanMgPSB7XG4gIGNvbnN0IHsgV2ViUiwgQ2hhbm5lbFR5cGUgfSA9IHdpbmRvdy5fZXhlcmNpc2Vfb2pzX3J1bnRpbWUuV2ViUjtcbiAgY29uc3Qge1xuICAgIFdlYlJFdmFsdWF0b3IsXG4gICAgV2ViUkVudmlyb25tZW50TWFuYWdlcixcbiAgICBzZXR1cFIsXG4gICAgYjY0RGVjb2RlLFxuICAgIGNvbGxhcHNlUGF0aFxuICB9ID0gd2luZG93Ll9leGVyY2lzZV9vanNfcnVudGltZTtcblxuICBjb25zdCBzdGF0dXNDb250YWluZXIgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZChcImV4ZXJjaXNlLWxvYWRpbmctc3RhdHVzXCIpO1xuICBjb25zdCBpbmRpY2F0b3JDb250YWluZXIgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZChcImV4ZXJjaXNlLWxvYWRpbmctaW5kaWNhdG9yXCIpO1xuICBpbmRpY2F0b3JDb250YWluZXIuY2xhc3NMaXN0LnJlbW92ZShcImQtbm9uZVwiKTtcblxuICBsZXQgc3RhdHVzVGV4dCA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoXCJkaXZcIilcbiAgc3RhdHVzVGV4dC5jbGFzc0xpc3QgPSBcImV4ZXJjaXNlLWxvYWRpbmctZGV0YWlsc1wiO1xuICBzdGF0dXNUZXh0ID0gc3RhdHVzQ29udGFpbmVyLmFwcGVuZENoaWxkKHN0YXR1c1RleHQpO1xuICBzdGF0dXNUZXh0LnRleHRDb250ZW50ID0gYEluaXRpYWxpc2VgO1xuXG4gIC8vIEhvaXN0IGluZGljYXRvciBvdXQgZnJvbSBmaW5hbCBzbGlkZSB3aGVuIHJ1bm5pbmcgdW5kZXIgcmV2ZWFsXG4gIGNvbnN0IHJldmVhbFN0YXR1cyA9IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoXCIucmV2ZWFsIC5leGVyY2lzZS1sb2FkaW5nLWluZGljYXRvclwiKTtcbiAgaWYgKHJldmVhbFN0YXR1cykge1xuICAgIHJldmVhbFN0YXR1cy5yZW1vdmUoKTtcbiAgICBkb2N1bWVudC5xdWVyeVNlbGVjdG9yKFwiLnJldmVhbCA+IC5zbGlkZXNcIikuYXBwZW5kQ2hpbGQocmV2ZWFsU3RhdHVzKTtcbiAgfVxuXG4gIC8vIE1ha2UgYW55IHJldmVhbCBzbGlkZXMgd2l0aCBsaXZlIGNlbGxzIHNjcm9sbGFibGVcbiAgZG9jdW1lbnQucXVlcnlTZWxlY3RvckFsbChcIi5yZXZlYWwgLmV4ZXJjaXNlLWNlbGxcIikuZm9yRWFjaCgoZWwpID0+IHtcbiAgICBlbC5jbG9zZXN0KCdzZWN0aW9uLnNsaWRlJykuY2xhc3NMaXN0LmFkZChcInNjcm9sbGFibGVcIik7XG4gIH0pXG5cbiAgLy8gd2ViUiBzdXBwbGVtZW50YWwgZGF0YSBhbmQgb3B0aW9uc1xuICBjb25zdCBkYXRhQ29udGVudCA9IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoYHNjcmlwdFt0eXBlPVxcXCJ3ZWJyLWRhdGFcXFwiXWApLnRleHRDb250ZW50O1xuICBjb25zdCBkYXRhID0gSlNPTi5wYXJzZShiNjREZWNvZGUoZGF0YUNvbnRlbnQpKTtcblxuICAvLyBHcmFiIGxpc3Qgb2YgcmVzb3VyY2VzIHRvIGJlIGRvd25sb2FkZWRcbiAgY29uc3QgZmlsZXNDb250ZW50ID0gZG9jdW1lbnQucXVlcnlTZWxlY3Rvcihgc2NyaXB0W3R5cGU9XFxcInZmcy1maWxlXFxcIl1gKS50ZXh0Q29udGVudDtcbiAgY29uc3QgZmlsZXMgPSBKU09OLnBhcnNlKGI2NERlY29kZShmaWxlc0NvbnRlbnQpKTtcblxuICAvLyBJbml0aWFsaXNlIHdlYlIgYW5kIHNldHVwIGZvciBSIGNvZGUgZXZhbHVhdGlvblxuICBsZXQgd2ViUlByb21pc2UgPSAoYXN5bmMgKHdlYlIpID0+IHtcbiAgICBzdGF0dXNUZXh0LnRleHRDb250ZW50ID0gYERvd25sb2FkaW5nIHdlYlJgO1xuICAgIGF3YWl0IHdlYlIuaW5pdCgpO1xuXG4gICAgLy8gSW5zdGFsbCBwcm92aWRlZCBsaXN0IG9mIHBhY2thZ2VzXG4gICAgLy8gRW5zdXJlIHdlYlIgZGVmYXVsdCByZXBvIGlzIGluY2x1ZGVkXG4gICAgZGF0YS5wYWNrYWdlcy5yZXBvcy5wdXNoKFwiaHR0cHM6Ly9yZXBvLnItd2FzbS5vcmdcIilcbiAgICBhd2FpdCBkYXRhLnBhY2thZ2VzLnBrZ3MubWFwKChwa2cpID0+ICgpID0+IHtcbiAgICAgIHN0YXR1c1RleHQudGV4dENvbnRlbnQgPSBgRG93bmxvYWRpbmcgcGFja2FnZTogJHtwa2d9YDtcbiAgICAgIHJldHVybiB3ZWJSLmV2YWxSVm9pZChgXG4gICAgICAgIHdlYnI6Omluc3RhbGwocGtnLCByZXBvcyA9IHJlcG9zKVxuICAgICAgICBsaWJyYXJ5KHBrZywgY2hhcmFjdGVyLm9ubHkgPSBUUlVFKVxuICAgICAgYCwgeyBlbnY6IHtcbiAgICAgICAgcGtnOiBwa2csXG4gICAgICAgIHJlcG9zOiBkYXRhLnBhY2thZ2VzLnJlcG9zLFxuICAgICAgfX0pO1xuICAgIH0pLnJlZHVjZSgoY3VyLCBuZXh0KSA9PiBjdXIudGhlbihuZXh0KSwgUHJvbWlzZS5yZXNvbHZlKCkpO1xuXG4gICAgLy8gRG93bmxvYWQgYW5kIGluc3RhbGwgcmVzb3VyY2VzXG4gICAgYXdhaXQgZmlsZXMubWFwKChmaWxlKSA9PiBhc3luYyAoKSA9PiB7XG4gICAgICBjb25zdCBuYW1lID0gZmlsZS5zdWJzdHJpbmcoZmlsZS5sYXN0SW5kZXhPZignLycpICsgMSk7XG4gICAgICBzdGF0dXNUZXh0LnRleHRDb250ZW50ID0gYERvd25sb2FkaW5nIHJlc291cmNlOiAke25hbWV9YDtcbiAgICAgIGNvbnN0IHJlc3BvbnNlID0gYXdhaXQgZmV0Y2goZmlsZSk7XG4gICAgICBpZiAoIXJlc3BvbnNlLm9rKSB7XG4gICAgICAgIHRocm93IG5ldyBFcnJvcihgQ2FuJ3QgZG93bmxvYWQgXFxgJHtmaWxlfVxcYC4gRXJyb3IgJHtyZXNwb25zZS5zdGF0dXN9OiBcIiR7cmVzcG9uc2Uuc3RhdHVzVGV4dH1cIi5gKTtcbiAgICAgIH1cbiAgICAgIGNvbnN0IGRhdGEgPSBhd2FpdCByZXNwb25zZS5hcnJheUJ1ZmZlcigpO1xuXG4gICAgICAvLyBTdG9yZSBVUkxzIGluIHRoZSBjd2Qgd2l0aG91dCBhbnkgc3ViZGlyZWN0b3J5IHN0cnVjdHVyZVxuICAgICAgaWYgKGZpbGUuaW5jbHVkZXMoXCI6Ly9cIikpIHtcbiAgICAgICAgZmlsZSA9IG5hbWU7XG4gICAgICB9XG5cbiAgICAgIC8vIENvbGxhcHNlIGhpZ2hlciBkaXJlY3Rvcnkgc3RydWN0dXJlXG4gICAgICBmaWxlID0gY29sbGFwc2VQYXRoKGZpbGUpO1xuXG4gICAgICAvLyBDcmVhdGUgZGlyZWN0b3J5IHRyZWUsIGlnbm9yaW5nIFwiZGlyZWN0b3J5IGV4aXN0c1wiIFZGUyBlcnJvcnNcbiAgICAgIGNvbnN0IHBhcnRzID0gZmlsZS5zcGxpdCgnLycpLnNsaWNlKDAsIC0xKTtcbiAgICAgIGxldCBwYXRoID0gJyc7XG4gICAgICB3aGlsZSAocGFydHMubGVuZ3RoID4gMCkge1xuICAgICAgICBwYXRoICs9IHBhcnRzLnNoaWZ0KCkgKyAnLyc7XG4gICAgICAgIGNvbnN0IGFuYWx5c2lzID0gYXdhaXQgd2ViUi5GUy5hbmFseXplUGF0aChwYXRoKTtcbiAgICAgICAgaWYgKCFhbmFseXNpcy5leGlzdHMpIHtcbiAgICAgICAgICB0cnkge1xuICAgICAgICAgICAgYXdhaXQgd2ViUi5GUy5ta2RpcihwYXRoKTtcbiAgICAgICAgICB9IGNhdGNoIChlKSB7XG4gICAgICAgICAgICB0aHJvdyBuZXcgRXJyb3IoYEZpbGVzeXN0ZW0gRXJyb3I6IFwiJHtlLm1lc3NhZ2V9XCIuYCk7XG4gICAgICAgICAgfVxuICAgICAgICB9XG4gICAgICB9XG5cbiAgICAgIC8vIFdyaXRlIHRoaXMgZmlsZSB0byB0aGUgVkZTXG4gICAgICByZXR1cm4gYXdhaXQgd2ViUi5GUy53cml0ZUZpbGUoZmlsZSwgbmV3IFVpbnQ4QXJyYXkoZGF0YSkpO1xuICAgIH0pLnJlZHVjZSgoY3VyLCBuZXh0KSA9PiBjdXIudGhlbihuZXh0KSwgUHJvbWlzZS5yZXNvbHZlKCkpO1xuXG4gICAgc3RhdHVzVGV4dC50ZXh0Q29udGVudCA9IGBJbnN0YWxsaW5nIHdlYlIgc2hpbXNgO1xuICAgIGF3YWl0IHdlYlIuZXZhbFJWb2lkKGB3ZWJyOjpzaGltX2luc3RhbGwoKWApO1xuXG4gICAgc3RhdHVzVGV4dC50ZXh0Q29udGVudCA9IGBXZWJSIGVudmlyb25tZW50IHNldHVwYDtcbiAgICBhd2FpdCBzZXR1cFIod2ViUiwgZGF0YSk7XG5cbiAgICBzdGF0dXNUZXh0LnJlbW92ZSgpO1xuICAgIGlmIChzdGF0dXNDb250YWluZXIuY2hpbGRyZW4ubGVuZ3RoID09IDApIHtcbiAgICAgIHN0YXR1c0NvbnRhaW5lci5wYXJlbnROb2RlLnJlbW92ZSgpO1xuICAgIH1cbiAgICByZXR1cm4gd2ViUjtcbiAgfSkobmV3IFdlYlIoZGF0YS5vcHRpb25zKSk7XG5cbiAgLy8gS2VlcCB0cmFjayBvZiBpbml0aWFsIE9KUyBibG9jayByZW5kZXJcbiAgY29uc3QgcmVuZGVyZWRPanMgPSB7fTtcblxuICBjb25zdCBwcm9jZXNzID0gYXN5bmMgKGNvbnRleHQsIGlucHV0cykgPT4ge1xuICAgIGNvbnN0IHdlYlIgPSBhd2FpdCB3ZWJSUHJvbWlzZTtcbiAgICBjb25zdCBldmFsdWF0b3IgPSBuZXcgV2ViUkV2YWx1YXRvcih3ZWJSLCBjb250ZXh0KVxuICAgIGF3YWl0IGV2YWx1YXRvci5wcm9jZXNzKGlucHV0cyk7XG4gICAgcmV0dXJuIGV2YWx1YXRvci5jb250YWluZXI7XG4gIH1cblxuICByZXR1cm4ge1xuICAgIHByb2Nlc3MsXG4gICAgd2ViUlByb21pc2UsXG4gICAgcmVuZGVyZWRPanMsXG4gIH07XG59XG4ifV19
+</script>
+<div id="exercise-loading-indicator" class="exercise-loading-indicator d-none d-flex align-items-center gap-2">
+<div id="exercise-loading-status" class="d-flex gap-2">
+
+</div>
+<div class="spinner-grow spinner-grow-sm">
+
+</div>
+</div>
+<script type="vfs-file">
+W10=
+</script>
+</section>
+
+</main>
+<!-- /main column -->
+<script type="ojs-module-contents">
+eyJjb250ZW50cyI6W119
+</script>
+<script type="module">
+if (window.location.protocol === "file:") { alert("The OJS runtime does not work with file:// URLs. Please use a web server to view this document."); }
+window._ojs.paths.runtimeToDoc = "../../..";
+window._ojs.paths.runtimeToRoot = "../../../..";
+window._ojs.paths.docToRoot = "..";
+window._ojs.selfContained = false;
+window._ojs.runtime.interpretFromScriptTags();
+</script>
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

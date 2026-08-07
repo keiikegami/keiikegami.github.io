@@ -1,0 +1,325 @@
+---
+title: "Playground 8：観察データ因果推論の実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+    - fixest
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。今回は固定効果回帰のために `fixest` も読み込むぶん、いつもより少しだけ長い。気長に待ってほしい。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture8.html`）。ここでは、観察データの識別戦略が「どんなときに、どれくらい壊れるか」を、数値をいじって体感することに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（編集不可・自動実行）----
+
+# 窓 |x| <= h の中だけでlocal linear回帰を走らせ、カットオフでのジャンプを推定する（実験3で使う）
+fit_local_linear <- function(x, y, h) {
+  win <- abs(x) <= h
+  d <- data.frame(xw = x[win], yw = y[win], treat = as.numeric(x[win] >= 0))
+  fit <- lm(yw ~ treat * xw, data = d)
+  list(
+    est = unname(coef(fit)["treat"]),
+    se = unname(sqrt(diag(vcov(fit)))["treat"]),
+    n = nrow(d),
+    coef = unname(coef(fit))
+  )
+}
+
+# sunabの係数から「相対期間・推定値・SE」の表を取り出す（実験2で使う）
+sunab_es_table <- function(fit) {
+  cf <- coef(fit)
+  sd_all <- sqrt(diag(vcov(fit)))
+  keep <- grepl("::-?[0-9]+$", names(cf))
+  data.frame(
+    e = as.numeric(sub(".*::(-?[0-9]+)$", "\\1", names(cf)[keep])),
+    est = unname(cf[keep]),
+    se = unname(sd_all[keep])
+  )
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：平行トレンド違反メーター — 見えない違反はどれだけ効くか
+
+DiDの生命線は並行トレンド仮定だが、これは反実仮想についての仮定なので直接検証できない。この実験では神様の立場に立ち、処置群だけに乗る余分なトレンドの傾きを自分で決める。処置群ダミー $D_i$、処置後ダミー $P_t$ として、DGPは次の形である。
+
+$$
+y_{it} = \mu_i + \lambda_t + \tau \cdot D_i P_t + s \cdot D_i t + \varepsilon_{it}
+$$
+
+$s$（= `trend_gap`）がゼロなら並行トレンドが成立し、DiDは $\tau$ を正しく当てる。$s \neq 0$ のとき、DiDの期待値は $\tau + s \times (\bar{t}_{\mathrm{post}} - \bar{t}_{\mathrm{pre}})$ にズレる。下の設定は前半8期・後半8期なので、バイアスはちょうど $s$ の8倍だ。図は処置群と対照群の平均の差を処置1期前で0に揃えたもので、素朴なevent studyに相当する。処置前の点が横一線に見えるか、目を凝らしてほしい。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+trend_gap <- 0.02   # 処置群だけに乗る追加トレンドの傾き（1期あたり）。0なら並行トレンド成立
+tau_true  <- 0.5    # 真の処置効果
+# -----------------------
+
+set.seed(20268)
+n_per_group <- 30   # 各群の県数
+T_all <- 16         # 期間
+treat_start <- 9    # 処置開始期
+
+n_units <- 2 * n_per_group
+unit_fe <- rnorm(n_units, mean = 0, sd = 0.4)
+time_fe <- rnorm(T_all, mean = 0, sd = 0.2)
+
+did_df <- expand.grid(unit = 1:n_units, time = 1:T_all) %>%
+  mutate(
+    treated_group = as.numeric(unit <= n_per_group),
+    post = as.numeric(time >= treat_start),
+    y = unit_fe[unit] + time_fe[time] +
+      tau_true * treated_group * post +
+      trend_gap * treated_group * time +
+      rnorm(n(), mean = 0, sd = 0.3)
+  )
+
+# 2x2のDiD（2群・共通処置時点なら、TWFE回帰はこの4平均の引き算と一致する）
+gm <- did_df %>%
+  group_by(treated_group, post) %>%
+  summarise(ybar = mean(y), .groups = "drop")
+pick <- function(g, p) gm$ybar[gm$treated_group == g & gm$post == p]
+did_est <- (pick(1, 1) - pick(1, 0)) - (pick(0, 1) - pick(0, 0))
+
+bias_theory <- trend_gap * (mean(treat_start:T_all) - mean(1:(treat_start - 1)))
+
+data.frame(
+  quantity = c("true effect", "DiD estimate", "bias", "bias / true (%)", "theoretical bias"),
+  value = round(c(tau_true, did_est, did_est - tau_true,
+                  100 * (did_est - tau_true) / tau_true, bias_theory), 3)
+)
+
+# event-study風の図：処置群と対照群の平均の差を、処置1期前を0に揃えて描く
+gap_df <- did_df %>%
+  group_by(time) %>%
+  summarise(gap = mean(y[treated_group == 1]) - mean(y[treated_group == 0]),
+            .groups = "drop") %>%
+  mutate(event_time = time - treat_start,
+         gap_norm = gap - gap[time == treat_start - 1])
+
+ggplot(gap_df, aes(event_time, gap_norm)) +
+  geom_hline(yintercept = 0, color = "gray70", linewidth = 0.3) +
+  geom_hline(yintercept = tau_true, linetype = "dashed", color = "firebrick") +
+  geom_vline(xintercept = -0.5, linetype = "dotted", color = "gray50") +
+  geom_line(color = "steelblue") +
+  geom_point(color = "steelblue", size = 1.8) +
+  annotate("text", x = -6, y = tau_true + 0.07, label = "true effect",
+           color = "firebrick", size = 3.4) +
+  labs(x = "event time (periods since treatment)",
+       y = "treated - control gap (normalized at t = -1)")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `trend_gap <- 0.005` にしてみよう。図のプレトレンドはほぼ完全にフラットに見えるはずだ。それでも表の `bias / true (%)` は何%残るか。
+- `trend_gap` は0.02のまま、`tau_true <- 0.1`（もともと効果が小さい施策）に変えてみよう。バイアスは真値の何倍になるか。効果が小さい施策ほど、同じ違反が致命傷になる。
+- 「プレトレンドがフラットに見える＝並行トレンド成立」と言えないのはなぜか。この装置で「図では無罪に見えるが、推定は有罪」という例を自分で作れることを踏まえて、言葉で説明してみよう。
+:::
+
+## 実験2：staggered adoptionと符号反転 — 静的TWFEが壊れる瞬間
+
+講義ノートのRシミュ2を、いじれる形に組み直した。導入時期は県ごとにバラバラ（staggered）で、処置効果は導入からの経過期間 $t - a_i$ とともに線形に成長する。
+
+$$
+\tau_{it} = \theta_i \cdot (t - a_i) \quad (t \ge a_i)
+$$
+
+成長率 $\theta_i$ はコホートで異なり、最も早く導入した県では `growth_early`、最も遅い県では `growth_late`（間は線形補間）とする。真のATTがはっきりプラスでも、静的TWFEは「すでに処置されて効果が成長し続けている県」を対照群に使う禁じられた比較のせいで、推定値が縮み、符号ごと裏返ることがある。表の3つの数字と、event studyの図を見比べよう。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+growth_early <- 0.15    # 最も早く導入した県の効果成長率（1期あたり）
+growth_late  <- -0.08   # 最も遅く導入した県の効果成長率（間は線形補間）
+# -----------------------
+
+set.seed(20268)
+G <- 40           # 県の数
+Tt <- 20          # 期間
+n_never <- 4      # ずっと未導入（never-treated）の県数
+adopt_lo <- 3; adopt_hi <- 17
+
+adopt_treated <- sample(adopt_lo:adopt_hi, G - n_never, replace = TRUE)
+adoption <- sample(c(adopt_treated, rep(Tt + 1000, n_never)))
+w_cohort <- pmin(pmax((adoption - adopt_lo) / (adopt_hi - adopt_lo), 0), 1)
+theta_g <- ifelse(adoption > Tt, 0,
+                  growth_early + w_cohort * (growth_late - growth_early))
+
+unit_fe <- rnorm(G, mean = 0, sd = 1)
+time_fe <- rnorm(Tt, mean = 0, sd = 0.3)
+
+pan <- expand.grid(unit = 1:G, time = 1:Tt) %>%
+  mutate(
+    adopt_t = adoption[unit],
+    treated = as.numeric(time >= adopt_t),
+    e = ifelse(treated == 1, time - adopt_t, 0),
+    true_effect = theta_g[unit] * e,
+    y = unit_fe[unit] + time_fe[time] + 0.01 * time + true_effect +
+      rnorm(n(), mean = 0, sd = 0.25)
+  )
+
+true_att <- mean(pan$true_effect[pan$treated == 1])
+
+static_fit <- feols(y ~ treated | unit + time, data = pan)
+twfe_est <- unname(coef(static_fit)["treated"])
+
+sun_fit <- feols(y ~ sunab(adopt_t, time) | unit + time, data = pan)
+sun_att <- as.numeric(coef(summary(sun_fit, agg = "att")))[1]
+
+data.frame(
+  method = c("true ATT", "static TWFE", "Sun-Abraham (sunab)"),
+  estimate = round(c(true_att, twfe_est, sun_att), 3)
+)
+
+# event study：sunabの係数（点とヒゲ）・真の動的効果（実線）・静的TWFE（破線）
+es <- sunab_es_table(sun_fit) %>% filter(e >= -8, e <= 12)
+true_path <- pan %>%
+  filter(treated == 1, e <= 12) %>%
+  group_by(e) %>%
+  summarise(true_eff = mean(true_effect), .groups = "drop")
+true_path <- bind_rows(data.frame(e = -8:-1, true_eff = 0), true_path)
+
+ggplot() +
+  geom_hline(yintercept = 0, color = "gray70", linewidth = 0.3) +
+  geom_vline(xintercept = -0.5, linetype = "dotted", color = "gray50") +
+  geom_errorbar(data = es, aes(e, ymin = est - 1.96 * se, ymax = est + 1.96 * se),
+                width = 0.3, color = "steelblue", alpha = 0.7) +
+  geom_point(data = es, aes(e, est, color = "Sun-Abraham estimate"), size = 1.8) +
+  geom_line(data = true_path, aes(e, true_eff, color = "true effect"),
+            linewidth = 0.9) +
+  geom_hline(aes(yintercept = twfe_est, color = "static TWFE"),
+             linetype = "dashed", linewidth = 0.8) +
+  scale_color_manual(values = c("Sun-Abraham estimate" = "steelblue",
+                                "true effect" = "firebrick",
+                                "static TWFE" = "gray30")) +
+  labs(x = "event time (periods since adoption)", y = "treatment effect",
+       color = NULL) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `growth_late <- 0.15`（`growth_early` と同じ値）にして、コホート間の異質性を消してみよう。符号反転は消えるか。消えたとして、静的TWFEは真のATTまで戻るか、それともゼロ近くまで縮んだままか。
+- `growth_early` を0.05から0.30まで動かして、真のATTと静的TWFEの乖離がどう広がるか見てみよう。sunabはどの設定でも真値を追えているか。
+- なぜ「すでに処置されて効果が成長し続けている県」を対照群に使うと、推定値が下に引っ張られるのか。event studyの図のどの部分が、その「動き続けている対照群」に当たるかを考えてみよう。
+:::
+
+## 実験3：RDDのバンド幅トレードオフ — バイアスと分散の綱引き
+
+会員ランクのような閾値をイメージして、走行変数 $x$ を「閾値からの距離」に基準化したRDDを組む。真の関数は $f(x) = 1 + 1.2 x + c x^3$（$c$ = `curvature`）、閾値でのジャンプ（真の効果）は1.0である。バンド幅 $h$ の窓の中だけでlocal linear回帰（`lm`）を走らせてジャンプを推定する。$h$ が小さいと使えるデータが減ってSEが膨らみ、$h$ が大きいと曲がった関数を直線で無理やり近似するためバイアスが乗る。1枚目の図は窓（薄い青）と当てはめ、2枚目の図は $h$ を端から端まで動かしたときの推定値と95%信頼区間である。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+h <- 0.5         # バンド幅（窓の半径）
+curvature <- 3   # 真の関数の曲率（x^3の係数）
+# -----------------------
+
+set.seed(20268)
+n_rdd <- 2000
+tau_true <- 1.0   # 閾値でのジャンプ（真の効果）
+
+x <- runif(n_rdd, -1, 1)
+f0 <- function(x) 1 + 1.2 * x + curvature * x^3
+y <- f0(x) + tau_true * (x >= 0) + rnorm(n_rdd, mean = 0, sd = 0.5)
+
+res <- fit_local_linear(x, y, h)
+data.frame(
+  quantity = c("true effect", "estimate", "std. error", "bias", "obs in window"),
+  value = round(c(tau_true, res$est, res$se, res$est - tau_true, res$n), 3)
+)
+
+# 図1：データ・真の関数・窓内のlocal linear fit
+xg_lo <- seq(-1, 0, length.out = 80); xg_hi <- seq(0, 1, length.out = 80)
+true_df <- rbind(
+  data.frame(x = xg_lo, y = f0(xg_lo), side = "below"),
+  data.frame(x = xg_hi, y = f0(xg_hi) + tau_true, side = "above")
+)
+xl <- seq(-h, 0, length.out = 40); xr <- seq(0, h, length.out = 40)
+cf <- res$coef
+fit_df <- rbind(
+  data.frame(x = xl, y = cf[1] + cf[3] * xl, side = "below"),
+  data.frame(x = xr, y = cf[1] + cf[2] + (cf[3] + cf[4]) * xr, side = "above")
+)
+
+ggplot() +
+  annotate("rect", xmin = -h, xmax = h, ymin = -Inf, ymax = Inf,
+           fill = "steelblue", alpha = 0.08) +
+  geom_point(data = data.frame(x = x, y = y), aes(x, y),
+             alpha = 0.15, size = 0.6, color = "gray40") +
+  geom_line(data = true_df, aes(x, y, group = side, color = "true function"),
+            linewidth = 0.9) +
+  geom_line(data = fit_df, aes(x, y, group = side, color = "local linear fit"),
+            linewidth = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray30") +
+  scale_color_manual(values = c("true function" = "firebrick",
+                                "local linear fit" = "steelblue")) +
+  labs(x = "running variable x (distance from cutoff)", y = "outcome y",
+       color = NULL) +
+  theme(legend.position = "top")
+
+# 図2：hを動かしたときの推定値と95%信頼区間
+h_grid <- seq(0.08, 1, by = 0.04)
+sweep_fit <- lapply(h_grid, function(hh) fit_local_linear(x, y, hh))
+sweep_df <- data.frame(
+  h = h_grid,
+  est = sapply(sweep_fit, function(r) r$est),
+  se = sapply(sweep_fit, function(r) r$se)
+)
+
+ggplot(sweep_df, aes(h, est)) +
+  geom_ribbon(aes(ymin = est - 1.96 * se, ymax = est + 1.96 * se),
+              fill = "steelblue", alpha = 0.2) +
+  geom_line(color = "steelblue", linewidth = 0.9) +
+  geom_hline(yintercept = tau_true, linetype = "dashed", color = "firebrick") +
+  geom_vline(xintercept = h, linetype = "dotted", color = "gray40") +
+  annotate("text", x = 0.92, y = tau_true + 0.1, label = "true effect",
+           color = "firebrick", size = 3.4) +
+  annotate("text", x = h, y = min(sweep_df$est - 1.96 * sweep_df$se),
+           label = "current h", color = "gray40", size = 3.4, hjust = -0.1) +
+  labs(x = "bandwidth h", y = "RDD estimate with 95% CI")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `h <- 0.1` と `h <- 1.0` で表の `std. error` と `bias` を見比べよう。`h <- 1.0` のとき、推定値の符号はどうなっているか。
+- `curvature <- 0`（真の関数が直線）にすると、大きな `h` でもバイアスがほぼ消えることを確認しよう。最適なバンド幅が「真の関数の曲がり具合」に依存することがわかる。
+- 実務では真の関数形も真の効果も見えない。`rdrobust` のようなデータ駆動のバンド幅選択は、2枚目の図のどんな情報をデータから推定して $h$ を決めようとしているのだろうか。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture8.html`（activity bias、Goodman-Bacon分解、sunabの実装、bunchingの完全版）
+- coding課題：`assignment8.qmd`（今回の実験2の設計を店舗・エリアの文脈に置き換え、静的TWFEとsunabの違いをゼロから自分で実装する）

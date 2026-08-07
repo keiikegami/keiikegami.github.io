@@ -1,0 +1,407 @@
+---
+title: "課題3：nested logitの市場レベル需要推定と価格内生性"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(fixest)
+
+set.seed(20263)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この課題のゴール
+
+第3回の講義では、缶コーヒー市場（まったり系 vs すっきり系）を例にnested logitとBerry反転、価格内生性、2SLSを学んだ。この課題では、舞台を**炭酸飲料市場**（「甘め系」2財、「無糖・すっきり系」2財）に変え、自分の手でデータを生成し、推定・推論まで一通り実行する。
+
+具体的には次の3つを確認する。
+
+1. plain logitのBerry反転をOLSで推定すると価格係数$\alpha$が過小評価されること。
+2. nested logit版のBerry反転をOLSで推定すると、$\alpha$だけでなくネスト内相関$\rho$も歪むこと。
+3. コストシフターとBLP型IV（競合属性）を使った2SLSで、$\alpha$と$\rho$の両方を回収できること。
+
+配点は全体で100点。手を動かせば2〜4時間程度で終わる分量を想定している。ヒントのcalloutを活用してほしい。
+:::
+
+## 設定：炭酸飲料市場
+
+大手飲料メーカーの新商品企画チームにいるとしよう。あなたの会社は、全国の$T=100$市場（コンビニチェーンの店舗群、あるいは地域市場と考えてもよい）で、4種類の炭酸飲料を展開している。
+
+- 財1・財2：**「甘め系」**ネスト（フレーバー強め、糖分多め）
+- 財3・財4：**「無糖・すっきり系」**ネスト（微炭酸・無糖）
+- 財0（outside option）：炭酸飲料を買わない（他のカテゴリの飲み物を買う、あるいは何も買わない）
+
+消費者の効用は
+
+$$
+u_{ijt} = \delta_{jt} + \zeta_{igt} \cdot \rho + (1-\rho)\varepsilon_{ijt}
+$$
+
+という一般化extreme value構造から導かれるnested logitに従うとし（講義の記法に合わせ、講義で導入した選択確率の分解式をそのまま使えばよい。$\zeta_{igt}$の分布の詳細に立ち入る必要はない）、平均効用は
+
+$$
+\delta_{jt} = x_{jt}'\beta - \alpha p_{jt} + \xi_{jt}
+$$
+
+とする。真値は
+
+$$
+\alpha = 2.0, \quad \beta = 1.5, \quad \rho = 0.5
+$$
+
+とする。
+
+## Part 1：シミュレーション設計（40点）
+
+### Q1（10点）：外生変数とコストシフターの生成
+
+$T = 100$ 市場、$J = 4$ 財について、次の変数を生成せよ。
+
+- 商品属性 $x_{jt}$：平均3.6、標準偏差1.5の正規分布
+- コストシフター $w_{jt}$：平均4.0、標準偏差1.0の正規分布
+- 需要ショック $\xi_{jt}$：平均0、標準偏差1.0の正規分布
+
+いずれも市場×財の$100 \times 4$行列として生成すること。`set.seed()`はsetupチャンクで既に固定されているので、以降このチャンクの実行順序を変えないこと。
+
+```{r}
+#| label: q1-skeleton
+#| eval: false
+T_mkt <- 100
+J_mkt <- 4
+
+x_mkt <- matrix(rnorm(___, mean = ___, sd = ___), nrow = ___, ncol = ___)
+w_mkt <- matrix(rnorm(___, mean = ___, sd = ___), nrow = ___, ncol = ___)
+xi_mkt <- matrix(rnorm(___, mean = ___, sd = ___), nrow = ___, ncol = ___)
+```
+
+::: {.callout-tip}
+## ヒント
+
+`rnorm(n, mean, sd)`は長さ`n`のベクトルを返す。`matrix(rnorm(T*J, ...), nrow = T, ncol = J)`のように書けば、$T \times J$行列に整形できる。第3回講義のRシミュ3と基本的に同じ書き方でよい。
+:::
+
+### Q2（15点）：価格の生成（内生性を組み込む）
+
+限界費用とマークアップを次のように生成し、価格を計算せよ。
+
+$$
+mc_{jt} = 0.5 + 0.8 w_{jt} + \text{誤差}_{jt}, \quad \text{誤差}_{jt} \sim N(0, 0.3^2)
+$$
+
+$$
+\text{markup}_{jt} = \max(1.0 + 1.3\, \xi_{jt},\ 0.05)
+$$
+
+$$
+p_{jt} = mc_{jt} + \text{markup}_{jt}
+$$
+
+（`pmax()`を使うと、マークアップが負にならないようにできる。）
+
+生成した価格$p$と需要ショック$\xi$の相関係数を計算し、正の値になっていることを確認せよ。
+
+```{r}
+#| label: q2-skeleton
+#| eval: false
+mc_mkt <- ___ + ___ * w_mkt + matrix(rnorm(___, sd = ___), nrow = ___, ncol = ___)
+markup_mkt <- pmax(___, 0.05)
+price_mkt <- ___ + ___
+
+cor(as.vector(price_mkt), as.vector(xi_mkt))
+```
+
+::: {.callout-tip}
+## ヒント：なぜこの生成方法で内生性が生まれるのか
+
+markupが$\xi$に正に反応するように作っているので、$\xi$が高い（消費者に人気がある）財ほど価格も高くなる。これは講義で説明した「企業は$\xi$を知って強気の価格をつける」という状況をそのままコードにしたものである。もしここで`markup_mkt <- 1.0`（定数）としてしまうと、価格は$w$だけで決まり、$\xi$と無相関になる。これが「内生性のない」ベンチマークになる。余裕があれば、後で`markup_mkt`の$\xi$への反応係数を0にした場合にOLSとIVがどう変わるか、比較してみるとよい。
+:::
+
+### Q3（10点）：nested logitシェアの計算とデータフレーム化
+
+次のnested logitシェア計算関数を使い（講義ノートの`nested_logit_shares()`と同じもの。コピーして使ってよい）、市場$\times$財のシェアを計算せよ。ネスト構造は`nests <- list(c(1,2), c(3,4))`（財1・2が甘め系ネスト、財3・4が無糖・すっきり系ネスト）とする。
+
+```{r}
+#| label: nested-logit-fn-given
+nested_logit_shares_batch <- function(x, price, xi, alpha, beta, rho, nests) {
+  # x, price, xi: T x J 行列
+  delta <- beta * x - alpha * price + xi
+  T_ <- nrow(delta); J_ <- ncol(delta)
+  lambda <- 1 - rho
+  n_nests <- length(nests)
+
+  IV <- matrix(NA, T_, n_nests)
+  for (g in seq_len(n_nests)) {
+    idx <- nests[[g]]
+    IV[, g] <- rowSums(exp(delta[, idx, drop = FALSE] / lambda))
+  }
+  denom <- 1 + rowSums(IV^lambda)
+  s0 <- 1 / denom
+  s_g <- (IV^lambda) / denom
+
+  s <- matrix(NA, T_, J_)
+  s_within <- matrix(NA, T_, J_)
+  for (g in seq_len(n_nests)) {
+    idx <- nests[[g]]
+    for (j in idx) {
+      s_within[, j] <- exp(delta[, j] / lambda) / IV[, g]
+      s[, j] <- s_within[, j] * s_g[, g]
+    }
+  }
+  list(s = s, s0 = s0, s_within = s_within)
+}
+```
+
+この関数を使い、以下を実行せよ。
+
+1. `nests <- list(c(1,2), c(3,4))`、真値`alpha=2.0, beta=1.5, rho=0.5`でシェアを計算する。
+2. 市場・財・$x$・$w$・$\xi$・価格・シェア・outsideシェア・within shareを1行1観測（$T \times J = 400$行）のデータフレームにまとめる。
+3. `y_berry = log(share) - log(share0)`、`ln_swithin = log(s_within)`の2列を追加する。
+
+```{r}
+#| label: q3-skeleton
+#| eval: false
+nests <- list(c(1, 2), c(3, 4))
+alpha_true <- 2.0
+beta_true <- 1.5
+rho_true <- 0.5
+
+nl_result <- nested_logit_shares_batch(x_mkt, price_mkt, xi_mkt, alpha_true, beta_true, rho_true, nests)
+
+market_df <- data.frame(
+  market = rep(1:T_mkt, times = J_mkt),
+  product = rep(1:J_mkt, each = T_mkt),
+  x = as.vector(x_mkt),
+  w = as.vector(w_mkt),
+  xi = as.vector(xi_mkt),
+  price = as.vector(price_mkt),
+  share = as.vector(___),
+  share0 = rep(___, times = J_mkt),
+  s_within = as.vector(___)
+) %>%
+  mutate(y_berry = ___, ln_swithin = ___)
+```
+
+### Q4（5点）：記述統計と可視化
+
+1. 財ごとの平均シェア・平均価格を表にまとめよ（`group_by(product) %>% summarize(...)`）。
+2. 価格とシェアの散布図を、財ごとに色分けして描け。
+3. outside optionの平均シェアを計算せよ。
+
+::: {.callout-tip}
+## ヒント
+
+平均シェアはだいたい5〜10%程度、outsideのシェアは60%前後になっているはずである。極端に0%や100%に近い値になっている場合は、Q1・Q2のパラメータ（特に`x_mkt`の平均）を疑ってみるとよい。
+:::
+
+## Part 2：推定・推論（60点）
+
+### Q5（10点）：plain logitのBerry反転をOLSで推定する
+
+まず、nestedの構造を無視して（つまりネストを無視して）plain logitとして扱い、Berry反転をOLSで推定してみる。
+
+$$
+y_{jt} = \ln s_{jt} - \ln s_{0t} = x_{jt}'\beta - \alpha p_{jt} + \xi_{jt}
+$$
+
+`fixest::feols()`を使ってOLS推定し、$\hat\alpha$を真値と比較せよ。
+
+```{r}
+#| label: q5-skeleton
+#| eval: false
+ols_plain <- feols(y_berry ~ price + x, data = market_df, vcov = "hetero")
+summary(ols_plain)
+
+alpha_ols_plain <- -coef(ols_plain)["price"]
+```
+
+### Q6（10点）：nested logit版のBerry反転をOLSで推定する
+
+nested logit版のBerry反転式
+
+$$
+y_{jt} = x_{jt}'\beta - \alpha p_{jt} + \rho \ln \bar{s}_{j|g,t} + \xi_{jt}
+$$
+
+をOLSで推定せよ（`ln_swithin`を説明変数に追加するだけでよい）。$\hat\alpha$と$\hat\rho$を真値（$\alpha=2.0$, $\rho=0.5$）と比較し、Q5のplain logitの結果と合わせて、**どちらのパラメータがどの方向にどれだけ歪むか**を記述せよ。
+
+```{r}
+#| label: q6-skeleton
+#| eval: false
+ols_nested <- feols(y_berry ~ price + ln_swithin + x, data = market_df, vcov = "hetero")
+summary(ols_nested)
+```
+
+::: {.callout-tip}
+## ヒント：なぜwithin shareもOLSで歪むのか
+
+`ln_swithin`（$\ln \bar{s}_{j|g,t}$）は、同じネスト内の財の$\delta$（したがって$\xi$）にも依存して決まる。つまり価格と同様に、この変数も$\xi_{jt}$と相関する内生変数である。したがって$\alpha$だけでなく$\rho$の推定にもバイアスがかかる。バイアスの方向を予想してから、実際にコードを実行して答え合わせをしてみよう。
+:::
+
+### Q7（20点）：2SLSで$\alpha$と$\rho$を回収する
+
+Q6のOLS推定には2つの内生変数（`price`と`ln_swithin`）があるので、それぞれに対応する操作変数が必要である。次の3つを操作変数として使う。
+
+1. `w`：コストシフター（`price`用）
+2. `rx_within`：**同じネスト内の競合の商品属性の合計**（`ln_swithin`用のBLP型IV）
+3. `rx_other`：**異なるネストの競合の商品属性の合計**（`ln_swithin`用のBLP型IV）
+
+`rx_within`と`rx_other`は、次のように計算する。財$j$がネスト$g$に属するとき、
+
+$$
+\text{rx\_within}_{jt} = \sum_{k \in g,\, k \neq j} x_{kt}, \qquad
+\text{rx\_other}_{jt} = \sum_{k \notin g} x_{kt}
+$$
+
+これらは「競合の属性」であり、財$j$自身の$\xi_{jt}$には影響しないが、同じネスト内・異なるネストの競合が強い（属性$x$が高い）ときに財$j$のwithin shareを動かす、という発想のBLP型IVである。
+
+```{r}
+#| label: q7a-skeleton
+#| eval: false
+# 財ごとの「同ネスト内の競合のx合計」「異ネストの競合のx合計」を計算する関数
+compute_rival_x <- function(x, nests) {
+  T_ <- nrow(x); J_ <- ncol(x)
+  nest_of <- integer(J_)
+  for (g in seq_along(nests)) {
+    for (j in nests[[g]]) nest_of[j] <- g
+  }
+  rx_within <- matrix(NA, T_, J_)
+  rx_other <- matrix(NA, T_, J_)
+  for (j in 1:J_) {
+    g <- nest_of[j]
+    rivals_within <- setdiff(nests[[g]], j)
+    rivals_other <- setdiff(1:J_, nests[[g]])
+    rx_within[, j] <- if (length(rivals_within) > 0) rowSums(x[, rivals_within, drop = FALSE]) else 0
+    rx_other[, j] <- rowSums(x[, rivals_other, drop = FALSE])
+  }
+  list(rx_within = rx_within, rx_other = rx_other)
+}
+
+rx <- compute_rival_x(x_mkt, nests)
+market_df$rx_within <- as.vector(___)
+market_df$rx_other <- as.vector(___)
+```
+
+`fixest::feols()`で複数内生変数の2SLSを実行するには、`|`の後ろに`(内生変数1 + 内生変数2) ~ 操作変数1 + 操作変数2 + ...`の形式で書く。
+
+```{r}
+#| label: q7b-skeleton
+#| eval: false
+iv_nested <- feols(
+  y_berry ~ x | price + ln_swithin ~ w + rx_within + rx_other,
+  data = market_df, vcov = "hetero"
+)
+summary(iv_nested)
+```
+
+$\hat\alpha$、$\hat\rho$を真値と比較し、first-stageのF統計量も報告せよ（`price`用、`ln_swithin`用それぞれ）。弱操作変数の懸念があるかどうかコメントせよ。
+
+::: {.callout-tip}
+## ヒント：係数の取り出し方
+
+`coef(iv_nested)`を実行すると係数名が確認できる。`fixest`のバージョンによって、内生変数の係数名が元の変数名（`price`）のままの場合と、接頭辞が付く場合がありうる。`names(coef(iv_nested))`をまず`print`して名前を確認し、それに応じて`coef(iv_nested)["price"]`または該当する名前でアクセスするとよい。次のような、名前の部分一致で探す頑健なヘルパー関数を用意しておくと安全である。
+
+```{r}
+#| label: coef-helper
+#| eval: false
+get_coef_for <- function(model, varname) {
+  cf <- coef(model)
+  hit <- grepl(varname, names(cf), fixed = TRUE)
+  cf[hit][1]
+}
+```
+:::
+
+::: {.callout-tip}
+## ヒント：first-stageの見方
+
+`fixest`で複数内生変数のIVを実行すると、`summary()`の出力に複数のfirst-stage回帰の情報が自動的に含まれる。ただし`fitstat()`の詳細な引数名は`fixest`のバージョンによって変わることがあるので、確実な方法として、`feols(price ~ x + w + rx_within + rx_other, data = market_df)`と`feols(ln_swithin ~ x + w + rx_within + rx_other, data = market_df)`のように、first-stage回帰を自分で明示的に実行し、それぞれに対して`fitstat(fs_price, "f")`のようにF統計量を確認する方法を推奨する。これなら通常の単回帰に対するF統計量なので確実に動作する。
+:::
+
+::: {.callout-tip}
+## ヒント：なぜ`rx_within`・`rx_other`が価格の操作変数にもならないのか
+
+理論的には`rx_within`・`rx_other`は`price`に対しても多少の説明力を持つかもしれない（競合が強いと自社も値下げ圧力を受けるため）。しかしこの課題では、`price`の操作変数としては`w`（コストシフター）だけを念頭に置き、`rx_within`・`rx_other`は主に`ln_swithin`の操作変数として設計している。`feols`の2SLS構文では、指定した全ての操作変数が全ての内生変数の識別に使われる（操作変数の数 $\geq$ 内生変数の数であればよい）ので、実装上はまとめて指定してよい。
+:::
+
+### Q8（10点）：弾力性行列の比較（logit/nested × OLS/IV）
+
+次の4通りの弾力性行列を計算し、比較せよ。
+
+1. plain logit・OLSの$\hat\alpha$を使った弾力性行列
+2. plain logit・真値$\alpha=2.0$を使った弾力性行列（ベンチマーク）
+3. nested logit・OLSの$\hat\alpha, \hat\rho$を使った弾力性行列
+4. nested logit・2SLSの$\hat\alpha, \hat\rho$を使った弾力性行列
+
+nested logitの弾力性は、講義の`elasticity_numeric()`関数（数値微分）を応用して計算してよい。市場平均のシェア・価格を使うこと。表または図でまとめ、「OLSに基づく弾力性行列を使うと、どの財の代替性を見誤りやすいか」を2〜3行で述べよ。
+
+```{r}
+#| label: q8-skeleton
+#| eval: false
+mean_share_df <- market_df %>% group_by(product) %>% summarize(share = mean(share), price = mean(price))
+mean_delta <- ___  # 平均x, 平均shareから逆算するか、平均deltaを別途計算する
+
+# nested logitの弾力性計算には講義ノートのelasticity_numeric()を再利用してよい
+```
+
+### Q9（5点）：$\rho = 0$のWald検定
+
+2SLSで得た$\hat\rho$とその標準誤差を使い、$H_0: \rho = 0$（「nested構造は不要でplain logitで十分」という帰無仮説）に対するWald検定統計量を計算せよ。
+
+$$
+W = \left(\frac{\hat\rho}{\text{se}(\hat\rho)}\right)^2
+$$
+
+は自由度1のカイ二乗分布に従う。5%水準の臨界値（3.84）と比較し、$H_0$を棄却できるか判定せよ。
+
+```{r}
+#| label: q9-skeleton
+#| eval: false
+get_se_for <- function(model, varname) {
+  s <- se(model)
+  hit <- grepl(varname, names(s), fixed = TRUE)
+  s[hit][1]
+}
+
+rho_hat <- get_coef_for(iv_nested, "ln_swithin")
+se_rho <- get_se_for(iv_nested, "ln_swithin")
+wald_stat <- (rho_hat / se_rho)^2
+```
+
+### Q10（5点）：経営への含意（3行で）
+
+あなたは飲料メーカーの商品企画担当として、この推定結果をもとに次の問いに答えなければならない。「甘め系ネストの財1を値上げしたとき、一番シェアを奪われる（＝一番怖い競合になる）のはどの財か」。2SLSで推定した弾力性行列を根拠に、3行以内で答えよ。OLSに基づく弾力性行列で同じ問いに答えた場合、結論がどう変わってしまうかにも触れること。
+
+::: {.callout-warning}
+## 提出前のチェック
+
+- チャンクを上から順に実行して、未定義変数によるエラーが出ないか確認したか。
+- `alpha_ols_plain`、`alpha_ols_nested`（Q6の$\hat\alpha$）、`alpha_iv`（Q7の$\hat\alpha$）を明確に区別して報告しているか。
+- Q8の弾力性行列は、対角成分（自己弾力性）と非対角成分（交差弾力性）の両方に触れているか。
+:::

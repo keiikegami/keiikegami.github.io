@@ -1,0 +1,808 @@
+---
+title: "Lecture 15：Dynamic pricing — 企業の動学的価格設定"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(patchwork)
+
+set.seed(20265)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この講義で押さえたいこと
+
+- 「dynamic pricing」という言葉には複数の意味が混ざっている。この講義では「企業の価格**ルール**が状態（時間・在庫・需給）の関数になっていること」として統一的に定義する。
+- 静学の独占価格（逆弾力性ルール）を復習し、そこに「時間」と「在庫」という2つの状態変数を足すと revenue management（RM）になる。
+- RMの核心は第13回で学んだ**backward induction**の再演である。Bellman方程式 $V(t,c) = \max_p\{\lambda(p)[p + V(t-1,c-1)] + (1-\lambda(p))V(t-1,c)\}$ を解くだけで、航空券の価格が「残り期間・残り座席」に応じてどう動くべきかが1枚のヒートマップになって出てくる。
+- surge pricing（ride-hailing）は「儲けるための値上げ」ではなく「需給を裂かせないための価格」として理解する。
+- コース全体の総括：需要推定（第2〜4回）× 因果推論（第7〜8回）× 異質性（第9〜11回）× 動学（第13〜15回）が、すべて「価格を賢く決める」という1つの実務課題に収束することを確認する。
+:::
+
+## 前回までの道のりと、今日の位置
+
+第13回では、消費者が「今の効用」と「将来への影響」を天秤にかけて選ぶ、forward-lookingな動学的離散選択モデルを学んだ。状態 $x$、行動 $a$、価値関数 $V(x)$、choice-specific value function $v(x,a)$、Bellman方程式、backward inductionという道具一式をそこで手に入れた。第14回では、その消費者側の動学を、スイッチングコストやロイヤルティ、セールに反応した買いだめといった具体的な現象に応用した。
+
+第15回、最終回である今日は、視点を**企業側**に移す。消費者が動学的に考えて行動するなら、企業も動学的に価格を決めるべきだ、というのが今日の出発点になる。第13回で身につけたBellman方程式とbackward inductionは、実は企業の価格設定問題にもほぼそのまま使い回せる。今日はその再演をする。
+
+そして今日はコースの最終回でもある。第2回の logit 需要、第3回の価格内生性、第4回の供給側 Bertrand-Nash、第6回のコンジョイント、第7〜8回の因果推論、第9〜11回の異質性とターゲティング、第13〜14回の動学。これらを全部使うと何ができるか。答えは「価格を最適化できる」だ。今日はその結線を最後に確認して、コースを締める。
+
+70%くらい分かったら先に進もう。今日は最終回なので、細部よりも「全体がどうつながっているか」の実感を優先してほしい。
+
+## 1. 「dynamic」の交通整理
+
+「dynamic pricing」という言葉は、世間では驚くほど雑に使われている。ニュースやビジネス書で語られる「ダイナミックプライシング」を分解すると、少なくとも3つの別物が混ざっている。
+
+1. **時間帯・需給で価格が変わる**：電気料金のピーク時間帯課金、ライドシェアのサージ、深夜のタクシー割増。
+2. **販売期限と在庫で価格が変わる**：航空券やホテルの価格が、出発日・チェックイン日が近づくにつれて、また空席数に応じて変わる。revenue management (RM) と呼ばれる領域。
+3. **顧客ごとに価格が変わる**：会員ランクによる割引、購買履歴に基づくクーポン配布、過去の閲覧履歴を使ったパーソナライズ価格。これは第11回（ターゲティング）・第14回（履歴ベースの価格差別）で扱った世界だ。
+
+この3つは技術的にはまったく違う問題を解いている。(1)(2)は「同じ商品を、同じ客に対して、状況に応じて違う価格で売る」問題であり、(3)は「同じ状況で、違う客に対して違う価格で売る」問題だ。ニュースで「AIが個人の購買履歴から価格を決めている」という話と「航空券が満席に近づくと値上がりする」という話は、企業がやっていることとしては別物なのに、同じ「ダイナミックプライシング」という言葉で語られてしまう。
+
+今日はこの3つを次のように整理して統一する。
+
+> **企業の価格「ルール」が、状態の関数になっている。** これが dynamic pricing の定義である。状態が「時間・需給」なら(1)、状態が「残り期間・在庫」なら(2)、状態が「顧客の属性・履歴」なら(3)になる。
+
+今日は主に(1)と(2)を扱う。(3)はすでに第11回・第14回で扱っているので、今日は復習程度に触れるだけにとどめる。
+
+::: {.callout-note}
+## ビジネスの現場で：「うちもダイナミックプライシングを」と言われたら
+
+経営会議で「競合がAIで価格を変えているらしい。うちも導入しよう」という話が出ることがある。このとき最初にすべきことは「それは(1)(2)(3)のどれの話をしているのか」を確認することだ。「閑散期・繁忙期で価格を変えたい」なら(1)(2)寄りの話で、今日学ぶ在庫・時間の状態管理が効いてくる。「優良顧客とライトユーザーで価格を変えたい」なら(3)寄りの話で、第11回のCATE推定やポリシー学習が主戦場になる。同じ「ダイナミックプライシング」という言葉で会議が進むと、必要な技術も、直面する炎上リスクも、まったく違うのに議論がかみ合わなくなる。最初の交通整理だけで、プロジェクトの方向性が大きく変わる。
+:::
+
+## 2. 静学ベンチマーク：逆弾力性ルールの復習
+
+dynamic pricingを理解する前に、まず「動かない価格」つまり静学的な独占価格づけを復習しておく。すべてはここが出発点になる。
+
+第2回で学んだように、企業が価格 $p$ の財を1つだけ売っている独占企業だとする。需要量を $q(p)$、限界費用を $mc$ とすると、利潤は
+
+$$
+\pi(p) = (p - mc)\, q(p)
+$$
+
+これを $p$ について最大化する一階条件を整理すると、おなじみの**逆弾力性ルール**（Lerner指数）が出てくる。
+
+$$
+\frac{p - mc}{p} = \frac{1}{|\eta(p)|}, \qquad \eta(p) = \frac{dq}{dp}\frac{p}{q}
+$$
+
+マージン率は弾力性の逆数で決まる。**弾力性を知らなければ、そもそも「適切な価格」を計算する土俵にすら立てない。** 第2〜4回でロジットの弾力性 $\eta_{jj} = -\alpha p_j(1-s_j)$ を推定する方法をあれだけ丁寧にやったのは、まさにこの土俵に立つためだった。
+
+今日のRevenue managementもsurge pricingも、結局はこの逆弾力性ルールの延長線上にある。「状態に応じて価格を変える」というのは、「状態に応じて、その時点での実効的な弾力性・機会費用を計算し直して、その都度、逆弾力性ルールを適用し直している」というだけのことだ。dynamicになったからといって、経済学の原理そのものが変わるわけではない。
+
+### Rシミュ1：logit需要のもとでの最適価格
+
+第2回のロジット需要を思い出そう。財1つ（買う/買わないの2択、outside optionが $j=0$）に対する購買確率を
+
+$$
+\lambda(p) = \frac{\exp(\theta_0 - \alpha p)}{1 + \exp(\theta_0 - \alpha p)}
+$$
+
+とする。市場規模を $M$、限界費用を $mc = 0$ とすると（航空券1席のように限界費用がほぼゼロに近いケースを念頭に置く）、利潤は $\pi(p) = M \cdot \lambda(p) \cdot p$ になる。これを価格についてプロットし、最適価格を数値的に探す。
+
+```{r}
+#| label: lec15-static-profit
+theta0 <- 6.0
+alpha  <- 0.045
+
+lambda_p <- function(p, theta0, alpha) {
+  u <- theta0 - alpha * p
+  1 / (1 + exp(-u))
+}
+
+p_grid <- seq(1, 350, length.out = 400)
+profit_grid <- lambda_p(p_grid, theta0, alpha) * p_grid
+
+static_df <- data.frame(price = p_grid, profit = profit_grid)
+p_star_static <- p_grid[which.max(profit_grid)]
+
+ggplot(static_df, aes(x = price, y = profit)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_vline(xintercept = p_star_static, linetype = "dashed", color = "firebrick") +
+  annotate("text", x = p_star_static + 30, y = max(profit_grid) * 0.9,
+           label = paste0("p* = ", round(p_star_static, 1)), color = "firebrick") +
+  labs(x = "価格 p", y = "期待収益（1人あたり）",
+       title = "logit需要のもとでの利潤カーブと最適価格")
+```
+
+利潤カーブは1つの山を持ち、その頂点が最適価格 $p^*$ になる。これはロジットの対数尤度が大域的に凹だったのと同じ理由で、ロジット需要のもとでの利潤最大化問題も（多くの設定で）きれいな1つの最適解を持つ。
+
+::: {.callout-note collapse="true"}
+## 導出：logit需要のもとでの一階条件
+
+$\pi(p) = M\lambda(p)p$ を $p$ について微分してゼロと置くと
+
+$$
+\lambda'(p) p + \lambda(p) = 0 \quad \Longleftrightarrow \quad p = -\frac{\lambda(p)}{\lambda'(p)}
+$$
+
+ロジットでは $\lambda'(p) = -\alpha\lambda(p)(1-\lambda(p))$ なので、これを代入すると
+
+$$
+p^* = \frac{1}{\alpha(1 - \lambda(p^*))}
+$$
+
+という固定点方程式になる。両辺に $p^*$ が入っているので解析的に解けず、数値的に（不動点反復か、上のようにグリッドサーチで）解く必要がある。これは第4回のBLP縮小写像や、この後出てくるRMのbackward inductionと同じ「固定点を数値的に探す」という発想の反復だ。
+:::
+
+この静学の1点、「弾力性を知らないと価格は決められない」が、今日の話全体の土台になる。この後出てくる時間・在庫・需給の状態がどれだけ複雑になっても、やっていることは「その状態のもとでの実効的な弾力性・機会費用を計算し、逆弾力性ルールを適用する」ことの繰り返しでしかない。
+
+## 3. Peak-load pricing：時間で変わる価格
+
+### Steinerの最小モデル
+
+電力会社を考える。需要は昼と夜で違う。昼の需要 $q_{\text{day}}(p)$ は夜の需要 $q_{\text{night}}(p)$ より大きいとしよう。発電容量 $K$ を1単位用意するコストを $c_K$（固定費、季節や時間帯によらない）、実際に発電する限界費用を $c_v$（可変費）とする。
+
+Steiner (1957) の洞察はシンプルだ。**容量は「一番厳しい期」のために用意しなければならない。** 昼の需要が容量制約に当たっているなら、容量費用 $c_K$ を負担すべきなのは昼の客だけであり、夜の客は可変費用 $c_v$ だけを払えばよい。逆に言えば、需要が少ない時間帯の客に容量費用を負担させるのは非効率だ。
+
+最小の数値例で確認する。
+
+```{r}
+#| label: lec15-peakload
+# 昼と夜、2期間の需要（線形、簡易的に）
+q_day   <- function(p) pmax(100 - 2 * p, 0)
+q_night <- function(p) pmax(60 - 2 * p, 0)
+
+c_v <- 5   # 可変費用（発電1単位あたり）
+c_K <- 20  # 容量費用（容量1単位を用意するコスト、固定費）
+
+# ケースA: 容量費用を両期間で分担すると仮定した場合の価格
+# （素朴な「平均費用」的発想、非効率の例として）
+p_naive <- c_v + c_K / 2
+
+# ケースB: Steinerのルール。容量を「使う」期（昼）だけが容量費用を負担する。
+# 夜は可変費用のみ。昼は可変費用＋容量費用。
+p_night_efficient <- c_v
+p_day_efficient    <- c_v + c_K
+
+peak_df <- data.frame(
+  ルール = c("素朴な平均費用配分", "Steinerの効率的配分（昼）", "Steinerの効率的配分（夜）"),
+  価格   = c(p_naive, p_day_efficient, p_night_efficient)
+)
+kable(peak_df, digits = 1, caption = "peak-load pricingの価格比較（数値例）")
+```
+
+昼（容量を使う期）は可変費用＋容量費用を払い、夜（容量に余裕がある期）は可変費用だけを払う。これが「どちらの期が容量を買うか」という問いへのSteinerの答えだ。素朴に容量費用を両期間で折半すると、夜の客が使ってもいない容量の分を過剰に負担し、昼の客は過小にしか負担しないことになり、資源配分が歪む。
+
+### Real-time pricing と日本の実例
+
+Borenstein (2005) は、電力のreal-time pricing（RTP：卸売市場の変動をそのまま小売価格に反映させる仕組み）について、長期的な効率性の観点から論じている。多くの家庭は現在も「時間帯によらない一律料金」で電気を買っており、これはピーク時間帯の需要を過大にし、オフピーク時間帯の需要を過小にする非効率を生む。RTPを導入して価格が需給の逼迫を正しく反映するようにすれば、需要側が自然にピークを平準化するインセンティブを持つ、というのが基本的な主張である。
+
+日本でも時間帯別電力料金（深夜電力割引など）は昔からあるし、近年は再エネの出力変動に対応するためのダイナミックプライシング実証実験も各地で行われている。考え方はSteinerのモデルと同じで、「容量が逼迫する時間帯には高い価格を、余裕がある時間帯には低い価格を」という原理の実装だ。
+
+::: {.callout-note}
+## ビジネスの現場で：コンビニの発注と「時間帯別の機会費用」
+
+電力の話は大掛かりに聞こえるが、同じ発想は身近な小売にもある。コンビニの弁当売り場を考えると、昼のピーク時間帯に売り切れることは大きな機会損失（来た客が買えずに他店に流れる）だが、深夜に売れ残ることも廃棄コストという別の損失を生む。値引きのタイミングを「時間帯別の需給逼迫度」で決める、というのは発想としてはpeak-load pricingと同じ機会費用の考え方に立っている。この後のRMのbid price（席1つの機会費用）の考え方も、根っこは同じだ。
+:::
+
+## 4. Revenue management：残り期間と在庫で変わる価格
+
+いよいよ今日の核心に入る。航空券やホテルの価格が、なぜ「予約が進むにつれて」「出発日が近づくにつれて」動くのかを、動的計画法で正面から解く。
+
+### 設定
+
+ある航空券1路線を考える。販売開始からの残り日数を $t$（$t=T$ が今日、$t=0$ が出発日＝販売終了）、残り座席数を $c$（$c=0$ なら完売）とする。毎期、確率 $\bar\lambda$（到着確率）で1人の客が訪れる。到着した客は、提示された価格 $p$ に対して、第2〜4回と同じ形のロジットで購買を決める。
+
+$$
+\Pr(\text{購入} \mid p, \text{到着}) = \frac{\exp(\theta_0 - \alpha p)}{1 + \exp(\theta_0 - \alpha p)}
+$$
+
+これに到着確率をかけたものを、この講義では**1期あたりの購買確率** $\lambda(p)$ と呼ぶ。
+
+$$
+\lambda(p) = \bar\lambda \cdot \frac{\exp(\theta_0 - \alpha p)}{1 + \exp(\theta_0 - \alpha p)}
+$$
+
+「客が来るかどうか」と「来た客が買うかどうか」を分けて書いているのは、実務データとの対応が良いからだ（POSやWebログでは「訪問数」と「訪問あたり購買率」を別々に観測できることが多い）。
+
+::: {.callout-note collapse="true"}
+## 記法の補足：動学の $\theta$ と $\beta$、この回の $t$ と $c$
+
+第13回で断った通り、この3回では効用パラメータに $\theta$ を使い、割引因子には $\beta$ を予約している（需要推定の回では $\beta$ は製品属性への選好パラメータだったが、動学の慣習に合わせて割引因子に転用している）。今日の設定では**企業は近視眼的ではなく将来の座席の価値まで織り込んで今日の価格を決める**ので、実質的に割引因子 $\beta=1$（将来の座席が売れる価値を割り引かない）の動学最適化を解いていると考えてよい。長期在庫や与信のように将来価値を割り引く必要がある文脈では $\beta<1$ を入れるが、今日の航空券・ホテルの例（販売期限が数十日程度）ではこの単純化で十分である。
+
+状態は「残り期間 $t$」と「残り在庫 $c$」の組 $(t,c)$、行動は「価格 $p$」。第13回の記法に合わせれば、状態 $x = (t,c)$、行動 $a = p$ にあたる。
+:::
+
+### Bellman方程式
+
+企業の問題は、残り期間 $t$・残り在庫 $c$ のもとで、今期の価格 $p$ をいくらにすれば、今期の期待収益と将来の期待収益の合計が最大になるか、である。第13回のBellman方程式の形を思い出そう。今日の設定に翻訳すると
+
+$$
+V(t, c) = \max_{p} \Big\{ \lambda(p)\,\big[p + V(t-1, c-1)\big] + \big(1-\lambda(p)\big)\,V(t-1, c) \Big\}
+$$
+
+解釈は単純だ。今期、確率 $\lambda(p)$ で客が来て $p$ 円で買ってくれる。そのときは席が1つ減るので、続きは $V(t-1, c-1)$。確率 $1-\lambda(p)$ で客が来ないか、来ても買わない。そのときは席がそのまま残るので、続きは $V(t-1,c)$。境界条件は「在庫が尽きたら以後の収益はゼロ」（$V(t,0)=0$）、「期限が来たら以後の収益はゼロ」（$V(0,c)=0$）。
+
+これは第13回でやったBellman方程式・backward inductionの完全な再演である。違うのは「状態が2次元（$t$ と $c$）になった」ことと、「行動が離散選択ではなく連続変数の価格になった」ことだけだ。
+
+::: {.callout-warning}
+## 計算上の落とし穴：Rの1始まり索引でのズレに要注意
+
+本ノートのRコードでは、**Bellman方程式の右辺をそのまま**（$\lambda(p)[p+V(t-1,c-1)] + (1-\lambda(p))V(t-1,c)$ の形のまま）評価してから最大化する、という最も愚直な実装を採用している。$V(t-1,c-1) - V(t-1,c)$（後で説明する「bid price」）を使って式を整理し直すことも可能だが、その整理自体が誤りの原因になるわけではない。**実際にこの教材を作る過程で踏んだ落とし穴は、Rの1始まり索引と、DPの状態が0始まりであることのズレだった**。「非購入時（在庫が変わらない）の1期前の値」を参照するつもりで書いた添字が、実際には「これから計算しようとしている状態そのもの」を指してしまい、動的価格の期待収益が固定価格の収益を下回るという（理論上あり得ない）結果が出た。原因は次のcalloutで説明する索引のズレそのもので、Pythonで0始まり配列の参照実装を先に作り、Rコードの計算結果と数値で突き合わせて初めて発見できた。DPをbase Rで実装するときは、**添字を書くたびに「これは数式のどの状態を指しているか」を確認し、可能なら別の言語で0始まりの参照実装を作って数値を突き合わせる**、という手順を強く勧める。
+:::
+
+### Rシミュ2（i）：backward inductionで解く
+
+第13回と同じく、$t=0$ から出発して $t$ を1つずつ増やしながら $V(t,\cdot)$ を埋めていく。各 $(t,c)$ で、価格のグリッドを全部試して一番良い価格を選ぶ、という素朴な実装にする。
+
+```{r}
+#| label: lec15-dp-setup
+# パラメータ設定：航空券1路線のイメージ
+theta0      <- 6.0     # 価格ゼロでの基準効用
+alpha       <- 0.045   # 価格係数（第2回以来の記法、alpha > 0）
+lambda_bar  <- 0.95    # 1期あたりの客の到着確率
+T_period    <- 60      # 販売期間（残り日数の最大値）
+C_capacity  <- 30      # 座席数
+
+p_grid <- seq(1, 350, length.out = 300)
+
+purchase_prob <- function(p, theta0, alpha, lambda_bar) {
+  u <- theta0 - alpha * p
+  lambda_bar * (1 / (1 + exp(-u)))
+}
+```
+
+```{r}
+#| label: lec15-dp-solve
+solve_dp <- function(T_period, C_capacity, theta0, alpha, lambda_bar, p_grid) {
+  # 行:t=0..T, 列:c=0..C。R索引はt+1, c+1にずれることに注意。
+  V      <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  pstar  <- matrix(NA_real_, nrow = T_period + 1, ncol = C_capacity + 1)
+  lamstar <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+
+  lam_grid <- purchase_prob(p_grid, theta0, alpha, lambda_bar)  # 価格に依存、(t,c)に依らないので外で計算
+
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      # Bellman方程式の右辺をそのまま評価（bid priceへの簡略化はしない）
+      # V[t, c]     = V(t-1, c-1) （購入時：1期進み、在庫が1つ減る）
+      # V[t, c + 1] = V(t-1, c)   （非購入時：1期進み、在庫は変わらない）
+      obj <- lam_grid * (p_grid + V[t, c]) + (1 - lam_grid) * V[t, c + 1]
+      best_idx <- which.max(obj)
+      V[t + 1, c + 1]      <- obj[best_idx]
+      pstar[t + 1, c + 1]  <- p_grid[best_idx]
+      lamstar[t + 1, c + 1] <- lam_grid[best_idx]
+    }
+    V[t + 1, 1] <- 0  # 在庫ゼロ(c=0)なら収益なし
+  }
+  list(V = V, pstar = pstar, lamstar = lamstar)
+}
+```
+
+::: {.callout-warning}
+## Rの1始まり索引と、DPの0始まり状態の対応関係
+
+DPの状態は $t=0,\dots,T$、$c=0,\dots,C$ と0始まりで書くのが自然だが、Rの行列は1始まりの索引しか使えない。このノートでは「行 `t+1` が状態 $t$」「列 `c+1` が状態 $c$」という対応で統一する。この対応のもとでは、ループ変数`t, c`（1始まりで回る）に対して、状態 $(t-1,c-1)$（購入時の1期前）は `V[t, c]`、状態 $(t-1,c)$（非購入時の1期前）は `V[t, c + 1]` と書かなければならない。計算結果の代入先は状態 $(t,c)$ を指す `V[t + 1, c + 1]` になる。上のコードで `V[t, c]`・`V[t, c + 1]`・`V[t + 1, c + 1]` という3つの似た添字が並んでいるのはこのズレのせいであり、バグではない。**base Rでこの手のDPを書くときは、常に「今書いている添字が、数式のどの $t,c$ に対応するか」を紙に書いてから実装する**ことを強く勧める。これを怠ると、今日のこのノートの検証段階で実際に踏んだような「非購入時の項のつもりで書いた添字が、実は計算中の状態自身を指してしまっていた」というバグに悩まされる。
+:::
+
+```{r}
+#| label: lec15-dp-run
+dp_result <- solve_dp(T_period, C_capacity, theta0, alpha, lambda_bar, p_grid)
+V_mat      <- dp_result$V
+pstar_mat  <- dp_result$pstar
+lamstar_mat <- dp_result$lamstar
+
+cat("期待総収益 V(T=60, C=30):", round(V_mat[T_period + 1, C_capacity + 1], 1), "\n")
+cat("残り60日・満席時の最適価格:", round(pstar_mat[T_period + 1, C_capacity + 1], 1), "\n")
+cat("残り60日・残り1席時の最適価格:", round(pstar_mat[T_period + 1, 2], 1), "\n")
+cat("出発前日・満席時の最適価格:", round(pstar_mat[2, C_capacity + 1], 1), "\n")
+```
+
+期待総収益はおよそ3833。残り60日・満席のときの最適価格は約131円（正確な水準は $\theta_0,\alpha$ のスケールに依存するので絶対額自体に意味はなく、相対的な動きに注目してほしい）。残り60日で座席が残り1つしかないときの最適価格は約222円と大きく跳ね上がる。逆に、出発前日で満席のときの最適価格は約104円まで下がる。**「席が余って期限が近いと安く、席が減ると高くなる」**という航空券の直感が、Bellman方程式を解くだけで自動的に出てくる。
+
+### Rシミュ2（ii）：最適価格のヒートマップ
+
+この $(t,c)$ に対する最適価格 $p^*(t,c)$ を、残り期間×残り座席の全ての組み合わせについて図示する。今日の一番の見せ場だ。
+
+```{r}
+#| label: lec15-heatmap-price
+#| fig-cap: "最適価格 p*(t,c) のヒートマップ：残り期間×残り座席"
+heat_df <- expand.grid(t = 1:T_period, c = 1:C_capacity) %>%
+  rowwise() %>%
+  mutate(price = pstar_mat[t + 1, c + 1]) %>%
+  ungroup()
+
+ggplot(heat_df, aes(x = t, y = c, fill = price)) +
+  geom_tile() +
+  scale_fill_viridis_c(name = "最適価格", option = "magma") +
+  scale_x_continuous(breaks = seq(0, 60, 10)) +
+  labs(x = "残り期間（日）", y = "残り座席数",
+       title = "航空券の最適価格ヒートマップ",
+       subtitle = "横軸が0（出発直前）に近く、縦軸が下（在庫僅少）に近いほど、価格の挙動が対照的になる")
+```
+
+図の見方はこうだ。横軸（残り期間）を右に行くほど「まだ時間がある」状態、縦軸（残り座席）を上に行くほど「在庫が潤沢」な状態になる。色が明るい（高価格）のは「残り期間が長く、かつ在庫が少ない」左上寄りの領域で、色が暗い（低価格）のは「残り期間が短く、在庫が潤沢」な右下の領域になる。1枚の図に「期限」と「在庫」という2つの希少性の圧力がどう価格に変換されているかが見える。
+
+### Rシミュ2（iii）：bid price（席1つの機会費用）
+
+RM実務でよく使われる概念に**bid price**がある。これは「座席を1つ今売ることの機会費用」で、
+
+$$
+\text{bid price}(t,c) = V(t, c) - V(t, c-1)
+$$
+
+と定義される。「残り座席が $c$ 個ある状態の価値」と「残り座席が $c-1$ 個しかない状態の価値」の差、つまり「その1席を持っていることにどれだけの追加価値があるか」を表す。
+
+```{r}
+#| label: lec15-bidprice
+bid_price_df <- expand.grid(t = 1:T_period, c = 1:C_capacity) %>%
+  rowwise() %>%
+  mutate(bid_price = V_mat[t + 1, c + 1] - V_mat[t + 1, c]) %>%
+  ungroup()
+
+ggplot(bid_price_df, aes(x = t, y = c, fill = bid_price)) +
+  geom_tile() +
+  scale_fill_viridis_c(name = "bid price", option = "viridis") +
+  scale_x_continuous(breaks = seq(0, 60, 10)) +
+  labs(x = "残り期間（日）", y = "残り座席数",
+       title = "座席1つの機会費用（bid price）のヒートマップ")
+```
+
+bid priceが高い（明るい）のは、在庫が少なく、かつ残り期間が長い状態だ。「この1席を今安売りしてしまうと、あとで高く売れるチャンスを逃す」という機会費用が大きいことを意味する。逆に在庫が潤沢な状態ではbid priceはほぼゼロに近づく。**最適価格はこのbid priceを織り込んだ「上乗せ」として理解できる**：静学の最適価格に、この機会費用の分だけ価格を上乗せしているのがRMの価格だ、というのがRM実務での標準的な解釈である。
+
+### Rシミュ2（iv）：予約パスのシミュレーション
+
+実際にこの価格政策のもとで、日々どのように価格が動いていくかを、いくつかのシミュレーションパスで見てみる。
+
+```{r}
+#| label: lec15-booking-paths
+simulate_booking_path <- function(seed, T_period, C_capacity, pstar_mat, lamstar_mat) {
+  set.seed(seed)
+  c_remain <- C_capacity
+  t_remain <- T_period
+  path <- data.frame(day = integer(0), t_remain = integer(0), c_remain = integer(0), price = numeric(0))
+  day <- 0
+  while (t_remain >= 1 && c_remain >= 1) {
+    day <- day + 1
+    p   <- pstar_mat[t_remain + 1, c_remain + 1]
+    lam <- lamstar_mat[t_remain + 1, c_remain + 1]
+    path <- rbind(path, data.frame(day = day, t_remain = t_remain, c_remain = c_remain, price = p))
+    bought <- runif(1) < lam
+    if (bought) c_remain <- c_remain - 1
+    t_remain <- t_remain - 1
+  }
+  path
+}
+
+paths_list <- lapply(1:4, function(i) {
+  p <- simulate_booking_path(30000 + i, T_period, C_capacity, pstar_mat, lamstar_mat)
+  p$path_id <- factor(i)
+  p
+})
+paths_df <- bind_rows(paths_list)
+
+ggplot(paths_df, aes(x = day, y = price, color = path_id)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 1.2) +
+  labs(x = "販売開始からの日数", y = "提示価格",
+       title = "予約パスに沿った価格の推移（シミュレーション4本）",
+       color = "パスID")
+```
+
+各パスで、売れ行きが良ければ在庫が早く減って価格が早めに上がり、売れ行きが悪ければ価格が抑えられたまま推移する。**同じ価格ルール $p^*(t,c)$ から出発しても、実現する需要のばらつき次第で価格の軌道は変わる**。これがブッキングカーブ（累積販売数の推移）を毎日眺めながら価格を微調整する、RM実務の日常の姿そのものだ。
+
+### Rシミュ2（v）：最適固定価格 vs 動的価格
+
+では、この動的な価格づけは、期間中ずっと同じ価格を使い続ける「最適固定価格」と比べてどれだけ得なのか。固定価格 $p$ を1つ選んで使い続けたときの期待収益も、同じ形の再帰式で評価できる。
+
+$$
+W_p(t,c) = \lambda(p)\big[p + W_p(t-1,c-1)\big] + (1-\lambda(p))\,W_p(t-1,c)
+$$
+
+これは価格を最適化せず、外から与えられた固定の $p$ について評価するだけなので、$\max_p$ が無い分だけ単純だ。
+
+```{r}
+#| label: lec15-fixed-price
+evaluate_fixed_price <- function(p, T_period, C_capacity, theta0, alpha, lambda_bar) {
+  lam <- purchase_prob(p, theta0, alpha, lambda_bar)  # スカラー
+  W <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      W[t + 1, c + 1] <- lam * (p + W[t, c]) + (1 - lam) * W[t, c + 1]
+    }
+    W[t + 1, 1] <- 0
+  }
+  W[T_period + 1, C_capacity + 1]
+}
+
+fixed_p_grid <- seq(1, 350, length.out = 150)
+fixed_revenues <- sapply(fixed_p_grid, evaluate_fixed_price,
+                          T_period = T_period, C_capacity = C_capacity,
+                          theta0 = theta0, alpha = alpha, lambda_bar = lambda_bar)
+
+best_fixed_idx <- which.max(fixed_revenues)
+best_fixed_p   <- fixed_p_grid[best_fixed_idx]
+best_fixed_rev <- fixed_revenues[best_fixed_idx]
+
+dynamic_rev <- V_mat[T_period + 1, C_capacity + 1]
+lift_pct <- 100 * (dynamic_rev - best_fixed_rev) / best_fixed_rev
+
+comparison_df <- data.frame(
+  方式 = c("最適固定価格", "動的価格（DP最適）"),
+  価格の目安 = c(round(best_fixed_p, 1), "状態に応じて変動"),
+  期待収益 = c(round(best_fixed_rev, 1), round(dynamic_rev, 1))
+)
+kable(comparison_df, caption = "固定価格 vs 動的価格の期待収益比較")
+cat("\n動的価格による収益リフト:", round(lift_pct, 2), "%\n")
+```
+
+動的価格は最適固定価格に対して、この設定でおよそ**2.4%の収益リフト**をもたらす。数字だけ見ると「意外と小さい」と感じるかもしれない。だが、この小ささ自体が重要な発見だ。
+
+::: {.callout-note}
+## なぜリフトは「意外と小さい」のか
+
+動的価格の価値が本当に光るのは、**需要の不確実性が大きい**とき、**在庫が需要に対して極端に逼迫・過剰**しているとき、あるいは**価格実験ができず需要の情報が乏しい**ときだ。今日のシミュレーションで在庫をさらに絞る（座席をもっと少なくする）とリフトは大きくなる（本ノートの検証では、在庫を絞るほどリフトが2〜5%程度まで拡大することを確認している）。「うちの事業でRMを入れる価値があるか」を判断するときは、まず「需要の変動性」と「在庫の逼迫度」を見るべきだ、というのが実務的な教訓になる。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Gallego and van Ryzin (1994)
+
+**研究の問い**：残り期間・残り在庫という2つの状態のもとで、企業はどのような価格政策をとれば期待収益を最大化できるか。また、それは実務でよく使われる「良い固定価格」とどれだけ違うのか。
+
+**モデル**：本講義のRMの元ネタであり、需要を確率的な到着過程（到着した客が価格に応じて確率的に購買する）として定式化し、有限期間・有限在庫のもとでのBellman方程式をたて、最適価格政策の性質（残り期間・残り在庫それぞれについての単調性など）を理論的に導出した。
+
+**主要な発見**：最適な動的価格政策は、残り在庫が少ない・残り期間が長いほど高くなるという性質（本講義のヒートマップで確認した性質そのもの）を満たす。加えて、需要が十分に予見でき、在庫と期待需要のバランスが極端でない状況では、うまく選ばれた**固定価格ヒューリスティック**（deterministic heuristic）が動的最適価格にかなり近い収益を達成できることを理論的に示した。本講義のシミュレーションでリフトが数%程度にとどまったのは、この理論的知見と整合的である。
+
+**なぜこの講義のトピックと繋がるか**：この論文はrevenue managementという実務分野の理論的支柱であり、今日のBellman方程式・backward inductionによる価格政策の構成は、この論文の枠組みを最小構成に単純化したものである。「動的最適化がいつ本当に重要になるか」という実務的な問い（在庫逼迫度・需要不確実性の大きさで判断する）も、この論文の理論的結果から直接導かれる。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Williams (2022)
+
+**研究の問い**：航空会社が実際に行っている動的価格設定は、消費者の厚生（welfare）にどのような影響を与えているか。動的価格は「価格差別の道具」なのか、それとも「効率的な配分の道具」なのか。
+
+**データ・識別戦略**：米国の航空市場における、出発日までの日数・残り座席数と実際の運賃の関係を、詳細な予約データを用いて分析している。需要側の異質性（早めに予約する価格に敏感なレジャー客と、直前に予約する価格に鈍感なビジネス客）を明示的にモデル化し、動的価格が無かった場合（一物一価で運営した場合）の反実仮想と比較する、という枠組みを取っている。
+
+**主要な発見**：動的価格は、価格に敏感な客ほど早期に安く購入し、価格に鈍感な客ほど直前に高く購入する、という形で異なるタイプの客に異なる価格を配分している。これは一種の価格差別だが、同時に、限られた座席を「支払意思額が高い客」に優先的に配分するという効率性の側面も持つ。動的価格を一律価格に置き換えた反実仮想では、総余剰・消費者余剰・企業収益のバランスが変化し、動的価格には価格差別的な側面と効率改善的な側面の両方が併存することが示されている。
+
+**なぜこの講義のトピックと繋がるか**：本講義で構築したRMのDPモデルは「企業が収益を最大化する」という一方向の視点だったが、Williams (2022) はそこに「消費者にとってどうなのか」という厚生の視点を持ち込んでいる。第11回で学んだ異質性・ターゲティングの視点（誰に効くか）と、今日の動学の視点（いつ・どの状態で）を組み合わせると、価格政策の「儲かるかどうか」だけでなく「誰が得をして誰が損をするか」まで問えるようになる、というこの講義の終盤にふさわしい統合的な研究である。
+:::
+
+## 5. Surge pricing：需給の不均衡を裂かせないための価格
+
+ride-hailing（配車サービス）のsurge pricing（需要急増時の価格上乗せ）は、航空券のRMとは少し違う顔をしている。RMは「限られた在庫を、期限までにどう配分するか」という問題だったが、surge pricingは「今この瞬間の需要と供給を、どうマッチさせるか」という問題だ。
+
+コンサートやスポーツイベントの終演直後を想像してほしい。何千人もの人が同時に配車を呼ぼうとするのに、その場にいるドライバーの数は限られている。価格を動かさなければ何が起きるか。まず、需要が供給をはるかに上回るので、多くの客が配車されずに待たされる。次に、通常価格のままだと、遠方のドライバーがわざわざそこまで向かうインセンティブがない。結果として、需給のミスマッチが解消されないまま待ち時間だけが伸びていく。
+
+サージ価格の役割は3つに整理できる。
+
+1. **需要抑制**：価格が上がることで、「今すぐでなくてもいい」客は配車を諦めたり、時間をずらしたりする。
+2. **供給喚起**：価格が上がることで、周辺エリアのドライバーがそのエリアに向かうインセンティブが生まれる。
+3. **マッチング摩擦の緩和**：需給が均衡に近づくことで、客とドライバーが出会うまでの待ち時間（マッチング摩擦）が短くなる。
+
+::: {.callout-tip}
+## 実証研究コーナー：サージを止めたら何が起きたか
+
+Uberが技術的な不具合でサージ価格の発動を一時的に停止した事例が、需給調整における価格の役割を確認する自然実験として言及されることがある。サージが機能しない間、イベント終演後などの需要急増局面で、配車のマッチング率が低下し、客の待ち時間が大きく伸びた、という報告が知られている（具体的な倍率や停止時間の詳細は事案によって異なるため、ここでは「サージが止まると待ち時間が急増する」という定性的な傾向として押さえておいてほしい）。この手の逸話は「サージ＝ぼったくり」という直感的な批判に対する反証として使われることが多いが、同時に「価格を上げれば必ず需給が均衡する」というほど単純でもない、というのが次に紹介する研究の主張である。
+:::
+
+サージ価格をめぐっては、単純に「価格が上がれば供給が増える」というモデルだけでは説明しきれない現象も報告されている。
+
+::: {.callout-tip}
+## 実証研究コーナー：Castillo, Knoepfle, and Weyl（"wild goose chase"）
+
+**研究の問い**：サージ価格が発動していない、あるいは価格が低すぎる状況では、ride-hailing市場の需給調整はどのように失敗しうるか。
+
+**モデル・メカニズム**：需要密度の高いエリアで価格が低いままだと、供給側のドライバーが遠方から呼び出される頻度が増え、実車（客を乗せて走る状態）に至るまでの空車移動距離（迎車距離）が伸びてしまう。この現象を"wild goose chase"（無駄足）と呼ぶ。空走時間・空走距離の増加は、単に個々のドライバーの手間が増えるだけでなく、供給側の実効的な処理能力（単位時間あたりに対応できる客数）そのものを引き下げてしまう。
+
+**主要な発見**：価格が低すぎることは、単に「需要超過を放置する」だけでなく、この"wild goose chase"を通じて「供給側の効率そのものを壊す」方向に作用しうる。逆に言えば、適切なサージ価格は、需要を抑えるだけでなく、マッチングの空間的な効率性を保つことで、供給側の処理能力を守る役割も果たしている。
+
+**なぜこの講義のトピックと繋がるか**：RMの文脈では「価格は将来の座席という資源の機会費用を反映すべきだ」という話をしたが、surge pricingの文脈では「価格はマッチングの効率性（誰と誰がどれだけの手間で出会えるか）にも影響する」という、RMには無かった側面が登場する。今日学んだ「状態に応じて価格を変える」という枠組みが、在庫だけでなく空間的なマッチング効率にまで応用されている例として押さえておいてほしい。
+:::
+
+Galichon and Hsieh (2017) は、こうしたマッチング市場における価格の役割を、金銭移転のないマッチング理論（decentralized matching markets without transfers）の枠組みで理論的に整理している。サージ価格を「単なる需給調整のノブ」としてではなく、マッチング市場の均衡を実現する価格システムとして位置づける理論的基礎を与えている。
+
+::: {.callout-important}
+## サージの再フレーミング
+
+「サージ価格は企業が儲けるための値上げだ」という理解は半分しか正しくない。**サージは、需要を抑え、供給を呼び込み、マッチング摩擦を緩和して、市場を「回す」ための価格**である。価格を動かさなければ、単に「多くの客が長時間待たされて誰も配車されない」という、企業にとっても客にとっても誰も得をしない状態が続くだけだ。もちろん、サージ価格が実際にどこまで「市場を回す」役に立っているか、どこからが単なる超過利潤の徴収になっているかは、実証的に検証すべき問いであり、規制当局や研究者の関心が今も続いている論点である。
+:::
+
+## 6. 推定→最適化パイプライン：誤差はどこへ消えるか
+
+コース最後の見せ場として、今日学んだRMの枠組みと、コース前半の需要推定を1つのパイプラインでつなげる。ここでのメッセージは1つ。**需要推定の誤差は、消えてなくなるわけではなく、価格政策の収益ロスという「金額」に変換される。**
+
+パイプラインは次の3段階だ。
+
+1. 真の価格係数 $\alpha$ のもとで生成された予約データから、$\hat\alpha$ を最尤推定する（第2回の再演）。
+2. $\hat\alpha$ を真の値だと思い込んで、backward inductionで価格政策 $\hat p^*(t,c)$ を作る。
+3. その政策 $\hat p^*(t,c)$ を、**真のモデル**の上で走らせたときの期待収益を評価する。
+
+$\hat\alpha$ が真の $\alpha$ からずれていれば、当然、政策 $\hat p^*(t,c)$ も真に最適な政策 $p^*(t,c)$ からずれる。そのずれが、どれだけの収益の目減りになるかを数値で確認する。
+
+```{r}
+#| label: lec15-pipeline-mle
+# ステップ0：価格実験データの生成（複数の価格水準をランダムに割り当てて需要を観測する）
+price_menu <- c(90, 110, 130, 150, 170)
+
+generate_booking_data <- function(seed, T_period, C_capacity, theta0, alpha, lambda_bar, price_menu) {
+  set.seed(seed)
+  c_remain <- C_capacity
+  prices_obs   <- numeric(0)
+  purchase_obs <- numeric(0)
+  for (t in T_period:1) {
+    if (c_remain == 0) break
+    p <- sample(price_menu, 1)
+    arrived <- runif(1) < lambda_bar
+    if (arrived) {
+      u <- theta0 - alpha * p
+      prob_buy <- 1 / (1 + exp(-u))
+      purchased <- as.numeric(runif(1) < prob_buy)
+      prices_obs   <- c(prices_obs, p)
+      purchase_obs <- c(purchase_obs, purchased)
+      if (purchased == 1) c_remain <- c_remain - 1
+    }
+  }
+  list(prices = prices_obs, purchase = purchase_obs)
+}
+
+booking_data <- generate_booking_data(20265, T_period, C_capacity, theta0, alpha, lambda_bar, price_menu)
+cat("観測された到着客数：", length(booking_data$prices), "\n")
+```
+
+```{r}
+#| label: lec15-newton-mle
+# ステップ1：ニュートン法による自作MLE（logitの対数尤度は大域的に凹なので、
+# 解析的な勾配・ヘシアンを使うと安定して速く収束する）
+sigmoid <- function(x) 1 / (1 + exp(-x))
+
+fit_logit_newton <- function(prices, purchase, theta_init = c(0, 0.01), max_iter = 100, tol = 1e-10) {
+  n <- length(prices)
+  X <- cbind(1, -prices)  # u = X %*% c(const, alpha)
+  theta <- theta_init
+  for (it in 1:max_iter) {
+    u     <- as.vector(X %*% theta)
+    p_hat <- sigmoid(u)
+    resid <- purchase - p_hat
+    grad  <- as.vector(t(X) %*% resid)
+    W     <- p_hat * (1 - p_hat)
+    H     <- -t(X * W) %*% X
+    step  <- solve(H, grad)
+    theta_new <- theta - step
+    if (max(abs(theta_new - theta)) < tol) {
+      theta <- theta_new
+      break
+    }
+    theta <- theta_new
+  }
+  list(theta = theta, n_iter = it)
+}
+
+mle_result <- fit_logit_newton(booking_data$prices, booking_data$purchase)
+const_hat <- mle_result$theta[1]
+alpha_hat <- mle_result$theta[2]
+
+cat("真の (theta0, alpha):", theta0, alpha, "\n")
+cat("推定 (theta0_hat, alpha_hat):", round(const_hat, 3), round(alpha_hat, 4), "\n")
+cat("収束までの反復回数:", mle_result$n_iter, "\n")
+```
+
+```{r}
+#| label: lec15-pipeline-evaluate
+# ステップ2：alpha_hatでDPを解いて価格政策を作る
+dp_hat <- solve_dp(T_period, C_capacity, const_hat, alpha_hat, lambda_bar, p_grid)
+pstar_hat <- dp_hat$pstar
+
+# ステップ3：その政策を「真のモデル」の上で評価する
+evaluate_policy_on_true_model <- function(pstar_policy, T_period, C_capacity, theta0, alpha, lambda_bar) {
+  W <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      p <- pstar_policy[t + 1, c + 1]
+      lam_true <- purchase_prob(p, theta0, alpha, lambda_bar)
+      W[t + 1, c + 1] <- lam_true * (p + W[t, c]) + (1 - lam_true) * W[t, c + 1]
+    }
+    W[t + 1, 1] <- 0
+  }
+  W[T_period + 1, C_capacity + 1]
+}
+
+revenue_true_policy <- V_mat[T_period + 1, C_capacity + 1]
+revenue_hat_policy   <- evaluate_policy_on_true_model(pstar_hat, T_period, C_capacity, theta0, alpha, lambda_bar)
+revenue_loss <- revenue_true_policy - revenue_hat_policy
+
+cat("真の政策の期待収益:", round(revenue_true_policy, 1), "\n")
+cat("推定政策(alpha_hatベース)を真のモデルで評価した期待収益:", round(revenue_hat_policy, 1), "\n")
+cat("収益ロス:", round(revenue_loss, 1), "（真の収益の", round(100*revenue_loss/revenue_true_policy, 2), "%）\n")
+```
+
+1回のデータ生成・推定だと、この収益ロスがたまたま大きいか小さいかは分からない。そこで、この一連のパイプライン（データ生成→MLE→DP→評価）を200回繰り返すモンテカルロで、**推定誤差がどんな収益ロスの分布を生むか**を可視化する。
+
+```{r}
+#| label: lec15-montecarlo-pipeline
+n_mc <- 200
+alpha_hat_vec <- numeric(n_mc)
+revenue_loss_vec <- numeric(n_mc)
+
+for (m in 1:n_mc) {
+  bd <- generate_booking_data(10000 + m, T_period, C_capacity, theta0, alpha, lambda_bar, price_menu)
+  if (length(bd$prices) < 5 || sd(bd$prices) < 1e-8) {
+    alpha_hat_vec[m] <- NA
+    revenue_loss_vec[m] <- NA
+    next
+  }
+  fit_m <- fit_logit_newton(bd$prices, bd$purchase)
+  a_hat_m <- fit_m$theta[2]
+  c_hat_m <- fit_m$theta[1]
+  if (!is.finite(a_hat_m) || a_hat_m <= 0 || a_hat_m > 1) {
+    alpha_hat_vec[m] <- a_hat_m
+    revenue_loss_vec[m] <- NA
+    next
+  }
+  dp_m <- solve_dp(T_period, C_capacity, c_hat_m, a_hat_m, lambda_bar, p_grid)
+  rev_m <- evaluate_policy_on_true_model(dp_m$pstar, T_period, C_capacity, theta0, alpha, lambda_bar)
+  alpha_hat_vec[m] <- a_hat_m
+  revenue_loss_vec[m] <- revenue_true_policy - rev_m
+}
+
+mc_df <- data.frame(alpha_hat = alpha_hat_vec, revenue_loss = revenue_loss_vec) %>%
+  filter(!is.na(revenue_loss))
+
+cat("有効な反復数:", nrow(mc_df), "/", n_mc, "\n")
+cat("alpha_hatの平均:", round(mean(mc_df$alpha_hat), 4), "（真値:", alpha, "）\n")
+cat("alpha_hatの標準偏差:", round(sd(mc_df$alpha_hat), 4), "\n")
+cat("収益ロスの平均:", round(mean(mc_df$revenue_loss), 1),
+    "（真の収益の", round(100*mean(mc_df$revenue_loss)/revenue_true_policy, 2), "%）\n")
+cat("収益ロスの中央値:", round(median(mc_df$revenue_loss), 1), "\n")
+```
+
+```{r}
+#| label: lec15-montecarlo-hist
+#| fig-cap: "推定誤差から生まれる収益ロスの分布（モンテカルロ200回）"
+p1 <- ggplot(mc_df, aes(x = alpha_hat)) +
+  geom_histogram(bins = 25, fill = "steelblue", alpha = 0.8) +
+  geom_vline(xintercept = alpha, linetype = "dashed", color = "firebrick") +
+  labs(x = expression(hat(alpha)), y = "頻度", title = "alpha_hatの標本分布")
+
+p2 <- ggplot(mc_df, aes(x = revenue_loss)) +
+  geom_histogram(bins = 25, fill = "darkorange", alpha = 0.8) +
+  labs(x = "収益ロス（真の政策の収益 − 推定政策の収益）", y = "頻度",
+       title = "収益ロスの分布")
+
+p1 + p2
+```
+
+この図が今日、そしてこのコース全体の最後のメッセージだ。**$\hat\alpha$ の標本分布のばらつきが、そのまま収益ロスの分布のばらつきに変換されている。** 収益ロスの分布は右に長く裾を引いており、「たいていはそこそこうまくいくが、稀に推定が大きく外れると収益が大きく毀損する」という構造になっている。需要推定・因果推論・異質性のモデリングにどれだけ手を抜くかが、巡り巡って「いくら儲け損なうか」という金額に直結する。**推定・推論の質が、そのままお金に変わる。**
+
+### フィードバックループ問題：第3回の完全回収
+
+最後にもう1つ、実務上とても重要な問題を確認する。上の推定は「価格実験データ（複数の価格水準をランダムに割り当てたデータ）」を使っていた。では、もし企業が**自社の動的価格ルール**で生成された予約データだけを使って $\alpha$ を再推定したらどうなるか。
+
+```{r}
+#| label: lec15-feedback-loop
+generate_booking_data_dynamic <- function(seed, T_period, C_capacity, theta0, alpha, lambda_bar, pstar_policy) {
+  set.seed(seed)
+  c_remain <- C_capacity
+  prices_obs   <- numeric(0)
+  purchase_obs <- numeric(0)
+  for (t in T_period:1) {
+    if (c_remain == 0) break
+    p <- pstar_policy[t + 1, c_remain + 1]
+    arrived <- runif(1) < lambda_bar
+    if (arrived) {
+      u <- theta0 - alpha * p
+      purchased <- as.numeric(runif(1) < sigmoid(u))
+      prices_obs   <- c(prices_obs, p)
+      purchase_obs <- c(purchase_obs, purchased)
+      if (purchased == 1) c_remain <- c_remain - 1
+    }
+  }
+  list(prices = prices_obs, purchase = purchase_obs)
+}
+
+dyn_data <- generate_booking_data_dynamic(20268, T_period, C_capacity, theta0, alpha, lambda_bar, pstar_mat)
+cat("動的価格データでの価格の標準偏差:", round(sd(dyn_data$prices), 2), "\n")
+cat("価格実験データでの価格の標準偏差（参考、上のbooking_data）:", round(sd(booking_data$prices), 2), "\n")
+
+fit_dyn <- fit_logit_newton(dyn_data$prices, dyn_data$purchase)
+cat("動的価格データのみで推定したalpha_hat:", round(fit_dyn$theta[2], 4), "（真値:", alpha, "）\n")
+```
+
+結果は象徴的だ。動的価格ルールのもとでは、価格は状態 $(t,c)$ の決定論的な関数になる。企業の均衡的な価格づけの結果、**観測される価格の変動幅そのものが小さくなり**、しかもその変動が「実現した需要の強さ」と絡み合ってしまう（在庫が早く減るパスほど後半に高い価格帯を経験しにくく、在庫が残るパスほど安値の局面を長く経験する、という選択が起きる）。この狭くて歪んだ価格変動から $\alpha$ を再推定すると、真の価格弾力性を系統的に見誤る。
+
+これはまさに第3回でやった**価格の内生性**の再演である。自社の価格ルール自身が生む価格変動は、真の需要曲線を復元するための「独立な」変動になっていない。第7回で強調した「価格実験（ランダム化された価格変動）の価値」が、コースの最後にもう一度、最も切実な形で戻ってくる。**RMを運用する企業ほど、意図的に一部の在庫・一部の期間で価格をランダム化する実験を組み込まないと、自分のモデルを自分で壊すループに陥る。**
+
+## 7. アルゴリズム価格への一言
+
+最後に、これからの論点として1つだけ触れておく。Calvano, Calzolari, Denicolò, and Pastorello (2020, *American Economic Review*) は、強化学習（Q学習）で動くプライシングエージェント同士をシミュレーション上で競争させると、明示的なコミュニケーションが一切無いにもかかわらず、エージェントたちが自律的に協調的な（competitiveな水準より高い）価格に収束する、という結果を報告した。
+
+これは規制当局にとって悩ましい問題を提起する。従来の独占禁止法・競争法は「事業者間の意思疎通」を違法なカルテルの要件としてきたが、アルゴリズムが人間の指示なしに勝手に協調的価格へ収束するとしたら、それをどう規制すべきか。まだ決定的な答えのある話ではないが、dynamic pricingが企業実務に浸透するほど、この論点は重要性を増していく。今日学んだRMのDPも、複数企業が同時にそれぞれのDPを回し合えば、この協調価格問題の入り口に立つことになる。
+
+## 8. コース総括：15回の地図
+
+最終回として、これまでの15回がどうつながっていたかを1枚の表で振り返る。
+
+```{r}
+#| label: lec15-course-map
+course_map <- data.frame(
+  軸 = c("需要推定", "需要推定", "需要推定", "供給側行動", "異質性の把握", "因果推論",
+         "因果推論", "階層・異質性", "階層・異質性", "異質性・政策", "動学",
+         "動学", "動学（本日）"),
+  回  = c("第2回", "第3回", "第4回", "第4回", "第6回", "第7回",
+         "第8回", "第9回", "第10回", "第11回", "第13回",
+         "第14回", "第15回"),
+  内容 = c("logit需要・MLE", "IV・nested logit", "random coefficient logit",
+          "Bertrand-Nash・合併分析", "コンジョイント・WTP", "A/Bテスト",
+          "観察データの因果推論", "階層モデル・shrinkage", "BG/NBD・CLV",
+          "ターゲティング・policy learning", "動学的離散選択（消費者）",
+          "state dependence・買いだめ", "dynamic pricing（企業）")
+)
+kable(course_map, caption = "計量経済学IIの15回地図：4つの軸から価格最適化へ")
+```
+
+この講義でやってきたことは、大きく4つの軸に分けられる。
+
+- **需要推定（何が売れるか）**：第2〜4回。価格を動かしたら数量がどう動くかを、内生性に注意しながら推定する技術。
+- **因果推論（施策は効くか）**：第7〜8回。A/Bテストと観察データから、政策・介入の効果を測る技術。
+- **異質性（誰に効くか）**：第9〜11回。顧客ごとの違いを階層モデルで捉え、ターゲティングに使う技術。
+- **動学（いつ・どの状態で）**：第13〜15回。消費者・企業の意思決定が時間や状態にどう依存するかを、動的計画法で解く技術。
+
+そして今日、その4つが**「価格を最適化する」という1つの実務課題**に全部刺さることを確認した。需要の弾力性が分からなければ最適価格は計算できない（軸1）。価格を動かした効果が本当にその価格のせいなのかを見極めるには因果推論が要る（軸2）。同じ価格でも客によって反応が違うなら、一律価格は機会損失を生む（軸3）。そして今日見たように、状態に応じて価格を変えるなら、その価格ルール自体を動的最適化として解く必要がある（軸4）。
+
+**この講義で学んだ全てのパーツが、価格最適化という1つの実務課題に刺さっている。** これが計量経済学IIを通じて伝えたかった、最後のメッセージだ。
+
+## まとめ
+
+::: {.callout-important}
+## この講義のまとめ、そしてコース全体のまとめ
+
+- dynamic pricingは「時間・需給で変わる価格」「販売期限・在庫で変わる価格」「顧客ごとに変わる価格」の3つが混ざった言葉である。この講義では「企業の価格ルールが状態の関数になっていること」として統一的に整理した。
+- peak-load pricingは、容量費用を「容量を実際に使う期」に負担させる、という発想の実装である。real-time pricingは、その発想を電力市場の日々の変動にまで拡張したものだ。
+- revenue managementの核心は、第13回のBellman方程式・backward inductionの再演である。$V(t,c) = \max_p\{\lambda(p)[p+V(t-1,c-1)] + (1-\lambda(p))V(t-1,c)\}$ を解くだけで、「期限が近く在庫が余ると安く、在庫が減ると高くなる」という価格ヒートマップが1枚出てくる。
+- 動的価格の固定価格に対する優位性は、需要と在庫の状況次第で数%程度になることもあれば、需要の不確実性や在庫逼迫が強いほど拡大する。「うちにRMは必要か」を判断する軸は、需要の変動性と在庫の逼迫度である。
+- surge pricingは、需要抑制・供給喚起・マッチング摩擦の緩和という3つの役割を持つ「市場を回すための価格」であり、単なる値上げではない。
+- 需要推定の誤差は、動的計画法を通じて価格政策の収益ロスという「金額」に変換される。そして自社の価格ルールが生んだデータで再推定すると、内生性が再発し、誤差はさらに拡大しうる。
+- **計量経済学IIの15回は、需要推定×因果推論×異質性×動学という4本の軸が、すべて「価格・施策の最適化」という1つの実務課題に収束するように組み立てられていた。**
+:::
+
+このコースを通じて、「モデルを書けばシミュレーションできる。シミュレーションできれば推定量の性質を実験で確かめられる」という計量経済学Iからの哲学を、logit需要、IV、階層モデル、動的計画法と、次々に難しくなる道具に対して繰り返し適用してきた。この「まず手を動かしてデータを作り、それを自分の推定量にかけてみる」という姿勢は、道具が変わっても、そしてこれから先、新しい手法に出会うたびにも、変わらず使える武器になるはずだ。
+
+## 宿題
+
+- ブラウザ実験室（[playground15.html](playground15.html)）で、今回のシミュレーションの数値を自分でいじって遊んでみよう。インストール不要、ブラウザだけでRが動く（初回ロードのみ30秒〜1分かかる）。
+1. 今日のRシミュ2のヒートマップで、`lambda_bar`（到着確率）を0.95から0.5まで下げるとヒートマップの色の分布がどう変わるか、手元で動かして確認してみよう。需要が弱くなると、動的価格の「見せ場」（在庫と期限による価格差）はどうなるだろうか。
+2. Uber、JAL、ANA、あるいは身近なECサイトの価格が「いつ」「どんな条件で」動いているように見えるか、思い出してChatGPTに「この価格変動は、状態依存の価格ルールとして、どんな状態変数に反応していそうか」と聞いてみよう。今日の交通整理（(a)(b)(c)のどれに近いか）を当てはめて考えてみるとよい。
+3. coding課題は `assignment15.qmd` を参照。航空券1路線の予約データを自分で生成し、backward inductionで価格政策を作り、推定誤差が収益ロスにどう変換されるかをモンテカルロで確認してもらう。
+
+このコースの最後の課題でもある。期末レポート（research proposal）を書く上でも、「需要推定→因果推論→異質性→動学」のどこか1つの軸を深掘りするだけでなく、「その先にどんな意思決定（価格、ターゲティング、在庫）が待っているか」まで考えてみると、問いの立て方に厚みが出るはずだ。
+
+## 参考文献
+
+- Steiner, P. O. (1957). "Peak Loads and Efficient Pricing." *Quarterly Journal of Economics*, 71(4), 585–610.
+- Borenstein, S. (2005). "The Long-Run Efficiency of Real-Time Electricity Pricing." *Energy Journal*, 26(3), 93–116.
+- Gallego, G., and van Ryzin, G. (1994). "Optimal Dynamic Pricing of Inventories with Stochastic Demand over Finite Horizons." *Management Science*, 40(8), 999–1020.
+- Galichon, A., and Hsieh, Y.-W. (2017). "A Theory of Decentralized Matching Markets without Transfers, with an Application to Surge Pricing." USC-INET Working Paper.
+- Williams, K. R. (2022). "The Welfare Effects of Dynamic Pricing: Evidence from Airline Markets." *Econometrica*, 90(2), 831–858.
+- Castillo, J. C., Knoepfle, D., and Weyl, E. G. "Surge Pricing Solves the Wild Goose Chase."
+- Calvano, E., Calzolari, G., Denicolò, V., and Pastorello, S. (2020). "Artificial Intelligence, Algorithmic Pricing, and Collusion." *American Economic Review*, 110(10), 3267–3297.

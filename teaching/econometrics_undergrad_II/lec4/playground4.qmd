@@ -1,0 +1,308 @@
+---
+title: "Playground 4：消費者異質性と合併の実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture4.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（講義ノートと同じ関数群。編集不可・自動実行）----
+
+# 個人ごとの選択確率 (ns x J)。価格係数は対数正規 alpha_i = exp(abar + sigma * nu_i)
+rc_choice_probs <- function(xbeta, p, abar, sigma, nu) {
+  alpha_i <- exp(abar + sigma * nu)                # (ns) 個人の価格係数（常に正）
+  V <- sweep(-outer(alpha_i, p), 2, xbeta, "+")    # v[i,j] = xbeta_j - alpha_i * p_j
+  eV <- exp(V)
+  eV / (1 + rowSums(eV))                           # outside optionの効用は0
+}
+
+# 集計シェア (J)：個人選択確率をnsドローで平均する（モンテカルロ積分）
+rc_shares <- function(xbeta, p, abar, sigma, nu) {
+  colMeans(rc_choice_probs(xbeta, p, abar, sigma, nu))
+}
+
+# シェアの価格微分 (J x J)。要素[k, j] = ds_k / dp_j
+rc_dsdp <- function(xbeta, p, abar, sigma, nu) {
+  alpha_i <- exp(abar + sigma * nu)
+  sij <- rc_choice_probs(xbeta, p, abar, sigma, nu)
+  J <- length(p)
+  Jmat <- matrix(0, J, J)
+  for (j in 1:J) for (k in 1:J) {
+    if (k == j) {
+      Jmat[k, j] <- mean(-alpha_i * sij[, j] * (1 - sij[, j]))
+    } else {
+      Jmat[k, j] <- mean(alpha_i * sij[, k] * sij[, j])
+    }
+  }
+  Jmat
+}
+
+# 所有行列（groupsが同じ = 同一企業なら1）
+owner_matrix <- function(groups) {
+  outer(groups, groups, FUN = function(a, b) as.numeric(a == b))
+}
+
+# Bertrand-Nash均衡を固定点反復で解く: p <- mc + Delta(p)^{-1} s(p)
+# 発散を防ぐため半分ずつ更新（damping）。収束しなければ ok = FALSE を返す
+solve_equilibrium <- function(xbeta, mc, groups, abar, sigma, nu,
+                              p_init, tol = 1e-8, maxit = 300, damp = 0.5) {
+  p <- p_init
+  Omega <- owner_matrix(groups)
+  for (it in 1:maxit) {
+    Jmat  <- rc_dsdp(xbeta, p, abar, sigma, nu)
+    Delta <- -(Omega * t(Jmat))                    # [j,k] = -Omega[j,k] * ds_k/dp_j
+    s <- rc_shares(xbeta, p, abar, sigma, nu)
+    p_new <- (1 - damp) * p + damp * (mc + solve(Delta, s))
+    err <- max(abs(p_new - p))
+    p <- p_new
+    if (err < tol) return(list(p = p, iters = it, ok = TRUE))
+  }
+  list(p = p, iters = maxit, ok = FALSE)
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：σがIIAを壊す — 値上げで逃げた客はどこへ行くか
+
+random coefficient logit では、価格係数が消費者ごとに違う。
+
+$$
+u_{ij} = x_j'\beta - \alpha_i\, p_j + \varepsilon_{ij}, \qquad \alpha_i = \exp(\bar{\alpha} + \sigma\, \nu_i), \qquad \nu_i \sim N(0, 1)
+$$
+
+$\sigma$ が価格感応度のばらつきで、$\sigma = 0$ なら全員同じ係数、つまりただのlogitに戻る。市場には品質も価格帯も近い「プレミアム」ペア（財1・財2）と、安くて質素な「エコノミー」（財3）が並んでいる。財1を値上げしたとき、逃げた客の行き先の配分（diversion）を、「元のシェアに比例して流れる」というIIAの予測と比べよう。$\sigma > 0$ なら、財1の客はもともと価格に鈍いプレミアム好きなので、受け皿は同じプレミアムの財2に偏り、outsideへの流出はIIA予測より小さくなるはずだ。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+sigma    <- 0.8    # 価格感応度のばらつき（0にするとplain logit）
+price_up <- 1.10   # 財1の値上げ率（1.10 = 10%値上げ。1より大きく）
+# -----------------------
+
+set.seed(20264)
+ns <- 500
+nu <- rnorm(ns)
+
+# 財1・財2は品質も価格も近い「プレミアム」ペア、財3は「エコノミー」
+xbeta  <- c(4.5, 4.3, 2.0)   # 価格以外の魅力度（品質）
+p_base <- c(3.0, 2.8, 1.2)   # 価格
+abar   <- 0.1                # log価格係数の中心
+
+s0 <- rc_shares(xbeta, p_base, abar, sigma, nu)   # 値上げ前のシェア
+p_new <- p_base
+p_new[1] <- p_base[1] * price_up
+s1 <- rc_shares(xbeta, p_new, abar, sigma, nu)    # 値上げ後のシェア
+
+lost   <- s0[1] - s1[1]                           # 財1が失った客
+actual <- c(s1[2] - s0[2], s1[3] - s0[3],
+            (1 - sum(s1)) - (1 - sum(s0))) / lost # 実際の行き先の配分（合計1）
+iia    <- c(s0[2], s0[3], 1 - sum(s0)) /
+          (s0[2] + s0[3] + 1 - sum(s0))           # IIA予測 = 元のシェアに比例
+
+dest <- c("good 2 (premium)", "good 3 (economy)", "outside")
+print(data.frame(destination = dest,
+                 base_share = round(c(s0[2], s0[3], 1 - sum(s0)), 3),
+                 iia_benchmark = round(iia, 3),
+                 actual_diversion = round(actual, 3)))
+
+lab_rc <- paste0("random coef. (sigma = ", sigma, ")")
+df <- data.frame(
+  destination = factor(rep(dest, 2), levels = dest),
+  share_of_leavers = c(iia, actual),
+  model = factor(rep(c("IIA benchmark (share proportional)", lab_rc), each = 3),
+                 levels = c("IIA benchmark (share proportional)", lab_rc))
+)
+ggplot(df, aes(destination, share_of_leavers, fill = model)) +
+  geom_col(position = position_dodge(0.7), width = 0.6) +
+  scale_fill_manual(values = c("gray60", "#4C72B0")) +
+  labs(x = "where do good 1's leavers go?",
+       y = "share of diverted consumers", fill = NULL) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `sigma <- 0` にすると2種類の棒が**完全に一致**する（これがIIAの世界）。そこから0.4、0.8、1.2と上げて、財2への偏りが育っていく様子を見よう。
+- 財2をエコノミーに改造しよう（`xbeta <- c(4.5, 2.1, 2.0)`、`p_base <- c(3.0, 1.3, 1.2)`）。財1の近くに代替財がいなくなると、財2への「えこひいき」は消えるだろうか。
+- 問い：$\sigma > 0$ のとき、outsideへの流出がIIA予測よりずっと小さくなるのはなぜか。「財1を買っていたのはどんな人か」から考えよう。
+:::
+
+## 実験2：ドロー数nsと精度 — 積分を乱数で置き換えるコスト
+
+random coefficient logit のシェアは積分が閉じた形にならないので、$\nu$ を `ns` 人ぶん引いて平均で近似するのだった。
+
+$$
+s_j \approx \frac{1}{ns} \sum_{r=1}^{ns} s_j(\nu_r)
+$$
+
+この置き換えは無料ではない。同じパラメータでも、引いた乱数が違えばシェアの値は毎回少しずつ違う。ここでは `ns` を変えながら同じ計算を200回やり直し、シェア推定のブレ（標準偏差）がどう縮むかを測る。表の `theory_sd` は「個人選択確率の標準偏差を $\sqrt{ns}$ で割った理論値」で、モンテカルロ誤差の定番公式だ。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+ns_list <- c(10, 100, 1000)   # 比較したいドロー数（増やすと実行時間も延びる）
+n_rep   <- 200                # 同じパラメータで何回計算し直すか
+# -----------------------
+
+set.seed(20264)
+xbeta <- c(4.5, 4.3, 2.0)
+p     <- c(3.0, 2.8, 1.2)
+abar  <- 0.1
+sigma <- 0.8
+
+# 基準値：50000ドローで一度だけ計算した「ほぼ真のシェア」
+big_nu <- rnorm(50000)
+prob_i <- rc_choice_probs(xbeta, p, abar, sigma, big_nu)[, 1]
+s_ref  <- mean(prob_i)
+
+est <- lapply(ns_list, function(m) {
+  replicate(n_rep, rc_shares(xbeta, p, abar, sigma, rnorm(m))[1])
+})
+df <- data.frame(
+  ns     = factor(rep(ns_list, each = n_rep), levels = sort(unique(ns_list))),
+  share1 = unlist(est)
+)
+
+tbl <- df |>
+  group_by(ns) |>
+  summarise(mean_share = round(mean(share1), 4),
+            sd_share   = round(sd(share1), 4)) |>
+  as.data.frame()
+tbl$theory_sd <- round(sd(prob_i) / sqrt(sort(unique(ns_list))), 4)
+print(tbl)
+cat("基準値（ns = 50000で計算した財1のシェア）:", round(s_ref, 4), "\n")
+
+ggplot(df, aes(ns, share1)) +
+  geom_boxplot(fill = "#4C72B0", alpha = 0.5, outlier.size = 0.7) +
+  geom_hline(yintercept = s_ref, linetype = "dashed", color = "gray40") +
+  labs(x = "number of simulation draws (ns)",
+       y = "simulated share of good 1")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `ns_list <- c(10, 100, 1000, 10000)` にしてみよう。sdはさらに約 $1/\sqrt{10}$ 倍になるか。実行時間の延び方も体感しておこう（精度は`ns`の平方根でしか買えない）。
+- `sigma <- 0` にするとブレはどうなるか。実行する前に予想すること。ヒント：全員の選択確率が同じなら、誰を何人引いても平均は変わらない。
+- 問い：`ns` を10倍にすると `sd_share` はおよそ何分の1になるか。表の `sd_share` と `theory_sd` を見比べて、モンテカルロ誤差の法則を自分の言葉で言おう。
+:::
+
+## 実験3：ミニ合併シミュレーション — 所有行列を書き換えると価格が動く
+
+供給側を入れる。各企業は自社製品群の利潤を最大化するように価格を決め（Bertrand-Nash）、均衡価格は
+
+$$
+p = mc + \Delta^{-1} s
+$$
+
+を満たす。$\Delta$ は所有関係と需要の傾きから決まる行列で、**合併とは所有行列の中身を書き換える操作**にすぎない。値上げして逃げた客を自社の別製品が受け止めてくれるなら、値上げのブレーキが外れる。財1・財2がプレミアム、財3・財4がエコノミーの4財市場で、合併前後の均衡を固定点反復で解く（反復上限300回・許容誤差1e-8とやや緩めの設定。収束しない場合はメッセージが出る）。合併する2財の組と、合併による限界費用の削減率（効率化）をいじれる。
+
+```{webr}
+#| timelimit: 120
+# ---- いじるのはここ ----
+merge_pair <- c(1, 2)   # 合併する2財。c(1, 2)は属性が近い組、c(1, 3)は遠い組
+cost_cut   <- 0.00      # 合併で当事者の限界費用が下がる割合（0.10 = 10%削減）
+# -----------------------
+
+set.seed(20264)
+ns <- 500
+nu <- rnorm(ns)
+
+# 財1・財2はプレミアム（品質・価格帯が近い）、財3・財4はエコノミー
+xbeta <- c(4.5, 4.3, 2.2, 2.0)   # 価格以外の魅力度
+mc    <- c(1.5, 1.4, 0.6, 0.5)   # 限界費用
+abar  <- 0.1                     # log価格係数の中心
+sigma <- 0.8                     # 価格感応度のばらつき
+
+# 合併前：4財がそれぞれ別の企業
+groups_pre <- c(1, 2, 3, 4)
+eq_pre <- solve_equilibrium(xbeta, mc, groups_pre, abar, sigma, nu,
+                            p_init = mc * 1.5)
+if (!eq_pre$ok) cat("注意：合併前の均衡が反復上限までに収束しなかった。以下は近似値。\n")
+
+# 合併後：merge_pairを同一企業にし、当事者の限界費用をcost_cutだけ削減
+groups_post <- groups_pre
+groups_post[merge_pair[2]] <- groups_post[merge_pair[1]]
+mc_post <- mc
+mc_post[merge_pair] <- mc[merge_pair] * (1 - cost_cut)
+eq_post <- solve_equilibrium(xbeta, mc_post, groups_post, abar, sigma, nu,
+                             p_init = eq_pre$p)
+if (!eq_post$ok) cat("注意：合併後の均衡が反復上限までに収束しなかった。以下は近似値。\n")
+
+cat("収束までの反復回数：合併前", eq_pre$iters, "回 / 合併後", eq_post$iters, "回\n")
+
+# 合併ペアの「近さ」の指標：合併前均衡でのdiversion ratio
+Jmat0 <- rc_dsdp(xbeta, eq_pre$p, abar, sigma, nu)
+d_ab <- -Jmat0[merge_pair[2], merge_pair[1]] / Jmat0[merge_pair[1], merge_pair[1]]
+cat(sprintf("diversion ratio D(good %d -> good %d) = %.3f\n\n",
+            as.integer(merge_pair[1]), as.integer(merge_pair[2]), d_ab))
+
+s_pre  <- rc_shares(xbeta, eq_pre$p,  abar, sigma, nu)
+s_post <- rc_shares(xbeta, eq_post$p, abar, sigma, nu)
+merger_tbl <- data.frame(
+  product    = paste0("good ", 1:4),
+  merging    = ifelse(1:4 %in% merge_pair, "yes", ""),
+  price_pre  = round(eq_pre$p, 3),
+  price_post = round(eq_post$p, 3),
+  pct_change = round((eq_post$p - eq_pre$p) / eq_pre$p * 100, 2),
+  share_pre  = round(s_pre, 3),
+  share_post = round(s_post, 3)
+)
+print(merger_tbl)
+
+df_m <- data.frame(
+  product = factor(paste0("good ", 1:4), levels = paste0("good ", 1:4)),
+  pct     = (eq_post$p - eq_pre$p) / eq_pre$p * 100,
+  party   = ifelse(1:4 %in% merge_pair, "merging", "non-merging")
+)
+ggplot(df_m, aes(product, pct, fill = party)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("merging" = "#C44E52", "non-merging" = "gray60")) +
+  labs(x = NULL, y = "price change (%)", fill = NULL) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `cost_cut <- 0.15` にしてみよう。効率化は値上げをどこまで打ち消すか。当事者の価格が合併前より**下がる**には何%の削減が必要か探ってみよう（かなり大きい数字になるはずだ）。
+- `sigma <- 0`（plain logitの世界）にして、`c(1, 2)` 合併と `c(1, 3)` 合併の結果を見比べよう。異質性を消すと、2つの合併の区別はどうなるか。
+- 問い：属性が近い2財の合併 `c(1, 2)` と遠い2財の合併 `c(1, 3)` では、当事者の価格上昇（`pct_change`）はどちらが大きいか。表示されるdiversion ratioと結びつけて説明しよう。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture4.html`（random coefficient logitの導出・ミニBLP推定・合併分析の完全版）
+- coding課題：`assignment4.qmd`（J=3・T=60のDGPを自作し、$\sigma$ のグリッドでGMMを回し、財1・2の合併まで分析する。この回のすべてを自分の手で通す課題）

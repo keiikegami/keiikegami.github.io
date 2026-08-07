@@ -1,0 +1,302 @@
+---
+title: "Playground 3：代替性と内生性の実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture3.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（講義ノートと同じ関数群。編集不可・自動実行）----
+
+plain_logit_shares <- function(delta) {
+  ev <- exp(delta)
+  denom <- 1 + sum(ev)
+  list(s = ev / denom, s0 = 1 / denom)
+}
+
+nested_logit_shares <- function(delta, nests, rho) {
+  # delta: 長さJのベクトル(平均効用)
+  # nests: リスト。各要素が同じネストに属する財のインデックス
+  # rho:   ネスト内相関(0でplain logitに一致)
+  lambda <- 1 - rho
+  J <- length(delta)
+  n_nests <- length(nests)
+  IV <- numeric(n_nests)  # inclusive value
+  for (g in seq_len(n_nests)) {
+    IV[g] <- sum(exp(delta[nests[[g]]] / lambda))
+  }
+  denom <- 1 + sum(IV^lambda)
+  s0 <- 1 / denom
+  s_g <- (IV^lambda) / denom
+  s <- numeric(J)
+  s_within <- numeric(J)
+  for (g in seq_len(n_nests)) {
+    for (j in nests[[g]]) {
+      s_within[j] <- exp(delta[j] / lambda) / IV[g]
+      s[j] <- s_within[j] * s_g[g]
+    }
+  }
+  list(s = s, s0 = s0, s_g = s_g, s_within = s_within)
+}
+
+make_market_data <- function(T_mkt, J_mkt, alpha_true, beta_true, kappa, gamma_w = 0.8) {
+  # 講義ノートRシミュ3と同じ市場レベルDGP
+  # kappa:   内生性の強さ(markupがxiにどれだけ反応するか)
+  # gamma_w: コストシフターwが限界費用に効く強さ(操作変数の強さ)
+  x  <- matrix(rnorm(T_mkt * J_mkt, mean = 1.0, sd = 0.5), T_mkt, J_mkt)
+  w  <- matrix(rnorm(T_mkt * J_mkt, mean = 4.0, sd = 1.0), T_mkt, J_mkt)
+  xi <- matrix(rnorm(T_mkt * J_mkt, mean = 0, sd = 0.6), T_mkt, J_mkt)
+  mc <- 1.0 + gamma_w * w + matrix(rnorm(T_mkt * J_mkt, sd = 0.3), T_mkt, J_mkt)
+  markup <- pmax(1.0 + kappa * xi, 0.05)
+  price <- mc + markup
+  delta <- beta_true * x - alpha_true * price + xi
+  ev <- exp(delta)
+  denom <- 1 + rowSums(ev)
+  data.frame(
+    market  = rep(1:T_mkt, times = J_mkt),
+    product = rep(1:J_mkt, each = T_mkt),
+    x = as.vector(x), w = as.vector(w), xi = as.vector(xi),
+    price = as.vector(price),
+    share = as.vector(ev / denom),
+    share0 = rep(1 / denom, times = J_mkt)
+  )
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：ρをいじってIIAを壊す
+
+logitモデルでは、ある財が値上げされたとき、流出した需要は残りの財へ「シェアの比率」だけで機械的に配分される（IIA）。似ているかどうかは一切関係ない。nested logitは財をネスト（グループ）に分け、ネスト内相関 $\rho$ を1つ足すだけで「似た財ほど強く競合する」を表現する。選択確率は「どのネストを選ぶか」と「ネスト内でどれを選ぶか」に分解できる。
+
+$$
+s_{jt} = \bar{s}_{j|g,t} \times s_{gt}
+$$
+
+ここでは講義ノートと同じ4財市場（ネストA = 財1・2、ネストB = 財3・4）で、財3を20%値上げしたときの流出先をplain logitと見比べる。$\rho$ を動かして、同ネストの財4への流出がどう変わるかを見よう。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+rho <- 0.5        # ネスト内相関（0でplain logitに一致、1に近いほどネスト内がそっくり）
+price_up <- 1.20  # 財3の価格倍率（1.20 = 20%値上げ）
+# -----------------------
+
+alpha_n <- 1.0
+beta_n  <- c(2.2, 2.0, 2.3, 2.1)
+price_n <- c(3.0, 3.2, 3.5, 3.3)
+nests4  <- list(c(1, 2), c(3, 4))   # ネストA = {財1, 財2}, ネストB = {財3, 財4}
+
+delta_before <- beta_n - alpha_n * price_n
+price_after  <- price_n
+price_after[3] <- price_after[3] * price_up
+delta_after  <- beta_n - alpha_n * price_after
+
+d_plain  <- plain_logit_shares(delta_after)$s - plain_logit_shares(delta_before)$s
+d_nested <- nested_logit_shares(delta_after, nests4, rho)$s -
+  nested_logit_shares(delta_before, nests4, rho)$s
+
+good_lab <- c("good 1 (A)", "good 2 (A)", "good 3 (B, up)", "good 4 (B)")
+df <- data.frame(
+  good = factor(rep(good_lab, 2), levels = good_lab),
+  model = factor(rep(c("plain logit", "nested logit"), each = 4),
+                 levels = c("plain logit", "nested logit")),
+  change = c(d_plain, d_nested)
+)
+ggplot(df, aes(good, change, fill = model)) +
+  geom_col(position = position_dodge(0.7), width = 0.6) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  labs(x = NULL, y = "change in share", fill = NULL) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `rho <- 0` にすると、2色の棒が4財すべてで完全に一致する。nested logitがplain logit（IIAの世界）に戻ることを確かめよう。
+- `rho <- 0.9` にすると、流出先はほぼ財4に独占され、別ネストの財1・2の棒はほとんど消える。`price_up <- 1.50` に上げても「流出量」は変わるが「行き先の偏り方」を決めているのは $\rho$ だと確認しよう。
+- 考えてみよう：ネストの割り方を `nests4 <- list(c(1, 3), c(2, 4))` に変えると（分析者がネストを間違えた世界）、どの財への代替が過大・過小に描かれるか。ネスト構造は推定される前に「分析者が置く仮定」だ、という点の怖さを考えよう。
+:::
+
+## 実験2：Berry反転を目で見る
+
+市場シェアが正確にわかっているなら、logitのシェア式は代数的に反転できて、平均効用 $\delta$ がそのまま取り出せる。
+
+$$
+\ln s_{jt} - \ln s_{0t} = \delta_{jt}
+$$
+
+ただし現実のシェアは「M人の購買を集計した割合」なので、Mが有限である限り測定ノイズが乗る。特にシェアの小さい財は、logの中に入るカウントが小さく、復元した $\delta$ が大きく暴れる。市場サイズMを動かして、この不安定さを体感しよう（橙の点が真の $\delta$、箱が200回の観測から復元した $\delta$ の分布）。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+M <- 2000                              # 1市場あたりの消費者数（市場サイズ）
+delta_true <- c(1.0, 0.0, -1.0, -3.0)  # 財1〜4の真の平均効用（outsideは0）
+n_rep <- 200                           # シェアを観測し直す回数（200以下）
+# -----------------------
+
+set.seed(20263)
+truth <- plain_logit_shares(delta_true)
+prob <- c(truth$s0, truth$s)   # 1行目がoutside、続いて財1〜4
+
+counts <- rmultinom(n_rep, size = M, prob = prob)
+delta_hat <- sweep(log(counts[-1, , drop = FALSE]), 2, log(counts[1, ]), "-")
+delta_hat[!is.finite(delta_hat)] <- NA   # 販売ゼロの財はdeltaが計算不能になる
+
+good_lab <- paste0("good ", 1:4, " (share ", round(100 * truth$s, 1), "%)")
+df <- data.frame(
+  good = factor(rep(good_lab, times = n_rep), levels = good_lab),
+  delta_hat = as.vector(delta_hat)
+)
+truth_df <- data.frame(good = factor(good_lab, levels = good_lab), delta = delta_true)
+
+ggplot(df, aes(good, delta_hat)) +
+  geom_boxplot(fill = "#4C72B0", alpha = 0.5, outlier.size = 0.6, na.rm = TRUE) +
+  geom_point(data = truth_df, aes(good, delta, color = "true delta"), size = 3) +
+  scale_color_manual(values = c("true delta" = "#DD8452")) +
+  labs(x = NULL, y = "recovered delta (log share ratio)", color = NULL) +
+  theme(legend.position = "top", axis.text.x = element_text(angle = 15, hjust = 1))
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `M <- 100` にしてみよう。財4（シェア約1%）は「1人も買わない市場」が続出して $\delta$ が計算不能（log 0）になり、箱も歪む。逆に `M <- 100000` でどこまで箱が潰れるか見よう。
+- `delta_true` の4番目を `-5` にする（シェア0.1%以下）。この財の $\delta$ を安定して復元するにはMがどの桁まで必要か、感覚を掴もう。
+- 考えてみよう：財1と財4で箱の縦幅がまるで違うのはなぜか。カウントの相対誤差はおおよそ「1/√(期待カウント)」で決まる、という観点から説明してみよう。シェアの小さい財の扱いは、この先BLP系の実証で必ず悩まされる論点である。
+:::
+
+## 実験3：価格内生性の強さとIVによる回収
+
+Berry反転で得た回帰式の右辺には、観測されない需要ショック $\xi_{jt}$ が残っている。
+
+$$
+\ln s_{jt} - \ln s_{0t} = \beta x_{jt} - \alpha p_{jt} + \xi_{jt}
+$$
+
+企業は人気（高い $\xi$）を知って強気の値付けをするので価格と $\xi$ は正に相関し、OLSは $\alpha$ を過小評価する。ここではコストシフター $w$ を操作変数に、2SLSを `lm()` だけで手実装する（第1段階：`lm(price ~ x + w)`、第2段階：その予測値 `price_hat` で `lm(y ~ price_hat + x)`）。各反復で50市場×4財のデータを作り直し、真値 $\alpha = 2$ の回収ぶりを比較する。1つ注意：手実装の第2段階が返すSEは第1段階の推定誤差を無視しているため正しくない。だからこの表ではSEではなく反復間のばらつき（sd）で精度を見る（実務では `fixest` などIV対応パッケージのSEを使うこと）。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+kappa   <- 1.1    # 内生性の強さ（markupがxiにどれだけ反応するか。0で内生性ゼロ）
+gamma_w <- 0.8    # コストシフターwの効き方（操作変数の強さ。0.05にすると弱いIV）
+n_rep   <- 100    # モンテカルロ反復（200以下）
+# -----------------------
+
+set.seed(20263)
+alpha_true <- 2.0
+beta_true  <- 1.5
+
+one_run <- function() {
+  df <- make_market_data(T_mkt = 50, J_mkt = 4, alpha_true, beta_true,
+                         kappa = kappa, gamma_w = gamma_w)
+  df$y <- log(df$share) - log(df$share0)      # Berry反転の左辺
+  ols <- lm(y ~ price + x, data = df)         # OLS（内生性を無視）
+  fs  <- lm(price ~ x + w, data = df)         # 第1段階
+  df$price_hat <- fitted(fs)
+  ss  <- lm(y ~ price_hat + x, data = df)     # 第2段階
+  c(ols = -coef(ols)[["price"]],
+    iv  = -coef(ss)[["price_hat"]],
+    F1  = summary(fs)$coefficients["w", "t value"]^2)  # 除外IVのfirst-stage F
+}
+res <- t(replicate(n_rep, one_run()))
+
+data.frame(
+  method = c("true value", "OLS", "2SLS (manual)"),
+  mean_alpha = round(c(alpha_true, mean(res[, "ols"]), mean(res[, "iv"])), 3),
+  median_alpha = round(c(alpha_true, median(res[, "ols"]), median(res[, "iv"])), 3),
+  sd_alpha = c(NA, round(sd(res[, "ols"]), 3), round(sd(res[, "iv"]), 3)),
+  first_stage_F = c(NA, NA, round(mean(res[, "F1"]), 1))
+)
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `kappa <- 0`（内生性ゼロ）にすると、OLSも2SLSも真値2.0を当てる。sdを見比べると2SLSの方がわずかに大きいはずだ（IVは価格変動のうち $w$ で説明できる部分しか使わないため）。内生性がないのにIVを使う「損」を確認しよう。
+- `gamma_w <- 0.05`（弱い操作変数）にしてみよう。first-stage Fが1を切るあたりまで落ち、2SLSのmeanもsdも盛大に暴れ出す。Fの経験則「10以上」が何を守ってくれているのか体感しよう。
+- 考えてみよう：`kappa` を3まで上げるとOLSのバイアスは深刻になるのに、2SLSはなぜ平気なのか。`make_market_data` の中で $w$ がどう生成されているか（$\xi$ と無関係に引かれている）に注目して説明してみよう。
+:::
+
+## 実験4：弾力性への波及 — OLSかIVかで値上げの判断が変わる
+
+$\alpha$ の推定を誤ると、そこから計算する自己価格弾力性 $\eta_{jj} = -\alpha p_j (1 - s_j)$ も全部歪む。収入は $R = p \times s$ なので、小さな値上げ率に対する収入の変化率はおよそ「(1 + 弾力性) × 値上げ率」になる。つまり弾力性が $-1$ より浅ければ「値上げで収入増」、$-1$ より深ければ「値上げで収入減」と判断が割れる。ここではDGPの構造は実験3と同じまま、弾力性がちょうど $-1$ をまたぐ帯に来るよう価格係数のスケールだけ小さくして、OLSとIVで意思決定がどう変わるかを1枚の表にする（弾力性は市場平均の価格・シェアで評価。SEを載せない理由は実験3で述べた通り）。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+alpha_true <- 0.4   # 真の価格係数（このスケールだと真の弾力性が-1より深くなる）
+kappa      <- 1.1   # 内生性の強さ
+price_up   <- 0.10  # 検討中の値上げ率（0.10 = 10%）
+# -----------------------
+
+set.seed(20263)
+df <- make_market_data(T_mkt = 100, J_mkt = 4, alpha_true, beta_true = 1.5,
+                       kappa = kappa, gamma_w = 0.8)
+df$y <- log(df$share) - log(df$share0)
+
+ols <- lm(y ~ price + x, data = df)
+fs  <- lm(price ~ x + w, data = df)
+df$price_hat <- fitted(fs)
+ss  <- lm(y ~ price_hat + x, data = df)
+
+alpha_hat <- c(alpha_true, -coef(ols)[["price"]], -coef(ss)[["price_hat"]])
+
+p_bar <- mean(df$price)
+s_bar <- mean(df$share)
+eta <- -alpha_hat * p_bar * (1 - s_bar)     # 自己価格弾力性（市場平均で評価）
+rev_change <- (1 + eta) * price_up * 100    # 値上げによる収入変化率の近似(%)
+
+data.frame(
+  method = c("true value", "OLS", "2SLS (manual)"),
+  alpha_hat = round(alpha_hat, 3),
+  own_elasticity = round(eta, 2),
+  revenue_change_pct = round(rev_change, 1),
+  decision = ifelse(eta > -1, "raise the price", "do not raise")
+)
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `kappa <- 0` にすると3行の弾力性はほぼ揃い、decisionも一致することを確認しよう。意思決定を割っていたのは内生性だとわかる。
+- `alpha_true <- 0.15`（もともと非弾力的な市場）にすると、バイアス自体は残るのにdecisionは3行とも「raise」で一致する。バイアスが意思決定に効くかどうかは、真の弾力性が $-1$ にどれだけ近いか次第だ。
+- 考えてみよう：`kappa` を大きくしていくと、OLSの弾力性がプラス（値上げすると売れる?!）になることがある。第1回イントロのデモと同じ現象だ。人気（$\xi$）と価格が同時に動くとき、価格とシェアの散布図の上で何が起きているのか説明してみよう。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture3.html`（IIA・nested logit・Berry反転・2SLSの導出とシミュレーションの完全版）
+- coding課題：`assignment3.qmd`（炭酸飲料市場を題材に、nested logitの市場レベル需要推定と価格内生性への対処をゼロから自分で実装する）

@@ -1,0 +1,286 @@
+---
+title: "Playground 7：A/Bテストの実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture7.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（編集不可・自動実行）----
+
+# 2群の平均比較（両側5%検定）の検出力を正規近似で返す関数
+power_two_mean <- function(tau, sd, n_per_arm) {
+  se <- sd * sqrt(2 / n_per_arm)
+  z <- abs(tau) / se
+  pnorm(z - qnorm(0.975)) + pnorm(-z - qnorm(0.975))
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：検出力シミュレーター — 「見つけられる確率」を測る
+
+真に効果がある施策でも、$N$が足りなければ検定は「有意」と言ってくれない。ここでは真の効果量・サンプルサイズ・アウトカムのばらつきを自分で決め、その世界でA/Bテストを200回繰り返して、p < 0.05になった割合（= 検出力）を数える。2群の平均比較で検出力$1-\beta$を達成するのに必要な片群サンプルサイズは
+
+$$
+n = \frac{2 \sigma^2 (z_{\alpha/2} + z_{\beta})^2}{\tau^2}
+$$
+
+で近似できる（$\tau$は真の効果、$\sigma$はアウトカムのSD）。シミュレーションの検出力がこの公式とどれくらい一致するかも見る。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+true_effect <- 300    # 施策の真の効果（円）
+n_per_arm   <- 500    # 片群あたりのサンプルサイズ
+sd_outcome  <- 3000   # アウトカム（購買額）のSD（円）
+# -----------------------
+
+set.seed(20267)
+n_mc <- 200
+pvals <- numeric(n_mc)
+for (s in 1:n_mc) {
+  y0 <- rnorm(n_per_arm, mean = 5000, sd = sd_outcome)
+  y1 <- rnorm(n_per_arm, mean = 5000 + true_effect, sd = sd_outcome)
+  pvals[s] <- t.test(y1, y0)$p.value
+}
+power_mc <- mean(pvals < 0.05)
+
+power_theory <- power_two_mean(true_effect, sd_outcome, n_per_arm)
+n_needed <- ceiling(2 * (qnorm(0.975) + qnorm(0.80))^2 * (sd_outcome / true_effect)^2)
+
+cat("検出力（MC 200回）:", round(power_mc, 3), "\n")
+cat("検出力（公式）:", round(power_theory, 3), "\n")
+cat("検出力80%に必要なN（片群）:", n_needed, "\n")
+
+n_grid <- seq(50, max(2 * n_per_arm, round(1.6 * n_needed)), length.out = 200)
+curve_df <- data.frame(n = n_grid, power = power_two_mean(true_effect, sd_outcome, n_grid))
+ggplot(curve_df, aes(n, power)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_hline(yintercept = 0.8, linetype = "dashed", color = "gray40") +
+  geom_vline(xintercept = n_needed, linetype = "dashed", color = "gray40") +
+  annotate("point", x = n_per_arm, y = power_mc, color = "firebrick", size = 3) +
+  annotate("text", x = n_per_arm, y = power_mc, label = "MC estimate",
+           vjust = -1, color = "firebrick") +
+  labs(x = "sample size per arm", y = "power",
+       title = paste0("power curve (effect = ", true_effect, ", sd = ", sd_outcome, ")"))
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `true_effect <- 150`（効果を半分）にすると、「検出力80%に必要なN」は何倍になるか。予想してから実行しよう。
+- `sd_outcome <- 6000`（ばらつき2倍。売上のように分散の大きい指標を想像しよう）にすると、必要Nは何倍になるか。
+- 上の2つが同じ倍率になったのは偶然だろうか。公式の中で$\tau$と$\sigma$がどういう形で入っているかから説明できるか？
+:::
+
+## 実験2：peekingの罠 — 覗くほどType I errorが膨らむ
+
+真の効果がゼロの実験を200回行い、「途中経過を$k$回チェックして、一度でも有意なら『効果あり』と宣言して止める」という運用の誤検出率（Type I error）を$k$ごとに数える。最後に1回だけ検定する$k=1$なら、誤検出率は設計通り5%前後になるはずだ（MC 200回なので数ポイントはぶれる）。毎日ダッシュボードを眺めて「有意になった瞬間に展開」する運用が何を壊すかを見よう。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+n_total <- 2000                 # 実験終了時の総サンプルサイズ（両群合計）
+k_list  <- c(1, 2, 5, 10, 20)   # 途中経過をチェックする回数（n_checks_fineの約数にする）
+# -----------------------
+
+set.seed(20267)
+n_mc <- 200
+n_checks_fine <- 20             # 内部で計算する最も細かいチェック回数
+step <- n_total %/% n_checks_fine
+
+reject <- matrix(FALSE, n_mc, length(k_list))
+for (s in 1:n_mc) {
+  d <- rbinom(n_total, 1, 0.5)                  # 割付（ランダム化）
+  y <- rnorm(n_total, mean = 5000, sd = 3000)   # 真の効果ゼロ：割付と無関係に生成
+  z_at <- numeric(n_checks_fine)
+  for (j in 1:n_checks_fine) {
+    idx <- 1:(j * step)
+    y1 <- y[idx][d[idx] == 1]
+    y0 <- y[idx][d[idx] == 0]
+    z_at[j] <- (mean(y1) - mean(y0)) /
+      sqrt(var(y1) / length(y1) + var(y0) / length(y0))
+  }
+  for (m in seq_along(k_list)) {
+    checks <- seq(n_checks_fine %/% k_list[m], n_checks_fine,
+                  by = n_checks_fine %/% k_list[m])
+    # 一度でも|z| > 1.96になったら「効果あり」と宣言する運用
+    reject[s, m] <- any(abs(z_at[checks]) > 1.96, na.rm = TRUE)
+  }
+}
+
+res_peek <- data.frame(k = k_list, type1_error = round(colMeans(reject), 3))
+res_peek
+
+ggplot(res_peek, aes(k, type1_error)) +
+  geom_line(color = "firebrick", linewidth = 1) +
+  geom_point(color = "firebrick", size = 2.5) +
+  geom_hline(yintercept = 0.05, linetype = "dashed", color = "gray40") +
+  labs(x = "number of interim checks (k)", y = "Type I error rate",
+       title = "true effect = 0: stop at first significant peek")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `n_checks_fine <- 40`、`k_list <- c(1, 2, 5, 10, 20, 40)` にして、40回覗くと誤検出率がどこまで膨らむか確認しよう。
+- `n_total <- 10000` に増やしても膨張は消えないことを確認しよう。これはサンプルサイズの問題ではなく、検定を繰り返すという運用の問題である。
+- このコードで誤検出を膨らませている「犯人」はどの行だろうか。`any(...)` の行を「最後のチェックだけで判定」に書き換えたら、$k$によらず5%前後に戻るだろうか？
+:::
+
+## 実験3：ITTとTOT — 「配る効果」と「使う効果」は別物
+
+クーポンは配っても全員が使うわけではない。配信$Z$はランダムだが、使用$X$は顧客の自己選択で決まる（購買意欲の高い人ほど使う）。このとき配信の効果（ITT）と使用の効果（TOT）は別の量であり、one-sided noncompliance（配られない人は使えない）のもとでは
+
+$$
+\text{TOT} = \frac{\text{ITT}}{P(X = 1 \mid Z = 1)}
+$$
+
+というWald推定量で結ばれる（分母は配信群の使用率）。一方、実務で頻出の「使用者vs非使用者」の単純比較はセレクションで汚染される。3つの数字を並べて見比べよう。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+compliance <- 0.4    # 配信群のうち実際にクーポンを使う割合（平均的な使用率）
+true_tot   <- 800    # クーポンを「使った」ことの真の効果（円）
+N          <- 4000
+# -----------------------
+
+set.seed(20267)
+Z <- rbinom(N, 1, 0.5)                    # 配信（ランダム化）
+ability <- rnorm(N)                       # 観測されない購買意欲
+use_prob <- pmin(pmax(compliance + 0.25 * ability, 0.02), 0.98)
+X <- ifelse(Z == 1, rbinom(N, 1, use_prob), 0)   # 使用（配信されないと使えない）
+Y <- 5000 + 1500 * ability + true_tot * X + rnorm(N, mean = 0, sd = 2000)
+ab_df <- data.frame(Z, X, Y)
+
+itt_hat   <- coef(lm(Y ~ Z, data = ab_df))["Z"]
+usage     <- mean(ab_df$X[ab_df$Z == 1])
+naive_hat <- coef(lm(Y ~ X, data = subset(ab_df, Z == 1)))["X"]
+wald_hat  <- itt_hat / usage
+
+cat("使用率（配信群のうち使った割合）:", round(usage, 3), "\n")
+cat("真のITT（= 真のTOT x 使用率）: 約", round(true_tot * usage, 1), "円\n")
+
+res_tot <- data.frame(
+  method = c("ITT (delivered vs not)", "naive (users vs non-users)",
+             "Wald (ITT / usage rate)", "true TOT"),
+  estimate = round(as.numeric(c(itt_hat, naive_hat, wald_hat, true_tot)), 1)
+)
+res_tot
+
+ggplot(res_tot, aes(x = reorder(method, estimate), y = estimate)) +
+  geom_col(fill = "steelblue", width = 0.6) +
+  geom_hline(yintercept = true_tot, linetype = "dashed", color = "firebrick") +
+  coord_flip() +
+  labs(x = NULL, y = "estimate (yen)", title = "dashed line = true TOT")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `compliance` を0.8、0.4、0.2と下げて、ITTとWald（TOT）の乖離がどう開くかを見よう。ITTはおおよそ「TOT × 使用率」で縮んでいく。使用率が下がるとWald推定量のぶれも大きくなることに注意。
+- `1500 * ability` の1500を0にして（セレクションを消して）、単純比較が真のTOTにほぼ一致することを確かめよう。単純比較のバイアスの正体は施策ではなく「使う人はもともと違う」ことにある。
+- 1500を-1500（購買意欲の低い人ほどクーポンを使う世界）にしたら、単純比較は過大評価と過小評価のどちらになるか。予想してから実行しよう。
+:::
+
+## 実験4：CUPED — 実験前データで分散を削る
+
+実験1で見た通り、検出力は$N$だけでなくアウトカムの分散でも決まる。CUPEDは、実験前の同じ指標$X$（例：実験前30日の購買額）を使ってアウトカムを$Y_i - \theta (X_i - \bar X)$と調整する（$\theta$は$Y$を$X$に回帰した係数）。$X$と$Y$の相関を$\rho$とすると、調整後の分散は
+
+$$
+\text{Var}(Y^{c}) = \text{Var}(Y) (1 - \rho^2)
+$$
+
+になる。つまりSEは$\sqrt{1 - \rho^2}$倍に縮む。追加のサンプルなしで検出力を買える、実務標準の手法である。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+rho      <- 0.6    # 実験前指標と実験期間アウトカムの相関
+true_ate <- 250    # 施策の真の効果（円）
+N        <- 2000
+# -----------------------
+
+set.seed(20267)
+z1 <- rnorm(N)
+z2 <- rnorm(N)
+pre <- 5000 + 1800 * z1                                       # 実験前30日の購買額
+D <- rbinom(N, 1, 0.5)
+Y <- 5200 + 1800 * (rho * z1 + sqrt(1 - rho^2) * z2) + true_ate * D
+
+fit_raw <- lm(Y ~ D)
+theta <- coef(lm(Y ~ pre))["pre"]        # CUPEDの調整係数（回帰で推定）
+Y_cuped <- Y - theta * (pre - mean(pre))
+fit_cuped <- lm(Y_cuped ~ D)
+
+est <- c(coef(fit_raw)["D"], coef(fit_cuped)["D"])
+se  <- c(summary(fit_raw)$coefficients["D", 2],
+         summary(fit_cuped)$coefficients["D", 2])
+rho_actual <- cor(pre, Y)
+
+res_cuped <- data.frame(method = c("raw difference", "CUPED"),
+                        estimate = round(as.numeric(est), 1),
+                        se = round(as.numeric(se), 1))
+res_cuped
+
+cat("実際の相関:", round(rho_actual, 3), "\n")
+cat("分散削減率（観測）:", round(1 - (se[2] / se[1])^2, 3),
+    " 理論値 rho^2:", round(rho_actual^2, 3), "\n")
+
+curve_df <- data.frame(r = seq(0, 0.99, by = 0.01))
+curve_df$se_ratio <- sqrt(1 - curve_df$r^2)
+obs_df <- data.frame(r = abs(rho_actual), se_ratio = se[2] / se[1])
+ggplot(curve_df, aes(r, se_ratio)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(data = obs_df, color = "firebrick", size = 3) +
+  annotate("text", x = obs_df$r, y = obs_df$se_ratio, label = "this experiment",
+           vjust = -1, color = "firebrick") +
+  labs(x = "correlation with pre-period metric (rho)",
+       y = "SE ratio (CUPED / raw)",
+       title = "SE shrinks by factor sqrt(1 - rho^2)")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `rho` を0.3と0.9にして、SEの縮み方を比べよう。削減率は$\rho^2$で効くので、0.3ではほとんど削れないが、0.9では劇的に縮む。実験前指標の「予測力」がすべてを決める。
+- `true_ate <- 0` にしても、推定値が0付近のままSEだけが縮むことを確認しよう。CUPEDは効果を作り出さない。見つけやすくするだけである。
+- $\rho = 0.6$ のCUPEDは、$N$を何%増やしたのと同じ価値があるか。実験1の公式（必要Nは分散に比例する）とつなげて考えてみよう。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture7.html`（ランダム化推論・MDE公式・大規模実験の落とし穴集の完全版）
+- coding課題：`assignment7.qmd`（ECサイトのメールクーポン実験を題材に、ITT/TOT・CUPED・peeking診断を今日の手順でゼロから実装する）

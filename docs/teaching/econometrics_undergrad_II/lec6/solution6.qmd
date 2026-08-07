@@ -1,0 +1,415 @@
+---
+title: "課題6 解答：フードデリバリーのサブスクプラン設計 — コンジョイント分析"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(fixest)
+library(knitr)
+
+set.seed(20266)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+この解答は**そのまま最後まで実行できる完全版**である。各問について「なぜこう書くか」「どこで間違えやすいか」「部分点の基準」を添える。乱数の具体的な引かれ方によって末尾の数値はわずかに揺れうるが、結論（AMCEが真値を回収する、クラスターSEの方が大きい、価格が高いほどAMCEが下がる等）は再現する。
+
+---
+
+# Part 1：CBC調査の設計とDGP
+
+## 問1：属性・DGPパラメータの設定とプロファイル生成関数
+
+```{r}
+# ---- 属性の水準 ----
+price_levels <- c(300, 500, 800)      # 月額料金（円）
+threshold_levels <- c(1000, 1500)      # 配達無料閾値（円）。1000円の方が「低い」=便利
+coupon_levels <- c(0, 1)               # 0=なし, 1=あり
+
+# ---- 真のパラメータ ----
+true_params <- list(
+  beta_low_mean    = 0.6,   # 低閾値への平均選好
+  beta_coupon_mean = 0.9,   # クーポンへの平均選好
+  alpha_mean       = 0.35,  # 価格係数(百円あたり)
+  sigma_low    = 0.35,
+  sigma_coupon = 0.7,
+  sigma_alpha  = 0.1
+)
+
+draw_gumbel <- function(n) {
+  u <- runif(n)
+  -log(-log(u))
+}
+
+# ---- プロファイル生成関数 ----
+generate_profiles <- function(n) {
+  price <- sample(price_levels, n, replace = TRUE)
+  low_threshold <- as.numeric(sample(threshold_levels, n, replace = TRUE) == 1000)
+  coupon <- sample(coupon_levels, n, replace = TRUE)
+  data.frame(price = price, low_threshold = low_threshold, coupon = coupon)
+}
+
+generate_profiles(6)
+```
+
+::: {.callout-note collapse="true"}
+## 部分点の基準（問1、10点）
+
+- 真のパラメータの数値を正しく設定（4点）。
+- `generate_profiles`が正しく機能し、`low_threshold`が「1000円なら1」の向きになっている（6点）。向きが逆（1500円で1）でも、後続の解釈を一貫して反転させていれば大きな減点はしないが、講義の「低い閾値=便利=1」という定義とズレるため解釈のところで混乱しやすい。
+:::
+
+## 問2：CBCデータを生成する`simulate_cbc`関数
+
+```{r}
+simulate_cbc <- function(n_resp, n_task, params) {
+  resp_id <- rep(1:n_resp, each = n_task)
+  N <- n_resp * n_task
+
+  z_low    <- rnorm(n_resp)
+  z_coupon <- rnorm(n_resp)
+  z_alpha  <- rnorm(n_resp)
+
+  beta_low_i    <- params$beta_low_mean    + params$sigma_low    * z_low
+  beta_coupon_i <- params$beta_coupon_mean + params$sigma_coupon * z_coupon
+  alpha_i       <- pmax(params$alpha_mean  + params$sigma_alpha * z_alpha, 0.01)
+
+  beta_low_n    <- rep(beta_low_i,    each = n_task)
+  beta_coupon_n <- rep(beta_coupon_i, each = n_task)
+  alpha_n       <- rep(alpha_i,       each = n_task)
+
+  profA <- generate_profiles(N)
+  profB <- generate_profiles(N)
+
+  vA <- beta_low_n * profA$low_threshold + beta_coupon_n * profA$coupon - alpha_n * (profA$price / 100)
+  vB <- beta_low_n * profB$low_threshold + beta_coupon_n * profB$coupon - alpha_n * (profB$price / 100)
+
+  eps <- matrix(draw_gumbel(N * 3), nrow = N, ncol = 3)
+  U <- cbind(eps[, 1], vA + eps[, 2], vB + eps[, 3])
+  choice3 <- apply(U, 1, which.max) - 1
+
+  data.frame(
+    resp_id = resp_id, choice3 = choice3,
+    priceA = profA$price, lowA = profA$low_threshold, couponA = profA$coupon,
+    priceB = profB$price, lowB = profB$low_threshold, couponB = profB$coupon
+  )
+}
+
+n_resp <- 500
+n_task <- 8
+cbc_raw <- simulate_cbc(n_resp, n_task, true_params)
+head(cbc_raw)
+table(cbc_raw$choice3)
+```
+
+::: {.callout-note collapse="true"}
+## 部分点の基準（問2、10点）
+
+- `beta_coupon_i`の式が正しい（3点）。
+- `vB`が`vA`と対称に（`profB`を使って）正しく書けている（4点）。`profA`をコピペしたまま添字を直し忘れる、というミスがよくある。
+- `price/100`の単位変換ができている（3点）。忘れると`table(cbc_raw$choice3)`でoutsideがほぼ0（価格が無視される）か、ほぼ全員がoutside（価格が効きすぎる）になる。上のtableで0/1/2がおおむね2〜6割の範囲に分布していることを確認する習慣が大切。
+:::
+
+## 問3：ランダム化チェックと記述統計
+
+```{r}
+n_check <- 20000
+profiles_check <- generate_profiles(n_check)
+cor_matrix <- cor(profiles_check[, c("price", "low_threshold", "coupon")])
+round(cor_matrix, 3)
+```
+
+```{r}
+#| fig-cap: "CBC回答の選択分布（4,000タスク）"
+choice_share <- cbc_raw %>%
+  mutate(choice_label = factor(choice3, levels = c(0,1,2),
+                                labels = c("どちらも入会しない", "プランA", "プランB"))) %>%
+  count(choice_label) %>%
+  mutate(share = n / sum(n))
+
+ggplot(choice_share, aes(x = choice_label, y = share, fill = choice_label)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  scale_fill_manual(values = c("gray70", "#4C72B0", "#DD8452")) +
+  labs(x = NULL, y = "選択割合", title = "CBC回答の選択分布")
+
+choice_share
+```
+
+属性間の相関はいずれもゼロに近く、ランダム化が意図通り機能していることが確認できる。選択シェアは「どちらも入会しない」がやや高め（5割程度）で、プランA・Bはおおむね拮抗している（ランダムに生成しているので理論上対称）。outsideがやや高いのは、月額課金というサービスの性質上、価格に敏感な回答者が一定数「入会しない」を選びやすい設計にしているためであり、A・Bの識別に使える情報（4,000弱の行）は十分に確保されている。
+
+::: {.callout-note collapse="true"}
+## 部分点の基準（問3、10点）
+
+相関行列がゼロに近いことの確認（4点）、選択シェアの集計と図（4点）、outsideシェアの水準についてのひとこと言及（2点、多すぎず少なすぎない旨のコメント）。
+:::
+
+## 問4：long形式への変換
+
+```{r}
+to_long <- function(cbc_raw) {
+  keep <- cbc_raw$choice3 != 0
+  d <- cbc_raw[keep, ]
+
+  rowsA <- data.frame(
+    resp_id = d$resp_id, price = d$priceA, low_threshold = d$lowA, coupon = d$couponA,
+    chosen = as.numeric(d$choice3 == 1)
+  )
+  rowsB <- data.frame(
+    resp_id = d$resp_id, price = d$priceB, low_threshold = d$lowB, coupon = d$couponB,
+    chosen = as.numeric(d$choice3 == 2)
+  )
+  rbind(rowsA, rowsB)
+}
+
+cbc_long <- to_long(cbc_raw)
+cbc_long$price500 <- as.numeric(cbc_long$price == 500)
+cbc_long$price800 <- as.numeric(cbc_long$price == 800)
+nrow(cbc_long)
+head(cbc_long)
+```
+
+::: {.callout-note collapse="true"}
+## 部分点の基準（問4、10点）
+
+`chosen`の条件式（`choice3 == 1`、`choice3 == 2`）が正しい（各3点、計6点）。`rbind`でA・B行を正しく結合し、価格ダミーを作成できている（4点）。
+:::
+
+---
+
+# Part 2：推定・推論
+
+## 問5：(i) AMCEをOLS＋クラスターSEで推定し、真値と比較する
+
+```{r}
+amce_fit <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
+                   data = cbc_long, cluster = ~resp_id)
+summary(amce_fit)
+```
+
+```{r}
+compute_true_amce <- function(n_resp_big, n_task, params) {
+  big_raw <- simulate_cbc(n_resp_big, n_task, params)
+  big_long <- to_long(big_raw)
+  big_long$price500 <- as.numeric(big_long$price == 500)
+  big_long$price800 <- as.numeric(big_long$price == 800)
+  fit <- lm(chosen ~ price500 + price800 + low_threshold + coupon, data = big_long)
+  coef(fit)
+}
+true_amce_vec <- compute_true_amce(50000, n_task, true_params)
+
+recovery_df <- data.frame(
+  attribute = names(coef(amce_fit)),
+  amce_hat = round(coef(amce_fit), 4),
+  true_amce = round(true_amce_vec, 4),
+  se_cluster = round(sqrt(diag(vcov(amce_fit))), 4),
+  ci_lower = round(coef(amce_fit) - 1.96 * sqrt(diag(vcov(amce_fit))), 4),
+  ci_upper = round(coef(amce_fit) + 1.96 * sqrt(diag(vcov(amce_fit))), 4)
+)
+kable(recovery_df, row.names = FALSE, caption = "AMCE推定値・真値・95%信頼区間（回答者クラスターSE）")
+```
+
+```{r}
+#| fig-cap: "AMCE推定値（95%CI）と真値の比較"
+plot_df <- recovery_df %>%
+  filter(attribute != "(Intercept)") %>%
+  mutate(attribute_label = c("月額500円\n(vs 300円)", "月額800円\n(vs 300円)",
+                              "低閾値\n(vs 高閾値)", "クーポンあり\n(vs なし)"))
+
+ggplot(plot_df, aes(x = attribute_label, y = amce_hat)) +
+  geom_hline(yintercept = 0, linewidth = 0.3, color = "gray50") +
+  geom_point(size = 2.5, color = "#4C72B0") +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.15, color = "#4C72B0") +
+  geom_point(aes(y = true_amce), shape = 4, size = 3, color = "#C44E52", stroke = 1.2) +
+  labs(x = NULL, y = "AMCE（選択確率の変化）", title = "AMCE推定値と真値（x印）")
+```
+
+価格が上がるほどAMCEは負に大きくなり（500円で約-0.14、800円で約-0.33程度）、低閾値・クーポンありはいずれも正のAMCE（それぞれ約0.12、約0.20程度）を持つ。いずれも真値の近くに95%信頼区間が収まっている。
+
+::: {.callout-note collapse="true"}
+## 部分点の基準（問5、12点）
+
+`feols`の`cluster = ~resp_id`指定（3点）、`compute_true_amce`が正しく大標本シミュレーションを回している（5点、`simulate_cbc`の呼び出し・列名の整合性）、比較表・図（4点）。真値が95%CIから外れている属性が1つあっても、それ自体は5%の確率で普通に起こることなので、複数属性で系統的に外れていない限り問題ないと判断してよい。
+:::
+
+## 問6：(ii) logit MLEでWTPをデルタ法CI付きで求める
+
+```{r}
+neg_loglik_cbc <- function(theta, d) {
+  beta_low <- theta[1]; beta_coupon <- theta[2]; alpha <- theta[3]
+
+  vA <- beta_low * d$lowA + beta_coupon * d$couponA - alpha * (d$priceA / 100)
+  vB <- beta_low * d$lowB + beta_coupon * d$couponB - alpha * (d$priceB / 100)
+
+  V <- cbind(0, vA, vB)
+  V <- V - apply(V, 1, max)
+  expV <- exp(V)
+  denom <- rowSums(expV)
+  chosen_idx <- cbind(1:nrow(d), d$choice3 + 1)
+  logprob <- V[chosen_idx] - log(denom)
+  -sum(logprob)
+}
+
+opt_cbc <- optim(par = c(0.1, 0.1, 0.1), fn = neg_loglik_cbc, d = cbc_raw,
+                  method = "BFGS", hessian = TRUE)
+theta_hat <- opt_cbc$par
+names(theta_hat) <- c("beta_low", "beta_coupon", "alpha")
+vcov_cbc <- solve(opt_cbc$hessian)
+
+mle_recovery_df <- data.frame(
+  parameter = names(theta_hat),
+  true_value = c(true_params$beta_low_mean, true_params$beta_coupon_mean, true_params$alpha_mean),
+  estimate = round(theta_hat, 4),
+  se = round(sqrt(diag(vcov_cbc)), 4)
+)
+kable(mle_recovery_df, row.names = FALSE, caption = "logit MLEによる効用パラメータの推定")
+```
+
+```{r}
+beta_low_hat <- theta_hat["beta_low"]; alpha_hat <- theta_hat["alpha"]
+wtp_low_hat <- beta_low_hat / alpha_hat   # 百円単位
+
+grad_wtp <- c(1 / alpha_hat, -beta_low_hat / alpha_hat^2)
+vcov_sub <- vcov_cbc[c(1,3), c(1,3)]
+se_wtp <- sqrt(as.numeric(t(grad_wtp) %*% vcov_sub %*% grad_wtp))
+
+wtp_yen <- wtp_low_hat * 100
+se_wtp_yen <- se_wtp * 100
+
+cat("WTP(低閾値, 百円単位):", round(wtp_low_hat, 3), "\n")
+cat("WTP(低閾値, 円):", round(wtp_yen, 1),
+    " 95%CI:[", round(wtp_yen - 1.96*se_wtp_yen, 1), ",", round(wtp_yen + 1.96*se_wtp_yen, 1), "]円\n")
+cat("真のWTP(円、集団平均パラメータの比):", round(true_params$beta_low_mean/true_params$alpha_mean*100, 1), "円\n")
+```
+
+低閾値プラン（配達無料が1,000円からになること）に対して、消費者はおよそ150〜200円程度の月額支払意思額を持つと推定される。真値（集団平均パラメータの比、およそ171円）は95%信頼区間の近傍に収まっている。
+
+::: {.callout-note collapse="true"}
+## 部分点の基準（問6、12点）
+
+`vB`を`vA`と対称に書けている（3点）、`optim`とHessianからのSE計算（4点）、WTPの点推定とデルタ法の勾配ベクトル（3点）、百円→円の単位変換を正しく行っている（2点）。単位変換を忘れて「百円単位のまま報告」しても、それ自体を誤りとはせず「単位の指定を明示すること」を求めるコメントにとどめてよい。
+:::
+
+## 問7：(iii) 交互作用を1つ推定し解釈する
+
+```{r}
+interaction_fit <- feols(chosen ~ price500 + price800 + low_threshold * coupon,
+                          data = cbc_long, cluster = ~resp_id)
+summary(interaction_fit)
+```
+
+```{r}
+kable(data.frame(
+  term = names(coef(interaction_fit)),
+  estimate = round(coef(interaction_fit), 4),
+  se = round(sqrt(diag(vcov(interaction_fit))), 4)
+), row.names = FALSE, caption = "低閾値×クーポンの交互作用項")
+```
+
+**解釈（模範解答）**：交互作用項`low_threshold:coupon`の係数は、標準誤差に照らすとおおむねゼロと区別できない大きさにとどまる。これはこのDGPの設計と整合的である——今回の真のモデルでは、低閾値への選好（`beta_low_i`）とクーポンへの選好（`beta_coupon_i`）は独立に引かれたランダム係数であり、効用は両者の線形和として構成されている。つまり真の交互作用はゼロになるように設計されている。したがって「低閾値とクーポンを組み合わせると相乗効果がある」とは言えず、この2つの属性は独立に効いていると考えてよい。
+
+::: {.callout-note collapse="true"}
+## 部分点の基準（問7、9点）
+
+交互作用項を正しく指定・推定できている（5点）。「係数がゼロに近い／有意でない」ことを正しく読み取れている（2点）。それがこのDGPの設計（独立な線形和）と整合的であることに触れられていれば加点（2点）。単に「有意でした/なかったです」で終わらず、DGPとの整合性まで言及できているかで差をつける。
+:::
+
+## 問8：(iv) セグメント別AMCE（利用頻度高低）
+
+```{r}
+segment_df <- data.frame(resp_id = 1:n_resp, frequent_user = rbinom(n_resp, 1, 0.5))
+cbc_long_seg <- cbc_long %>% left_join(segment_df, by = "resp_id")
+
+fit_frequent <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
+                       data = cbc_long_seg %>% filter(frequent_user == 1), cluster = ~resp_id)
+fit_infrequent <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
+                         data = cbc_long_seg %>% filter(frequent_user == 0), cluster = ~resp_id)
+
+seg_compare_df <- data.frame(
+  segment = c("利用頻度高", "利用頻度低"),
+  amce_coupon = c(coef(fit_frequent)["coupon"], coef(fit_infrequent)["coupon"]),
+  se_coupon   = c(sqrt(diag(vcov(fit_frequent)))["coupon"], sqrt(diag(vcov(fit_infrequent)))["coupon"])
+)
+kable(seg_compare_df, row.names = FALSE, caption = "セグメント別クーポンAMCE")
+```
+
+```{r}
+#| fig-cap: "セグメント別クーポンAMCE"
+ggplot(seg_compare_df, aes(x = segment, y = amce_coupon)) +
+  geom_col(width = 0.5, fill = "#4C72B0", alpha = 0.7) +
+  geom_errorbar(aes(ymin = amce_coupon - 1.96*se_coupon, ymax = amce_coupon + 1.96*se_coupon), width = 0.15) +
+  labs(x = NULL, y = "クーポンのAMCE", title = "セグメント別に見たクーポンのAMCE")
+```
+
+このシミュレーションでは`frequent_user`を回答者IDに対して独立にランダム割り当てしているため、2つのセグメントのAMCEはおおむね同程度で、信頼区間も重なるはずである。実務のデータでは、真に意味のある軸（実際の利用頻度など）でセグメントを作ったときに、初めてここに系統的な差が現れる。
+
+::: {.callout-note collapse="true"}
+## 部分点の基準（問8、9点）
+
+セグメント分割と2つの回帰の実行（5点）、比較表・図（3点）、「ランダム割り当てなので大きな差は出ないはず」という点への言及（1点）。
+:::
+
+## 問9：(v) クラスターSEを使わない場合とのSE比較
+
+```{r}
+amce_fit_naive <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
+                         data = cbc_long, vcov = "hetero")
+
+se_compare_df <- data.frame(
+  attribute = names(coef(amce_fit)),
+  se_cluster = round(sqrt(diag(vcov(amce_fit))), 4),
+  se_naive = round(sqrt(diag(vcov(amce_fit_naive))), 4)
+)
+kable(se_compare_df, row.names = FALSE, caption = "クラスターSE vs 通常のロバストSE")
+```
+
+**解説（模範解答）**：通常のロバストSE（`vcov = "hetero"`）は、各行が独立であるかのように分散を計算する。しかし実際には、同じ回答者が生成する8つの行（4タスク×2プロファイル、outside除外後は最大8行）は、その回答者固有のランダム係数（`beta_low_i`, `beta_coupon_i`, `alpha_i`）を共有しているため、互いに独立ではない。同じ人は毎回似た好み・似た選び方をする（クーポンを強く好む人は、8タスクすべてでクーポンありのプランを選びやすい）。この「回答者内での相関」を無視すると、実際には500人分しかない独立な情報を、あたかも4,000弱の独立な情報であるかのように扱うことになり、標本サイズを過大評価した形でSEを計算してしまう。その結果、通常のロバストSEはクラスターSEよりも小さくなる（過小評価する）。クラスターSEは、この回答者内相関を明示的に補正するため、より大きく、かつ真の標本変動を正しく反映した値になる。
+
+::: {.callout-note collapse="true"}
+## 部分点の基準（問9、9点）
+
+比較表（3点）。説明のポイント：「独立な情報の単位は回答者数（500）であって行数（4,000弱）ではない」（3点）、「同じ回答者のランダム係数が複数行で共有されるため誤差が相関する」（3点）。「クラスターSEの方が大きい」という結果の記述だけでは部分点にとどめ、メカニズムの説明まで含めて満点とする。
+:::
+
+## 問10：(vi) 経営含意を3行で
+
+> 本調査からは、月額料金は300円から800円への値上げでAMCEが約0.33ポイント低下する一方、配達無料閾値を1,500円から1,000円へ下げること・限定クーポンを付与することはそれぞれ約0.13ポイント・0.20ポイントの押し上げ効果を持つと推定された。特にクーポン付与は月額料金800円への値上げの悪影響の6割程度を相殺できる規模の効果があり、値上げとクーポン施策のセット販売は検討に値する。ただし今回のセグメント分析ではランダムな2分割を用いたに過ぎないため、実際の利用頻度データで意味のあるセグメントを作り直し、真にクーポンへの選好が強い層（重課金ユーザーなど）に絞った訴求を行うことが次のステップとして望ましい。
+
+::: {.callout-note collapse="true"}
+## 部分点の基準（問10、9点）
+
+数値（AMCEやWTP）を最低1つ以上具体的に引用している（4点）。価格・属性・セグメントの少なくとも2つの側面に触れている（3点）。次のアクション（セグメントの精緻化など）に言及している（2点）。定性的な感想文だけで数値の引用がない場合は大きく減点する。
+:::
+
+::: {.callout-important}
+## この課題で身につけたこと
+
+- CBC調査のDGPを自作し、属性のランダム化が意図通り機能しているかを確認する手順を身につけた。
+- AMCEを水準ダミーのOLS＋回答者クラスターSEで推定し、大標本シミュレーションで作った真値と比較して真値回収を確認した。
+- logit MLEで効用スケールの係数を推定し、デルタ法でWTPのCIを構成する一連の流れを、第6回の題材とは異なるDGPで再現できた。
+- 交互作用の推定・解釈、セグメント別AMCE、クラスターSEの重要性という、実務のコンジョイント分析で必ず問われる論点を一通り経験した。
+:::

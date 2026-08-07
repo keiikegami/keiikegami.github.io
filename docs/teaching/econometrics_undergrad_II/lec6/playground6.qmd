@@ -1,0 +1,360 @@
+---
+title: "Playground 6：コンジョイント分析の実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture6.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+- 講義ノートとの違いが1つある。ブラウザ版では`fixest`が使えないので、AMCEの回帰は`lm()`で書き、表示されるのは**通常のSE**である。正しくは回答者クラスターSEを使うべきで（ノート参照）、そのズレがどれくらい危険かは実験1で自分の目で確かめる。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（講義ノートのCBCシミュレータを整理したもの。編集不可・自動実行）----
+
+draw_gumbel <- function(n) -log(-log(runif(n)))
+
+price_levels6 <- c(8, 12, 16)   # 価格水準（千円）
+
+# 真のDGP：ワイヤレスイヤホンのCBC、mixed logit（第4回の発想）
+# 講義ノートより好みのばらつき（sigma）を大きめにしてある。クラスター構造を見やすくするため
+params6 <- list(
+  beta_batt_mean  = 0.5,  sigma_batt  = 0.5,
+  beta_nc_mean    = 0.8,  sigma_nc    = 1.5,
+  beta_brand_mean = 0.3,  sigma_brand = 0.5,
+  alpha_mean      = 0.12, sigma_alpha = 0.05
+)
+
+# 回答者ごとのランダム係数を引く（全タスクで固定して使う）
+draw_coefs6 <- function(n_resp, params) {
+  data.frame(
+    b_batt  = params$beta_batt_mean  + params$sigma_batt  * rnorm(n_resp),
+    b_nc    = params$beta_nc_mean    + params$sigma_nc    * rnorm(n_resp),
+    b_brand = params$beta_brand_mean + params$sigma_brand * rnorm(n_resp),
+    a       = pmax(params$alpha_mean + params$sigma_alpha * rnorm(n_resp),
+                   0.1 * params$alpha_mean)   # 価格係数は正に保つ
+  )
+}
+
+# CBC回答データを作る
+# gamma_pop: 回答者には見えるがデータに記録されない「人気度」が効用に効く強さ
+# k_corr   : 価格が人気度に追随する強さ（0なら価格は完全ランダム＝conjointの設計）
+simulate_cbc6 <- function(n_resp, n_task, params, gamma_pop = 0, k_corr = 0) {
+  N <- n_resp * n_task
+  cf <- draw_coefs6(n_resp, params)
+  b_batt  <- rep(cf$b_batt,  each = n_task)
+  b_nc    <- rep(cf$b_nc,    each = n_task)
+  b_brand <- rep(cf$b_brand, each = n_task)
+  a       <- rep(cf$a,       each = n_task)
+
+  make_profile <- function() {
+    pop    <- rnorm(N)                  # 記録されない「人気度」
+    latent <- k_corr * pop + rnorm(N)   # 価格付けルール（k_corr = 0でランダム化）
+    price  <- price_levels6[cut(latent, quantile(latent, c(0, 1/3, 2/3, 1)),
+                                include.lowest = TRUE, labels = FALSE)]
+    data.frame(price = price,
+               battery12    = sample(0:1, N, replace = TRUE),
+               noise_cancel = sample(0:1, N, replace = TRUE),
+               major_brand  = sample(0:1, N, replace = TRUE),
+               pop = pop)
+  }
+  A <- make_profile()
+  B <- make_profile()
+
+  vA <- b_batt * A$battery12 + b_nc * A$noise_cancel + b_brand * A$major_brand +
+        gamma_pop * A$pop - a * A$price
+  vB <- b_batt * B$battery12 + b_nc * B$noise_cancel + b_brand * B$major_brand +
+        gamma_pop * B$pop - a * B$price
+
+  eps <- matrix(draw_gumbel(N * 3), N, 3)
+  U <- cbind(eps[, 1], vA + eps[, 2], vB + eps[, 3])  # 列1 = どちらも買わない
+  choice3 <- max.col(U) - 1                           # 0 = outside, 1 = A, 2 = B
+
+  data.frame(resp_id = rep(1:n_resp, each = n_task), choice3 = choice3,
+             priceA = A$price, battA = A$battery12, ncA = A$noise_cancel,
+             brandA = A$major_brand, popA = A$pop,
+             priceB = B$price, battB = B$battery12, ncB = B$noise_cancel,
+             brandB = B$major_brand, popB = B$pop)
+}
+
+# 「プロファイル1つ＝1行、選ばれたら1」のlong形式（全タスクを残す）
+to_long6 <- function(d) {
+  out <- data.frame(
+    resp_id = rep(d$resp_id, 2),
+    chosen  = c(as.numeric(d$choice3 == 1), as.numeric(d$choice3 == 2)),
+    price   = c(d$priceA, d$priceB),
+    battery12    = c(d$battA, d$battB),
+    noise_cancel = c(d$ncA, d$ncB),
+    major_brand  = c(d$brandA, d$brandB),
+    pop = c(d$popA, d$popB)
+  )
+  out$price12 <- as.numeric(out$price == 12)
+  out$price16 <- as.numeric(out$price == 16)
+  out
+}
+
+# 真のAMCE：属性の全組合せ x 係数分布 の数値積分で作る（DGPを知る者だけの特権）
+true_amce6 <- function(params, n_draw = 2000) {
+  set.seed(123)
+  own <- expand.grid(price = price_levels6, battery12 = 0:1,
+                     noise_cancel = 0:1, major_brand = 0:1)
+  g_own <- own[rep(1:nrow(own), times = nrow(own)), ]
+  g_opp <- own[rep(1:nrow(own), each  = nrow(own)), ]
+  cf <- draw_coefs6(n_draw, params)
+  Bm <- rbind(cf$b_batt, cf$b_nc, cf$b_brand, -cf$a)
+  V_own <- cbind(g_own$battery12, g_own$noise_cancel, g_own$major_brand, g_own$price) %*% Bm
+  V_opp <- cbind(g_opp$battery12, g_opp$noise_cancel, g_opp$major_brand, g_opp$price) %*% Bm
+  P <- exp(V_own) / (1 + exp(V_own) + exp(V_opp))
+  p <- rowMeans(P)
+  c(price12      = mean(p[g_own$price == 12]) - mean(p[g_own$price == 8]),
+    price16      = mean(p[g_own$price == 16]) - mean(p[g_own$price == 8]),
+    battery12    = mean(p[g_own$battery12 == 1]) - mean(p[g_own$battery12 == 0]),
+    noise_cancel = mean(p[g_own$noise_cancel == 1]) - mean(p[g_own$noise_cancel == 0]),
+    major_brand  = mean(p[g_own$major_brand == 1]) - mean(p[g_own$major_brand == 0]))
+}
+TRUE_AMCE6 <- true_amce6(params6)
+
+# 真の価格の傾き（選択確率スケール）：ランダム化設計のもとでの値
+true_price_slope6 <- function(params, gamma_pop, n_draw = 30000) {
+  set.seed(123)
+  cf <- draw_coefs6(n_draw, params)
+  own_price <- sample(price_levels6, n_draw, replace = TRUE)
+  opp_price <- sample(price_levels6, n_draw, replace = TRUE)
+  own_x <- matrix(sample(0:1, n_draw * 3, replace = TRUE), ncol = 3)
+  opp_x <- matrix(sample(0:1, n_draw * 3, replace = TRUE), ncol = 3)
+  v_own <- cf$b_batt * own_x[, 1] + cf$b_nc * own_x[, 2] + cf$b_brand * own_x[, 3] +
+           gamma_pop * rnorm(n_draw) - cf$a * own_price
+  v_opp <- cf$b_batt * opp_x[, 1] + cf$b_nc * opp_x[, 2] + cf$b_brand * opp_x[, 3] +
+           gamma_pop * rnorm(n_draw) - cf$a * opp_price
+  Pr <- exp(v_own) / (1 + exp(v_own) + exp(v_opp))
+  cov(Pr, own_price) / var(own_price)
+}
+
+# 第2回流のlogit MLE（実験3のWTPで使う）
+neg_loglik_cbc6 <- function(theta, d) {
+  vA <- theta[1] * d$battA + theta[2] * d$ncA + theta[3] * d$brandA - theta[4] * d$priceA
+  vB <- theta[1] * d$battB + theta[2] * d$ncB + theta[3] * d$brandB - theta[4] * d$priceB
+  m <- pmax(0, vA, vB)
+  denom <- exp(-m) + exp(vA - m) + exp(vB - m)
+  v_chosen <- ifelse(d$choice3 == 1, vA, ifelse(d$choice3 == 2, vB, 0))
+  -sum(v_chosen - m - log(denom))
+}
+
+fit_mle_cbc6 <- function(d) {
+  opt <- optim(c(0.1, 0.1, 0.1, 0.05), neg_loglik_cbc6, d = d,
+               method = "BFGS", hessian = TRUE)
+  V <- tryCatch(solve(opt$hessian), error = function(e) matrix(NA, 4, 4))
+  list(theta = opt$par, vcov = V)
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：調査設計と精度 — 回答者を増やすか、タスクを増やすか
+
+回答者を1人増やすのも、1人あたりのタスクを1問増やすのも、調査コストがかかる。同じ予算ならどちらに使うべきか。道具箱には講義ノートと同じワイヤレスイヤホンCBC（価格8/12/16千円、バッテリー、ノイキャン、ブランド）のシミュレータが入っていて、効用は第4回流のmixed logitである。
+
+$$
+u_{ijt} = \beta_{1i}\,\mathrm{battery}_{jt} + \beta_{2i}\,\mathrm{nc}_{jt} + \beta_{3i}\,\mathrm{brand}_{jt} - \alpha_i\,\mathrm{price}_{jt} + \varepsilon_{ijt}
+$$
+
+同じ人は全タスクで同じ係数 $(\beta_{1i}, \beta_{2i}, \beta_{3i}, \alpha_i)$ を使う。これが回答者内の相関（クラスター構造）の源になる。下のセルは (1) 1回分の調査からAMCEを`lm()`で推定して真のAMCE（`TRUE_AMCE6`、道具箱で数値積分して用意済み）と比べ、(2) 同じ設計の調査を`n_mc`回やり直して、`noise_cancel`のAMCE推定値の**本当のばらつき**を測る。なお講義ノートと違い、ここでは「どちらも買わない」のタスクも落とさず、「そのプロファイルが選ばれたか」を0/1の結果変数にしている（これもAMCEの標準的な流儀の1つで、真値の計算が楽になる）。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+n_resp  <- 500   # 回答者数（2000以下を推奨）
+n_tasks <- 8     # 1人あたりのタスク数
+n_mc    <- 100   # 調査まるごとの繰り返し回数（200以下を推奨）
+# -----------------------
+
+set.seed(20266)
+
+# (1) 1回分の調査：AMCEをlm()で推定して真値と比べる
+long <- to_long6(simulate_cbc6(n_resp, n_tasks, params6))
+fit  <- lm(chosen ~ price12 + price16 + battery12 + noise_cancel + major_brand,
+           data = long)
+est <- coef(fit)[-1]
+se  <- sqrt(diag(vcov(fit)))[-1]  # ここでは通常SE。正しくは回答者クラスターSE（ノート参照）
+data.frame(attribute = names(est),
+           true_amce = round(as.numeric(TRUE_AMCE6), 4),
+           estimate  = round(as.numeric(est), 4),
+           se_ols    = round(as.numeric(se), 4),
+           ci_low    = round(as.numeric(est - 1.96 * se), 4),
+           ci_high   = round(as.numeric(est + 1.96 * se), 4))
+
+# (2) 同じ設計の調査をn_mc回やり直し、noise_cancelの推定値の「本当のばらつき」を測る
+truth_nc <- TRUE_AMCE6["noise_cancel"]
+mc <- replicate(n_mc, {
+  fi <- lm(chosen ~ price12 + price16 + battery12 + noise_cancel + major_brand,
+           data = to_long6(simulate_cbc6(n_resp, n_tasks, params6)))
+  c(coef(fi)["noise_cancel"], sqrt(diag(vcov(fi)))["noise_cancel"])
+})
+data.frame(design        = paste0(n_resp, " resp x ", n_tasks, " tasks"),
+           mean_estimate = round(mean(mc[1, ]), 4),
+           true_amce     = round(as.numeric(truth_nc), 4),
+           empirical_sd  = round(sd(mc[1, ]), 4),
+           mean_se_ols   = round(mean(mc[2, ]), 4),
+           coverage_95ci = mean(abs(mc[1, ] - truth_nc) <= 1.96 * mc[2, ]))
+```
+
+2つ目の表の読み方。`empirical_sd`が推定値の本当のばらつき、`mean_se_ols`が通常SEの平均である。通常SEが本当のばらつきより小さければ、95%信頼区間が真値を含む割合（`coverage_95ci`）は0.95を割り込む。同じ人が`n_tasks`回答える分の「情報の重複」を、通常SEは無視しているからだ。
+
+::: {.callout-note}
+## やってみよう
+
+- `n_resp <- 200; n_tasks <- 8` と `n_resp <- 800; n_tasks <- 2` を試そう。総観測数は同じ1,600タスクだが、`empirical_sd`はどちらが小さいか（`n_mc <- 200`にすると差が安定して見える）。
+- `n_tasks <- 1` にしてみよう。1人1タスクなら行の独立が本当になるので、`mean_se_ols`は`empirical_sd`とほぼ一致し、`coverage_95ci`は0.95に近づくはずだ。
+- 問い：通常SE（`mean_se_ols`）は設計を入れ替えてもほとんど動かないのに、本当のばらつき（`empirical_sd`）は動く。独立な情報の単位は「タスク」か、それとも「回答者」か。
+:::
+
+## 実験2：ランダム化が内生性を消す
+
+第3回で苦労した内生性の正体はこうだった。観測されない魅力（人気、評判）が高い商品ほど企業は高い価格をつけるので、素朴なOLSは価格反応を過小評価する。このセルでは、回答者には見えるがデータには記録されない「人気度」`pop`を効用に入れた上で、**価格の付け方だけが違う2つの世界**を比べる。randomized（conjointの設計：価格はコンピュータの乱数）と correlated（市場風：人気度が高いプロファイルほど高価格）である。分析者が走らせる回帰はどちらも同じで、`pop`は入れられない（観測できないのだから）。見やすさのため、ここでは価格を千円単位の連続変数として係数1本にまとめる。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+gamma_pop <- 0.8   # 記録されない「人気度」が効用に効く強さ（0にすると？）
+k_corr    <- 0.7   # 市場シナリオで価格が人気度に追随する強さ（0でランダム化と同じ）
+n_resp    <- 800   # 回答者数（2000以下を推奨）
+# -----------------------
+
+slope_true <- true_price_slope6(params6, gamma_pop)  # ランダム化設計のもとでの真の傾き
+
+set.seed(20266)
+d_rand <- simulate_cbc6(n_resp, 8, params6, gamma_pop = gamma_pop, k_corr = 0)
+d_mkt  <- simulate_cbc6(n_resp, 8, params6, gamma_pop = gamma_pop, k_corr = k_corr)
+
+fit_price <- function(d, label) {
+  long <- to_long6(d)
+  f <- lm(chosen ~ price + battery12 + noise_cancel + major_brand, data = long)
+  est <- coef(f)["price"]
+  se  <- sqrt(diag(vcov(f)))["price"]  # ここでは通常SE。正しくは回答者クラスターSE（ノート参照）
+  data.frame(scenario      = label,
+             cor_price_pop = round(cor(long$price, long$pop), 3),
+             price_coef    = round(as.numeric(est), 4),
+             se_ols        = round(as.numeric(se), 4),
+             ci_low        = round(as.numeric(est - 1.96 * se), 4),
+             ci_high       = round(as.numeric(est + 1.96 * se), 4))
+}
+res <- rbind(fit_price(d_rand, "randomized (conjoint)"),
+             fit_price(d_mkt,  "correlated (market-like)"))
+res
+
+res$scenario <- factor(res$scenario,
+                       levels = c("randomized (conjoint)", "correlated (market-like)"))
+ggplot(res, aes(scenario, price_coef)) +
+  geom_hline(yintercept = 0, linewidth = 0.3, color = "gray70") +
+  geom_hline(yintercept = slope_true, linetype = "dashed", color = "#C44E52") +
+  geom_point(size = 3, color = "#4C72B0") +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high), width = 0.12, color = "#4C72B0") +
+  annotate("text", x = 1.5, y = slope_true, label = "true effect",
+           color = "#C44E52", vjust = -0.7) +
+  labs(x = NULL, y = "price coefficient (per 1,000 JPY, probability scale)")
+```
+
+`cor_price_pop`を見ると、randomizedでは価格と人気度の相関がほぼ0、correlatedでははっきり正になっている。回帰は同じなのに、randomizedの推定値だけが真の傾き（破線）を捉え、correlatedはゼロ方向（設定によってはプラス側）に大きくずれる。「値上げしても選ばれ方は変わらない」という危険な結論が出てしまうわけだ。なお、観測されている属性同士が相関するだけなら、その属性を回帰に入れている限り推定は歪まない（効率が落ちるだけ）。歪みは「観測されない」×「効用に効く」×「価格と相関」の3つが揃ったときに生まれる。conjointの強さは、価格を乱数で振ることでこの相関を**設計段階で断ち切る**点にある。
+
+::: {.callout-note}
+## やってみよう
+
+- `gamma_pop <- 0` にしてみよう。価格と人気度の相関は残っているのに、歪みが消える。内生性は「相関」だけでは起きず、その変数が効用に効いて初めて起きることを確かめよう。
+- `k_corr <- 2` にすると、価格がほぼ人気度で決まる世界になる。価格係数の符号が逆転して「高いほど選ばれる」ように見えるまで歪むか、確かめよう。
+- 問い：第3回の市場データでは、この歪みを消すのに操作変数（2SLS）という手間のかかる道具が必要だった。conjointでは何がその役割を果たしているか。
+:::
+
+## 実験3：WTPは分母が壊れると暴れる
+
+WTP（支払意思額）は効用スケールの係数の**比**である。
+
+$$
+\mathrm{WTP}_{\mathrm{nc}} = \frac{\beta_{\mathrm{nc}}}{\alpha}
+$$
+
+分母の価格係数 $\alpha$ がゼロに近いと、これは分母が壊れかけの割り算になる。下のセルでは、真のWTPを6（千円）に**固定したまま**（分子 $\beta_{\mathrm{nc}}$ も比例して縮めて）、$\alpha$ の真値だけを0に近づけた5つの世界で、調査の生成、logit MLE、delta法によるCIの計算を繰り返す。真実はどの世界でも「6,000円」なのに、価格係数の識別が弱くなるだけで点推定とCIが壊れていく。表の`t_alpha`は価格係数のt値である。図の枠を突き抜けるCIは「報告不能」と読んでよい。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+alpha_grid <- c(0.20, 0.10, 0.05, 0.02, 0.01)  # 価格係数の真値。0に近づけていく
+wtp_true   <- 6     # ノイキャンの真のWTP（千円）。全シナリオで固定
+n_resp     <- 400   # 回答者数（2000以下を推奨）
+# -----------------------
+
+set.seed(20266)
+one_run <- function(a) {
+  p <- params6
+  p$alpha_mean   <- a
+  p$sigma_alpha  <- 0.3 * a
+  p$beta_nc_mean <- wtp_true * a      # 比（WTP）は固定したまま分母だけ小さくする
+  p$sigma_nc     <- 0.4 * p$beta_nc_mean
+  f  <- fit_mle_cbc6(simulate_cbc6(n_resp, 8, p))
+  b  <- f$theta[2]
+  al <- f$theta[4]
+  gr <- c(1 / al, -b / al^2)                       # delta法の勾配
+  vw <- as.numeric(t(gr) %*% f$vcov[c(2, 4), c(2, 4)] %*% gr)
+  data.frame(alpha_true = a,
+             t_alpha    = al / sqrt(f$vcov[4, 4]),
+             wtp_hat    = b / al,
+             se_wtp     = if (is.finite(vw) && vw > 0) sqrt(vw) else NA_real_)
+}
+wtp_df <- do.call(rbind, lapply(alpha_grid, one_run))
+wtp_df$ci_low  <- wtp_df$wtp_hat - 1.96 * wtp_df$se_wtp
+wtp_df$ci_high <- wtp_df$wtp_hat + 1.96 * wtp_df$se_wtp
+round(wtp_df, 2)
+
+wtp_df$alpha_f <- factor(wtp_df$alpha_true,
+                         levels = sort(unique(wtp_df$alpha_true), decreasing = TRUE))
+ggplot(wtp_df, aes(alpha_f, wtp_hat)) +
+  geom_hline(yintercept = wtp_true, linetype = "dashed", color = "gray40") +
+  geom_point(size = 2.5, color = "#4C72B0") +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high), width = 0.15, color = "#4C72B0") +
+  coord_cartesian(ylim = c(-40, 60)) +
+  annotate("text", x = 1.1, y = wtp_true + 4, label = "true WTP = 6",
+           color = "gray40", hjust = 0) +
+  labs(x = "true price coefficient (decreasing toward 0)",
+       y = "WTP estimate with 95% CI (thousand JPY)")
+```
+
+$\alpha$ が大きい（価格がよく効く）世界ではCIは真値のまわりに素直に収まるが、$\alpha$ が小さくなるにつれてCIは爆発し、点推定も6からかけ離れた値（符号が逆になることさえある）を出すようになる。分母がゼロに近い比を計算しているのだから当然で、delta法のSEに含まれる $1/\alpha^2$ の項がそれを正直に教えてくれている。講義ノートの「実務での対処法」も読み返しておこう。
+
+::: {.callout-note}
+## やってみよう
+
+- `alpha_grid <- c(0.20, 0.15, 0.10, 0.07, 0.05, 0.03, 0.02, 0.01)` と細かくして、CIがどのあたりから壊れ始めるかを特定しよう。
+- `n_resp <- 1600` にしてみよう。データを4倍にすると`t_alpha`はおよそ2倍になるはずだが、それで「使えるCI」が戻ってくるのはどの`alpha_true`までか。
+- 問い：表の`t_alpha`がいくつを超えたあたりなら、WTPを会議で報告してよさそうか。自分なりの経験則を作ろう（第3回の弱い操作変数の「F > 10」という経験則と、よく似た形をしていないだろうか）。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture6.html`（AMCEの定義、回答者クラスターSE、delta法の導出の完全版）
+- coding課題：`assignment6.qmd`（フードデリバリーのサブスクプランを題材に、CBC設計からAMCE・WTPまでを自分で実装する）

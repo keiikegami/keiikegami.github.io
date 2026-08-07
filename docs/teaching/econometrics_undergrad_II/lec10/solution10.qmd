@@ -1,0 +1,419 @@
+---
+title: "課題10 解答：BG/NBDによる顧客ベース分析とCLV試算"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+set.seed(202611)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-note}
+## この解答について
+
+各問の完全な実行可能コードと、「なぜこう書くか」「どこで間違えやすいか」の解説を付す。部分点基準は各問の末尾に記載する。
+:::
+
+---
+
+# Part 1：ネットスーパーの顧客ベースを自作する
+
+## 問1：購買イベントをシミュレーションする
+
+```{r}
+#| label: sol-dgp
+
+N <- 2000
+T_cal <- 52
+T_holdout <- 26
+T_total <- T_cal + T_holdout
+
+r_true <- 0.9; alpha_true <- 7.0; a_true <- 0.9; b_true <- 3.2
+
+lambda_true <- rgamma(N, shape = r_true, rate = alpha_true)
+p_true      <- rbeta(N, a_true, b_true)
+
+cat("E[lambda] =", r_true / alpha_true, "(週あたり平均購買率)\n")
+cat("E[p] =", a_true / (a_true + b_true), "(平均離脱確率)\n")
+
+simulate_full_history <- function(lambda, p_drop, T) {
+  t <- 0
+  events <- c()
+  repeat {
+    wait <- rexp(1, rate = lambda)
+    t_next <- t + wait
+    if (t_next > T) break
+    t <- t_next
+    events <- c(events, t)
+    if (runif(1) < p_drop) break
+  }
+  events
+}
+
+all_events <- vector("list", N)
+for (i in 1:N) {
+  all_events[[i]] <- simulate_full_history(lambda_true[i], p_true[i], T_total)
+}
+
+cat("\n全顧客の平均購買回数(78週合計):", mean(sapply(all_events, length)), "\n")
+```
+
+**解説**：`rgamma(shape = r, rate = alpha)`のパラメータの与え方に注意する。Rの`rgamma()`は`rate`（尺度パラメータの逆数）で指定するのがデフォルトであり、講義ノートの記法 $\lambda \sim \text{Gamma}(r, \alpha)$（$\alpha$が尺度パラメータの逆数）とちょうど対応している。`shape`と`scale`を取り違えると、まったく違うスケールの$\lambda$が生成されてしまうので要注意。
+
+`simulate_full_history()`の`repeat`ループは、「次の購買までの待ち時間を引く→観測期間を超えたら終了→イベントを記録→確率$p$で離脱判定」という手順を素直にコードにしたものである。このループの書き方自体は、講義ノートのRシミュ1・Rシミュ2と全く同じ構造である。
+
+**部分点基準**：`rgamma`・`rbeta`のパラメータの与え方が正しいこと（5点）、`simulate_full_history`の待ち時間・離脱判定のロジックが正しいこと（5点）。`shape`と`rate`を逆にした場合、DGP自体はエラーなく動くが、後続の全ての推定・検証がおかしくなるので、E[lambda]・E[p]の検算を必ず行うこと。
+
+## 問2：calibration期間のRFM要約統計量を作る
+
+```{r}
+#| label: sol-rfm
+
+x_cal  <- sapply(all_events, function(ev) sum(ev <= T_cal))
+tx_cal <- sapply(all_events, function(ev) {
+  ev_cal <- ev[ev <= T_cal]
+  if (length(ev_cal) == 0) 0 else max(ev_cal)
+})
+
+cat("x_calの要約:\n")
+summary(x_cal)
+cat("\ntx_calの要約(x>0の顧客のみ):\n")
+summary(tx_cal[x_cal > 0])
+```
+
+**解説**：ここが「holdoutの情報を使わない」という制約の実装ポイントである。`all_events`には78週分の全イベントが入っているが、`x_cal`・`tx_cal`の計算では`ev <= T_cal`で明示的に52週以内に絞り込む。この絞り込みを忘れると、calibration期間の推定にholdout期間の情報が漏れ込み（data leakage）、holdout検証の意味がなくなってしまう——これは今回の課題全体で最も重要な「やってはいけないこと」の1つである。
+
+**部分点基準**：`x_cal`・`tx_cal`の両方が正しく52週以内に限定されていること（10点）。片方でもholdout情報が混入していたら大幅減点。
+
+## 問3：可視化と記述統計
+
+```{r}
+#| label: sol-timeline
+#| fig-cap: "20人分の購買タイムライン（calibration 52週）"
+
+sample_ids <- sample(1:N, 20)
+timeline_list <- lapply(seq_along(sample_ids), function(k) {
+  ev <- all_events[[sample_ids[k]]]
+  ev_cal <- ev[ev <= T_cal]
+  # 購買0回の顧客は rep(k, 0) が長さ0になり、0行のdata.frameになる（安全）
+  # y軸はサンプル内の通し番号k（数値）にする（factorにするとannotateの数値yと衝突する）
+  data.frame(customer = rep(k, length(ev_cal)), event_time = ev_cal)
+})
+timeline_df <- do.call(rbind, timeline_list)
+
+ggplot(timeline_df, aes(x = event_time, y = customer)) +
+  annotate("segment", x = 0, xend = T_cal, y = 1:20, yend = 1:20,
+           color = "gray85", linewidth = 3) +
+  geom_point(color = "#4C72B0", size = 2.2) +
+  labs(x = "週", y = "顧客(サンプル20人)", title = "購買タイムライン（calibration 52週）") +
+  scale_y_continuous(breaks = 1:20)
+```
+
+```{r}
+#| label: sol-scatter
+#| fig-cap: "全顧客の (t_x, x) 散布図"
+
+scatter_df <- data.frame(x = x_cal, tx = tx_cal)
+ggplot(scatter_df, aes(x = tx, y = x)) +
+  geom_jitter(alpha = 0.3, width = 0.5, height = 0.15, color = "#4C72B0") +
+  labs(x = "t_x（最終購買時点、週）", y = "x（購買回数）", title = "(t_x, x) 散布図")
+```
+
+```{r}
+#| label: sol-descriptive
+
+cat("x=0の顧客割合:", round(mean(x_cal == 0), 3), "\n")
+cat("xの平均:", round(mean(x_cal), 3), "  最大値:", max(x_cal), "\n")
+cat("calibration期間の総購買回数:", sum(x_cal), "\n")
+```
+
+**解説**：$x=0$の顧客割合が20〜30%程度に収まっていれば、シミュレーション設定として健全である。この割合が極端に高い（例えば80%超）場合は、$\lambda$の平均が小さすぎるか、観測期間が短すぎることを疑うべきである。逆に$x=0$がほぼいない場合、離脱の効果がほとんど観測されず、$a, b$の推定が不安定になりやすい。
+
+**部分点基準**：図が2つとも意図した形式で描けていること（各3点、計6点）、記述統計が正しく計算されていること（4点）。
+
+---
+
+# Part 2：推定・P(alive)・holdout検証・CLV
+
+## 問4：BG/NBD対数尤度の実装とMLE
+
+```{r}
+#| label: sol-loglik
+
+logsumexp2 <- function(log_a, log_b) {
+  m <- pmax(log_a, log_b)
+  m + log(exp(log_a - m) + exp(log_b - m))
+}
+
+bgnbd_loglik <- function(r, alpha, a, b, x, tx, T) {
+  ln_Bab <- lbeta(a, b)
+
+  ln_A0 <- lbeta(a, b + x) - ln_Bab +
+    lgamma(r + x) - lgamma(r) +
+    r * log(alpha) - (r + x) * log(alpha + T)
+
+  ln_A1 <- ifelse(
+    x > 0,
+    lbeta(a + 1, b + x - 1) - ln_Bab +
+      lgamma(r + x) - lgamma(r) +
+      r * log(alpha) - (r + x) * log(alpha + tx),
+    -Inf
+  )
+
+  logsumexp2(ln_A0, ln_A1)
+}
+
+neg_loglik_bgnbd <- function(theta_log, x, tx, T) {
+  params <- exp(theta_log)
+  r <- params[1]; alpha <- params[2]; a <- params[3]; b <- params[4]
+  -sum(bgnbd_loglik(r, alpha, a, b, x, tx, T))
+}
+
+theta_init <- log(c(r = 1, alpha = 1, a = 1, b = 1))
+
+opt_result <- optim(
+  par = theta_init, fn = neg_loglik_bgnbd,
+  x = x_cal, tx = tx_cal, T = rep(T_cal, N),
+  method = "L-BFGS-B", hessian = TRUE
+)
+
+theta_hat <- exp(opt_result$par)
+names(theta_hat) <- c("r", "alpha", "a", "b")
+
+true_params <- c(r = r_true, alpha = alpha_true, a = a_true, b = b_true)
+
+vcov_log <- solve(opt_result$hessian)
+se_log <- sqrt(diag(vcov_log))
+se_orig <- theta_hat * se_log   # delta法
+
+inference_df <- data.frame(
+  parameter = names(true_params),
+  true_value = true_params,
+  estimate = round(theta_hat, 4),
+  se = round(se_orig, 4),
+  ci_lower = round(theta_hat - 1.96 * se_orig, 4),
+  ci_upper = round(theta_hat + 1.96 * se_orig, 4)
+)
+kable(inference_df, caption = "真値・推定値・SE・95%信頼区間")
+```
+
+**解説**：この課題の中で最も間違えやすい問題である。特に注意すべき点は次の3つ。
+
+1. **`ifelse(x > 0, A, -Inf)`のAの部分は、$x=0$の行についても評価される**。Rの`ifelse()`は3つの引数（条件、真の場合の値、偽の場合の値）を全て計算してから条件で選択する仕組みなので、`x=0`の行では`b + x - 1 = b - 1`となり、`lbeta(a+1, b-1)`のような（$b>1$なら問題ないが、$b\le 1$だと負の引数になりうる）計算が実行される。ただし最終的にその値は`-Inf`に置き換えられて捨てられるので、`b`の値次第では`NaN`や警告が出ても最終結果には影響しない。今回の設定では$b_{\text{true}}=3.2$なので実害はないが、より小さい$b$を使う設定では警告が出うる点は覚えておくとよい。
+2. **log変換したパラメータで最適化する**：$\theta = \log(r,\alpha,a,b)$として`optim()`に渡し、結果を`exp()`で戻す。これにより正値制約を陽に扱わずに済む。
+3. **delta法でのSE変換を忘れない**：`opt_result$hessian`は log-scale の $\theta$ についてのヘッセ行列なので、そのまま`sqrt(diag(solve(hessian)))`をSEとして使うのは間違い（それは$\log(\theta)$のSEである）。`theta_hat * se_log`という掛け算（デルタ法の1次近似）を経由して、元のスケールのSEに変換する必要がある。
+
+この解答例のパラメータ設定・シード（`set.seed(202611)`）のもとでの実行結果は、著者の手元での検証（Python/numpyでの同一ロジックのプロトタイプ、乱数系列は異なる）では、$r, \alpha$の推定誤差は数%程度、$a, b$の推定誤差はやや大きい（10〜20%程度）が、いずれも95%信頼区間の中に真値が収まる、という結果になった。$a, b$の推定精度が$r,\alpha$より低いのは、離脱確率の情報が「実際に離脱が起きた顧客」からしか得られず、本質的に情報量が少ないためであり、実装のバグではなく、このモデルの構造上自然な現象である。
+
+**部分点基準**：対数尤度の実装が正しいこと（logsumexpを使っている、x=0の場合分けがある）（10点）。`optim()`が収束し、真値が信頼区間に入ること（5点）。delta法でSEを正しく変換していること（5点）。$a,b$の誤差が$r,\alpha$より大きくても、95%信頼区間に真値が入っていれば問題ない。
+
+## 問5：P(alive)の計算と解釈
+
+```{r}
+#| label: sol-palive
+
+palive_bgnbd <- function(r, alpha, a, b, x, tx, T) {
+  ratio <- (alpha + T) / (alpha + tx)
+  term <- ifelse(x > 0, (a / (b + x - 1)) * ratio^(r + x), 0)
+  1 / (1 + term)
+}
+
+palive_all <- palive_bgnbd(theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+                           x_cal, tx_cal, T_cal)
+```
+
+```{r}
+#| label: fig-sol-palive-hist
+#| fig-cap: "P(alive)の分布"
+
+ggplot(data.frame(palive = palive_all), aes(x = palive)) +
+  geom_histogram(bins = 30, fill = "#4C72B0", alpha = 0.8) +
+  labs(x = "P(alive)", y = "顧客数", title = "P(alive)の分布")
+```
+
+```{r}
+#| label: sol-recency-frequency
+
+# 架空の例: t_xを44週(=最後の購買から8週間沈黙)に固定し、xを変える
+tx_fixed <- 44
+example_df <- data.frame(x = c(1, 3, 5, 10, 20))
+example_df$palive <- palive_bgnbd(theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+                                   example_df$x, tx_fixed, T_cal)
+kable(example_df, digits = 4, caption = "recency固定・frequency違いでのP(alive)比較")
+```
+
+**解説**：$t_x$を固定して$x$を動かすと、P(alive)は単調ではなく、ある水準までは横ばい〜微増、その後急落するパターンになることが多い（正確な形はパラメータの値、特に$a/(a+b)$の大きさに依存する）。これは「頻繁に買う人ほど、離脱するチャンス（＝購買イベント）も多く経験してきた」という点を思い出せば理解できる。8週間の沈黙は、月1回ペースで買っていた人にとっては「いつもよりだいぶ長い」異常事態だが、半年に1回しか買わない人にとっては通常運転の範囲内である。この非対称性が、購買頻度が高い顧客ほど同じ沈黙期間で「死亡」と判定されやすい、という結果を生む。
+
+**部分点基準**：P(alive)の計算とヒストグラムが正しいこと（8点）。recency-frequencyの比較例が示され、解釈が「頻度が高いほど離脱の機会も多く経験してきた」という趣旨で書けていること（7点）。単に「xが増えるとP(alive)が下がる」とだけ書いて理由の説明がない場合は部分点にとどめる。
+
+## 問6：holdout 26週の検証
+
+```{r}
+#| label: sol-holdout
+
+simulate_holdout_weekly <- function(r_hat, alpha_hat, x, tx, T_cal, p_alive, n_weeks, S = 20) {
+  lambda_post <- rgamma(S, shape = r_hat + x, rate = alpha_hat + T_cal)
+  is_alive <- runif(S) < p_alive
+  weekly_counts <- matrix(0, nrow = S, ncol = n_weeks)
+  for (s in 1:S) {
+    if (!is_alive[s]) next
+    weekly_counts[s, ] <- rpois(n_weeks, lambda = lambda_post[s])
+  }
+  colMeans(weekly_counts)
+}
+
+pred_weekly_matrix <- matrix(0, nrow = N, ncol = T_holdout)
+for (i in 1:N) {
+  pred_weekly_matrix[i, ] <- simulate_holdout_weekly(
+    theta_hat["r"], theta_hat["alpha"], x_cal[i], tx_cal[i], T_cal, palive_all[i], T_holdout, S = 20
+  )
+}
+pred_weekly_total <- colSums(pred_weekly_matrix)
+pred_indiv_total  <- rowSums(pred_weekly_matrix)
+
+actual_weekly_total <- sapply(1:T_holdout, function(w) {
+  sum(sapply(all_events, function(ev) sum(ev > T_cal + w - 1 & ev <= T_cal + w)))
+})
+actual_indiv_total <- sapply(all_events, function(ev) sum(ev > T_cal))
+```
+
+```{r}
+#| label: fig-sol-tracking
+#| fig-cap: "holdout週次累積購買数：実績 vs 予測"
+
+tracking_df <- data.frame(
+  week = 1:T_holdout,
+  actual_cum = cumsum(actual_weekly_total),
+  predicted_cum = cumsum(pred_weekly_total)
+) %>%
+  pivot_longer(cols = c(actual_cum, predicted_cum), names_to = "type", values_to = "cum_purchases")
+
+ggplot(tracking_df, aes(x = week, y = cum_purchases, color = type, linetype = type)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = c("actual_cum" = "black", "predicted_cum" = "#C44E52"),
+                      labels = c("実績", "予測")) +
+  scale_linetype_manual(values = c("actual_cum" = "solid", "predicted_cum" = "dashed"),
+                         labels = c("実績", "予測")) +
+  labs(x = "holdout週", y = "累積購買数", color = "", linetype = "", title = "累積購買トラッキング")
+```
+
+```{r}
+#| label: fig-sol-calibration
+#| fig-cap: "予測デシル別の実績平均"
+
+decile_df <- data.frame(pred = pred_indiv_total, actual = actual_indiv_total) %>%
+  mutate(decile = ntile(pred, 10)) %>%
+  group_by(decile) %>%
+  summarise(pred_mean = mean(pred), actual_mean = mean(actual), n = n())
+
+decile_long <- decile_df %>%
+  select(decile, pred_mean, actual_mean) %>%
+  pivot_longer(cols = c(pred_mean, actual_mean), names_to = "type", values_to = "value")
+
+ggplot(decile_long, aes(x = decile, y = value, fill = type)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  scale_fill_manual(values = c("pred_mean" = "#4C72B0", "actual_mean" = "#DD8452"),
+                     labels = c("実績平均", "予測平均")) +
+  scale_x_continuous(breaks = 1:10) +
+  labs(x = "予測購買数デシル", y = "holdout購買数(平均)", fill = "", title = "校正確認")
+```
+
+**解説**：この検証で著者が事前に確認した点として、`simulate_holdout_weekly()`内の`lambda_post <- rgamma(S, shape = r_hat + x, rate = alpha_hat + T_cal)`という部分が最も重要である。これはPoisson-Gamma共役性——「事前分布$\lambda \sim \text{Gamma}(r,\alpha)$のもとで、$T$期間に$x$回のPoissonイベントが観測されたとき、事後分布は$\text{Gamma}(r+x, \alpha+T)$になる」——を直接利用している。この共役性を使わずに、単純に事前分布$\text{Gamma}(\hat r, \hat\alpha)$からそのまま$\lambda$をシミュレーションすると（つまり各顧客の実績$x$を無視して集団全体の事前分布だけを使うと）、著者が数値検証で確認した限り、**予測が実績よりも系統的に過大になる**（$x=0$だった顧客にも集団平均の$\lambda$を割り当ててしまうため）。この事後Gamma分布の利用が、この検証全体の正確さを支えている核心部分である。
+
+累積トラッキングの誤差は、この解答例の設定では10%前後に収まることが多い。個人レベルのデシル分析では、デシルが上がるほど実績平均も単調に増加していれば、モデルが顧客の相対的な優劣を正しく順位付けできていると判断できる。
+
+**部分点基準**：$\lambda$の事後分布として$\text{Gamma}(r+x,\alpha+T)$を正しく使っていること（8点、ここを事前分布のまま使っていたら大幅減点）。トラッキング図・デシル図がそれぞれ描けていること（各3.5点、計7点）。
+
+## 問7：上位10%顧客のCLV試算
+
+```{r}
+#| label: sol-clv
+
+margin <- 1200
+annual_discount <- 0.10
+weekly_discount <- annual_discount / 52
+horizon_weeks <- 104
+
+compute_clv <- function(r_hat, alpha_hat, x, tx, T_cal, p_alive, horizon, weekly_d, margin, S = 200) {
+  lambda_post <- rgamma(S, shape = r_hat + x, rate = alpha_hat + T_cal)
+  is_alive <- runif(S) < p_alive
+  discount_factors <- 1 / (1 + weekly_d)^(1:horizon)
+  discounted_expected <- sapply(lambda_post, function(lam) sum(lam * discount_factors))
+  discounted_expected[!is_alive] <- 0
+  margin * mean(discounted_expected)
+}
+
+clv_all <- sapply(1:N, function(i) {
+  compute_clv(theta_hat["r"], theta_hat["alpha"], x_cal[i], tx_cal[i], T_cal, palive_all[i],
+              horizon_weeks, weekly_discount, margin, S = 100)
+})
+
+clv_df <- data.frame(
+  customer_id = 1:N, x = x_cal, tx = tx_cal, palive = round(palive_all, 3), clv = round(clv_all)
+)
+
+top10_cutoff <- quantile(clv_all, 0.9)
+top10_df <- clv_df %>% filter(clv >= top10_cutoff) %>% arrange(desc(clv))
+
+kable(head(top10_df, 15), caption = "CLV上位10%顧客（上位15件を表示）")
+cat("\nCLV上位10%のカットオフ:", round(top10_cutoff), "円\n")
+cat("全顧客のCLV平均:", round(mean(clv_all)), "円\n")
+```
+
+**解説**：`compute_clv()`の内部構造は問6の`simulate_holdout_weekly()`とほぼ同じで、事後Gamma分布から$\lambda$を引き、P(alive)で生死を判定するところまでは共通である。違いは、週次のPoisson乱数を発生させる代わりに、各週の期待購買数（$\lambda$そのもの）に割引係数を掛けて合計している点である——ここでは「将来のどの週に何回買うか」という乱数レベルの詳細ではなく、割引後の期待購買数の合計だけが必要なので、Poisson乱数を経由せず$\lambda \times$割引係数の和を直接計算する方が効率的である（期待値の線形性を使っている）。
+
+**部分点基準**：CLV計算の実装が正しいこと（事後Gamma分布とP(alive)を使っている）（6点）。上位10%リストが正しく抽出・表示されていること（4点）。
+
+## 問8：「このリストで何をしてはいけないか」
+
+**解答例**：
+
+このCLV上位10%リストは、「今後この顧客たちがどれだけ買うと予測されるか」を示しているだけであり、「広告を出したらどれだけ売上が増えるか」という因果効果は一切含んでいない。CLVが高い顧客は放っておいても買い続ける可能性が高く、広告を出しても追加的な売上（インクリメンタリティ）はほぼゼロで、広告費が無駄になるおそれがある。広告の効果を正しく評価するには、CLVの予測値ではなく、広告のA/Bテストや第11回で学ぶuplift modelingによる因果効果の推定が別途必要である。
+
+::: {.callout-note}
+## 部分点基準（問8）
+
+- 「CLVは予測であり因果効果ではない」という趣旨に触れている（4点）
+- 「放っておいても買う顧客に広告を出しても効果がない・無駄になりうる」という具体的な機序に触れている（3点）
+- 「因果効果の推定（A/Bテスト、uplift modeling等）が別途必要」という代替案・次のステップに触れている（3点）
+- 単に「CLVは不確実性がある」「サンプルサイズが小さい」等、講義の核心（予測と因果の区別）と無関係な問題点だけを挙げている場合は、この設問の趣旨を外しているため大きく減点する。
+:::
+
+---
+
+## 総評：この課題全体でよくある間違い
+
+1. **calibration/holdoutの情報漏洩**：`x_cal`・`tx_cal`の計算に78週分のデータをそのまま使ってしまい、holdout情報が混入する。
+2. **`rgamma`の`shape`/`rate`の取り違え**：DGPとMLE内部の両方で一貫していないと、真値回収が意味をなさなくなる。
+3. **Hessianのスケール変換忘れ**：log-scaleのHessianからそのままSEを計算し、delta法を経由しない。
+4. **P(alive)の`x=0`の場合分け漏れ**：`x=0`のとき`term`を`0`にせず計算してしまい、`P(alive)`が1にならない。
+5. **将来予測で事前分布をそのまま使う**：事後Gamma分布 $\text{Gamma}(r+x,\alpha+T)$ を使わず、事前分布 $\text{Gamma}(r,\alpha)$ のまま将来購買をシミュレーションしてしまい、個々の顧客の実績（$x$）が反映されず、予測が過大または均一になる。

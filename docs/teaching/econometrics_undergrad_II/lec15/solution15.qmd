@@ -1,0 +1,480 @@
+---
+title: "課題15 解答：航空券のRevenue Managementと推定誤差の伝播"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(patchwork)
+
+set.seed(20265)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+## この解答について
+
+`assignment15.qmd` の全設問について、完全な実行可能コードと解説を与える。配点基準（何ができていれば部分点か）も各設問末に付す。
+
+真のパラメータは一貫して次の値を使う。
+
+```{r}
+#| label: sol15-true-params
+theta0_true <- 5.0
+alpha_true  <- 0.05
+lambda_bar  <- 0.8
+T_period    <- 60
+C_capacity  <- 30
+
+sigmoid <- function(x) 1 / (1 + exp(-x))
+```
+
+---
+
+## Part 1：航空券1路線の予約データを生成する
+
+### 設問1-1：一定価格のもとでの予約データ生成
+
+```{r}
+#| label: sol15-1-1
+p_fixed <- 90
+
+simulate_fixed_price_dgp <- function(seed, T_period, C_capacity, theta0, alpha, lambda_bar, p_fixed) {
+  set.seed(seed)
+  c_remain <- C_capacity
+  records  <- data.frame(day = integer(0), t_remain = integer(0),
+                          arrived = integer(0), purchased = integer(0), c_after = integer(0))
+  for (t in T_period:1) {
+    arrived <- runif(1) < lambda_bar
+    purchased <- 0
+    if (arrived && c_remain > 0) {
+      prob_buy  <- sigmoid(theta0 - alpha * p_fixed)
+      purchased <- as.numeric(runif(1) < prob_buy)
+    }
+    if (purchased == 1) c_remain <- c_remain - 1
+    records <- rbind(records, data.frame(
+      day = T_period - t + 1, t_remain = t,
+      arrived = as.numeric(arrived), purchased = purchased, c_after = c_remain
+    ))
+  }
+  records
+}
+
+records_1 <- simulate_fixed_price_dgp(20265, T_period, C_capacity, theta0_true, alpha_true, lambda_bar, p_fixed)
+head(records_1, 10)
+```
+
+::: {.callout-note collapse="true"}
+## 解説：なぜこう書くか
+
+`t`を`T_period`から`1`まで減らすループにしているのは、$t$を「残り日数」として定義したためで、Lecture 15本編のDPの記法と揃えている。`c_remain > 0`の判定を`arrived`の内側に置いているのは、在庫がゼロになった後も日数分だけループを回し切り、`c_after`列で「以後は在庫ゼロが続く」ことを可視化するためだ。ここを`if (c_remain == 0) break`にしてループを打ち切ってしまうと、次の設問1-2でブッキングカーブを描くときにx軸の長さが日によって変わってしまい、複数パスの重ね描きがしづらくなる。**配点基準**：ループの骨格が正しく動き、在庫がマイナスにならないことが確認できていれば満点。break方式でもよいが、その場合は設問1-2で日数の扱いに注意する必要がある旨を一言断っていれば減点しない。
+:::
+
+### 設問1-2：ブッキングカーブの可視化
+
+```{r}
+#| label: sol15-1-2
+#| fig-cap: "5本のシミュレーションによるブッキングカーブ（累積販売数）"
+booking_curves <- lapply(1:5, function(i) {
+  rec <- simulate_fixed_price_dgp(20265 + i, T_period, C_capacity, theta0_true, alpha_true, lambda_bar, p_fixed)
+  rec$cum_sold <- C_capacity - rec$c_after
+  rec$path_id  <- factor(i)
+  rec
+})
+booking_df <- bind_rows(booking_curves)
+
+ggplot(booking_df, aes(x = day, y = cum_sold, color = path_id)) +
+  geom_step(linewidth = 0.9) +
+  labs(x = "販売開始からの日数", y = "累積販売数",
+       title = "ブッキングカーブ（一定価格 p=90、5本のシミュレーション）",
+       color = "パスID")
+```
+
+::: {.callout-note collapse="true"}
+## 解説
+
+`geom_step()`を使っているのは、販売数が「離散的に1つずつ増える」ものであり、`geom_line()`のような直線補間よりも実態に合っているからだ。5本のパスを重ねると、初期の数日はほぼ同じペースで進むが、後半に行くほど「早めに完売するパス」と「なかなか埋まらないパス」に分かれていく様子が見える。これは単に運（乱数）の効果であり、価格ルールそのものは5本とも同一である。**配点基準**：累積販売数を正しく計算し、複数パスを重ね描きできていれば満点。1本しか描いていない場合は「ばらつきの可視化」という設問の趣旨を満たさないため半分の点数とする。
+:::
+
+### 設問1-3：記述統計
+
+```{r}
+#| label: sol15-1-3
+final_inventory <- records_1$c_after[nrow(records_1)]
+final_sold      <- C_capacity - final_inventory
+n_arrived       <- sum(records_1$arrived)
+n_purchased     <- sum(records_1$purchased)
+conversion_rate <- n_purchased / n_arrived
+
+cat("最終的な在庫残り:", final_inventory, "\n")
+cat("最終的な販売数:", final_sold, "/", C_capacity, "\n")
+cat("完売したか:", final_inventory == 0, "\n")
+cat("到着した客の数:", n_arrived, "\n")
+cat("実際に購入した客の数:", n_purchased, "\n")
+cat("コンバージョン率:", round(conversion_rate, 3), "\n")
+```
+
+このケースでは在庫が完売（または完売に近い水準まで消化）しており、コンバージョン率はおおむね到着した客のうち一定割合（$p=90$円のもとでの理論購買確率 `r round(sigmoid(theta0_true - alpha_true * p_fixed), 3)` に近い水準）で推移する。到着したが買わなかった客は、在庫が残っている限りは「価格に対する需要側の反応」を表しており、完売後に到着した客は在庫がそもそも無いため機会損失（見えざる需要）として扱う必要がある、という点が実務上重要になる。
+
+::: {.callout-note collapse="true"}
+## 配点基準
+
+コンバージョン率を正しく計算し、在庫切れ前後の区別に触れていれば満点。区別に触れていなくても数値計算が正しければ7割の点数とする。
+:::
+
+### 設問1-4：価格にわずかな変動を持たせたDGP
+
+```{r}
+#| label: sol15-1-4
+price_variation_pcts <- c(-0.15, -0.075, 0, 0.075, 0.15)
+
+simulate_varying_price_dgp <- function(seed, T_period, C_capacity, theta0, alpha, lambda_bar,
+                                        p_base, variation_pcts) {
+  set.seed(seed)
+  c_remain <- C_capacity
+  prices_obs   <- numeric(0)
+  purchase_obs <- numeric(0)
+  for (t in T_period:1) {
+    if (c_remain == 0) break
+    pct <- sample(variation_pcts, 1)
+    p   <- p_base * (1 + pct)
+    arrived <- runif(1) < lambda_bar
+    if (arrived) {
+      prob_buy  <- sigmoid(theta0 - alpha * p)
+      purchased <- as.numeric(runif(1) < prob_buy)
+      prices_obs   <- c(prices_obs, p)
+      purchase_obs <- c(purchase_obs, purchased)
+      if (purchased == 1) c_remain <- c_remain - 1
+    }
+  }
+  list(prices = prices_obs, purchase = purchase_obs)
+}
+
+dgp_data <- simulate_varying_price_dgp(20265, T_period, C_capacity, theta0_true, alpha_true,
+                                        lambda_bar, p_base = 91.3, price_variation_pcts)
+cat("観測された到着客数:", length(dgp_data$prices), "\n")
+cat("価格の標準偏差:", round(sd(dgp_data$prices), 2), "\n")
+cat("価格のユニーク値:", round(sort(unique(dgp_data$prices)), 1), "\n")
+```
+
+::: {.callout-note collapse="true"}
+## 解説：`p_base = 91.3`について
+
+ここでは基準価格として、後の設問2-4で求まる最適固定価格（約91.3）に近い値をあらかじめ使っている。実際の授業運営では、学生は設問2-4より前にこの値を知らないはずなので、まず適当な水準（たとえば90）で1-4を実装し、2-4で最適固定価格を求めた後に「もし気になるなら」91.3に寄せて再実行してみる、という順序でも構わない。値そのものよりも「価格に変動を持たせないと$\alpha$が識別できない」という設問1-4の趣旨を理解しているかが重要である。**配点基準**：`sample()`で価格をランダムに選ぶ実装ができていて、価格の標準偏差がゼロでないことを確認していれば満点。
+:::
+
+---
+
+## Part 2：推定・DP・収益比較
+
+### 設問2-1：MLEで価格係数 $\alpha$ を推定する
+
+自作のニュートン法を実装する（ロジットの対数尤度が大域的に凹であることを利用し、解析的な勾配・ヘシアンで数回のうちに収束させる）。
+
+```{r}
+#| label: sol15-2-1
+fit_logit_newton <- function(prices, purchase, theta_init = c(0, 0.01), max_iter = 100, tol = 1e-10) {
+  n <- length(prices)
+  X <- cbind(1, -prices)  # u = X %*% c(theta0, alpha)
+  theta <- theta_init
+  for (it in 1:max_iter) {
+    u     <- as.vector(X %*% theta)
+    p_hat <- sigmoid(u)
+    resid <- purchase - p_hat
+    grad  <- as.vector(t(X) %*% resid)
+    W     <- p_hat * (1 - p_hat)
+    H     <- -t(X * W) %*% X
+    step  <- solve(H, grad)
+    theta_new <- theta - step
+    if (max(abs(theta_new - theta)) < tol) {
+      theta <- theta_new
+      break
+    }
+    theta <- theta_new
+  }
+  list(theta = theta, n_iter = it)
+}
+
+mle_fit <- fit_logit_newton(dgp_data$prices, dgp_data$purchase)
+theta0_hat <- mle_fit$theta[1]
+alpha_hat  <- mle_fit$theta[2]
+
+recovery_df <- data.frame(
+  パラメータ = c("theta0", "alpha"),
+  真値       = c(theta0_true, alpha_true),
+  推定値     = c(round(theta0_hat, 3), round(alpha_hat, 4))
+)
+kable(recovery_df, caption = "真値とMLE推定値の比較")
+cat("収束までの反復回数:", mle_fit$n_iter, "\n")
+```
+
+::: {.callout-note collapse="true"}
+## 解説：`optim()`を使った場合との比較
+
+`optim(method = "BFGS")`でも同じ推定値に到達するはずである。ニュートン法を自作する利点は、(1) ロジットの対数尤度が大域的に凹であることを目に見える形で使える、(2) `optim()`のような汎用最適化ルーチンより収束が速く・安定している、という2点にある。ただし、**この設問の主眼は推定値そのものより、後続の設問2-5でこの推定が「1回だけだとどれくらいばらつくか」を確認することにある**。1回のシードだけを見て「推定できた／できなかった」を判断しないよう注意してほしい。**配点基準**：`optim()`でもニュートン法でも、収束して合理的な推定値（$\hat\alpha > 0$、桁が真値と同程度）が出ていれば満点。
+:::
+
+### 設問2-2：backward inductionと価格政策のヒートマップ
+
+```{r}
+#| label: sol15-2-2-solve
+p_grid <- seq(1, 300, length.out = 300)
+
+purchase_prob <- function(p, theta0, alpha, lambda_bar) {
+  u <- theta0 - alpha * p
+  lambda_bar * sigmoid(u)
+}
+
+solve_dp <- function(T_period, C_capacity, theta0, alpha, lambda_bar, p_grid) {
+  V      <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  pstar  <- matrix(NA_real_, nrow = T_period + 1, ncol = C_capacity + 1)
+  lamstar <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  lam_grid <- purchase_prob(p_grid, theta0, alpha, lambda_bar)
+
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      # V[t, c]     はV(t-1, c-1)（購入時：1期進み、在庫が1つ減る）
+      # V[t, c + 1] はV(t-1, c)  （非購入時：1期進み、在庫は変わらない）
+      obj <- lam_grid * (p_grid + V[t, c]) + (1 - lam_grid) * V[t, c + 1]
+      best_idx <- which.max(obj)
+      V[t + 1, c + 1]      <- obj[best_idx]
+      pstar[t + 1, c + 1]  <- p_grid[best_idx]
+      lamstar[t + 1, c + 1] <- lam_grid[best_idx]
+    }
+    V[t + 1, 1] <- 0
+  }
+  list(V = V, pstar = pstar, lamstar = lamstar)
+}
+
+dp_hat <- solve_dp(T_period, C_capacity, theta0_hat, alpha_hat, lambda_bar, p_grid)
+pstar_hat_mat <- dp_hat$pstar
+```
+
+```{r}
+#| label: sol15-2-2-heatmap
+#| fig-cap: "推定パラメータに基づく最適価格政策のヒートマップ"
+heat_df_hat <- expand.grid(t = 1:T_period, c = 1:C_capacity) %>%
+  rowwise() %>%
+  mutate(price = pstar_hat_mat[t + 1, c + 1]) %>%
+  ungroup()
+
+ggplot(heat_df_hat, aes(x = t, y = c, fill = price)) +
+  geom_tile() +
+  scale_fill_viridis_c(name = "推定政策の価格", option = "magma") +
+  scale_x_continuous(breaks = seq(0, 60, 10)) +
+  labs(x = "残り期間（日）", y = "残り座席数",
+       title = "alpha_hatに基づく最適価格ヒートマップ")
+```
+
+::: {.callout-note collapse="true"}
+## 解説：Rの1始まり索引
+
+`V[t, c]`が状態$(t-1,c-1)$（購入時）、`V[t, c+1]`が状態$(t-1,c)$（非購入時）に対応している点は、Lecture 15本編の注意書きの通りである。`obj`の式をBellman方程式の右辺そのままの形（bid priceへの簡略化をしない形）で書いている理由も本編と同じで、簡略化した式を使うと符号や項の消し込みを間違えやすいためである。**配点基準**：ヒートマップが「期限が近く在庫が余ると安く、在庫が減ると高くなる」という定性的なパターンを示していれば満点。$\hat\theta_0, \hat\alpha$ の値によっては講義本編と絶対水準がずれるのは当然であり、パターンの向きが正しいかを重視して採点する。
+:::
+
+### 設問2-3：推定誤差のコスト
+
+```{r}
+#| label: sol15-2-3
+dp_true <- solve_dp(T_period, C_capacity, theta0_true, alpha_true, lambda_bar, p_grid)
+V_true_mat <- dp_true$V
+revenue_true_policy <- V_true_mat[T_period + 1, C_capacity + 1]
+
+evaluate_policy_on_true_model <- function(pstar_policy, T_period, C_capacity, theta0, alpha, lambda_bar) {
+  W <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      p <- pstar_policy[t + 1, c + 1]
+      lam_true <- purchase_prob(p, theta0, alpha, lambda_bar)
+      W[t + 1, c + 1] <- lam_true * (p + W[t, c]) + (1 - lam_true) * W[t, c + 1]
+    }
+    W[t + 1, 1] <- 0
+  }
+  W[T_period + 1, C_capacity + 1]
+}
+
+revenue_hat_policy <- evaluate_policy_on_true_model(pstar_hat_mat, T_period, C_capacity,
+                                                     theta0_true, alpha_true, lambda_bar)
+revenue_loss <- revenue_true_policy - revenue_hat_policy
+
+cat("真の政策の期待収益:", round(revenue_true_policy, 1), "\n")
+cat("推定政策(alpha_hatベース)を真のモデルで評価した期待収益:", round(revenue_hat_policy, 1), "\n")
+cat("収益ロス:", round(revenue_loss, 1), "（真の収益の", round(100 * revenue_loss / revenue_true_policy, 2), "%）\n")
+```
+
+このシード（設問1-4で固定した`20265`）では、$\hat\alpha$は真値にそこそこ近く、収益ロスは真の収益の数%以内に収まる。ただし、これは1回のシードでの結果に過ぎない。設問2-5のモンテカルロで確認するように、シードを変えるとこのロスは大きく変動する。
+
+::: {.callout-note collapse="true"}
+## 配点基準
+
+3つの数値（真の政策の収益、推定政策の評価、その差）が正しく計算できていれば満点。差の解釈（1回のシードだけでは結論を出せない、という留保）に触れていればなお良い。
+:::
+
+### 設問2-4：最適固定価格との比較
+
+```{r}
+#| label: sol15-2-4
+evaluate_fixed_price <- function(p, T_period, C_capacity, theta0, alpha, lambda_bar) {
+  lam <- purchase_prob(p, theta0, alpha, lambda_bar)
+  W <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      W[t + 1, c + 1] <- lam * (p + W[t, c]) + (1 - lam) * W[t, c + 1]
+    }
+    W[t + 1, 1] <- 0
+  }
+  W[T_period + 1, C_capacity + 1]
+}
+
+fixed_p_grid <- seq(1, 300, length.out = 150)
+fixed_revenues <- sapply(fixed_p_grid, evaluate_fixed_price,
+                          T_period = T_period, C_capacity = C_capacity,
+                          theta0 = theta0_true, alpha = alpha_true, lambda_bar = lambda_bar)
+
+best_fixed_idx <- which.max(fixed_revenues)
+best_fixed_p   <- fixed_p_grid[best_fixed_idx]
+best_fixed_rev <- fixed_revenues[best_fixed_idx]
+
+lift_pct <- 100 * (revenue_true_policy - best_fixed_rev) / best_fixed_rev
+
+cat("最適固定価格:", round(best_fixed_p, 1), "\n")
+cat("最適固定価格での期待収益:", round(best_fixed_rev, 1), "\n")
+cat("真の動的最適収益:", round(revenue_true_policy, 1), "\n")
+cat("動的化による収益リフト:", round(lift_pct, 2), "%\n")
+```
+
+このパラメータ設定では、動的価格は最適固定価格に対しておよそ**1.9%の収益改善**をもたらす。Lecture 15本編（リフト約2.4%）と近い水準であり、「1財・確定的な到着過程のロジットモデルでは、動的価格の優位性は数%程度に収まりやすい」というGallego-van Ryzin型モデルの一般的な傾向と整合的である。
+
+::: {.callout-note collapse="true"}
+## 配点基準
+
+最適固定価格をグリッドサーチで正しく求め、リフト（%）を計算できていれば満点。リフトが1桁%程度に収まること自体は正しい結果であり、「もっと大きいはず」と誤って値を作り込んでしまわないよう注意する（在庫と需要のバランスがちょうどよい場合、リフトは意外と小さくなるのが正しい振る舞いである）。
+:::
+
+### 設問2-5：モンテカルロで収益ロスの分布を見る
+
+```{r}
+#| label: sol15-2-5-mc
+n_mc <- 200
+alpha_hat_vec    <- rep(NA_real_, n_mc)
+revenue_loss_vec <- rep(NA_real_, n_mc)
+n_degenerate <- 0
+
+for (m in 1:n_mc) {
+  dgp_m <- simulate_varying_price_dgp(10000 + m, T_period, C_capacity, theta0_true, alpha_true,
+                                       lambda_bar, p_base = best_fixed_p, price_variation_pcts)
+  if (length(dgp_m$prices) < 5 || sd(dgp_m$prices) < 1e-8) {
+    n_degenerate <- n_degenerate + 1
+    next
+  }
+  fit_m <- fit_logit_newton(dgp_m$prices, dgp_m$purchase)
+  theta0_hat_m <- fit_m$theta[1]
+  alpha_hat_m  <- fit_m$theta[2]
+
+  # 推定値が理論的にありえない範囲(alpha<=0、極端に巨大)の場合は
+  # 「推定失敗」として除外する。実務でも、推定値が理論と矛盾する場合は
+  # まずデータ量・実験設計を見直すのが通常の対応であり、
+  # そのままDPに投入して政策を作ることはしない。
+  if (!is.finite(alpha_hat_m) || alpha_hat_m <= 0.005 || alpha_hat_m > 0.5) {
+    n_degenerate <- n_degenerate + 1
+    next
+  }
+
+  alpha_hat_vec[m] <- alpha_hat_m
+  dp_m <- solve_dp(T_period, C_capacity, theta0_hat_m, alpha_hat_m, lambda_bar, p_grid)
+  rev_m <- evaluate_policy_on_true_model(dp_m$pstar, T_period, C_capacity,
+                                          theta0_true, alpha_true, lambda_bar)
+  revenue_loss_vec[m] <- revenue_true_policy - rev_m
+}
+
+mc_df <- data.frame(alpha_hat = alpha_hat_vec, revenue_loss = revenue_loss_vec) %>%
+  filter(!is.na(revenue_loss))
+
+cat("推定が「妥当な範囲外」として除外された回数:", n_degenerate, "/", n_mc, "\n")
+cat("有効なモンテカルロ反復数:", nrow(mc_df), "\n\n")
+cat("alpha_hatの平均:", round(mean(mc_df$alpha_hat), 4), "（真値:", alpha_true, "）\n")
+cat("alpha_hatの標準偏差:", round(sd(mc_df$alpha_hat), 4), "\n\n")
+cat("収益ロスの平均:", round(mean(mc_df$revenue_loss), 1),
+    "（真の収益の", round(100 * mean(mc_df$revenue_loss) / revenue_true_policy, 2), "%）\n")
+cat("収益ロスの中央値:", round(median(mc_df$revenue_loss), 1), "\n")
+cat("収益ロスの標準偏差:", round(sd(mc_df$revenue_loss), 1), "\n")
+```
+
+```{r}
+#| label: sol15-2-5-hist
+#| fig-cap: "alpha_hatの標本分布と収益ロスの分布（モンテカルロ200回）"
+p1 <- ggplot(mc_df, aes(x = alpha_hat)) +
+  geom_histogram(bins = 25, fill = "steelblue", alpha = 0.8) +
+  geom_vline(xintercept = alpha_true, linetype = "dashed", color = "firebrick") +
+  labs(x = expression(hat(alpha)), y = "頻度", title = "alpha_hatの標本分布")
+
+p2 <- ggplot(mc_df, aes(x = revenue_loss)) +
+  geom_histogram(bins = 25, fill = "darkorange", alpha = 0.8) +
+  labs(x = "収益ロス", y = "頻度", title = "収益ロスの分布")
+
+p1 + p2
+```
+
+::: {.callout-important}
+## 結果の解釈：右に極端に長い裾を持つ分布
+
+この設定（60日間、到着客はおよそ40〜50人程度、価格変動は基準価格の$\pm15\%$の5段階のみ）では、$\hat\alpha$の標本分布は真値0.05のまわりに広く散らばり（標準偏差はおよそ0.03と、真値と同じオーダー）、収益ロスの分布は**中央値がおよそ16〜17（真の収益の1%以下）である一方、平均はその10倍以上（真の収益の6〜9%程度）**という、右に極端に長い裾を持つ形になる。
+
+これは実装のバグではない。**サンプルサイズが小さく、かつ価格変動の幅が限定的なロジットMLEでは、まれに$\hat\alpha$が真値から大きく外れる**（ときには真値の数分の1、あるいは逆に数倍になる）ことがあり、そのような外れ値がDPに投入されると、価格政策が極端な形（グリッドの上限に張り付くような高すぎる価格など）を取ってしまい、収益が大きく損なわれる。「たいていはそこそこうまくいくが、ときどき大きく外れる」という構造は、Lecture 15本編のモンテカルロでも観察された性質であり、この課題ではサンプルサイズと価格変動幅がより厳しいため、その効果がより極端な形で現れている。
+
+**これは推定の質を上げること（データを増やす、価格変動の幅を広げる実験を組むこと）が、収益の下振れリスクを直接減らすことを意味する**、という実務上とても重要な教訓につながる。
+:::
+
+::: {.callout-note collapse="true"}
+## 配点基準
+
+- モンテカルロループが正しく実装され、200回（または妥当な反復数）が回っていれば基礎点。
+- 収益ロスの分布に「右に長い裾」があること、またはそれに類する非対称性を確認・言及できていれば加点。
+- 推定が不安定になったケースをまったく除外せずに実行し、DPが発散・エラーで止まってしまった場合は、エラー処理（`tryCatch`や妥当性チェック）を入れているかで部分点を判断する。除外基準の具体的な数値（本解答では$\hat\alpha \in [0.005, 0.5]$）は必須ではなく、「明らかにおかしい推定値をそのままDPに渡さない」という判断ができていれば良い。
+:::
+
+### 設問2-6：経営含意
+
+::: {.callout-tip}
+## 解答例
+
+動的価格化は、このモデル設定では最適固定価格に対しておよそ2%程度の収益改善をもたらすにとどまり、劇的な効果ではない。一方で、需要推定の誤差は無視できない大きさの収益ロスを生みうる。特に1路線・1シーズン分（到着客数にして数十人程度）のデータだけで$\alpha$を推定し、そのままRMの価格政策に落とし込むと、収益ロスの平均は真の収益の数%〜1割近くに達し、運が悪ければさらに大きく毀損する。したがって、RM導入を検討する部署には、(1) 導入初期は複数路線・複数シーズンのデータをプールして$\alpha$を推定する、(2) 一定期間は価格をランダムに振る実験枠を意図的に確保し、需要推定の精度を継続的に検証する、という2点を提案したい。
+:::
+
+::: {.callout-note collapse="true"}
+## 配点基準
+
+「動的化のリフトは数%程度」「推定誤差が収益に無視できない影響を与える」「データ・実験設計への提言」の3点のうち2点以上に触れていれば満点。数値の桁感（%程度なのか、2倍3倍の違いなのか）が実際の計算結果と大きく矛盾していなければ、表現の細部は問わない。
+:::
+
+---
+
+## 総括
+
+このモンテカルロが示しているのは、**「$\hat\alpha$が真値の近くにある」ことと「その$\hat\alpha$に基づく価格政策が良い収益をもたらす」ことは、似ているようで別の主張だ**という点である。点推定が真値に近くても、DPという非線形な変換を経ると、わずかな推定誤差が大きな収益ロスに増幅されることがある。逆に言えば、価格政策の性能を評価するときに「$\hat\alpha$のSEが小さいから大丈夫」と考えるのは不十分で、**その推定量を実際の意思決定パイプラインに通したときに、金額としてどれだけのブレが生まれるかを、今日のようなエンドツーエンドのモンテカルロで確認する**ことが、実務上もっとも説得力のある頑健性チェックになる。

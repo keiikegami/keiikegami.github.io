@@ -1,0 +1,537 @@
+---
+title: "課題14：state dependenceの識別と買いだめの反実仮想"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+set.seed(202614 + 1)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この課題のねらい
+
+第14回でやった「state dependenceと異質性の識別」「買いだめとセールの動学」を、自分の手で最初から最後まで通す。
+
+- **Part 1**：ブランド選択パネルのDGPを自作する（N=1,000人×T=20週、2ブランド+outside、真のstate dependenceと個人異質性を両方含む）（30点）。
+- **Part 2**：naiveなpooled logitのバイアス確認、Wooldridge deviceでの改善確認、placebo実験、買いだめDPの完成と反実仮想、経営含意（70点）。
+
+配点は合計100点。手を動かせば2〜4時間で終わる分量。穴埋めコードの骨格を惜しみなく与えるので、まず埋めることから始めよ。
+:::
+
+この課題は講義ノート（`lecture14.qmd`）と同じ構造の問題を扱うが、**設定は変えてある**（2値選択→3択（2ブランド+outside）のマルチノミアルロジット、パラメータ値も別）。講義ノートのコードをコピペするだけでは通らないので、自分で理解して埋めること。
+
+---
+
+# Part 1：ブランド選択パネルのDGPを自作する（30点）
+
+## 舞台設定
+
+消費者 $i=1,\dots,N$、週 $t=1,\dots,T$ のパネルを考える。毎週、消費者は「ブランド1」「ブランド2」「買わない（outside）」の3択から1つを選ぶ。効用は
+
+$$
+u_{i1t} = c_1 + \beta_p\, \text{price}_{1t} + \lambda\, \mathbb{1}[y_{i,t-1}=1] + \mu_{i1} + \varepsilon_{i1t},
+$$
+$$
+u_{i2t} = c_2 + \beta_p\, \text{price}_{2t} + \lambda\, \mathbb{1}[y_{i,t-1}=2] + \mu_{i2} + \varepsilon_{i2t},
+$$
+
+outsideの効用は正規化して0（$\varepsilon_{i0t}$のみ）。$\varepsilon$はType I極値分布（第2回・第14回のlogitと同じ）。$\mu_{i1}, \mu_{i2}$は個人ごとの固定された異質性（ブランドへの好み）、$\lambda$が状態依存の強さである。
+
+**真のパラメータ**（あなたはこれを後で推定で回収する）：
+
+| 記号 | 意味 | 値 |
+|---|---|---|
+| $c_1, c_2$ | ブランド1・2の定数項 | $-0.3, -0.4$ |
+| $\beta_p$ | 価格係数 | $-1.0$ |
+| $\lambda$ | 状態依存の強さ | $1.0$ |
+| $\sigma_\mu$ | 個人異質性の標準偏差 | $1.2$ |
+
+価格 $\text{price}_{jt}$ は各週iidに引かれるランダムな変動とし、$\mu_i$とも過去の選択とも無相関にしておく（今日は価格の内生性は扱わず、state dependenceと異質性の識別だけに焦点を絞る。価格の内生性は第3回・第4回で扱った通りだ）。
+
+初期条件は、**バーンイン期間を十分長く回して、定常分布に近い状態からデータの記録を始める**ことで作る（第14回の講義ノートと同じ手法。初期条件問題そのものについては講義ノート1.2節を復習せよ）。
+
+## 問1（20点）：DGP関数を完成させる
+
+以下の`simulate_panel_mnl`関数を完成させよ。3択のsoftmax選択確率を計算し、逆関数法で選択を生成する。
+
+```{r}
+#| eval: false
+softmax_probs <- function(V) {
+  # V: (N x 2) ブランド1・2の効用。outsideの効用は0として先頭列に追加する。
+  V_full <- cbind(0, V)                    # (N x 3)：列1=outside, 列2=brand1, 列3=brand2
+  V_full <- V_full - apply(V_full, 1, max) # 数値安定化（第2回のoverflow対策と同じ）
+  eV <- exp(V_full)
+  eV / rowSums(eV)
+}
+
+simulate_panel_mnl <- function(N, Tn, burn, lambda, sigma_mu,
+                                price_sd = 0.3, beta_price = -1.0,
+                                const = c(-0.3, -0.4), seed = 1) {
+  set.seed(seed)
+  mu_i <- matrix(rnorm(N * 2, 0, sigma_mu), N, 2)   # (N x 2) ブランド1・2それぞれの個人異質性
+  y_prev <- rep(0L, N)                              # 0=outside, 1=brand1, 2=brand2
+  total_T <- burn + Tn
+  y_mat <- matrix(0L, N, Tn)
+  price_mat <- array(0, dim = c(N, Tn, 2))
+
+  for (t in 1:total_T) {
+    price_t <- matrix(rnorm(N * 2, 0, price_sd), N, 2)
+    lag1 <- as.numeric(______)                      # 【穴埋め】前期にbrand1を買ったか(0/1)
+    lag2 <- as.numeric(______)                      # 【穴埋め】前期にbrand2を買ったか(0/1)
+    V1 <- const[1] + beta_price * price_t[, 1] + lambda * lag1 + mu_i[, 1]
+    V2 <- const[2] + beta_price * price_t[, 2] + lambda * lag2 + mu_i[, 2]
+    probs <- softmax_probs(cbind(V1, V2))           # (N x 3): outside, brand1, brand2
+    u <- runif(N)
+    cum_probs <- t(apply(probs, 1, cumsum))
+    y_t <- rowSums(u > cum_probs)                    # 0,1,2 のいずれかになる
+
+    if (t > burn) {
+      y_mat[, t - burn] <- y_t
+      price_mat[, t - burn, ] <- price_t
+    }
+    y_prev <- y_t
+  }
+  list(y = y_mat, price = price_mat, mu = mu_i)
+}
+```
+
+::: {.callout-tip}
+## ヒント：`lag1`・`lag2`の作り方
+
+`y_prev`は0（outside）・1（brand1）・2（brand2）のいずれかを取る整数ベクトルだ。「前期にbrand1を買ったか」は`y_prev == 1`という論理ベクトルであり、これを`as.numeric()`で0/1に変換すればよい。
+:::
+
+真のパラメータでデータを生成せよ（N=1000, T=20, burnは十分な長さ、例えば30以上）。
+
+```{r}
+#| eval: false
+N <- 1000; Tn <- 20; BURN <- 30
+lambda_true <- 1.0
+sigma_mu_true <- 1.2
+
+dgp <- simulate_panel_mnl(N, Tn, BURN, lambda = lambda_true, sigma_mu = sigma_mu_true, seed = 141)
+```
+
+## 問2（10点）：記述統計
+
+生成したデータについて、次を計算し、表と図で示せ。
+
+(a) 各選択肢（outside, brand1, brand2）の全体シェア。
+(b) ブランド1についての「リピート率」：$P(y_t=1 \mid y_{t-1}=1)$ と $P(y_t=1 \mid y_{t-1}\neq 1)$、およびそのギャップ。
+(c) (b)を棒グラフで可視化せよ（第14回の講義ノート1.3節と同じ形式でよい）。
+
+```{r}
+#| eval: false
+# (a) 全体シェア
+cat("choice shares:\n")
+print(table(dgp$y) / length(dgp$y))
+
+# (b) ブランド1のリピート率
+y_lag <- dgp$y[, -Tn]
+y_now <- dgp$y[, -1]
+p_repeat <- mean(______)                            # 【穴埋め】P(y_t=1 | y_{t-1}=1)
+p_switch <- mean(______)                            # 【穴埋め】P(y_t=1 | y_{t-1}!=1)
+cat("P(brand1 | 前回brand1):", round(p_repeat, 4), "\n")
+cat("P(brand1 | 前回brand1以外):", round(p_switch, 4), "\n")
+cat("リピート率ギャップ:", round(p_repeat - p_switch, 4), "\n")
+
+# (c) 棒グラフで可視化する（wide形式で作ってからpivot_longerでlong形式に変換する）
+df_repeat_wide <- data.frame(prev_brand1 = p_repeat, prev_other = p_switch)
+df_repeat_long <- df_repeat_wide %>%
+  pivot_longer(cols = everything(), names_to = "condition", values_to = "prob") %>%
+  mutate(condition = recode(condition, prev_brand1 = "前回brand1", prev_other = "前回brand1以外"))
+
+ggplot(df_repeat_long, aes(condition, prob, fill = condition)) +
+  geom_col(width = 0.5, show.legend = FALSE) +
+  labs(title = "P(今回brand1 | 前回の選択)", x = NULL, y = "確率")
+```
+
+::: {.callout-note}
+## ヒント：講義ノートとの違い、そして2段階の条件抽出に注意
+
+講義ノートは2択（買う/買わない）だったので、リピート率は単純だった。ここは3択（0=outside, 1=brand1, 2=brand2）なので、「ブランド1について」のリピート率（brand1を買った翌週もbrand1を買うか）に焦点を絞ればよい。ブランド2についても同様の統計を計算してもよいが、必須ではない（配点はブランド1のみで満点）。
+
+**注意**：`y_now`は0/1/2のいずれかを取るカテゴリ変数なので、`mean(y_now[y_lag == 1])`のように書くと「brand1を選んだ確率」ではなく「y_nowの値（0,1,2）そのものの平均」を計算してしまい、1を超える意味のない値が出る（典型的なバグ）。正しくは、まず`y_lag == 1`で「前回brand1を買った人」に絞り込み、そのうえで`== 1`により「今回もbrand1を買ったか」を判定する、**2段階の条件抽出**が必要である：`mean(y_now[y_lag == 1] == 1)`という形になる。
+:::
+
+---
+
+# Part 2：推定・placebo・買いだめ（70点）
+
+## 問3（15点）：naiveなpooled multinomial logitでlambda_hatの過大評価を確認する
+
+Part 1で生成したデータに、ラグ選択ダミーを入れたpooled multinomial logitを当てはめる。**ヒント**：`fixest::feglm`は二値のbinomialには使えるが、3択のmultinomial logitを直接推定する関数はwhitelistに無い。そこで、自作のニュートン法MLEを使う（3択softmaxの尤度を手で最大化する）。以下の骨格を完成させよ。
+
+```{r}
+#| eval: false
+# 3択softmax MLEを自作する（4パラメータ: c1, c2, beta_p, lambda）。
+# 尤度: 各観測についてP(選んだ選択肢)のlogを足し合わせる。
+mnl_loglik <- function(theta, y, p1, p2, lag1, lag2) {
+  c1 <- theta[1]; c2 <- theta[2]; bp <- theta[3]; lam <- theta[4]
+  V1 <- c1 + bp * p1 + lam * lag1
+  V2 <- c2 + bp * p2 + lam * lag2
+  V_full <- cbind(0, V1, V2)
+  V_full <- V_full - apply(V_full, 1, max)
+  eV <- exp(V_full)
+  probs <- eV / rowSums(eV)
+  n <- length(y)
+  # y=0->列1, y=1->列2, y=2->列3 に対応させてlogを取る
+  chosen_probs <- probs[cbind(1:n, y + 1)]
+  sum(log(pmax(chosen_probs, 1e-300)))
+}
+
+# ニュートン法で最大化する（勾配・ヘシアンを数値微分で近似してもよいし、
+# 解析的スコア関数を書いてもよい。ここでは数値最適化`optim`を使う簡易版を示す）
+mnl_mle <- function(y, p1, p2, lag1, lag2) {
+  neg_ll <- function(theta) -mnl_loglik(theta, y, p1, p2, lag1, lag2)
+  opt <- optim(par = c(0, 0, 0, 0), fn = neg_ll, method = "BFGS")
+  opt$par
+}
+
+build_pooled_mnl_df <- function(sim) {
+  Nn <- dim(sim$y)[1]; Tn <- dim(sim$y)[2]
+  y_lag <- sim$y[, -Tn]; y_now <- sim$y[, -1]
+  price_now <- sim$price[, -1, ]
+  list(
+    y    = as.vector(y_now),
+    p1   = as.vector(price_now[, , 1]),
+    p2   = as.vector(price_now[, , 2]),
+    lag1 = as.numeric(as.vector(______)),           # 【穴埋め】前期選択がbrand1(=1)か
+    lag2 = as.numeric(as.vector(______))            # 【穴埋め】前期選択がbrand2(=2)か
+  )
+}
+
+df_naive <- build_pooled_mnl_df(dgp)
+theta_naive <- mnl_mle(df_naive$y, df_naive$p1, df_naive$p2, df_naive$lag1, df_naive$lag2)
+cat("estimated (c1, c2, beta_p, lambda):\n")
+print(round(theta_naive, 3))
+cat("true lambda =", lambda_true, "\n")
+```
+
+推定された$\hat\lambda$は真値1.0にどれくらい近いか（あるいは遠いか）を確認せよ。**Part 1のDGPは真の状態依存（$\lambda=1.0$）と個人異質性（$\sigma_\mu=1.2$）の両方を持つ現実的な設定**であることに注意せよ。したがって、naiveなpooled logitの$\hat\lambda$は真値1.0にきちんと一致するのではなく、**真値をかなり上回る**はずだ（異質性の分だけ$\lambda$に上乗せされてしまうため）。もし$\hat\lambda$が2.0を超えるような極端な値になっても、それは推定の失敗ではなく、講義ノートで学んだ「naive推定は異質性を状態依存と取り違える」というメカニズムが働いている証拠である。
+
+::: {.callout-tip}
+## ヒント：optimが収束しない・変な値が出る場合
+
+`optim`の初期値をすべて0にしているが、収束しない場合は初期値を変えてみるか、`method = "Nelder-Mead"`を試すとよい。また、`BFGS`は勾配を数値微分で近似するため多少時間がかかるが、この規模のデータ（N=1000×T=19程度）なら数秒〜数十秒で終わるはずだ。
+:::
+
+## 問4（15点）：Wooldridge deviceでの改善を確認する
+
+初期選択のダミーと、個人内平均価格を説明変数に追加したWooldridge device版を推定せよ。
+
+```{r}
+#| eval: false
+build_wooldridge_mnl_df <- function(sim) {
+  Nn <- dim(sim$y)[1]; Tn <- dim(sim$y)[2]
+  y0 <- sim$y[, 1]
+  y0_is1 <- as.numeric(y0 == 1)
+  y0_is2 <- as.numeric(y0 == 2)
+  price_bar1 <- rowMeans(sim$price[, -1, 1])
+  price_bar2 <- rowMeans(sim$price[, -1, 2])
+
+  y_lag <- sim$y[, -Tn]; y_now <- sim$y[, -1]
+  price_now <- sim$price[, -1, ]
+  Tm1 <- Tn - 1
+  list(
+    y    = as.vector(y_now),
+    p1   = as.vector(price_now[, , 1]),
+    p2   = as.vector(price_now[, , 2]),
+    lag1 = as.numeric(as.vector(y_lag == 1)),
+    lag2 = as.numeric(as.vector(y_lag == 2)),
+    y0_1 = rep(y0_is1, times = Tm1),
+    y0_2 = rep(y0_is2, times = Tm1),
+    pbar1 = rep(price_bar1, times = Tm1),
+    pbar2 = rep(price_bar2, times = Tm1)
+  )
+}
+
+# 8パラメータ版の尤度・MLE（c1,c2,beta_p,lambda,rho_y0_1,rho_y0_2,rho_pbar1,rho_pbar2）
+mnl_loglik_wool <- function(theta, d) {
+  c1 <- theta[1]; c2 <- theta[2]; bp <- theta[3]; lam <- theta[4]
+  r01 <- theta[5]; r02 <- theta[6]; rp1 <- theta[7]; rp2 <- theta[8]
+  V1 <- c1 + bp * d$p1 + lam * d$lag1 + r01 * d$y0_1 + rp1 * d$pbar1
+  V2 <- ______                                       # 【穴埋め】V1と対称的にbrand2の効用を作る
+  V_full <- cbind(0, V1, V2)
+  V_full <- V_full - apply(V_full, 1, max)
+  eV <- exp(V_full)
+  probs <- eV / rowSums(eV)
+  n <- length(d$y)
+  chosen_probs <- probs[cbind(1:n, d$y + 1)]
+  sum(log(pmax(chosen_probs, 1e-300)))
+}
+
+mnl_mle_wool <- function(d) {
+  neg_ll <- function(theta) -mnl_loglik_wool(theta, d)
+  opt <- optim(par = rep(0, 8), fn = neg_ll, method = "BFGS")
+  opt$par
+}
+
+df_wool <- build_wooldridge_mnl_df(dgp)
+theta_wool <- mnl_mle_wool(df_wool)
+cat("naive lambda_hat:     ", round(theta_naive[4], 3), "\n")
+cat("wooldridge lambda_hat:", round(theta_wool[4], 3), "\n")
+cat("true lambda:          ", lambda_true, "\n")
+```
+
+$\hat\lambda$のバイアスは、Wooldridge deviceでどの程度縮小したか。**残っているバイアスの大きさも正直に報告せよ**（講義ノートの教訓：「効くが完治しない」）。
+
+## 問5（20点）：placebo実験——見せかけの状態依存を自分で作る
+
+ここまでは真の$\lambda=1.0$のデータで練習してきた。今度は**自分でplacebo DGPを作る**：真の$\lambda=0$（状態依存は一切ない）で、個人異質性だけが強い（$\sigma_\mu$を大きめに、例えば1.5程度）データを生成し、naiveなpooled multinomial logitで推定したら何が起きるかを確認せよ。
+
+```{r}
+#| eval: false
+# (i) placebo DGP: lambda=0, 異質性のみ
+dgp_placebo <- simulate_panel_mnl(N, Tn, BURN, lambda = ______, sigma_mu = ______, seed = 142)  # 【穴埋め】
+
+# (ii) naive推定
+df_placebo <- build_pooled_mnl_df(dgp_placebo)
+theta_placebo_naive <- mnl_mle(df_placebo$y, df_placebo$p1, df_placebo$p2,
+                                df_placebo$lag1, df_placebo$lag2)
+cat("placebo DGP (true lambda=0) でのnaive lambda_hat:", round(theta_placebo_naive[4], 3), "\n")
+
+# (iii) Wooldridge deviceでの改善も確認
+df_placebo_wool <- build_wooldridge_mnl_df(dgp_placebo)
+theta_placebo_wool <- mnl_mle_wool(df_placebo_wool)
+cat("placebo DGP でのWooldridge lambda_hat:", round(theta_placebo_wool[4], 3), "\n")
+```
+
+真の$\lambda=0$にもかかわらず、naive推定がどれだけ大きな偽の$\hat\lambda$を検出したか、Wooldridge deviceがそれをどれだけ縮小したかを、表または図で示せ。**この結果を2〜3文で解釈せよ**（何が起きているか、なぜそれが実務上危険か）。
+
+::: {.callout-warning}
+## この実験の意義
+
+この問いこそが今日の課題の核心である。「異質性しかない世界で、naiveな推定が本物の状態依存を『発見』してしまう」ことを、あなた自身のシミュレーションで再現できたら、講義ノートの主張（見せかけの状態依存の危険性）を完全に理解したことになる。もし$\hat\lambda$が0に近い値しか出なければ、DGPの$\sigma_\mu$が小さすぎる可能性がある。$\sigma_\mu$を大きくして（1.5〜2.0程度）再実行してみよ。
+:::
+
+## 問6（15点）：買いだめDPと反実仮想
+
+以下は、講義ノート3.2節の在庫DPを、**在庫上限・購入上限が異なるパラメータ**で書いた骨格である。完成させ、(a) 政策関数の確認、(b) セール頻度を2倍にする反実仮想での売上・利益変化、(c) 短期/長期弾力性を報告せよ。
+
+```{r}
+#| eval: false
+Xmax <- 6; Amax <- 4
+beta_dp <- 0.95
+u_consume <- 2.5
+c_hold <- 0.10
+stockout_cost <- 1.8
+p_regular <- 1.00
+p_sale <- 0.70            # 30%引き（講義ノートより深いセール）
+sale_prob <- 1/10          # セール頻度（講義ノートより低頻度）
+q_base <- 0.55; q_slope <- 0.025
+
+q_of_x <- function(x) pmin(q_base + q_slope * x, 0.95)
+states <- 0:Xmax
+actions <- 0:Amax
+
+expected_flow_continuation <- function(x, a, p, V) {
+  post <- x + a
+  q <- q_of_x(post)
+  val_consume <- {
+    consumption <- as.numeric(post >= 1)
+    end_inv <- post - consumption
+    cost <- p * a + c_hold * end_inv
+    benefit <- u_consume * consumption
+    benefit - cost + beta_dp * V[end_inv + 1]
+  }
+  val_noconsume <- {
+    end_inv <- post
+    cost <- p * a + c_hold * end_inv
+    benefit <- -(if (post == 0) stockout_cost else 0)
+    benefit - cost + beta_dp * V[end_inv + 1]
+  }
+  q * val_consume + (1 - q) * val_noconsume
+}
+
+# 【穴埋め】sale_probを引数化し、任意のセール頻度でDPを解けるようにする
+solve_inventory_dp_general <- function(sale_prob_arg, tol = 1e-10, maxit = 3000) {
+  V <- rep(0, Xmax + 1)
+  prices <- c(p_regular, p_sale)
+  probs_price <- c(______, ______)                  # 【穴埋め】(1-sale_prob_arg, sale_prob_arg)
+  policy <- matrix(0L, 2, Xmax + 1)
+  for (it in 1:maxit) {
+    pol_new <- matrix(0L, 2, Xmax + 1)
+    for (pi_idx in 1:2) {
+      p <- prices[pi_idx]
+      for (xi in seq_along(states)) {
+        x <- states[xi]
+        best_val <- -Inf; best_a <- 0
+        for (a in actions) {
+          if (x + a > Xmax) next
+          val <- expected_flow_continuation(x, a, p, V)
+          if (val > best_val) { best_val <- val; best_a <- a }
+        }
+        pol_new[pi_idx, xi] <- best_a
+      }
+    }
+    V_new <- numeric(Xmax + 1)
+    for (xi in seq_along(states)) {
+      x <- states[xi]
+      v_x <- 0
+      for (pi_idx in 1:2) {
+        a <- pol_new[pi_idx, xi]
+        v_x <- v_x + probs_price[pi_idx] * expected_flow_continuation(x, a, prices[pi_idx], V)
+      }
+      V_new[xi] <- v_x
+    }
+    err <- max(abs(V_new - V))
+    V <- V_new; policy <- pol_new
+    if (err < tol) break
+  }
+  list(V = V, policy = policy, iters = it)
+}
+
+dp_base   <- solve_inventory_dp_general(1/10)
+dp_double <- solve_inventory_dp_general(1/5)      # セール頻度2倍
+
+cat("通常頻度(1/10)での政策関数(通常価格):\n"); print(dp_base$policy[1, ])
+cat("通常頻度(1/10)での政策関数(セール価格):\n"); print(dp_base$policy[2, ])
+```
+
+```{r}
+#| eval: false
+# (b) セール頻度2倍の反実仮想：総販売数量・収益・利益を比較する
+simulate_calendar_general <- function(N_hh, Tn, sale_bool, policy, sale_prob_arg, seed = 1, burn_in = 120) {
+  set.seed(seed)
+  x <- rep(0L, N_hh)
+  for (t in 1:burn_in) {
+    is_sale <- runif(N_hh) < sale_prob_arg
+    a <- ifelse(is_sale, policy[2, x + 1], policy[1, x + 1])
+    post <- x + a
+    q <- q_of_x(post)
+    occ <- runif(N_hh) < q
+    consumption <- as.integer(occ & post >= 1)
+    x <- post - consumption
+  }
+  units_sold <- numeric(Tn); revenue <- numeric(Tn)
+  for (t in 1:Tn) {
+    on_sale <- sale_bool[t]
+    p <- if (on_sale) p_sale else p_regular
+    a <- if (on_sale) policy[2, x + 1] else policy[1, x + 1]
+    units_sold[t] <- sum(a)
+    revenue[t] <- sum(a) * p
+    post <- x + a
+    q <- q_of_x(post)
+    occ <- runif(N_hh) < q
+    consumption <- as.integer(occ & post >= 1)
+    x <- post - consumption
+  }
+  list(units = units_sold, revenue = revenue)
+}
+
+unit_cost <- 0.40      # 限界費用（利益計算用）
+N_hh <- 15000
+Tprobe <- 300
+
+set.seed(11)
+sale_bool_base   <- runif(Tprobe) < 1/10
+set.seed(11)
+sale_bool_double <- runif(Tprobe) < 1/5
+
+res_base   <- simulate_calendar_general(N_hh, Tprobe, sale_bool_base,   dp_base$policy,   1/10, seed = 321)
+res_double <- simulate_calendar_general(N_hh, Tprobe, sale_bool_double, dp_double$policy, 1/5,  seed = 321)
+
+window <- 20:Tprobe
+total_units_base   <- sum(res_base$units[window])
+total_units_double <- sum(res_double$units[window])
+profit_base   <- sum(res_base$revenue[window])   - total_units_base   * unit_cost
+profit_double <- sum(res_double$revenue[window]) - total_units_double * unit_cost
+
+cat("総販売数量の変化(%):", round((total_units_double/total_units_base - 1) * 100, 2), "\n")
+cat("利益の変化(%):", round((profit_double/profit_base - 1) * 100, 2), "\n")
+```
+
+```{r}
+#| eval: false
+# (c) 短期・長期弾力性
+units_sale_event <- simulate_calendar_general(N_hh, 25, c(rep(FALSE, 9), TRUE, rep(FALSE, 15)),
+                                               dp_base$policy, 1/10, seed = 42)$units
+units_no_event   <- simulate_calendar_general(N_hh, 25, rep(FALSE, 25),
+                                               dp_base$policy, 1/10, seed = 42)$units
+pct_cut <- p_sale / p_regular - 1
+sr_pct_change <- units_sale_event[10] / units_no_event[10] - 1
+sr_elasticity <- sr_pct_change / pct_cut
+
+stationary_units <- function(always_sale, seed) {
+  Tp <- 60
+  sale_bool <- rep(always_sale, Tp)
+  policy_use <- dp_base$policy
+  u <- simulate_calendar_general(N_hh, Tp, sale_bool, policy_use, if (always_sale) 1 else 0, seed = seed, burn_in = 150)$units
+  mean(tail(u, 15))
+}
+units_permanent_sale    <- stationary_units(TRUE,  seed = 99)
+units_permanent_regular <- stationary_units(FALSE, seed = 100)
+lr_pct_change <- units_permanent_sale / units_permanent_regular - 1
+lr_elasticity <- lr_pct_change / pct_cut
+
+cat("短期弾力性:", round(sr_elasticity, 3), "\n")
+cat("長期弾力性:", round(lr_elasticity, 3), "\n")
+cat("比:", round(sr_elasticity / lr_elasticity, 1), "倍\n")
+```
+
+::: {.callout-tip}
+## ヒント：`stationary_units`の`always_sale`引数について
+
+`always_sale=TRUE`（恒久的にセール価格）の世界を作るとき、`simulate_calendar_general`の`sale_prob_arg`は本来「DPを解くときに使ったセール確率」を意味する変数だが、恒久的にセール価格の世界を作る際は単に「毎期セール」というカレンダーを渡せばよく、DPの政策関数自体は`dp_base$policy`（元のセール確率1/10で解いたもの）をそのまま使う。これは意図的な近似だ——本来なら「セールが恒久的だと知っている」消費者は、政策関数自体を解き直すはずだが（`sale_prob=1`でDPを解き直す）、ここでは「短期的にはセールが来る確率は1/10だと思っているが、たまたま今回はずっとセールが続いた」という設定に近い。両方を試して結果を比較してみるのもよい発展課題である。
+:::
+
+## 問7（5点）：経営含意3行
+
+問3〜5の$\lambda$の推定結果を踏まえて、「新規顧客への初回割引に投資すべきか」という問いに、**3行以内**で答えよ。あなたのシミュレーションで回収された$\hat\lambda$（naiveとWooldridgeの両方の値、および真値）を根拠として引用すること。
+
+::: {.callout-note}
+## 書き方のヒント
+
+「本課題のシミュレーションでは真の$\lambda$は◯◯、naive推定は△△、Wooldridge deviceは□□だった。このズレの大きさから、初回割引投資の正当化には（過大評価・過小評価）のリスクがあり、実務では〜〜すべきである」というような骨格で書くとよい。数値を引用すること。
+:::
+
+---
+
+## 提出方法
+
+- この`.qmd`の穴埋め（`______`と`#| eval: false`）をすべて埋め、`#| eval: false`を外して最後まで render できる状態にする。
+- 各問の出力（表・図）とコメントを含めること。
+- render した HTML を提出。
+
+::: {.callout-important}
+## 配点（合計100点）
+
+- 問1（20）：DGP関数（softmax・逆関数法での選択生成）の完成
+- 問2（10）：記述統計（シェア・リピート率）と可視化
+- 問3（15）：naiveなpooled multinomial logitの実装とlambda_hat過大評価の確認
+- 問4（15）：Wooldridge deviceの実装と改善度合いの報告（残るバイアスも正直に）
+- 問5（20）：placebo DGPの自作、naive/Wooldridgeでの見せかけの状態依存の確認と解釈
+- 問6（15）：買いだめDPの完成、セール頻度2倍の反実仮想、短期・長期弾力性の報告
+- 問7（5）：経営含意3行（数値を根拠に）
+:::

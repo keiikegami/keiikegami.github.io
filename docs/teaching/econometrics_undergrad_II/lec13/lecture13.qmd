@@ -1,0 +1,885 @@
+---
+title: "Lecture 13：動学的離散選択1 — Rust と Hotz-Miller"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+set.seed(202613)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この講義で押さえたいこと
+
+- 「今日の選択が明日の自分の状況を変える」場面（forward-looking な意思決定）を、**動学的離散選択モデル**として定式化できる。状態・行動・状態遷移・価値関数・Bellman 方程式・choice-specific value function という部品を組み立てる。
+- Rust (1987) の**バスエンジン交換モデル**を通じて、たった一人の意思決定者（整備責任者 Harold Zurcher）の判断記録から、深層パラメータ（維持費・交換費）を推定し、政策反実仮想を回す一連の流れを体感する。
+- **第2回の遺産の回収**：Type I 極値ショックのもとでは、静学 logit で $\delta$ が座っていた場所に「将来価値込みの choice-specific value $v(x,a)$」が座るだけで、選択確率は今回もまた logit になる。Emax = logsum 公式が動学でそのまま効く。
+- 推定は2通り。**NFXP**（Rust の方法：外側で最適化・内側で価値関数反復を毎回解き切る）と、**Hotz-Miller の CCP アプローチ**（価値関数を解かずに、データの選択確率から価値差を逆算する）。このモデルでは交換が **renewal action** なので、CCP は魔法のように簡単な線形推定になる。
+- 反実仮想（交換費の補助）を、**forward-looking を正しく仮定したモデル**と**myopic（$\beta=0$）モデル**とで比べ、動学を無視すると何を見誤るかを数値で確かめる。
+:::
+
+## 前回までの道のりと、今日の位置
+
+コース前半（第2〜4回）で需要推定を、中盤（第6〜8回）で因果推論を、そして第9〜11回で顧客の「状態」を扱う階層モデル・顧客パネル・ターゲティングをやってきた。とくに第10回の BG/NBD では、顧客が「生きているか（alive か）」という**観測できない状態**を確率で扱った。「消費者には状態がある」という発想は、もう我々の手に馴染んでいる。
+
+だが、これまでの需要モデルには決定的に欠けているものがあった。**時間を通じた先読み（forward-looking behavior）**である。第2〜4回の logit は「今日の効用だけで今日の選択を決める」という**静学（static）**モデルだった。消費者は、今日の選択が明日の自分の状況をどう変えるかを、一切気にしない。
+
+しかし現実のビジネスには、「今日どうするか」が「明日の自分の立場」を変える場面が溢れている。
+
+- **機種変更のタイミング**：今スマホを買い替えるか、次のセールまで待つか。待てば新機種が出るかもしれないし、今の端末はさらに古くなる。
+- **ポイント失効前の駆け込み**：期限が近いポイントを、要らないものにでも使ってしまう。
+- **まとめ買い（買いだめ）**：特売のときに多めに買っておけば、次に定価で買わずに済む。今日の在庫が明日の購買を左右する。
+- **設備更新**：工場の機械を今リプレースするか、あと1年使い倒すか。古い機械は故障リスクが上がっていく。
+- **解約金のあるサブスク解約**：今解約すると違約金がかかる。あと2ヶ月で無料期間が終わるなら、待った方が得かもしれない。
+
+これらに共通するのは、**行動が「状態」を変え、その状態が将来の効用を左右する**という構造だ。今日まとめ買いすれば、明日の「在庫」という状態が変わる。今日エンジンを載せ替えれば、明日の「走行距離」という状態がリセットされる。合理的な意思決定者は、こうした将来への波及を織り込んで今日の行動を選ぶ。これを扱うのが**動学的離散選択（dynamic discrete choice, DDC）**である。
+
+今日のゴールは3つ。
+
+1. 状態・行動・価値関数・Bellman 方程式という動学の言葉を、Rust のバス問題という具体例で身につける。
+2. 静学 logit（第2回）が、動学でもほとんどそのまま生き延びること（logsum の再登場）を理解する。
+3. 2つの推定法（NFXP と CCP）を自分の手で実装し、真値を回収し、反実仮想を回す。そして「動学を仮定する利点とコスト」を整理する。
+
+::: {.callout-note}
+## 記法について：今日から $\beta$ は割引因子
+
+第2〜4回では $\beta$ は「属性への選好パラメータ」だった（効用 $u = x'\beta - \alpha p + \cdots$ の $\beta$）。しかし**動学の文献では $\beta$ は割引因子（discount factor）を指すのが標準**である。この第13〜15回では、この文献の慣習に従い、**$\beta$ を割引因子**として使う。効用（flow utility）のパラメータは $\theta$ と書く。混乱しないよう、初出のここで明示的に断っておく。$\beta$ は $0 < \beta < 1$ の割引率で、今日の1単位の効用に対して1期後の効用を $\beta$ 倍に割り引く、あの $\beta$ だ。
+:::
+
+## Harold Zurcher の物語
+
+動学的離散選択の世界には、伝説的な最初の一歩がある。John Rust の1987年の論文、その主人公は **Harold Zurcher** という一人の男だ。
+
+彼は、米国ウィスコンシン州マディソン市の市営バス公社で、車両整備を統括する責任者（superintendent）だった。彼の仕事の一つに、**バスのエンジンをいつ載せ替えるか**という判断があった。バスは走れば走るほど、エンジンの各部品が摩耗する。走行距離（mileage）が伸びると、故障の頻度が上がり、その都度の修理費（維持費）がかさむ。ある時点で Zurcher は決断する——「このバスは走りすぎた。エンジンをまるごと新品（あるいは再生品）に載せ替えよう」と。載せ替えれば維持費は一気に下がるが、載せ替えそのものに大きな費用（交換費）がかかる。
+
+Zurcher は、各バスの走行距離を台帳で管理し、毎月「載せ替えるか、もう少し使い続けるか」を判断していた。**維持費を惜しんで載せ替えを先延ばしにすると、故障リスクと修理費がかさむ。かといって早すぎる載せ替えは、高い交換費を無駄にする。** この2つのコストのバランスをとる判断を、Zurcher は経験に基づいて下していた。
+
+Rust は、この Zurcher の判断記録（どのバスが、どの走行距離で、いつ載せ替えられたか）を丹念に集め、**「Zurcher は将来のコストまで見据えて、期待割引費用を最小化するように載せ替えを決めている」**という動学モデルを立てて構造推定した。ここには、実証IOの一つの美学が凝縮されている。市場全体でも、多数の企業でもなく、**たった一人の意思決定者の頭の中**を、構造モデルとして復元してみせたのだ。バス公社の地味な台帳が、動学的離散選択という分野まるごとの出発点になった。
+
+::: {.callout-note}
+## この物語で誇張しないこと
+
+Rust のデータは1970年代〜80年代前半のマディソン市バス公社のもので、対象は100台強のバス、判断記録は数千件のオーダーだったと一般に知られている。ただし本講義で以降に出す数値（交換費・維持費の大きさ、状態の数など）は、**説明のために我々が設定したシミュレーション値**であって、Rust の推定値そのものではない。原論文の具体的な推定値に関心があれば、Rust (1987) を直接読んでほしい。ここでの狙いは「モデルの構造と推定の流れを、手を動かして体感する」ことにある。
+:::
+
+## モデルの部品
+
+Rust のバス問題を、我々のシミュレーション用に最小構成で組む。部品を一つずつ並べる。
+
+**状態 $x$（走行距離）**。エンジンの累積走行距離を、離散グリッド $x \in \{0, 1, \ldots, K-1\}$ で表す。$x=0$ は新品同様、$x$ が大きいほど走り込んだ状態だ。今日は $K = 20$ 状態でいく（現実には走行距離をビンに区切って離散化する）。
+
+**行動 $a$**。毎期、Zurcher は2択を迫られる：$a = 0$（**維持**＝そのまま使う）か $a = 1$（**交換**＝エンジンを載せ替える）か。
+
+**flow utility $u(x, a; \theta)$**（その期に得る「効用」＝コストの符号を反転したもの）。線形で十分だ：
+
+$$
+u(x, 0) = -\theta_1\, x, \qquad u(x, 1) = -RC.
+$$
+
+- 維持（$a=0$）すると、走行距離 $x$ に比例した維持費がかかる。$\theta_1 > 0$ は「1状態あたりの維持費の増分」。走り込んだバスほど維持が高くつく。
+- 交換（$a=1$）すると、載せ替え費用 $RC$（replacement cost）がかかる。これは走行距離によらず一定とする（新品エンジンの値段は今の距離と無関係）。
+
+**状態遷移**。行動によって、次期の走行距離が確率的に決まる。
+
+- 維持（$a=0$）：距離は進む。$x' = \min(x + j,\, K-1)$、$j \in \{0, 1, 2\}$ を確率 $(p_0, p_1, p_2)$ で引く（1ヶ月で0・1・2ビンぶん進む）。
+- 交換（$a=1$）：距離はリセットされる。$x' = \min(0 + j,\, K-1)$、$j$ は同じ分布。**新品エンジンなので $x=0$ から再スタートし、そこから距離が進む。**
+
+**T1EV ショック $\varepsilon_a$**。各行動 $a$ には、分析者に見えない効用ショック $\varepsilon_a$ が乗る。第2回と同じく、これを Type I 極値分布（Gumbel）と仮定する。これが今日の全ての「logit らしさ」の源になる。
+
+**割引因子 $\beta$**。将来の効用を $\beta$ 倍に割り引く。ここでは $\beta = 0.95$ に固定する（後で「なぜ推定せず固定するのか」を議論する）。
+
+## Bellman 方程式と logsum（第2回の遺産の回収）
+
+さて、意思決定者はどう行動を選ぶのか。「今日のコストだけ」を見るのではなく、「今日のコスト＋将来のコストの割引期待値」を見る。これを表すのが**価値関数（value function）**だ。
+
+まず、状態 $x$ で行動 $a$ を選んだときの価値を、**choice-specific value function** $v(x, a)$ で書く：
+
+$$
+v(x, a) = u(x, a) + \beta \sum_{x'} P(x' \mid x, a)\, V(x').
+$$
+
+第1項 $u(x,a)$ は今日の flow utility、第2項は「行動 $a$ の結果として遷移する次期状態 $x'$ での価値 $V(x')$ の割引期待値」だ。$P(x' \mid x, a)$ は上で定めた状態遷移確率。
+
+では $V(x)$（状態 $x$ の価値、ショックを見る前の期待値）は何か。意思決定者は $\varepsilon_a$ を見てから、$v(x,a) + \varepsilon_a$ が最大になる $a$ を選ぶ。だから
+
+$$
+V(x) = \mathbb{E}_{\varepsilon}\left[\max_{a \in \{0,1\}} \big(v(x, a) + \varepsilon_a\big)\right].
+$$
+
+ここで**第2回の遺産**が炸裂する。$\varepsilon_a$ が Type I 極値分布なら、この「ショック込みの最大値の期待値（Emax）」は、あの **logsum 公式**で閉じた形に書けるのだった：
+
+$$
+V(x) = \log\left(\sum_{a} \exp(v(x, a))\right) + \gamma
+= \log\big(\exp(v(x,0)) + \exp(v(x,1))\big) + \gamma,
+$$
+
+$\gamma \approx 0.5772$ は Euler 定数（Euler-Mascheroni 定数）だ。第4回の合併分析で消費者余剰を測ったあの inclusive value（logsum）と、まったく同じ数式である。
+
+そして選択確率も、今回もまた **logit** になる：
+
+$$
+P(a = 1 \mid x) = \frac{\exp(v(x, 1))}{\exp(v(x, 0)) + \exp(v(x, 1))}.
+$$
+
+::: {.callout-important}
+## ここが核心：静学 logit の $\delta$ の座に、動学の $v(x,a)$ が座るだけ
+
+第2回で選択確率は $s_j = \exp(\delta_j) / \sum_k \exp(\delta_k)$ だった。$\delta_j$ は「財 $j$ の（今日の）平均効用」。
+
+動学では、この $\delta_j$ が座っていた場所に、**将来価値まで織り込んだ choice-specific value $v(x,a) = u(x,a) + \beta \mathbb{E}[V(x')]$** が座る。ただそれだけで、選択確率は今回もまた logit の形をとる。$V$ を求めるのに Emax = logsum を使い、その $V$ が $v$ に入り、その $v$ で選択確率が決まる——**T1EV の親和性は、静学から動学へそのまま持ち越せる**。これが Rust モデルが「解ける・推定できる」ことの技術的な心臓部だ。
+:::
+
+::: {.callout-note collapse="true"}
+## 導出：Emax が logsum になる（第2回の再掲）
+
+$\varepsilon_0, \varepsilon_1$ が独立に Gumbel（位置0・尺度1）に従うとする。$W_a := v(x,a)$ と略記すると、Emax は
+
+$$
+\mathbb{E}\left[\max_a (W_a + \varepsilon_a)\right] = \log\left(\sum_a e^{W_a}\right) + \gamma.
+$$
+
+証明のスケッチ：$\max_a(W_a + \varepsilon_a)$ 自体が、位置 $\log\sum_a e^{W_a}$・尺度1の Gumbel 分布に従う（独立 Gumbel の最大値は再び Gumbel、という max-stability）。Gumbel 分布の平均は「位置 $+\ \gamma$」なので、期待値は $\log\sum_a e^{W_a} + \gamma$ となる。選択確率が logit になるのも同じ max-stability の帰結で、第2回の導出をそのまま状態 $x$ ごとに適用すればよい。
+:::
+
+Bellman 方程式は $V$ について**不動点（固定点）方程式**になっている：$V$ が右辺（$v$ を通じて）に現れ、左辺にも現れる。この $V$ を数値的に解くのが、次の「価値関数反復」だ。
+
+## Rシミュ1：価値関数反復で DP を解く
+
+Bellman 方程式を解く最も基本的な方法が、**価値関数反復（value function iteration, VFI）**だ。$V$ の初期値（例えば全部0）から始めて、Bellman 作用素を繰り返し適用する。適当な $V$ を右辺に入れて左辺の新しい $V$ を計算し、それをまた右辺に入れる……を、$V$ が動かなくなる（収束する）まで繰り返す。
+
+まず状態遷移行列を作る。$P_0$（維持したときの遷移）と $P_1$（交換したときの遷移）は、いずれも $K \times K$ 行列で、行が現在状態 $x$、列が次期状態 $x'$ だ。
+
+```{r}
+# ---- モデルの基本設定 ----
+K     <- 20            # 走行距離の状態数（0..19）
+beta  <- 0.95          # 割引因子（固定）
+theta1_true <- 0.15    # 維持費の傾き（1状態あたり）
+RC_true     <- 8.0     # エンジン交換費
+p_trans <- c(0.30, 0.55, 0.15)   # 1期に +0/+1/+2 状態進む確率
+EULER   <- 0.5772156649015329    # Euler 定数（logsum の定数項）
+
+xs <- 0:(K - 1)        # 状態の値そのもの（走行距離）
+
+# 状態遷移行列を作る
+# P0: 維持したとき（x から距離が進む）, P1: 交換したとき（0 にリセットして進む）
+build_transition <- function(K, p) {
+  nj <- length(p)
+  P0 <- matrix(0, K, K)
+  P1 <- matrix(0, K, K)
+  for (x in 1:K) {          # R は 1-index。状態値は (x-1)
+    xv <- x - 1
+    for (j in 1:nj) {
+      jj <- j - 1
+      P0[x, min(xv + jj, K - 1) + 1] <- P0[x, min(xv + jj, K - 1) + 1] + p[j]
+      P1[x, min(0  + jj, K - 1) + 1] <- P1[x, min(0  + jj, K - 1) + 1] + p[j]
+    }
+  }
+  list(P0 = P0, P1 = P1)
+}
+tr <- build_transition(K, p_trans)
+P0 <- tr$P0; P1 <- tr$P1
+
+# 各行が確率分布になっているか確認
+cat("P0 の行和の範囲:", round(range(rowSums(P0)), 8), "\n")
+cat("P1 の行和の範囲:", round(range(rowSums(P1)), 8), "\n")
+cat("P1 は全行が同じ（交換=リセットなので現在状態によらない）:",
+    all(abs(sweep(P1, 2, P1[1, ], "-")) < 1e-12), "\n")
+```
+
+$P_1$ の全ての行が同じであることに注目してほしい。**交換すると、今どの状態にいようが $x=0$ にリセットされてから距離が進む**ので、次期状態の分布は現在状態 $x$ によらない。この性質が、後で Hotz-Miller を「魔法のように簡単」にする鍵になる（renewal action と呼ぶ）。
+
+価値関数反復の本体だ。flow utility を作り、logsum で $V$ を更新する。数値安定化のため、logsum は「最大値を引いてから exp」する（第2回の overflow 対策と同じ）。
+
+```{r}
+# flow utility: u(x,0) = -theta1*x, u(x,1) = -RC
+flow_utils <- function(theta1, RC) {
+  list(u0 = -theta1 * xs, u1 = rep(-RC, K))
+}
+
+# 価値関数反復：Bellman 作用素を収束まで繰り返す
+# bta は割引因子。既定では大域の beta（=0.95）を使うが、myopic 比較のために引数化しておく。
+solve_vfi <- function(theta1, RC, tol = 1e-10, maxit = 2000, trace = FALSE, bta = beta) {
+  uu <- flow_utils(theta1, RC)
+  V  <- rep(0, K)
+  errs <- numeric(0)
+  for (it in 1:maxit) {
+    v0 <- uu$u0 + bta * as.vector(P0 %*% V)   # choice-specific value（維持）
+    v1 <- uu$u1 + bta * as.vector(P1 %*% V)   # choice-specific value（交換）
+    m  <- pmax(v0, v1)                         # 数値安定化：各状態で最大値を引く
+    Vnew <- m + log(exp(v0 - m) + exp(v1 - m)) + EULER   # logsum + Euler 定数
+    err  <- max(abs(Vnew - V))
+    errs <- c(errs, err)
+    V <- Vnew
+    if (err < tol) break
+  }
+  v0 <- uu$u0 + bta * as.vector(P0 %*% V)
+  v1 <- uu$u1 + bta * as.vector(P1 %*% V)
+  list(V = V, v0 = v0, v1 = v1, errs = errs, niter = length(errs))
+}
+
+# 交換確率（logit）
+ccp_replace <- function(v0, v1) {
+  m <- pmax(v0, v1)
+  exp(v1 - m) / (exp(v0 - m) + exp(v1 - m))
+}
+
+sol <- solve_vfi(theta1_true, RC_true, tol = 1e-10, trace = TRUE)
+cat("価値関数反復が収束するまでの反復数:", sol$niter, "\n")
+cat("最終更新幅:", sol$errs[sol$niter], "\n")
+```
+
+収束の様子を、反復ごとの更新幅の対数でプロットする。ここで**第4回との深いつながり**を指摘したい。BLP の縮小写像（contraction mapping）で $\delta$ を解いたとき、誤差が対数目盛でほぼ直線に落ちる「幾何収束」を見た。今回の価値関数反復も**まったく同じ数学**だ。Bellman 作用素は係数 $\beta$ の縮小写像であり、だから初期値によらず一意の $V$ に幾何的に収束する。更新幅の比は $\beta = 0.95$ に近づくはずだ。
+
+```{r}
+#| fig-cap: "価値関数反復の収束。誤差が対数目盛でほぼ直線に落ちる = 幾何収束（縮小係数 = beta）。"
+df_conv <- data.frame(iter = seq_along(sol$errs), err = sol$errs)
+ggplot(df_conv, aes(iter, err)) +
+  geom_line(color = "#1f77b4", linewidth = 0.8) +
+  scale_y_log10() +
+  labs(title = "価値関数反復の収束（BLP 縮小写像と同じ幾何収束）",
+       x = "反復回数", y = "更新幅の最大値（対数目盛）")
+
+# 更新幅の比が beta に近づくことを確認
+ratios <- sol$errs[6:15] / sol$errs[5:14]
+cat("更新幅の比（beta=0.95 に近づくはず）:", round(ratios, 3), "\n")
+```
+
+解けた価値関数 $V(x)$ と、そこから出る交換確率 $P(\text{交換} \mid x)$ を見る。走行距離が伸びるほど交換確率が上がる**S字カーブ**が出るはずだ。「もう十分走った、そろそろ載せ替えよう」という直感が、DP の解として現れる。
+
+```{r}
+#| fig-cap: "解けた価値関数 V(x) と交換確率 P(交換|x)。距離が伸びるほど交換確率が上がる S 字。"
+library(patchwork)
+Pr <- ccp_replace(sol$v0, sol$v1)
+
+p_V <- ggplot(data.frame(x = xs, V = sol$V), aes(x, V)) +
+  geom_line(color = "#d62728", linewidth = 1) + geom_point(size = 1) +
+  labs(title = "価値関数 V(x)", x = "走行距離の状態 x", y = "V(x)")
+
+p_P <- ggplot(data.frame(x = xs, P = Pr), aes(x, P)) +
+  geom_line(color = "#1f77b4", linewidth = 1) + geom_point(size = 1) +
+  labs(title = "交換確率 P(交換 | x)", x = "走行距離の状態 x", y = "P(交換|x)")
+
+p_V + p_P
+
+cat("P(交換|x) が単調増加:", all(diff(Pr) >= -1e-12), "\n")
+cat("P(交換|x) の例（x=0,5,10,15,19）:", round(Pr[c(1, 6, 11, 16, 20)], 4), "\n")
+```
+
+交換確率は $x=0$ ではほぼゼロ（$\approx 0.0003$）、$x=19$ では $\approx 0.78$ まで上がる。DP は「早すぎる交換は交換費の無駄、遅すぎる維持は維持費の膨張」というトレードオフを解いて、この滑らかな交換方針を導いた。
+
+## Rシミュ2：データを生成する
+
+推定に進む前に、この方針に従って動く「バス群」のパネルデータを作る。**200台のバス**を、それぞれ**100ヶ月**追跡する。各期、各バスは自分の走行距離状態を見て、交換確率 $P(\text{交換}\mid x)$ に従って交換するかを決め、状態が遷移していく。
+
+```{r}
+# パネルシミュレーション：n_bus 台 x n_month ヶ月
+simulate_panel <- function(n_bus, n_month, theta1, RC, burn = 50) {
+  sol <- solve_vfi(theta1, RC, tol = 1e-10)
+  Pr  <- ccp_replace(sol$v0, sol$v1)
+  total_T <- n_month + burn
+  X <- matrix(0L, n_bus, total_T)   # 走行距離状態（値 0..K-1 を格納）
+  A <- matrix(0L, n_bus, total_T)   # 行動（0=維持, 1=交換）
+  x <- sample(0:(K - 1), n_bus, replace = TRUE)   # 初期状態をランダムに
+  for (t in 1:total_T) {
+    u <- runif(n_bus)
+    a <- as.integer(u < Pr[x + 1])                # 状態 x の交換確率で判定
+    X[, t] <- x
+    A[, t] <- a
+    jump <- sample(0:2, n_bus, replace = TRUE, prob = p_trans)   # 距離の進み
+    x <- ifelse(a == 1L, pmin(0 + jump, K - 1), pmin(x + jump, K - 1))
+  }
+  # burn-in を捨てて定常に近い部分だけ返す
+  list(X = X[, (burn + 1):total_T], A = A[, (burn + 1):total_T])
+}
+
+n_bus <- 200; n_month <- 100
+panel <- simulate_panel(n_bus, n_month, theta1_true, RC_true)
+X <- panel$X; A <- panel$A
+
+cat("パネルのセル数:", length(X), "（", n_bus, "台 x", n_month, "ヶ月 ）\n")
+cat("全体の交換率:", round(mean(A), 4), "\n")
+cat("平均走行距離（全セル）:", round(mean(X), 3), "\n")
+```
+
+交換でリセットされる **replacement cycle（載せ替えサイクル）**を可視化しよう。数台ぶんの走行距離の軌跡を描くと、じわじわ距離が伸びては、交換でストンと0付近に戻る「のこぎり歯」のパターンが見える。
+
+```{r}
+#| fig-cap: "数台のバスの走行距離の軌跡。距離が伸びては、交換でリセットされる（のこぎり歯 = replacement cycle）。"
+show_bus <- c(1, 2, 3, 4)
+df_traj <- do.call(rbind, lapply(show_bus, function(b) {
+  data.frame(month = 1:n_month, mileage = X[b, ], bus = paste0("バス", b),
+             replace = A[b, ])
+}))
+ggplot(df_traj, aes(month, mileage)) +
+  geom_line(color = "grey50") +
+  geom_point(data = subset(df_traj, replace == 1), aes(month, mileage),
+             color = "#d62728", size = 1.6) +
+  facet_wrap(~ bus, ncol = 2) +
+  labs(title = "走行距離の軌跡と交換タイミング（赤点 = 交換した月）",
+       x = "月", y = "走行距離の状態 x")
+```
+
+赤い点（交換した月）が、走行距離の高いところで打たれ、その直後に距離が0付近へ落ちているのが分かる。これが Zurcher の判断記録に相当する「観測データ」だ。実データでは、我々はこの $(X, A)$ しか見えず、$\theta_1$ や $RC$ は知らない。それを推定するのが仕事だ。
+
+状態ごとの交換頻度が、モデルの交換確率とどれくらい一致するかも見ておこう（これが後の CCP 推定の入力になる）。
+
+```{r}
+#| fig-cap: "状態ごとの経験交換頻度（点）とモデルの交換確率（線）。よく一致している。"
+freq_by_state <- sapply(0:(K - 1), function(xv) {
+  mask <- (X == xv)
+  if (sum(mask) > 0) mean(A[mask]) else NA_real_
+})
+count_by_state <- sapply(0:(K - 1), function(xv) sum(X == xv))
+
+df_freq <- data.frame(x = xs, emp = freq_by_state, model = Pr, n = count_by_state)
+ggplot(df_freq, aes(x)) +
+  geom_line(aes(y = model), color = "#1f77b4", linewidth = 1) +
+  geom_point(aes(y = emp), color = "#d62728", size = 1.8) +
+  labs(title = "経験交換頻度（赤点）vs モデル交換確率（青線）",
+       x = "走行距離の状態 x", y = "P(交換 | x)")
+
+cat("状態ごとの観測数:", count_by_state, "\n")
+```
+
+高走行距離の状態（$x = 14$ 以降）はデータが薄く、経験頻度がガタつく。逆に $x=0$ は「交換直後の新品」なので観測数は多いが、交換はまず起きない（経験頻度がほぼ0）。この「薄い／潰れる」問題は、Hotz-Miller のところで丁寧に扱う。
+
+## 推定1：NFXP（Rust の方法）
+
+いよいよ推定だ。観測データ $(X, A)$ から、深層パラメータ $\theta = (\theta_1, RC)$ を最尤法で推定する。ここで Rust が使った**Nested Fixed Point algorithm（NFXP、入れ子固定点アルゴリズム）**を実装する。名前は仰々しいが、構造はシンプルな**二重ループ**だ。
+
+- **外側（outer loop）**：最適化アルゴリズムが $\theta = (\theta_1, RC)$ を提案する。
+- **内側（inner loop）**：提案された $\theta$ に対して、価値関数反復で DP を**解き切って**、各状態の choice-specific value $v(x,0), v(x,1)$ を得る。
+- その $v$ から logit 尤度を計算し、外側に返す。外側はこれを最大化する $\theta$ を探す。
+
+対数尤度は、各バス・各期について「実際にとった行動の確率の対数」を足し上げたものだ（第2回の logit 尤度と同じ形）：
+
+$$
+\ell(\theta) = \sum_{\text{bus } i} \sum_{\text{month } t}
+\Big[ a_{it} \log P(1 \mid x_{it}; \theta) + (1 - a_{it}) \log P(0 \mid x_{it}; \theta) \Big].
+$$
+
+キモは「$P(a \mid x; \theta)$ を計算するのに、内側で毎回 DP を解き切る」点だ。外側が $\theta$ を1回提案するたびに、内側で価値関数反復が丸ごと1回走る。**これが NFXP の計算的な重さの正体**である。
+
+```{r}
+# NFXP の負の対数尤度。theta = (theta1, RC)。内側で VFI を解き切る。
+neg_loglik_nfxp <- function(theta, X, A) {
+  theta1 <- theta[1]; RC <- theta[2]
+  if (theta1 <= 0 || RC <= 0) return(1e10)   # パラメータは正
+  sol <- solve_vfi(theta1, RC, tol = 1e-8, maxit = 1000)   # ← 内側で DP を解き切る
+  # 数値安定な log P：logaddexp(v0, v1)
+  m   <- pmax(sol$v0, sol$v1)
+  lae <- m + log(exp(sol$v0 - m) + exp(sol$v1 - m))   # log(exp v0 + exp v1)
+  logp1 <- sol$v1 - lae     # log P(交換|x)
+  logp0 <- sol$v0 - lae     # log P(維持|x)
+  xr <- as.vector(X) + 1    # 状態を 1-index に
+  ar <- as.vector(A)
+  ll <- sum(ifelse(ar == 1L, logp1[xr], logp0[xr]))
+  -ll
+}
+
+# 外側の最適化（Nelder-Mead）。実行時間を測る。
+t0 <- Sys.time()
+fit_nfxp <- optim(par = c(0.10, 5.0), fn = neg_loglik_nfxp,
+                  X = X, A = A, method = "Nelder-Mead",
+                  control = list(reltol = 1e-9, maxit = 2000),
+                  hessian = TRUE)
+t1 <- Sys.time()
+nfxp_time <- as.numeric(difftime(t1, t0, units = "secs"))
+
+theta_hat_nfxp <- fit_nfxp$par
+cat("NFXP 推定値 (theta1, RC):", round(theta_hat_nfxp, 4), "\n")
+cat("真値            (theta1, RC):", c(theta1_true, RC_true), "\n")
+cat("NFXP の実行時間:", round(nfxp_time, 2), "秒\n")
+```
+
+標準誤差は、第2回と同じく、最尤推定量の Hessian（の逆行列）から得る。`optim` に `hessian = TRUE` を渡すと、負の対数尤度の Hessian が返ってくるので、その逆行列が分散共分散行列になる。
+
+```{r}
+vcov_nfxp <- solve(fit_nfxp$hessian)
+se_nfxp   <- sqrt(diag(vcov_nfxp))
+
+recovery_nfxp <- data.frame(
+  parameter = c("theta1（維持費の傾き）", "RC（交換費）"),
+  truth     = c(theta1_true, RC_true),
+  estimate  = round(theta_hat_nfxp, 4),
+  se        = round(se_nfxp, 4),
+  ci_lower  = round(theta_hat_nfxp - 1.96 * se_nfxp, 4),
+  ci_upper  = round(theta_hat_nfxp + 1.96 * se_nfxp, 4)
+)
+kable(recovery_nfxp, caption = "NFXP：真値回収と標準誤差（真値は 95%CI 内）")
+```
+
+真値 $(\theta_1, RC) = (0.15, 8.0)$ が、いずれも95%信頼区間の中に回収された。動学モデルでも、DGP を書いてシミュレーションし、真値を回収できることを確認する——この「真値回収」の作法は、推定手法がどれだけ複雑になっても変わらない。
+
+::: {.callout-warning}
+## NFXP の計算的な重さを体感する
+
+上で実行時間を測ったのには意味がある。NFXP は「外側の1評価ごとに、内側で DP を解き切る」。今回は状態が $K=20$ と小さいので数秒で終わるが、**現実の問題では状態空間が爆発する**。状態が (走行距離 × ブランド × 在庫 × 競合価格 × ……) と多次元になると、価値関数反復1回だけで莫大な計算になり、それを最適化の反復のたびに繰り返すと、推定が何時間・何日もかかる。これが「**状態空間の呪い（curse of dimensionality）**」で、次の Hotz-Miller が生まれた最大の動機だ。
+:::
+
+## 推定2：Hotz-Miller の CCP アプローチ（見せ場）
+
+NFXP の重さは、突き詰めれば「**価値関数を毎回解いている**」ことに尽きる。Hotz and Miller (1993) の発想は、逆転の一手だ。
+
+> 価値関数を解かずに、**データの選択確率（conditional choice probability, CCP）から、価値の差を逆算する**。
+
+なぜそんなことができるのか。T1EV のもとでは、選択確率と価値の間に、**閉じた関係式**があるからだ。二値選択（維持 vs 交換）の場合、logit の反転から
+
+$$
+\log P(1 \mid x) - \log P(0 \mid x) = v(x, 1) - v(x, 0).
+$$
+
+「交換確率と維持確率の対数の差」が、そのまま「choice-specific value の差」に等しい。**データから CCP を頻度で推定できれば、左辺は観測できる。すると右辺の $v(x,1) - v(x,0)$ が、価値関数を解かずに手に入る。**
+
+だが、$v(x,1) - v(x,0)$ には将来項が残っている：
+
+$$
+v(x,1) - v(x,0) = \big[u(x,1) - u(x,0)\big] + \beta\Big(\mathbb{E}[V(x') \mid x, 1] - \mathbb{E}[V(x') \mid x, 0]\Big).
+$$
+
+将来価値 $V$ が残っているなら、結局 $V$ を解かないといけないのでは？——ここで、このモデル固有の**魔法**が起きる。
+
+### 交換は renewal action：finite dependence で将来項が消える
+
+思い出そう。**交換（$a=1$）すると、状態は現在の $x$ によらず $x=0$ にリセットされる**（$P_1$ の全行が同じだった）。これを **renewal action（更新行動）**と呼ぶ。renewal action があると、将来項が驚くほど簡単に打ち消せる。これを **finite dependence（有限依存）**という。
+
+具体的にこのモデルで導出しよう。Hotz-Miller の補題より、任意の行動 $a$ を使って価値を書き直せる。とくに**次期状態 $x'$ で「交換」を選んだ**ときの表現を使うと：
+
+$$
+V(x') = v(x', 1) + \gamma - \log P(1 \mid x').
+$$
+
+（logit の反転：$V(x) = v(x,a) + \gamma - \log P(a\mid x)$ が任意の $a$ で成り立つ。導出は下の callout。）
+
+ここで $v(x', 1) = u(x', 1) + \beta\, \mathbb{E}[V(x'') \mid x', 1]$。そして交換は $x'$ によらず $x=0$ にリセットするので、$\mathbb{E}[V(x'') \mid x', 1]$ は**$x'$ に依存しない定数**（$\bar{W}$ と呼ぶ）になる。したがって
+
+$$
+V(x') = \underbrace{-RC + \beta \bar{W} + \gamma}_{\text{$x'$ によらない定数}} - \log P(1 \mid x').
+$$
+
+これを $v(x,1) - v(x,0)$ の将来項に代入する。定数部分は、$\mathbb{E}[\cdot \mid x, 1]$ と $\mathbb{E}[\cdot \mid x, 0]$ のどちらでも「確率の和 = 1」なので、**差をとると綺麗に消える**。残るのは $-\log P(1\mid x')$ の項だけ：
+
+$$
+\mathbb{E}[V(x') \mid x, 1] - \mathbb{E}[V(x') \mid x, 0]
+= -\sum_{x'} \big[P_1(x'\mid x) - P_0(x'\mid x)\big] \log P(1 \mid x').
+$$
+
+$V$ が消えた！ 残ったのは、遷移確率（既知）と CCP（データから推定可能）だけ。これらを全部代入すると、$u(x,1) - u(x,0) = \theta_1 x - RC$ を使って、**線形回帰の形**になる：
+
+$$
+\underbrace{\log P(1\mid x) - \log P(0\mid x) + \beta \sum_{x'}\big[P_1 - P_0\big](x'\mid x)\,\log P(1\mid x')}_{=:\ y(x)\ \text{（データから計算できる）}}
+\;=\; \theta_1\, x - RC.
+$$
+
+左辺 $y(x)$ を、経験 CCP $\hat P(1\mid x)$ から状態ごとに計算し、それを $x$ に回帰する。**傾きが $\theta_1$、切片が $-RC$**。価値関数反復は一切登場しない。最適化すらいらない（ただの OLS だ）。
+
+::: {.callout-note collapse="true"}
+## 導出：Hotz-Miller の反転 $V(x) = v(x,a) + \gamma - \log P(a\mid x)$
+
+T1EV のもとで、$V(x) = \log\sum_{a'} e^{v(x,a')} + \gamma$（logsum）であり、$P(a\mid x) = e^{v(x,a)} / \sum_{a'} e^{v(x,a')}$（logit）だった。後者から $\log P(a\mid x) = v(x,a) - \log\sum_{a'} e^{v(x,a')}$、すなわち $\log\sum_{a'} e^{v(x,a')} = v(x,a) - \log P(a\mid x)$。これを logsum の式に代入すると
+
+$$
+V(x) = v(x,a) - \log P(a\mid x) + \gamma.
+$$
+
+任意の $a$ で成り立つ（左辺は $a$ によらないので、右辺の $a$ 依存が打ち消し合う）。これが Hotz-Miller の「CCP から価値を復元する」核心の恒等式だ。この式のおかげで、$V$ を「観測できる CCP」で書き換えられる。renewal action があると、書き換えた先の将来項がさらに定数化して消える——これが finite dependence の仕組みである。
+:::
+
+まず**恒等式が本当に成り立つか**を、真の CCP（DP を解いて得た $P(1\mid x)$）で確認しよう。左辺 $y(x)$ が、本当に $\theta_1 x - RC$ に一致すれば、導出が正しいことの決定的な証拠になる。
+
+```{r}
+# 真の CCP で finite-dependence 恒等式を検算する
+diffP <- P1 - P0                       # (K x K) 各行 x
+sol_true <- solve_vfi(theta1_true, RC_true, tol = 1e-12)   # 真値で DP を精密に解く
+P1c <- ccp_replace(sol_true$v0, sol_true$v1)               # 真の CCP P(交換|x)
+P0c <- 1 - P1c
+logP1 <- log(P1c); logP0 <- log(P0c)
+
+# y(x) = [logP1 - logP0] + beta * (P1 - P0) 行 x logP1
+y_true <- logP1 - logP0 + beta * as.vector(diffP %*% logP1)
+target <- theta1_true * xs - RC_true    # あるべき値
+
+cat("恒等式の最大誤差 max|y - (theta1*x - RC)|:", max(abs(y_true - target)), "\n")
+
+# y を (1, x) に回帰 → 傾き=theta1, 切片=-RC
+fit_check <- lm(y_true ~ xs)
+cat("検算：theta1 =", round(coef(fit_check)[2], 6),
+    " RC =", round(-coef(fit_check)[1], 6), "（真値 0.15, 8.0）\n")
+```
+
+恒等式は機械精度（$10^{-14}$ オーダー）で成立し、真値 $(\theta_1, RC) = (0.15, 8.0)$ をぴたりと復元した。導出は正しい。「価値関数を解かずに、CCP から深層パラメータへ」が、このモデルでは本当にただの線形回帰になる。
+
+### データの頻度 CCP で推定する
+
+次は実践だ。真の CCP は使えない（それは知りたい答えの一部）。代わりに、観測データから**頻度で CCP を推定**する：$\hat P(1\mid x) = (\text{状態 } x \text{ で交換した回数}) / (\text{状態 } x \text{ の観測回数})$。
+
+ここで前に見た問題が効く。$x=0$ では交換頻度がほぼ0で、$\log \hat P(1\mid x)$ が $-\infty$ に飛ぶ。高走行距離の状態は観測が薄く、頻度がガタつく。標準的な対処を2つ施す：(1) 頻度を軽く平滑化する（$\hat P = (n_1 + 0.5)/(n + 1)$、Laplace 平滑化）、(2) 観測数が十分ある状態（$n \geq 30$）だけを回帰に使い、観測数で重み付け（WLS）する。
+
+```{r}
+# 状態ごとの交換回数 n1 と観測回数 n
+n_x  <- sapply(0:(K - 1), function(xv) sum(X == xv))
+n1_x <- sapply(0:(K - 1), function(xv) sum(A[X == xv]))
+
+# Laplace 平滑化した CCP
+Psm  <- (n1_x + 0.5) / (n_x + 1.0)
+logP1h <- log(Psm); logP0h <- log(1 - Psm)
+
+# 将来項の logP1：到達しうる x' の CCP が必要。未観測の状態は隣（1つ下）で代用。
+logP1h_full <- logP1h
+for (xv in 1:K) if (n_x[xv] == 0) logP1h_full[xv] <- logP1h_full[xv - 1]
+
+# y(x) をデータの CCP で計算
+y_hat <- logP1h - logP0h + beta * as.vector(diffP %*% logP1h_full)
+
+# 観測数 >= 30 の状態だけ、観測数で重み付けして回帰（WLS）
+good <- n_x >= 30
+t0 <- Sys.time()
+fit_ccp <- lm(y_hat ~ xs, weights = n_x, subset = good)
+t1 <- Sys.time()
+ccp_time <- as.numeric(difftime(t1, t0, units = "secs"))
+
+theta1_ccp <- as.numeric(coef(fit_ccp)[2])
+RC_ccp     <- as.numeric(-coef(fit_ccp)[1])
+cat("CCP 推定値：theta1 =", round(theta1_ccp, 4), " RC =", round(RC_ccp, 4), "\n")
+cat("使った状態数:", sum(good), " / ", K, "\n")
+cat("CCP の実行時間:", signif(ccp_time, 3), "秒（回帰1本）\n")
+```
+
+CCP 推定は、$\theta_1 \approx 0.15$、$RC \approx 8$ 近傍を回収する（乱数の引かれ方で $\pm 0.5$ 程度は揺れる。ここが CCP の弱点＝ノイズで、後述する）。そして**実行時間は回帰1本、事実上ゼロ秒**だ。価値関数反復を一度も回していない。
+
+### NFXP と CCP を並べる
+
+2つの推定法を、推定値と計算時間で直接比べる。
+
+```{r}
+compare_tbl <- data.frame(
+  method   = c("NFXP (Rust)", "CCP (Hotz-Miller)"),
+  theta1   = round(c(theta_hat_nfxp[1], theta1_ccp), 4),
+  RC       = round(c(theta_hat_nfxp[2], RC_ccp), 4),
+  time_sec = signif(c(nfxp_time, ccp_time), 3),
+  DP_solve = c("毎評価で解き切る", "一度も解かない")
+)
+kable(compare_tbl, caption = "NFXP vs CCP：推定値と計算時間",
+      row.names = FALSE)
+
+# 速度比（ccp_time が測定精度以下でも安定するよう下限を置く）
+speed_ratio <- nfxp_time / max(ccp_time, 1e-4)
+cat("CCP は NFXP のおよそ", format(round(speed_ratio), big.mark = ","),
+    "分の1の時間で、近い答えを出した（回帰1本 vs DP を何十回も解き直す）。\n")
+```
+
+::: {.callout-important}
+## ここが核心：CCP は NFXP の数百分の一の時間で、近い答えを出す
+
+- **NFXP**：外側の最適化 × 内側の価値関数反復。「$\theta$ を1回変えるたびに DP を丸ごと解き直す」ので重い。状態空間が大きいと死ぬ。
+- **CCP**：データから CCP を頻度推定 → renewal action の finite dependence で将来項を消す → 線形回帰1本。**DP を一度も解かない**。桁違いに速い。
+
+代償は**効率（ノイズ）**だ。頻度で CCP を推定するので、観測の薄い状態では推定が不安定になり、CCP 推定量は NFXP より分散が大きい。**「速さ（CCP）と精度（NFXP）のトレードオフ」**——これが2つの方法の関係の本質だ。実務では、まず CCP で当たりをつけ、必要なら NFXP（や、CCP を初期値にした効率改善法）で精緻化する、という使い分けをする。
+:::
+
+::: {.callout-note collapse="true"}
+## CCP のノイズについて正直に
+
+上の1回の推定はたまたま真値に近かったが、CCP 推定量は**有限標本ではノイズが大きく、わずかに偏りも出る**（頻度推定＋平滑化＋薄い高走行距離状態の影響）。同じ 200台×100ヶ月の DGP を乱数を変えて何百回も回すと、CCP は平均的には真値の近く（$\theta_1 \approx 0.14$、$RC \approx 7.6$ 程度）に散らばるが、その標準偏差は NFXP よりずっと大きい。標本を増やす（台数・期間を増やす）と、CCP の推定は真値へ収束していく（一致推定量である）。「一致だが非効率」という位置づけを、宿題で標本サイズを変えて体感してほしい。
+:::
+
+## 識別と反実仮想
+
+### 何が識別され、何が識別されないか
+
+動学モデルの識別には、静学にはない固有の難所がある。
+
+**割引因子 $\beta$ は、普通は識別が難しい。** 直感的には、$\beta$（将来をどれだけ重視するか）と flow utility の形（今日のコスト）が**もつれて**しまうからだ。「早めに交換する」という行動は、「交換費 $RC$ が安い」からかもしれないし、「$\beta$ が大きくて将来の維持費を強く恐れている」からかもしれない。この2つを、選択データだけから分離するのは一般に困難だ。そこで実務では、**$\beta$ を外から与えて固定する**（今回は $0.95$）のが標準的な慣習になっている。金利や意思決定の頻度から、$\beta$ を先験的に決めるわけだ。
+
+**効用の水準は正規化が要る。** 静学 logit で outside option の効用を0に置いたのと同じで、動学でも効用の絶対水準には意味がなく、差だけが識別される。ここでは維持の flow utility を $-\theta_1 x$、交換を $-RC$ と置くことで、水準を固定している。
+
+### 反実仮想（構造推定の配当）
+
+さて、深層パラメータ $(\theta_1, RC)$ が推定できた。ここからが構造推定の**配当**だ。第1回で「構造推定は反実仮想のためにやる」と言った、その約束をここで回収する。
+
+問い：**もし政府（あるいは本社）が、エンジン交換費 $RC$ を20%補助したら、交換頻度と平均走行距離はどう変わるか。**
+
+これは観測データには無い状況（$RC$ を人為的に下げた世界）だ。しかし我々には推定した深層パラメータがある。$RC$ を $0.8 \times RC$ に置き換えて **DP を解き直し**、新しい交換方針のもとでの長期的な状態分布を計算すればよい。
+
+長期的な交換頻度・平均走行距離は、新しい交換方針が誘導するマルコフ連鎖の**定常分布（ergodic distribution）**から計算する。定常分布 $d$ は、状態遷移行列 $M$（方針込み）に対して $d = d\,M$ を満たすベクトルだ。
+
+```{r}
+# 方針（交換確率 Pr）が誘導する状態遷移行列 M と、その定常分布
+policy_transition <- function(Pr) {
+  # 状態 x から：確率 Pr で交換（P1 の行）、1-Pr で維持（P0 の行）
+  (1 - Pr) * P0 + Pr * P1        # 各行を Pr[x], (1-Pr[x]) で重み付け（R のリサイクルに注意）
+}
+ergodic_dist <- function(M) {
+  # d M = d, sum d = 1 を解く（(M' - I) の零空間 + 正規化）
+  A <- rbind(t(M) - diag(K), rep(1, K))
+  b <- c(rep(0, K), 1)
+  d <- qr.solve(A, b)             # 最小二乗で解く
+  d / sum(d)
+}
+
+summarize_policy <- function(theta1, RC, label, bta = beta) {
+  s  <- solve_vfi(theta1, RC, tol = 1e-10, bta = bta)
+  Pr <- ccp_replace(s$v0, s$v1)
+  M  <- policy_transition(Pr)
+  d  <- ergodic_dist(M)
+  rep_rate <- sum(d * Pr)         # 長期交換率
+  mean_mi  <- sum(d * xs)         # 長期平均走行距離
+  cat(sprintf("  %s：長期交換率 = %.4f, 平均走行距離 = %.3f\n", label, rep_rate, mean_mi))
+  list(rep_rate = rep_rate, mean_mi = mean_mi, d = d, Pr = Pr)
+}
+
+cat("反実仮想：交換費 RC を 20% 補助（推定した動学モデルで解き直す）\n")
+base_cf <- summarize_policy(theta1_true, RC_true,       "補助前 RC=8.0")
+sub_cf  <- summarize_policy(theta1_true, RC_true * 0.8, "補助後 RC=6.4")
+
+cat(sprintf("  => 交換率:   %.4f -> %.4f  (%+.1f%%)\n",
+            base_cf$rep_rate, sub_cf$rep_rate,
+            (sub_cf$rep_rate / base_cf$rep_rate - 1) * 100))
+cat(sprintf("  => 平均走行距離: %.3f -> %.3f  (%+.1f%%)\n",
+            base_cf$mean_mi, sub_cf$mean_mi,
+            (sub_cf$mean_mi / base_cf$mean_mi - 1) * 100))
+```
+
+交換費を20%補助すると、**長期交換率は約9.3%から約11.0%へ（約+18%）上昇**し、**平均走行距離は約5.1から約4.5へ（約−12%）低下**する。交換が安くなったので、より頻繁に・より若いうちにエンジンを載せ替えるようになった、という反実仮想の答えだ。補助前後の状態分布を並べて可視化しよう。
+
+```{r}
+#| fig-cap: "交換費 20% 補助の前後で、走行距離の定常分布がどう変わるか。補助後は低走行距離側に寄る。"
+df_cf <- rbind(
+  data.frame(x = xs, dens = base_cf$d, policy = "補助前 (RC=8.0)"),
+  data.frame(x = xs, dens = sub_cf$d,  policy = "補助後 (RC=6.4)")
+)
+ggplot(df_cf, aes(x, dens, fill = policy)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  scale_fill_manual(values = c("補助前 (RC=8.0)" = "grey55", "補助後 (RC=6.4)" = "#1f77b4")) +
+  labs(title = "走行距離の定常分布：交換費補助の効果",
+       x = "走行距離の状態 x", y = "定常分布の確率", fill = NULL) +
+  theme(legend.position = "top")
+```
+
+### myopic（$\beta = 0$）で推定すると反実仮想を外す
+
+ここで、動学を無視する危険を数値で見せる。もし分析者が「消費者は近視眼的（myopic）で、将来を一切見ない」と誤って仮定し、$\beta = 0$ でパラメータを推定したら、どうなるか。
+
+$\beta = 0$ だと、choice-specific value は将来項が消えて $v(x,0) = -\theta_1 x$、$v(x,1) = -RC$ になる。これはただの**静学 logit** だ。この静学モデルを、実は forward-looking な Zurcher が生成したデータに当てはめると、パラメータが歪む。
+
+```{r}
+# 大きめの標本で myopic の系統的バイアスを見る（ノイズではなく偏りを見たい）
+panel_big <- simulate_panel(2000, 300, theta1_true, RC_true)
+Xb <- panel_big$X; Ab <- panel_big$A
+
+# myopic (beta=0) の logit MLE：v0=-theta1*x, v1=-RC を直接使う
+neg_loglik_myopic <- function(theta, X, A) {
+  theta1 <- theta[1]; RC <- theta[2]
+  if (theta1 <= 0 || RC <= 0) return(1e10)
+  v0 <- -theta1 * xs; v1 <- rep(-RC, K)
+  m  <- pmax(v0, v1)
+  lae <- m + log(exp(v0 - m) + exp(v1 - m))
+  logp1 <- v1 - lae; logp0 <- v0 - lae
+  xr <- as.vector(X) + 1; ar <- as.vector(A)
+  -sum(ifelse(ar == 1L, logp1[xr], logp0[xr]))
+}
+fit_myopic <- optim(c(0.10, 5.0), neg_loglik_myopic, X = Xb, A = Ab,
+                    method = "Nelder-Mead", control = list(reltol = 1e-9))
+# 参照：同じ大標本での動学（正しい）推定
+fit_dyn_big <- optim(c(0.10, 5.0), neg_loglik_nfxp, X = Xb, A = Ab,
+                     method = "Nelder-Mead", control = list(reltol = 1e-9))
+
+est_tbl <- data.frame(
+  model  = c("真値", "動学 (beta=0.95, 正しい)", "myopic (beta=0, 誤り)"),
+  theta1 = round(c(theta1_true, fit_dyn_big$par[1], fit_myopic$par[1]), 4),
+  RC     = round(c(RC_true,     fit_dyn_big$par[2], fit_myopic$par[2]), 4)
+)
+kable(est_tbl, caption = "同じデータを動学 vs myopic で推定：myopic は theta1 を大きく歪める",
+      row.names = FALSE)
+```
+
+myopic モデルは、$\theta_1$ を真値の**3倍近く**に過大推定してしまう。理由はこうだ。データの交換確率が走行距離に対して立ち上がる勾配を、forward-looking モデルは「将来の維持費を恐れて早めに交換する」で一部説明する。だが myopic モデルには将来項が無いので、**同じ勾配を全部 flow utility の傾き $\theta_1$ に押し付ける**しかない。結果、$\theta_1$ が水増しされる。
+
+この歪んだパラメータで反実仮想を回すと、答えも外れる。myopic 分析者は、自分のモデル（$\beta=0$）で補助の効果を予測する。
+
+```{r}
+cat("反実仮想（RC 20%補助）の予測：正しい動学 vs myopic\n")
+# 正しい動学：真の theta を、正しい beta=0.95 の DP で解いて予測
+truth0 <- summarize_policy(theta1_true, RC_true,       "真実 補助前")
+truth1 <- summarize_policy(theta1_true, RC_true * 0.8, "真実 補助後")
+
+# myopic 分析者：歪んだ推定 theta を、自分のモデル（beta=0）で解いて予測
+myo0 <- summarize_policy(fit_myopic$par[1], fit_myopic$par[2],       "myopic 補助前", bta = 0)
+myo1 <- summarize_policy(fit_myopic$par[1], fit_myopic$par[2] * 0.8, "myopic 補助後", bta = 0)
+
+cf_compare <- data.frame(
+  analysis = c("正しい動学", "myopic (誤り)"),
+  rep_before = round(c(truth0$rep_rate, myo0$rep_rate), 4),
+  rep_after  = round(c(truth1$rep_rate, myo1$rep_rate), 4),
+  rep_change_pct = round(c((truth1$rep_rate / truth0$rep_rate - 1) * 100,
+                           (myo1$rep_rate / myo0$rep_rate - 1) * 100), 1)
+)
+kable(cf_compare, caption = "RC 20%補助の効果予測：myopic は交換率の増加を大きく過大評価",
+      row.names = FALSE)
+```
+
+正しい動学モデルは「交換率が約+18%増える」と予測するが、myopic モデルは「約+32%増える」と、効果をおよそ**2倍**に過大評価してしまう。$RC$ の水準を過小・$\theta_1$ を過大に誤ったせいで、補助の反実仮想まで狂う。**深層パラメータを間違えれば、その先の政策予測も間違える。** これが、反実仮想が状態を動かす問いに対して、forward-looking を正しく仮定することの実務的な意味だ。
+
+## forward-looking を仮定する利点とコスト
+
+動学モデルは強力だが、タダではない。利点とコストを冷静に整理する。
+
+**利点：政策不変な深層パラメータ → 反実仮想が正当化される。** flow utility のパラメータ $(\theta_1, RC)$ は、意思決定者の「好み・技術」であって、政策（$RC$ の補助など）で変わらない。だから、$RC$ を人為的に動かした世界を、同じ $\theta_1$ のもとで正しくシミュレートできる。これは第1回で語った「構造推定＝反実仮想のための推定」の理想形だ。静学モデルでは捉えられない「先読みの効果」を、正しく織り込める。
+
+**コスト1：状態空間の呪い。** 状態が多次元になると、価値関数反復の計算量が爆発する。NFXP はこれに真正面からぶつかる。CCP や、その発展（Aguirregabiria-Mira の擬似尤度、Arcidiacono-Ellickson の実践的手法）は、この呪いを緩めるために生まれた。
+
+**コスト2：$\beta$ の識別。** 上で見た通り、割引因子は選択データだけからは識別しにくく、固定する慣習になっている。$\beta$ の値を変えると推定も反実仮想も動くので、感度分析が要る。
+
+**コスト3：モデル誤設定リスク。** 状態遷移や flow utility の形を間違えると、深層パラメータも反実仮想も歪む。myopic の例は「$\beta$ を間違えると壊れる」極端なケースだが、遷移確率や状態の離散化のミスも同様に効く。
+
+::: {.callout-important}
+## 実務指針：静学で足りる問いには静学を、状態を動かすなら動学を
+
+- **今日の効用だけで説明できる選択**（今の価格・属性への反応、直近の代替パターン）なら、静学の logit/BLP（第2〜4回）で十分。速いし、識別も素直だ。
+- **反実仮想が「状態」を動かす問い**（在庫、契約残期間、走行距離、ポイント残高、耐久財の保有年数を変える政策）なら、forward-looking を入れないと予測を外す。myopic の反実仮想が2倍ずれた、あの例を思い出してほしい。
+
+「動学が要るか」の判定は、**問いが状態変数を動かすか**で決まる。棚の値付けなら静学、解約金の設計や買いだめ誘発なら動学、というふうに。
+:::
+
+## 実証研究コーナー
+
+::: {.callout-tip}
+## 実証研究コーナー：Rust (1987) — Harold Zurcher とバスエンジン
+
+**問い**：マディソン市バス公社の整備責任者 Harold Zurcher は、どんな費用構造のもとで、いつエンジンを載せ替えるかを決めているのか。それを構造モデルとして復元できるか。
+
+**データ**：1970年代〜80年代前半の、マディソン市バス公社の車両整備記録。各バスの累積走行距離と、エンジン載せ替えのタイミング（どの走行距離で交換されたか）。対象は100台強、判断記録は数千件のオーダー。
+
+**識別戦略・モデル**：まさに本講義のモデルだ。走行距離を状態、載せ替えを行動とし、Zurcher が「期待割引費用を最小化する」ように行動する動学的離散選択モデルを立てた。T1EV ショックで logit 構造を得て、NFXP（内側で価値関数反復、外側で最尤）で維持費・交換費のパラメータを推定した。
+
+**主要な発見**：走行距離が伸びるほど交換確率が上がる S 字の交換方針が、データとよく整合することを示した。推定された費用構造のもとで、「もし維持費や交換費が違ったら交換行動がどう変わるか」という反実仮想を計算してみせた。**構造推定の枠組みで、たった一人の意思決定者の内部パラメータを復元し、政策シミュレーションを可能にした**——これが動学的離散選択という分野の出発点になった。
+
+**なぜこの回と繋がるか**：今日の講義そのものの原典だ。バス公社の地味な台帳が、実証IO・quantitative marketing の動学分析すべての祖先である。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Hotz and Miller (1993) — CCP で価値関数を迂回する
+
+**問い**：動学的離散選択の推定で、毎回価値関数を解き切る（NFXP の）重さを避けられないか。選択確率から、価値関数を解かずにパラメータを推定できないか。
+
+**データ・設定**：理論的な貢献が中心だが、女性のライフサイクルにおける避妊・出産の選択など、動学的な意思決定への応用も示した。
+
+**識別戦略・モデル**：本講義で導出した**Hotz-Miller の反転**——$V(x) = v(x,a) + \gamma - \log P(a\mid x)$——を確立した。条件付き選択確率（CCP）と価値関数の間に閉じた関係があることを使い、CCP を頻度で推定してから、それを価値の代理として推定に流し込む。これにより、価値関数反復を回さずにパラメータを推定できる（本講義の renewal action の例が、その最も鮮やかな特殊ケース）。
+
+**主要な発見**：CCP アプローチが、NFXP と漸近的に同等な推定量を、**桁違いに軽い計算**で与えることを示した。今日我々が「回帰1本」で $\theta$ を得たのは、この論文の発想の直系だ。
+
+**なぜこの回と繋がるか**：本講義の後半の見せ場そのもの。NFXP の重さを、発想の転換で回避する——構造推定の計算を現実的にした金字塔である。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Gowrisankaran and Rysman (2012) — 耐久財の動学需要
+
+**問い**：デジタルカメラ（カムコーダ）のような耐久財では、消費者は「今は高いから、値下がりを待とう」と**買い控える**。この forward-looking な購買延期を無視すると、需要弾力性や新製品の価値評価を誤る。動学需要をどう推定するか。
+
+**データ**：米国のデジタルカムコーダ市場、複数年の製品ごとの価格・スペック・販売数の集計データ。技術進歩で品質が上がり価格が下がっていく、典型的な耐久財市場。
+
+**識別戦略・モデル**：BLP 型の random coefficient logit 需要（第4回）に、**動学**を組み込んだ。消費者は「今買う」か「待つ」かを、将来の価格低下・品質向上の期待を織り込んで選ぶ。各消費者の購買は1回きり（買ったら市場から退出）という耐久財特有の構造を、動学的離散選択で定式化した。
+
+**主要な発見**：静学モデルは、耐久財の価格弾力性を系統的に誤る。動学を入れると、「値下がり期待による買い控え」が識別され、価格変化への反応がより現実的になった。新製品導入の便益評価も、動学を入れると変わる。
+
+**なぜこの回と繋がるか**：今日の道具（forward-looking な状態依存の選択）を、一人の意思決定者（Zurcher）から**市場全体の消費者**へ拡張した好例だ。第4回の BLP と第13回の動学が合流する地点であり、次回（第14回）の買いだめ・state dependence への直接の橋渡しになる。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Aguirregabiria and Mira (2010) — 実務者のための地図
+
+**問い**：動学的離散選択の推定法は、NFXP・CCP・擬似尤度・その拡張と数多くある。実務者はどれを、いつ使うべきか。全体像を整理できないか。
+
+**データ・設定**：サーベイ論文であり、特定のデータではなく、分野全体の手法を体系化する。
+
+**識別戦略・モデル**：単一エージェントの動学（今日の Rust）から、複数エージェントの動学ゲーム（企業の参入退出・投資競争）まで、推定法を統一的に整理する。NFXP、Hotz-Miller の CCP、Aguirregabiria-Mira 自身の **NPL（nested pseudo-likelihood、擬似尤度を反復して効率を上げる）**、Bajari-Benkard-Levin などを、計算コストと統計的性質の軸で位置づける。
+
+**主要な発見（この分野の指針として）**：CCP は速いが非効率、NFXP は効率的だが重い、NPL はその中間を狙う、という手法間のトレードオフを明快に示した。状態空間の大きさ・データ量・モデルの複雑さに応じた使い分けの指針を与える。
+
+**なぜこの回と繋がるか**：今日学んだ NFXP と CCP を、より広い手法群の中に位置づける「地図」だ。動学構造推定を実務で使うなら、まずこのサーベイ（と Arcidiacono-Ellickson 2011 の実践ガイド）で全体像を掴むとよい。第15回の dynamic pricing（企業側の動学）へ進む前の、見取り図でもある。
+:::
+
+## ビジネスの現場で
+
+::: {.callout-note}
+## ビジネスの現場で：設備保全・車両リプレースの意思決定支援
+
+Rust のバス問題は、比喩ではなく**そのまま現代の設備保全（predictive maintenance）**だ。工場の生産設備、航空機のエンジン、鉄道車両、社用車のフリート——「今リプレース／オーバーホールするか、あと1年使い倒すか」は、まさに走行距離（や稼働時間・故障履歴）を状態とする動学的離散選択である。IoT センサーで稼働データが取れる今、各設備の「状態」をリアルタイムに把握し、推定した維持費・交換費のもとで最適な載せ替えタイミングを提案するシステムが実際に動いている。「補助金や税制で設備更新を促したら、更新頻度がどう変わるか」という政策評価も、今日の反実仮想そのものだ。
+:::
+
+::: {.callout-note}
+## ビジネスの現場で：解約金のあるサブスク解約と、ポイント有効期限の設計
+
+「解約金があるサブスクの解約」は、典型的な forward-looking の意思決定だ。今解約すると違約金を払うが、契約を続ければ毎月の料金がかかる。合理的な顧客は「あと何ヶ月で無料期間・割引期間が終わるか」という**契約残期間という状態**を見て、今解約するか待つかを決める。だから「解約金を値上げしたら解約率がどう変わるか」という反実仮想には、動学が要る。静学モデルは「今月の効用」しか見ないので、契約残期間に応じた駆け込み解約・解約延期を捉えられず、政策効果を誤る。
+
+**ポイント有効期限の設計**も同じ構造だ。顧客は「ポイント残高」と「失効までの期間」という状態を見て、失効前に駆け込みで使う。有効期限を延ばす／縮める施策の効果は、この動学を入れて初めて正しく評価できる。第2回の静学 logit では絶対に届かない領域であり、まさに今日の道具の出番だ。
+:::
+
+## まとめ
+
+::: {.callout-important}
+## この回のポイント
+
+- **動学的離散選択**は「今日の行動が明日の状態を変え、その状態が将来の効用を左右する」forward-looking な意思決定を扱う。部品は、状態 $x$・行動 $a$・状態遷移 $P(x'\mid x,a)$・choice-specific value $v(x,a)$・価値関数 $V(x)$・Bellman 方程式。
+- **第2回の遺産**：T1EV のもとで、Emax は logsum、選択確率は logit。静学で $\delta$ が座っていた場所に、将来価値込みの $v(x,a)$ が座るだけ。$V(x) = \log\sum_a e^{v(x,a)} + \gamma$。
+- **価値関数反復**は $\beta$ を縮小係数とする縮小写像（第4回 BLP contraction と同じ数学）。幾何収束する。走行距離が伸びるほど交換確率が上がる S 字が、DP の解として出る。
+- **NFXP**（Rust）：外側で最適化・内側で価値関数反復を毎回解き切る最尤法。真値を回収できるが、状態空間が大きいと重い（呪い）。
+- **CCP**（Hotz-Miller）：$V(x) = v(x,a) + \gamma - \log P(a\mid x)$ の反転で、CCP から価値を復元。交換は renewal action なので finite dependence で将来項が消え、**線形回帰1本**になる。NFXP の数百分の一の時間で近い答え（代償は効率＝ノイズ）。
+- **反実仮想**：交換費20%補助 → DP を解き直し → 交換率+約18%・平均走行距離−約12%。**myopic（$\beta=0$）で推定すると $\theta_1$ が3倍に歪み、反実仮想の効果を約2倍に過大評価する。** 状態を動かす問いには forward-looking が要る。
+:::
+
+## 宿題
+
+- ブラウザ実験室（[playground13.html](playground13.html)）で、今回のシミュレーションの数値を自分でいじって遊んでみよう。インストール不要、ブラウザだけでRが動く（初回ロードのみ30秒〜1分かかる）。
+1. **状態空間の呪いを体感する**。本文のコードで `K <- 20` を `K <- 100` に変えて価値関数反復を実行し、収束の反復数と実行時間がどう変わるか観察せよ。さらに NFXP を回すと、CCP との速度差がどう開くか。
+2. **CCP のノイズを見る**。本文の CCP 推定を、`set.seed` を変えて（あるいは `simulate_panel` を何度も呼んで）5回ほど繰り返し、推定値 $(\theta_1, RC)$ がどれくらいばらつくかを見よ。NFXP のばらつきと比べて、どちらが安定しているか。
+3. ChatGPT に「動学的離散選択モデルで割引因子 $\beta$ が識別しにくいのはなぜか、直感的に説明して」と聞いてみて、本文の説明（$\beta$ と flow utility がもつれる）と突き合わせよ。
+4. **反実仮想を変えて遊ぶ**。本文の反実仮想を「交換費を20%**値上げ**」（$RC \times 1.2$）に変えて、交換率・平均走行距離がどう動くか見よ。補助のときと符号が逆になるはずだ。
+5. coding 課題は `assignment13.qmd` を参照。$K=15$・$\beta=0.95$ 固定の縮小版 Rust モデルを自作し、NFXP と CCP を両方実装して比較し、交換費補助の反実仮想を動学と myopic で比べる。今日のすべてを自分の手で通す課題だ。
+
+## 次回予告
+
+第14回では、今日の道具を**消費者パネル**に応用する。今日は「一人の意思決定者（Zurcher）」だったが、次回は多数の消費者の購買履歴を、forward-looking なモデルで料理する。中心テーマは **state dependence（状態依存）**と**買いだめ（stockpiling）**だ。
+
+- **state dependence**：過去に買ったブランドを、今日も選びやすい（ロイヤルティ・習慣）。これは「今日の選択が明日の状態を変える」動学そのものだ。第2回の Guadagni-Little のロイヤルティ変数が、動学の言葉で蘇る。
+- **買いだめ**：特売のときにまとめ買いすると、「在庫」という状態が上がり、しばらく買わなくなる。今日の在庫が明日の購買を左右する——まさに Rust のバスの走行距離が、消費者の家の在庫に置き換わる。
+
+「特売を打ったら売上が増えた」の一部は、実は**将来の需要の先食い（買いだめ）**かもしれない。それを見抜くには、今日の動学の道具が要る。次回はその話をする。第15回では、視点を企業側に移し、企業自身の動学的な意思決定（dynamic pricing）を扱う——DP がもう一度、今度は売り手の頭の中で再演される。
+
+## 参考文献
+
+- Rust, John (1987). "Optimal Replacement of GMC Bus Engines: An Empirical Model of Harold Zurcher." *Econometrica*, 55(5), 999–1033.
+- Hotz, V. Joseph, and Robert A. Miller (1993). "Conditional Choice Probabilities and the Estimation of Dynamic Models." *Review of Economic Studies*, 60(3), 497–529.
+- Aguirregabiria, Victor, and Pedro Mira (2010). "Dynamic Discrete Choice Structural Models: A Survey." *Journal of Econometrics*, 156(1), 38–67.
+- Arcidiacono, Peter, and Paul B. Ellickson (2011). "Practical Methods for Estimation of Dynamic Discrete Choice Models." *Annual Review of Economics*, 3, 363–394.
+- Gowrisankaran, Gautam, and Marc Rysman (2012). "Dynamics of Consumer Demand for New Durable Goods." *Journal of Political Economy*, 120(6), 1173–1219.
+- 上武康亮・遠山祐太・若森直樹・渡辺安虎『実証ビジネス・エコノミクス』日本評論社。

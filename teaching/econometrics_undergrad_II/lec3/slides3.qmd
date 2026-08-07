@@ -1,0 +1,1099 @@
+---
+title: "Lecture 3：代替性と価格内生性"
+subtitle: "nested logitとBerry反転｜計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  revealjs:
+    theme: [default, ../slides_theme.scss]
+    slide-number: c/t
+    embed-resources: true
+    transition: none
+    center: false
+    width: 1180
+    height: 700
+    margin: 0.08
+    fig-width: 8
+    fig-height: 4.2
+    code-line-numbers: false
+    incremental: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(fixest)
+
+set.seed(20263)
+
+theme_slide <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 15, base_family = fam)
+}
+theme_set(theme_slide())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+## 今日の流れ（90分）
+
+| 時間 | 内容 |
+|---|---|
+| 10分 | Quiz（解答5分 + 解説5分） |
+| 5分 | 導入：logitの光と影 |
+| 13分 | IIAを直視する |
+| 17分 | nested logit |
+| 10分 | Berry (1994) の反転 |
+| 8分 | 価格内生性の正体 |
+| 12分 | シミュレーション：OLSのバイアスと2SLS |
+| 7分 | IVの品揃え |
+| 3分 | まとめ・宿題・次回予告 |
+
+::: {.notes}
+- 今日のメイン: IIA → nested logit → Berry反転 → 価格内生性 → 2SLS、という二部構成（代替性の話と内生性の話）。
+- 「前回作ったlogitの2つの弱点を、今日1つずつ直す」というストーリーを最初に宣言する。
+:::
+
+## Quiz（前回の復習・10分）
+
+::: {.nonincremental}
+
+- 配布した Quiz 3 に解答する（**5分**、メモ・ノート参照可）
+- そのあと解説（**5分**）
+- 採点はしない。前回の内容のセルフチェックとして使うこと
+
+:::
+
+::: {.notes}
+- 解答5分 → 解説5分。解説は別資料 quiz3_solution を使う（スライドには載せない）。
+- 3問とも第2回の核心（logit公式の分母、交差弾力性とIIAの伏線、最尤法の発想）に対応。
+- 設問1（分母）が今日のBerry反転の、設問2（交差弾力性）が今日のIIA・nested logitの伏線になる、と解説時に一言。
+:::
+
+# 導入：logitの光と影 {background-color="#1f3552"}
+
+::: {.notes}
+- ここから本編。この節は5分。
+:::
+
+## 前回とのつながり
+
+- 前回：RUM + Gumbel → **logit公式**。最尤法で推定し、弾力性からプライシングまで一気通貫
+- logitは驚くほど扱いやすい。ただしその扱いやすさは**強い仮定の代償**
+- 今日はその代償を2つ、正面から直視する
+  1. **IIA**：代替パターンが「シェア比」だけで機械的に決まる
+  2. **価格内生性**：価格は見えない需要ショックと相関している
+
+::: {.keybox .fragment}
+今日のゴール：nested logitで代替性を柔軟にし、Berry反転 + 操作変数法で価格内生性に対処できるようになること。
+:::
+
+::: {.notes}
+- 前回の弾力性行列で見せた違和感（B列が縦に同じ値）を覚えているか聞いてみる。
+- 「扱いやすさはタダではない」という一文で今日の全体を貫く。
+:::
+
+## 今日押さえたいこと
+
+1. logitの**IIA**という制約を、シミュレーションと弾力性行列で体感する
+2. **nested logit**：財をネストにまとめ、ネスト内相関で「似た財ほど強く競合する」を表現する
+3. **Berry (1994) の反転**：市場シェアの対数比を取ると、離散選択がOLSの回帰式に化ける
+4. 価格が需要ショックと相関する**内生性**が、価格反応の**過小評価**を生むメカニズムを理解する
+5. コストシフターを操作変数にした**2SLS**で真値を回収できることを確認する
+
+::: {.notes}
+- 3が今日一番の「驚き」ポイント。個票がなくても需要推定できる、という実務的な福音。
+- 4は第1回イントロの「値上げすると売上が増える」デモの正体、という円環を後で示す。
+:::
+
+# IIAを直視する {background-color="#1f3552"}
+
+::: {.notes}
+- この節は13分。前回の伏線を回収するパート。
+:::
+
+## 古典：赤バス・青バス問題
+
+通勤手段が「車」と「青バス」の2つ。シェアは50%ずつ。
+
+ここに「**赤バス**」（青バスと座席の色以外まったく同じ）が参入したら？
+
+- 直感：赤バスは青バスの完全な代替物 → 車50%・青25%・赤25%
+- logitの答え：**車も33%に低下**。青バスと同じだけ車からも客を奪う
+
+::: {.notes}
+- McFadden (1974) 等に由来する古典的な思考実験。
+- 「色しか違わないバスが、車のシェアまで食う」という不自然さを味わってもらう。
+:::
+
+## 現代版：缶コーヒー棚ふたたび
+
+3つの財（+ outside option）を考える。
+
+- **財1**：コンビニPBの缶コーヒーA
+- **財2**：ほぼ同じ処方・同価格帯のPB缶コーヒーB（財1とほぼ区別がつかない）
+- **財3**：方向性の違う高級スペシャルティコーヒー（価格は2倍以上）
+
+問い：**財3が値上げされたら、流出した客はどこへ向かうか？**
+
+そして——財1と財2が「似ている」ことは、この計算に影響するのか？
+
+::: {.notes}
+- 前回の缶コーヒー棚が「複雑になって再登場」する、と予告していた通り。
+- 答えを予想させてから次のスライドのシミュレーションへ。
+:::
+
+## 3財logit市場を作る
+
+パラメータ設定：品質は財1・2が同じ、財3は高品質・高価格。
+
+```{r}
+#| label: iia-setup
+#| include: false
+alpha <- 1.0
+beta_j <- c(2.0, 2.0, 3.0)     # 財1,2,3の品質パラメータ
+price_j <- c(3.0, 3.0, 8.0)    # 財1,2は同価格帯、財3は高級で高価格
+
+logit_shares <- function(beta_j, alpha, price_j) {
+  delta <- beta_j - alpha * price_j
+  ev <- exp(delta)
+  denom <- 1 + sum(ev)
+  list(s = ev / denom, s0 = 1 / denom)
+}
+
+base <- logit_shares(beta_j, alpha, price_j)
+```
+
+```{r}
+#| label: iia-base-table
+base_tbl <- data.frame(
+  good = c("財1（PB-A）", "財2（PB-B）", "財3（高級）", "outside"),
+  share = round(c(base$s, base$s0), 4)
+)
+knitr::kable(base_tbl, col.names = c("財", "シェア"))
+```
+
+- 財1と財2は品質・価格が同じなので、シェアも一致
+- 財3は高価格が効いてシェア1%未満
+
+::: {.notes}
+- delta = beta − alpha × price をlogit式に入れるだけ。前回の復習を兼ねる。
+- outsideが約57%。市場規模の定義の話（前回）を思い出させてもよい。
+:::
+
+## 財3（高級）を10%値上げする
+
+```{r}
+#| label: iia-shock
+#| include: false
+price_shock <- price_j
+price_shock[3] <- price_shock[3] * 1.10
+shocked <- logit_shares(beta_j, alpha, price_shock)
+share_change <- shocked$s - base$s
+gain_ratio <- share_change[1] / share_change[2]
+baseline_ratio <- base$s[1] / base$s[2]
+```
+
+```{r}
+#| label: iia-shock-table
+shock_tbl <- data.frame(
+  good = c("財1（PB-A）", "財2（PB-B）", "財3（高級）"),
+  before = round(base$s, 5),
+  after = round(shocked$s, 5),
+  change = round(share_change, 5)
+)
+knitr::kable(shock_tbl, col.names = c("財", "値上げ前", "値上げ後", "変化"))
+```
+
+- 財1の需要獲得と財2の需要獲得の比：**`r round(gain_ratio, 4)`**
+- 財1と財2のbaselineシェア比：**`r round(baseline_ratio, 4)`**
+
+. . .
+
+→ 流出した需要は**残りの財のシェア比に応じて**機械的に配分される
+
+::: {.notes}
+- 2つの比がぴったり一致するのは偶然ではなく、logitの構造的な帰結。
+- 「財1と財2が似ているかどうか」はこの配分に一切登場しない、が今日の第1のメッセージ。
+:::
+
+## 図で見る：財3値上げのシェア変化
+
+```{r}
+#| label: fig-iia-bar
+#| fig-height: 3.9
+df_iia <- data.frame(
+  good = factor(c("財1(PB-A)", "財2(PB-B)", "財3(高級)"),
+                levels = c("財1(PB-A)", "財2(PB-B)", "財3(高級)")),
+  share_before = base$s,
+  share_after = shocked$s
+) %>%
+  pivot_longer(cols = c(share_before, share_after),
+               names_to = "period", values_to = "share") %>%
+  mutate(period = ifelse(period == "share_before", "値上げ前", "値上げ後"))
+
+ggplot(df_iia, aes(x = good, y = share, fill = period)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  labs(x = NULL, y = "シェア", fill = NULL,
+       title = "財3(高級ブランド)の値上げに対するシェアの変化") +
+  scale_y_continuous(labels = scales::percent)
+```
+
+財1・財2は同じだけ需要を獲得する。「似ている度合い」はどこにも効かない。
+
+::: {.notes}
+- 今回は財1・2を意図的に同一設定にしているので視覚的にも同じ増分になる。
+- 設定が違っても「シェア比で配分」というルール自体は変わらない、と補足。
+:::
+
+## 交差弾力性の式をもう一度
+
+前回の閉形式を思い出す（$k$ が値上げしたときの財 $j$ の反応）：
+
+$$
+\eta_{jk} = \alpha p_k s_k \quad (j \neq k)
+$$
+
+- 右辺にあるのは、**値上げした財 $k$ の価格とシェアだけ**
+- 反応する側の財 $j$ の情報（品質・財 $k$ との類似度）が**一切入っていない**
+- だから、誰が反応しても答えは同じになる
+
+::: {.notes}
+- 前回の弾力性行列で「B列が縦に同じ値」だった違和感の、数式レベルでの説明。
+- Quiz 3の設問2はまさにこの点を聞いている、と接続する。
+:::
+
+## 弾力性行列で確認する
+
+```{r}
+#| label: iia-elasticity
+cross_elasticity <- function(beta_j, alpha, price_j) {
+  sh <- logit_shares(beta_j, alpha, price_j)$s
+  J <- length(price_j)
+  E <- matrix(NA, J, J)
+  for (j in 1:J) {
+    for (k in 1:J) {
+      if (j == k) {
+        E[j, k] <- -alpha * price_j[j] * (1 - sh[j])
+      } else {
+        E[j, k] <- alpha * price_j[k] * sh[k]
+      }
+    }
+  }
+  E
+}
+
+E_iia <- cross_elasticity(beta_j, alpha, price_j)
+rownames(E_iia) <- colnames(E_iia) <- c("財1", "財2", "財3")
+knitr::kable(round(E_iia, 4))
+```
+
+- 3列目（財3の値上げ）を縦に見る：財1の反応と財2の反応が**完全に同じ**
+- どの列でも、非対角成分は列内で同じ値になる
+
+::: {.notes}
+- 行 = シェアが変化する財、列 = 価格が変化する財。
+- 「列を縦に見る」読み方を身につけさせる。前回の3ブランド表と同じ構造。
+:::
+
+## なぜIIAが起きるのか
+
+原因：効用ショック $\varepsilon_{ijt}$ が財を超えて **iid**（独立同一分布）だという仮定。
+
+- 財1と財2が「似ている」＝ 財1を好む消費者は財2も好みやすい
+- つまり本来は $\varepsilon_{i1t}$ と $\varepsilon_{i2t}$ が**正に相関**しているはず
+- logitはこの相関を**許さない** → 帰結が IIA
+
+::: {.warnbox .fragment}
+「BMWが値上げしたら、シェア比に応じて軽トラの需要も増える」——これがlogitの機械的な帰結。現実の乗り換え先は同じ高級車セグメントに偏るはずである。
+:::
+
+::: {.notes}
+- IIA = Independence of Irrelevant Alternatives。名前と中身をここで固定する。
+- 処方箋は「相関を部分的に許すこと」。それが次節のnested logit。
+:::
+
+# nested logit {background-color="#1f3552"}
+
+::: {.notes}
+- この節は17分。今日の理論の山場その1。
+:::
+
+## アイデア：財をグループにまとめる
+
+- 財をあらかじめいくつかの**ネスト（グループ）**に分ける
+- **同じネスト**に属する財同士：効用ショックが**相関する**
+- **異なるネスト**の財同士：相関しない
+
+. . .
+
+→ 「似た財ほど強く競合する」という直感を、構造としてモデルに与える
+
+::: {.notes}
+- ネストの切り方は分析者が事前に決める（データからは決まらない）、という限界も先に言っておく。
+- この限界が次回のrandom coefficient logitへの動機になる。
+:::
+
+## ネスト構造の例：缶コーヒー市場
+
+```{r}
+#| label: fig-nest-tree
+#| fig-height: 4.0
+nodes <- data.frame(
+  x = c(0.5, 0.15, 0.5, 0.85, 0.05, 0.25, 0.5, 0.75, 0.95),
+  y = c(1.0, 0.5, 0.5, 0.5, 0, 0, 0, 0, 0),
+  label = c("市場", "ネスト1:\nまったり系", "ネスト2:\nすっきり系", "Outside",
+            "ブランドA", "ブランドB", "ブランドC", "ブランドD", "何も買わない")
+)
+edges <- data.frame(
+  x = c(0.5, 0.5, 0.5, 0.15, 0.15, 0.5, 0.5),
+  y = c(1.0, 1.0, 1.0, 0.5, 0.5, 0.5, 0.5),
+  xend = c(0.15, 0.5, 0.85, 0.05, 0.25, 0.5, 0.75),
+  yend = c(0.5, 0.5, 0.5, 0, 0, 0, 0)
+)
+
+ggplot() +
+  geom_segment(data = edges, aes(x = x, y = y, xend = xend, yend = yend), color = "grey60") +
+  geom_label(data = nodes, aes(x = x, y = y, label = label), size = 3.6) +
+  theme_void() +
+  coord_cartesian(xlim = c(-0.05, 1.05), ylim = c(-0.1, 1.1))
+```
+
+まったり系（A・B）内の代替は強く、ネストをまたぐ代替は相対的に弱い。
+
+::: {.notes}
+- ツリーは「2段階で選ぶ」流れを視覚化するための便宜。実際に消費者が2段階で選んでいる必要はない。
+- ビール（プレミアム vs 新ジャンル）でも同じ構造、と実務例を一言。
+:::
+
+## 選択確率の2段階分解
+
+財 $j$ がネスト $g$ に属するとき、選択確率は次のように分解できる：
+
+$$
+s_{jt} = \bar{s}_{j|g,t} \times s_{gt}
+$$
+
+- $\bar{s}_{j|g,t}$：ネスト $g$ を選んだ条件のもとでの財 $j$ の確率（**within-nest share**）
+- $s_{gt}$：ネスト $g$ 自体が選ばれる確率（between-nest share）
+
+「まずどの系統か、次にその中のどれか」という読み方ができる。
+
+::: {.notes}
+- 導出はGEV分布（一般化極値分布）から。詳細はノートの折りたたみcallout（Train 2009 第4章）。
+- スライドでは「分解できる」という結果と読み方に集中する。
+:::
+
+## 式の中身：inclusive value
+
+ネスト $g$ の「まとめた魅力度」（inclusive value）を定義する：
+
+$$
+I_{gt} = \sum_{k \in g} \exp\left( \delta_{kt} / (1-\rho) \right)
+$$
+
+. . .
+
+within-nest share と between-nest share は
+
+$$
+\bar{s}_{j|g,t} = \frac{\exp\left( \delta_{jt} / (1-\rho) \right)}{I_{gt}}
+$$
+
+. . .
+
+$$
+s_{gt} = \frac{I_{gt}^{1-\rho}}{1 + \sum_{g'} I_{g't}^{1-\rho}}
+$$
+
+::: {.notes}
+- 式の形はlogitとそっくり：ネスト内では「delta/(1−rho)のlogit」、ネスト間では「inclusive valueのlogit」。
+- この入れ子構造が nested の名前の由来。
+:::
+
+## ネスト内相関パラメータの意味
+
+核となるパラメータは $\rho \in [0, 1)$（**ネスト内相関**）：
+
+- $\rho$ が大きい → 同じネスト内の財の効用ショックが強く相関 → 「よく似た財」扱い
+- $\rho \to 0$ → **plain logitに一致**（ネストの区別が意味を失う）
+- $\rho \to 1$ → ネスト内の財はほとんど「同じ財」
+
+::: {.keybox .fragment}
+nested logitはplain logitを特殊ケース（$\rho = 0$）として含む**一般化**。追加パラメータはたった1つ。
+:::
+
+::: {.notes}
+- 「rhoの推定値を見れば、ネスト構造が必要だったかどうか自体を検定できる」という視点を強調。
+- rho→0の一致は後で数値でも検算する。
+:::
+
+## Rで実装：nested logitのシェア関数
+
+```{r}
+#| label: nested-logit-fn
+#| echo: true
+#| output-location: fragment
+nested_logit_shares <- function(delta, nests, rho) {
+  lambda <- 1 - rho
+  J <- length(delta)
+  IV <- numeric(length(nests))            # 各ネストのinclusive value
+  for (g in seq_along(nests)) {
+    IV[g] <- sum(exp(delta[nests[[g]]] / lambda))
+  }
+  denom <- 1 + sum(IV^lambda)
+  s_g <- (IV^lambda) / denom              # between-nest share
+  s <- numeric(J)
+  for (g in seq_along(nests)) {
+    for (j in nests[[g]]) {
+      s[j] <- exp(delta[j] / lambda) / IV[g] * s_g[g]
+    }
+  }
+  list(s = s, s0 = 1 / denom, s_g = s_g)
+}
+```
+
+数式の分解（within × between）をそのままコードにしただけ。
+
+::: {.notes}
+- delta: 平均効用ベクトル。nests: 財インデックスのリスト。rho: 共通のネスト内相関。
+- 前回同様「式を信じられなくても、シミュレーションで挙動を確かめられる」。
+:::
+
+## 検算：ネスト内相関を0に近づけると
+
+4財市場（まったり系 = 財1・2、すっきり系 = 財3・4）で確認する。
+
+```{r}
+#| label: nested-market
+#| include: false
+alpha_n <- 1.0
+beta_n <- c(2.2, 2.0, 2.3, 2.1)
+price_n <- c(3.0, 3.2, 3.5, 3.3)
+delta_n <- beta_n - alpha_n * price_n
+
+nests4 <- list(c(1, 2), c(3, 4))
+rho_n <- 0.5
+
+plain_logit_shares <- function(delta) {
+  ev <- exp(delta)
+  denom <- 1 + sum(ev)
+  list(s = ev / denom, s0 = 1 / denom)
+}
+```
+
+```{r}
+#| label: nested-check-rho0
+nl_rho0 <- nested_logit_shares(delta_n, nests4, rho = 1e-6)
+pl <- plain_logit_shares(delta_n)
+
+check_tbl <- data.frame(
+  good = c("財1", "財2", "財3", "財4", "outside"),
+  nested = round(c(nl_rho0$s, nl_rho0$s0), 5),
+  plain = round(c(pl$s, pl$s0), 5)
+)
+knitr::kable(check_tbl, col.names = c("財", "nested logit（ロー = 0付近）", "plain logit"))
+```
+
+. . .
+
+一致した。nested logitはplain logitを内側に含んでいる。
+
+::: {.notes}
+- 実装の検算としても重要な儀式：特殊ケースで既知の答えに一致するかを必ず見る。
+- わずかな差はrhoを厳密に0でなく極小値にしているための丸め。
+:::
+
+## 実験：財3（すっきり系）を20%値上げ
+
+設定：4財市場、ネスト内相関 0.5。
+
+- まったり系ネスト：財1・財2
+- すっきり系ネスト：財3・**財4**（財3の「似た者同士」）
+- 財3を20%値上げしたとき、**plain logitとnested logitで流出先はどう違うか**
+
+```{r}
+#| label: nested-shock
+#| include: false
+price_shock_n <- price_n
+price_shock_n[3] <- price_shock_n[3] * 1.20
+delta_shock_n <- beta_n - alpha_n * price_shock_n
+
+pl_before <- plain_logit_shares(delta_n)
+pl_after <- plain_logit_shares(delta_shock_n)
+nl_before <- nested_logit_shares(delta_n, nests4, rho_n)
+nl_after <- nested_logit_shares(delta_shock_n, nests4, rho_n)
+
+d_plain <- pl_after$s - pl_before$s
+d_nested <- nl_after$s - nl_before$s
+
+df_compare <- data.frame(
+  good = rep(c("財1(まったり)", "財2(まったり)", "財3(すっきり,値上げ)", "財4(すっきり)"), 2),
+  model = rep(c("plain logit", "nested logit"), each = 4),
+  share_change = c(d_plain, d_nested)
+)
+```
+
+. . .
+
+予想：nested logitでは、財3から流出した客は**同じネストの財4**に集中するはず。
+
+::: {.notes}
+- 予想を立てさせてから次の図を見せる。
+- 財4が「財3の赤バス」に相当する、と赤バス問題に接続してもよい。
+:::
+
+## 結果：代替がネスト内に集中する
+
+```{r}
+#| label: fig-nested-vs-plain
+#| fig-height: 3.9
+df_compare$good <- factor(df_compare$good,
+                          levels = c("財1(まったり)", "財2(まったり)",
+                                     "財3(すっきり,値上げ)", "財4(すっきり)"))
+df_compare$model <- factor(df_compare$model, levels = c("plain logit", "nested logit"))
+
+ggplot(df_compare, aes(x = good, y = share_change, fill = model)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  labs(x = NULL, y = "シェアの変化", fill = NULL,
+       title = "財3値上げ時の代替パターン：nested logitでは財4への流出が大きい") +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+```
+
+- plain logit：財1・2・4にほぼ均等（シェア比）に配分
+- nested logit：**同じネストの財4への流出がはっきり大きい**
+
+::: {.notes}
+- 「財3が気に入らなくなった客は、似た系統の財4に流れやすい」という自然なパターンが再現された。
+- rhoを動かすとこの偏り方が変わる。宿題で遊んでもらう。
+:::
+
+## 弾力性でも確認する
+
+財3の値上げに対する各財の弾力性（数値微分で計算）：
+
+```{r}
+#| label: nested-elasticity
+eps_p <- 1e-6
+delta_pert <- delta_n
+delta_pert[3] <- delta_pert[3] - alpha_n * eps_p
+
+s_pl <- plain_logit_shares(delta_n)$s
+s_pl_p <- plain_logit_shares(delta_pert)$s
+s_nl <- nested_logit_shares(delta_n, nests4, rho_n)$s
+s_nl_p <- nested_logit_shares(delta_pert, nests4, rho_n)$s
+
+eta_pl <- (s_pl_p - s_pl) / eps_p * price_n[3] / s_pl
+eta_nl <- (s_nl_p - s_nl) / eps_p * price_n[3] / s_nl
+
+eta_tbl <- data.frame(
+  good = c("財1（まったり）", "財2（まったり）", "財3（自己弾力性）", "財4（すっきり）"),
+  plain = round(eta_pl, 3),
+  nested = round(eta_nl, 3)
+)
+knitr::kable(eta_tbl, col.names = c("財", "plain logit", "nested logit"))
+```
+
+- plain logit：財1・2・4の交差弾力性が**すべて同じ値**（IIA）
+- nested logit：**同じネストの財4だけ**が大きく反応する
+
+::: {.notes}
+- plain logitの交差弾力性 = alpha × p3 × s3 は反応側によらない、を数値で再確認。
+- nested logitでは自己弾力性の絶対値も大きくなる点にも触れる（ネスト内に近い代替があるため）。
+:::
+
+## ここが核心：たった1つの追加パラメータ
+
+::: {.keybox .fragment}
+- IIAの原因は「効用ショックが財を超えてiid」という仮定
+- nested logitはネスト内の相関をパラメータ1つで許し、「似た財ほど強く競合する」を表現する
+- ネスト内相関が0に近づくとplain logitに戻る（一般化になっている）
+- ネスト構造は分析者が事前に決める必要がある——この限界は次回のrandom coefficient logitで解消する
+:::
+
+::: {.notes}
+- ここまでで代替性パート終了。時間目安：quiz込みで45分あたり。
+- 後半戦（内生性）へ切り替える前に、一呼吸置く。
+:::
+
+# Berry (1994) の反転 {background-color="#1f3552"}
+
+::: {.notes}
+- この節は10分。今日の理論の山場その2。
+:::
+
+## 現実のデータ：個票はないことが多い
+
+- ここまでは「誰が何を選んだか」という**個票データ**を前提にしてきた
+- 実務のPOSデータ・スキャナーデータは多くの場合、**市場ごと・製品ごとのシェアと価格**の集計値だけ
+- 個票がなければ、前回の最尤法は使えない（尤度が「各消費者の選択確率」から組まれていたため）
+
+. . .
+
+では市場シェアだけから需要パラメータを推定できないのか？ → **できる**（Berry 1994）
+
+::: {.notes}
+- 「店舗×週×商品のシェアと価格」という形のデータを想像させる。
+- ここからが今日の第2の主役。答えは驚くほど簡単な代数から出てくる。
+:::
+
+## シェアの比を取ると分母が消える
+
+市場 $t$ のlogitシェアとoutsideシェア：
+
+$$
+s_{jt} = \frac{\exp(\delta_{jt})}{1 + \sum_{k=1}^{J} \exp(\delta_{kt})}
+$$
+
+. . .
+
+$$
+s_{0t} = \frac{1}{1 + \sum_{k=1}^{J} \exp(\delta_{kt})}
+$$
+
+. . .
+
+2つの比を取ると、面倒な分母がきれいに消える：
+
+$$
+\frac{s_{jt}}{s_{0t}} = \exp(\delta_{jt})
+$$
+
+::: {.notes}
+- Quiz 3設問1（分母 = 全選択肢の魅力度の合計）がここで効いてくる。分母は全財で共通だから比で消える。
+- 「消える」瞬間を板書で見せてもよい。
+:::
+
+## Berry反転：回帰式が出てくる
+
+両辺の対数を取る：
+
+$$
+\ln s_{jt} - \ln s_{0t} = \delta_{jt} = x_{jt}'\beta - \alpha p_{jt} + \xi_{jt}
+$$
+
+- 左辺：観測されたシェアから**直接計算できる**
+- 右辺：属性と価格の**線形回帰式**そのもの
+
+::: {.keybox .fragment}
+「個々の消費者の離散選択」という複雑な問題が、「シェアの対数比を被説明変数とする回帰」という計量Iでおなじみの問題に化ける。個票がなくても需要が推定できる。
+:::
+
+::: {.notes}
+- xi_jt（観測されない需要ショック）が回帰の誤差項の位置に座る。これが次節の伏線。
+- delta_jt = x'beta − alpha p + xi という記法（STYLE GUIDE §7）はここから本格稼働。
+:::
+
+## nested logit版のBerry反転
+
+nested logitでも同様に反転できる（within-nest shareを使って比を取る）：
+
+$$
+\ln s_{jt} - \ln s_{0t} = x_{jt}'\beta - \alpha p_{jt} + \rho \ln \bar{s}_{j|g,t} + \xi_{jt}
+$$
+
+- plain logitの式に **within-nest shareの対数**が1項加わっただけ
+- ネスト内相関が0ならplain logitの式に一致
+
+::: {.warnbox .fragment}
+右辺の within-nest share は「シェアから作った変数」なので、価格と同じく**内生変数**。同じネストの財の需要ショックに依存して決まるため、OLSでは相関パラメータの推定も歪む。
+:::
+
+::: {.notes}
+- 「回帰式に化けた」からといってOLSでよいとは限らない、という次節への完璧なブリッジ。
+- within-nest shareのIVには同ネスト内の競合属性などが使われる（課題で扱う）。
+:::
+
+# 価格内生性の正体 {background-color="#1f3552"}
+
+::: {.notes}
+- この節は8分。第1回イントロのデモの回収。
+:::
+
+## 見えない需要ショックの中身
+
+$\xi_{jt}$（観測されない需要ショック）の具体例：
+
+- 未観測の品質：パッケージデザイン、口コミでの評判
+- 広告・販促の強さ（データセットに含まれていない場合）
+- 店頭の棚位置・陳列面積
+
+分析者には見えない。しかし——**企業には見えている**。
+
+::: {.notes}
+- xiは「回帰の誤差項」ではなく「企業が知っていて分析者が知らない情報」という経済的な実体を持つ。
+- この非対称性が内生性の源泉。
+:::
+
+## 企業はシェアの裏側を知って値付けする
+
+- $\xi_{jt}$ が高い（人気がある・話題になっている）商品ほど、企業は「多少値上げしても売れる」と判断し、**強気の価格**をつける
+
+$$
+\mathrm{corr}(p_{jt}, \xi_{jt}) > 0
+$$
+
+- Berry反転の回帰式では $\xi_{jt}$ が誤差項の位置にいる
+- → 説明変数（価格）と誤差項が相関する：**計量Iで学んだ内生性そのもの**
+
+::: {.notes}
+- 第1回イントロの「値上げすると売上が増える」デモの正体がこれ、と明言する。
+- 欠落変数バイアスの枠組み（計量I）にそのまま乗る話であることを強調。
+:::
+
+## バイアスの方向：価格反応の過小評価
+
+価格の係数は $-\alpha$（$\alpha > 0$）。$\xi$ と価格が正に相関すると：
+
+- OLSの価格係数は真の $-\alpha$ より**0に近く**推定される
+- つまり $\alpha$ を**過小評価** → 需要が実際より**非弾力的**に見える
+
+::: {.warnbox .fragment}
+「値上げしてもあまり客が離れないようです。強気の値上げを提案しましょう」——過小評価された弾力性に基づくこの提案は、想定以上の客離れを招く。値付けにも合併審査にも直結する実害。
+:::
+
+::: {.notes}
+- 方向の直感：人気商品（xi高）は高価格でも売れている → 「高くても売れる」ように見える → 価格の効きが弱く見える。
+- ここから、この理屈をシミュレーションで確かめに行く。
+:::
+
+# シミュレーション：OLSのバイアスと2SLS {background-color="#1f3552"}
+
+::: {.notes}
+- この節は12分。今日のシミュレーションの本丸。
+:::
+
+## DGPの設計：100市場×4財
+
+市場 $t = 1, \ldots, 100$、財 $j = 1, \ldots, 4$ のplain logit市場。真値は価格係数 2.0、属性係数 1.5。
+
+- $x_{jt}$：観測される商品属性
+- $w_{jt}$：**コストシフター**（限界費用を動かす。需要ショックとは無相関に生成）
+- $\xi_{jt}$：観測されない需要ショック
+- 限界費用：コストシフターで決まる
+- 価格 = 限界費用 + マークアップ、**マークアップは需要ショックに反応**
+
+::: {.notes}
+- 「企業がxiを知って強気に値付けする」構造をmarkupの式で直接表現する。
+- wが後で操作変数になる。「価格は動かすがxiとは無関係」という設計をDGPの段階で仕込んでいる。
+:::
+
+## 価格をつくる：マークアップが需要ショックに反応
+
+```{r}
+#| label: dgp-market-exo
+#| include: false
+T_mkt <- 100
+J_mkt <- 4
+alpha_true <- 2.0
+beta_true <- 1.5
+
+x_mkt <- matrix(rnorm(T_mkt * J_mkt, mean = 1.0, sd = 0.5), nrow = T_mkt, ncol = J_mkt)
+w_mkt <- matrix(rnorm(T_mkt * J_mkt, mean = 4.0, sd = 1.0), nrow = T_mkt, ncol = J_mkt)
+xi_mkt <- matrix(rnorm(T_mkt * J_mkt, mean = 0, sd = 0.6), nrow = T_mkt, ncol = J_mkt)
+```
+
+```{r}
+#| label: dgp-market-price
+#| echo: true
+#| output-location: fragment
+kappa <- 1.1   # 内生性の強さ（markupがxiにどれだけ反応するか）
+
+mc_mkt     <- 1.0 + 0.8 * w_mkt +
+              matrix(rnorm(T_mkt * J_mkt, sd = 0.3), nrow = T_mkt, ncol = J_mkt)
+markup_mkt <- pmax(1.0 + kappa * xi_mkt, 0.05)
+price_mkt  <- mc_mkt + markup_mkt
+
+cat("corr(price, xi):", round(cor(as.vector(price_mkt), as.vector(xi_mkt)), 3), "\n")
+```
+
+想定通り、価格と需要ショックの間に正の相関が生まれている。
+
+::: {.notes}
+- kappa = 0なら内生性ゼロ。kappaを動かす実験は宿題。
+- x, w, xiは隠しチャンクで生成済み（すべて互いに独立な正規乱数）。
+:::
+
+## 生成されたデータ：価格とシェアの散布図
+
+```{r}
+#| label: dgp-market-df
+#| include: false
+compute_market_shares <- function(x, price, xi, alpha, beta) {
+  delta <- beta * x - alpha * price + xi
+  ev <- exp(delta)
+  denom <- 1 + rowSums(ev)
+  list(s = ev / denom, s0 = 1 / denom)
+}
+
+mkt <- compute_market_shares(x_mkt, price_mkt, xi_mkt, alpha_true, beta_true)
+
+market_df <- data.frame(
+  market = rep(1:T_mkt, times = J_mkt),
+  product = rep(1:J_mkt, each = T_mkt),
+  x = as.vector(x_mkt),
+  w = as.vector(w_mkt),
+  xi = as.vector(xi_mkt),
+  price = as.vector(price_mkt),
+  share = as.vector(mkt$s)
+) %>%
+  mutate(share0 = rep(mkt$s0, times = J_mkt)) %>%
+  mutate(y_berry = log(share) - log(share0))
+```
+
+```{r}
+#| label: fig-price-share-scatter
+#| fig-height: 3.9
+ggplot(market_df, aes(x = price, y = share, color = factor(product))) +
+  geom_point(alpha = 0.5, size = 1.3) +
+  labs(x = "価格", y = "シェア", color = "財",
+       title = "価格が高い財ほどシェアが低い、という単純な関係だけではない") +
+  scale_y_continuous(labels = scales::percent)
+```
+
+需要ショックの効果が混ざっているため、散布図から弾力性は読み取れない。
+
+::: {.notes}
+- 高価格なのにシェアが高い点は「人気だから高い」商品。まさに内生性の可視化。
+- 被説明変数 y_berry = ln(share) − ln(share0) も裏で計算済み、と一言。
+:::
+
+## OLSでBerry反転を推定する
+
+```{r}
+#| label: berry-ols
+#| echo: true
+#| output-location: fragment
+ols_fit <- feols(y_berry ~ price + x, data = market_df, vcov = "hetero")
+alpha_ols <- -coef(ols_fit)["price"]
+
+cat("alpha_true =", alpha_true, "\n")
+cat("alpha_hat(OLS) =", round(alpha_ols, 3), "\n")
+```
+
+- 真値 2.0 に対して、OLSの推定値は**はっきり小さい**
+- 理屈通り、価格反応を過小評価している
+
+::: {.notes}
+- feols（fixestパッケージ）：計量Iでも使った回帰の道具。vcov = "hetero"でロバストSE。
+- 「散布図の変な点たち」が回帰係数を0の方向に引っ張った、と図と接続する。
+:::
+
+## 2SLS：コストシフターを操作変数に
+
+コストシフター $w_{jt}$ は価格を動かすが、$\xi_{jt}$ には影響しない（DGPでそう設計した）。
+
+```{r}
+#| label: iv-helper
+#| include: false
+get_coef_for <- function(model, varname) {
+  cf <- coef(model)
+  cf[grepl(varname, names(cf), fixed = TRUE)][1]
+}
+```
+
+```{r}
+#| label: berry-2sls
+#| echo: true
+#| output-location: fragment
+iv_fit <- feols(y_berry ~ x | price ~ w, data = market_df, vcov = "hetero")
+alpha_iv <- -get_coef_for(iv_fit, "price")
+
+cat("alpha_hat(OLS)  =", round(alpha_ols, 3), "\n")
+cat("alpha_hat(2SLS) =", round(alpha_iv, 3), "\n")
+```
+
+- `fixest` のIV構文：被説明変数 ~ 外生変数 | 内生変数 ~ 操作変数
+- 2SLSの推定値は真値 2.0 のすぐ近くまで戻ってくる
+
+::: {.notes}
+- 操作変数の2条件（関連性・除外制約）は計量Iの復習。関連性は次のfirst-stage Fで確認する。
+- get_coef_forはfixestのバージョン差で係数名が変わる場合への保険（隠しチャンクで定義）。
+:::
+
+## 真値回収の確認
+
+```{r}
+#| label: alpha-comparison
+comparison_tbl <- data.frame(
+  method = c("真値", "OLS", "2SLS"),
+  alpha_hat = c(alpha_true, round(as.numeric(alpha_ols), 3), round(as.numeric(alpha_iv), 3))
+)
+knitr::kable(comparison_tbl, col.names = c("推定方法", "価格係数の推定値"))
+```
+
+::: {.keybox .fragment}
+DGPを自分で書いたからこそ、「OLSは真値を外し、2SLSは回収する」という比較ができる。**真値回収の確認**は今回も推定の正しさを支える柱。
+:::
+
+::: {.notes}
+- 前回導入した「真値回収」の型を、今回は「正しい推定法 vs 間違った推定法」の比較に拡張した形。
+- 実データでは真値が見えないからこそ、シミュレーションでの検証が効く。
+:::
+
+## first-stage F：弱操作変数の診断
+
+操作変数が価格を十分強く説明しているか（関連性の仮定）を確認する。
+
+::: {.fragment}
+
+```{r}
+#| label: first-stage-f
+first_stage <- feols(price ~ x + w, data = market_df, vcov = "hetero")
+fitstat(first_stage, "f")
+```
+
+:::
+
+- 経験則：F統計量が10を大きく下回ると**弱操作変数**の懸念
+- 今回は数百のオーダー。コストシフターは価格を強く説明する良い操作変数
+
+::: {.notes}
+- 弱IVだと2SLSの推定値・SEが信頼できなくなる（計量Iの復習）。
+- first-stage回帰を自分で明示的に走らせてfitstatで取り出すのが確実な方法。
+:::
+
+## 弾力性への波及：自己価格弾力性の比較
+
+価格係数の推定値が変われば、すべての弾力性計算が変わる（市場平均で評価）：
+
+```{r}
+#| label: elasticity-impact
+mean_share <- market_df %>%
+  group_by(product) %>%
+  summarise(share = mean(share), price = mean(price))
+
+self_elast <- function(a) -a * mean_share$price * (1 - mean_share$share)
+
+impact_tbl <- data.frame(
+  good = paste0("財", 1:4),
+  e_true = round(self_elast(alpha_true), 3),
+  e_ols = round(self_elast(as.numeric(alpha_ols)), 3),
+  e_iv = round(self_elast(as.numeric(alpha_iv)), 3)
+)
+knitr::kable(impact_tbl, col.names = c("財", "真値ベース", "OLSベース", "2SLSベース"))
+```
+
+OLSベースの自己弾力性は絶対値が一様に小さい ＝ 需要が非弾力的に**見えてしまう**。
+
+::: {.notes}
+- eta_jj = −alpha p_j (1 − s_j) にそれぞれのalpha推定値を入れただけ。
+- 「弾力性の過小評価」が意思決定（値付け・合併審査）に波及する、が次のスライド。
+:::
+
+## ここが核心
+
+::: {.keybox .fragment}
+- 価格は未観測の需要ショックと正に相関する（企業がショックを知って値付けするため）
+- これを無視したOLSは価格反応を**過小評価**し、需要を実際より非弾力的に見せる
+- コストシフターを操作変数にした2SLSで真値を回収できる（first-stage Fで関連性を診断）
+- 誤った弾力性行列は、値付けでも合併審査でも意思決定を大きく誤らせる
+:::
+
+::: {.notes}
+- 内生性パートの1枚まとめ。ここまでで残り10分程度が目安。
+- 「じゃあ操作変数はどこから探してくるのか」が次節。
+:::
+
+# IVの品揃え {background-color="#1f3552"}
+
+::: {.notes}
+- この節は7分。実務・研究で使われる3種類のIVカタログ。
+:::
+
+## その1：コストシフター
+
+原材料費、賃金、為替レート、税制変更など、**限界費用を動かす変数**。
+
+- 識別の仮定：価格には（費用を通じて）効くが、需要ショックとは無相関
+- さきほどのシミュレーションで使ったのがこれ
+
+::: {.warnbox .fragment}
+危ない場面：原材料費の高騰が品質改善（オーガニック素材への切り替え等）を伴うと、需要ショックも同時に動き、除外制約が壊れる。
+:::
+
+::: {.notes}
+- 最も直感的で説明しやすいIV。ただし良いコストデータが手に入りにくいのが実務上の悩み。
+:::
+
+## その2：Hausman型IV（他市場の同一製品の価格）
+
+同じ製品が複数の地域市場で売られているとき、**他市場での同一製品の価格**をIVに使う（Hausman 1996）。
+
+- 識別の仮定：全国共通のコスト構造は市場を横断して価格に反映される一方、需要ショックは市場ごとに独立
+
+::: {.warnbox .fragment}
+Bresnahanらの批判：全国的な広告キャンペーンやトレンドのように**需要ショックが全国で同時に動く**場合、他市場の価格と自市場のショックが相関し、除外制約が崩れる。
+:::
+
+::: {.notes}
+- Hausman-Bresnahan論争は「IVの妥当性はもっともらしい物語ではなく市場の制度に依存する」ことを示す好例。
+- ノートの実証研究コーナー（Hausman 1996）参照。
+:::
+
+## その3：BLP型IV（競合製品の属性）
+
+**競合他社の製品属性**（競合の数、競合の品質など）をIVに使う（Berry, Levinsohn and Pakes 1995）。
+
+- 直感：似た競合が増えるほど価格競争が激化し、自社は値下げ圧力を受ける
+- 識別の仮定：競合の属性はマークアップ経由で自社価格を動かすが、自社の需要ショックには直接影響しない
+- 発展形として、競合属性との「距離」を使う differentiation IV（Gandhi and Houde 2019）がある
+
+::: {.notes}
+- 危ない場面：市場の成長に応じて競合も自社も同時に品質投資する場合など、競合の参入・属性が自社のxiと相関するケース。
+- 次回のBLPモデル（random coefficient logit）の名前の由来がこの論文、と予告。
+:::
+
+# まとめ {background-color="#1f3552"}
+
+::: {.notes}
+- この節は3分。
+:::
+
+## 今日のまとめ
+
+::: {.keybox .fragment}
+- logitのIIA：代替が「シェア比」だけで決まり、財の類似性を反映できない（原因はiidのショック）
+- nested logit：ネスト内相関パラメータ1つで「似た財ほど強く競合する」を表現。0でplain logitに一致
+- Berry反転：$\ln s_{jt} - \ln s_{0t} = \delta_{jt}$ により、市場シェアデータの回帰で需要を推定できる
+- 価格は需要ショックと正に相関 → OLSは価格反応を過小評価（需要が非弾力的に見える）
+- コストシフター・Hausman型・BLP型のIVによる2SLSで対処。ただし除外制約は無料ではない
+:::
+
+::: {.notes}
+- 1枚で今日を振り返る。前半（代替性）と後半（内生性）の2部構成だったことを再確認。
+:::
+
+## 宿題
+
+::: {.nonincremental}
+
+- Rシミュ3の `kappa`（内生性の強さ）を0から3まで動かし、OLSと2SLSの価格係数推定値がどう動くか折れ線グラフを描く。`kappa = 0` でOLSと2SLSがほぼ一致することも確認する
+- 生成AIに「nested logitのwithin-nest shareが内生変数になるのはなぜか」と質問し、返ってきた説明が今日の内容と整合的か検討する
+- **coding課題は `assignment3.qmd`**：市場レベルデータのDGP→Berry反転→OLS vs 2SLSを自分の手で実装
+
+:::
+
+::: {.notes}
+- kappaの実験は「内生性の強さとバイアスの大きさの関係」を体で覚える良い練習。
+:::
+
+## 次回予告：ネストを決めずに柔軟な代替性を
+
+- nested logitの限界：ネスト構造を**分析者が事前に決める**必要がある
+- 次回は **random coefficient logit（BLPモデル）**：消費者ごとに価格感応度・好みが異なる構造を入れ、ネストなしで柔軟な代替パターンをデータから推定する
+- その先にあるのは**合併分析**：合併後にどれだけ値上げが起きるかの予測
+
+**Reading**：上武ほか『実証ビジネス・エコノミクス』、Berry, Levinsohn and Pakes (1995)
+
+::: {.notes}
+- 「今日のIIA→nested logitの問題意識が、次回もっと柔軟な形で引き継がれる」という地図を最後に示す。
+- 今日の弾力性の過小評価の話が、合併審査の文脈で実害として再登場する、と予告。
+:::

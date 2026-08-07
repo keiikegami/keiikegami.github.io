@@ -1,0 +1,311 @@
+---
+title: "課題10：BG/NBDによる顧客ベース分析とCLV試算"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+set.seed(202611)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この課題のねらい
+
+第10回でやったBG/NBDモデル（購買頻度・離脱・顧客価値の推定）を、講義ノートとは別のパラメータ設定で最初から最後まで通す。
+
+- **Part 1**：ネットスーパーの顧客ベース（N=2,000、calibration 52週+holdout 26週）を自作する（30点）。
+- **Part 2**：自作対数尤度でのMLE、P(alive)、holdout検証、CLV試算、そして「このリストで何をしてはいけないか」という解釈問題（70点）。
+
+配点は合計100点。手を動かせば2〜4時間で終わる分量。ヒントcalloutを随所に置くので、困ったら参照すること。
+:::
+
+この課題は講義ノート（`lecture10.qmd`）と同じ構造だが、**真のパラメータ値と文脈は変えてある**。ノートのコードをコピペするだけでは正しい答えにならないので、自分で理解して埋めること。
+
+---
+
+# Part 1：ネットスーパーの顧客ベースを自作する（30点）
+
+## 舞台設定
+
+あるネットスーパーの顧客N=2,000人について、52週間のcalibration期間と、その後26週間のholdout期間の購買履歴をシミュレーションする。
+
+モデル（条件付き分布の束）はBG/NBDそのものである。
+
+- 顧客が生きている間、購買はPoisson過程に従う：週あたり購買率 $\lambda_i \sim \text{Gamma}(r, \alpha)$ で異質。
+- 各購買の直後、確率 $p_i$ でこの顧客は離脱する：$p_i \sim \text{Beta}(a, b)$ で異質。
+
+**真のパラメータ**（あなたはこれを後で推定で回収する）：
+
+| 記号 | 意味 | 値 |
+|---|---|---|
+| $r$ | 購買率Gammaの形状パラメータ | 0.9 |
+| $\alpha$ | 購買率Gammaの尺度パラメータ | 7.0 |
+| $a$ | 離脱確率Betaの形状パラメータ1 | 0.9 |
+| $b$ | 離脱確率Betaの形状パラメータ2 | 3.2 |
+
+::: {.callout-tip}
+## ヒント：パラメータのスケール感覚
+
+$E[\lambda] = r/\alpha$、$E[p] = a/(a+b)$ という近似的な目安を頭に入れておくと、DGPが「妥当な」データを生成しているか検算しやすい。上の値だと、週あたり平均購買率はどれくらいになるか、平均的な離脱確率はどれくらいになるか、まず自分で計算してから先に進もう。
+:::
+
+## 問1（10点）：購買イベントをシミュレーションする
+
+以下の骨格を埋めて、N=2,000人・観測期間78週（calibration 52週 + holdout 26週）の購買イベント履歴を生成せよ。各顧客について、`rgamma()`で$\lambda_i$を、`rbeta()`で$p_i$を引き、Poisson過程＋幾何離脱で購買イベントの時刻列を生成する関数を完成させること。
+
+```{r}
+#| eval: false
+N <- 2000
+T_cal <- 52
+T_holdout <- 26
+T_total <- T_cal + T_holdout
+
+r_true <- 0.9; alpha_true <- 7.0; a_true <- 0.9; b_true <- 3.2
+
+lambda_true <- ______   # 【穴埋め】rgamma()でN人分の週次購買率を引く
+p_true      <- ______   # 【穴埋め】rbeta()でN人分の離脱確率を引く
+
+simulate_full_history <- function(lambda, p_drop, T) {
+  t <- 0
+  events <- c()
+  repeat {
+    wait <- ______              # 【穴埋め】次の購買までの待ち時間(指数分布)
+    t_next <- t + wait
+    if (t_next > T) break
+    t <- t_next
+    events <- c(events, t)
+    if (______) break           # 【穴埋め】確率p_dropで離脱(runif()を使う)
+  }
+  events
+}
+
+all_events <- vector("list", N)
+for (i in 1:N) {
+  all_events[[i]] <- simulate_full_history(lambda_true[i], p_true[i], T_total)
+}
+```
+
+::: {.callout-tip}
+## ヒント：待ち時間の分布
+
+率$\lambda$のPoisson過程では、次のイベントまでの待ち時間は指数分布 $\text{Exp}(\lambda)$ に従う。Rでは`rexp(1, rate = lambda)`で1つ引ける。
+:::
+
+## 問2（10点）：calibration期間のRFM要約統計量を作る
+
+観測期間全体のイベント履歴`all_events`から、**calibration期間(52週)だけを見た**購買回数 $x$ と最終購買時点 $t_x$ を計算せよ（holdout期間の情報を使ってはいけない）。
+
+```{r}
+#| eval: false
+x_cal  <- sapply(all_events, function(ev) ______)      # 【穴埋め】52週以内のイベント数
+tx_cal <- sapply(all_events, function(ev) {
+  ev_cal <- ev[ev <= T_cal]
+  if (length(ev_cal) == 0) 0 else ______                # 【穴埋め】52週以内の最終購買時点
+})
+```
+
+## 問3（10点）：可視化と記述統計
+
+次の2つの図を作成せよ。
+
+(a) 20人分程度をサンプリングした「購買タイムライン図」（横軸=週、点=購買イベント、講義ノートのRシミュ1と同じ形式）。
+(b) 全顧客の $(t_x, x)$ 散布図（講義ノートと同じ形式）。
+
+加えて、次の記述統計を出力せよ：$x=0$の顧客の割合、$x$の平均・最大値、calibration期間の総購買回数。
+
+```{r}
+#| eval: false
+# ---- ここに(a)(b)の図と記述統計を書く ----
+```
+
+::: {.callout-note}
+## この課題での記述統計の意味
+
+$x=0$の顧客が何%いるかを確認しておくことは重要である。この割合が極端に高い（例えば80%以上）なら、観測期間やパラメータの設定を見直すべきサインかもしれない。適度に購買のバリエーションがあるデータになっているか、この段階で確認しておこう。
+:::
+
+---
+
+# Part 2：推定・P(alive)・holdout検証・CLV（70点）
+
+## 問4（20点）：BG/NBD対数尤度の実装とMLE
+
+BG/NBDの対数尤度
+
+$$
+L(r,\alpha,a,b \mid x, t_x, T) = \frac{B(a, b+x)}{B(a,b)} \cdot \frac{\Gamma(r+x)\,\alpha^r}{\Gamma(r)} \cdot \frac{1}{(\alpha+T)^{r+x}}
+\;+\; \mathbb{1}[x>0] \cdot \frac{B(a+1, b+x-1)}{B(a,b)} \cdot \frac{\Gamma(r+x)\,\alpha^r}{\Gamma(r)} \cdot \frac{1}{(\alpha+t_x)^{r+x}}
+$$
+
+を自作し、`optim()`でパラメータを推定せよ。真値との比較表、およびHessianからのSE・95%信頼区間の表を作ること。
+
+```{r}
+#| eval: false
+logsumexp2 <- function(log_a, log_b) {
+  m <- pmax(log_a, log_b)
+  m + log(exp(log_a - m) + exp(log_b - m))
+}
+
+bgnbd_loglik <- function(r, alpha, a, b, x, tx, T) {
+  ln_Bab <- lbeta(a, b)
+
+  ln_A0 <- ______                       # 【穴埋め】第1項(常に生きている経路)の対数
+
+  ln_A1 <- ifelse(
+    x > 0,
+    ______,                             # 【穴埋め】第2項(t_xで離脱した経路)の対数
+    -Inf
+  )
+
+  logsumexp2(ln_A0, ln_A1)
+}
+
+neg_loglik_bgnbd <- function(theta_log, x, tx, T) {
+  params <- exp(theta_log)
+  r <- params[1]; alpha <- params[2]; a <- params[3]; b <- params[4]
+  -sum(bgnbd_loglik(r, alpha, a, b, x, tx, T))
+}
+
+theta_init <- log(c(r = 1, alpha = 1, a = 1, b = 1))
+
+opt_result <- optim(
+  par = theta_init, fn = neg_loglik_bgnbd,
+  x = x_cal, tx = tx_cal, T = rep(T_cal, N),
+  method = "L-BFGS-B", hessian = TRUE
+)
+
+theta_hat <- exp(opt_result$par)
+names(theta_hat) <- c("r", "alpha", "a", "b")
+
+# ---- ここにHessianからのSE・信頼区間の計算と、真値との比較表を書く ----
+```
+
+::: {.callout-tip}
+## ヒント：x=0の場合分けとlogsumexpの安定化
+
+$x=0$のときに第2項を計算してはいけない理由を、講義ノートに戻って確認しよう。また、`ln_A0`と`ln_A1`を単純に`exp()`してから足して`log()`を取ると、パラメータの初期値次第で数値がオーバーフロー・アンダーフローしうる。`logsumexp2()`を必ず経由すること。`ifelse(x > 0, ..., -Inf)`の`...`部分は、`x=0`の行についても（使われないとはいえ）Rが式を評価してしまうことがあるので、`b+x-1`が`x=0`のとき`b-1`になって`lbeta()`が奇妙な値を返す可能性がある点に注意——実害があるかどうか、実際に手元で確認してみるとよい。
+:::
+
+## 問5（15点）：P(alive)の計算と解釈
+
+全顧客にP(alive)を付与し、その分布をヒストグラムで示せ。さらに、**「$t_x$は同じだが$x$が大きく異なる2人の顧客」を探し出し（または講義ノートのように架空の例を作り）、P(alive)がどう変わるかを示して、その理由を3〜4文で解釈せよ**。
+
+```{r}
+#| eval: false
+palive_bgnbd <- function(r, alpha, a, b, x, tx, T) {
+  ratio <- (alpha + T) / (alpha + tx)
+  term <- ifelse(x > 0, (a / (b + x - 1)) * ratio^(r + x), 0)
+  1 / (1 + term)
+}
+
+# ---- ここにP(alive)の付与・ヒストグラム・recency同一/frequency違いの例を書く ----
+```
+
+::: {.callout-tip}
+## ヒント：「recency同じ、frequency違い」のペアの探し方
+
+実データに近い形で探すなら、`tx_cal`が近い値（例えば±1週以内）の顧客を集め、その中で`x_cal`が最小の人と最大の人を比較するとよい。あるいは講義ノートのように、$t_x$を固定した架空の$x$の値（例：1, 5, 10, 20）でP(alive)を計算し比較する方法でもよい。
+:::
+
+## 問6（15点）：holdout 26週の検証
+
+推定したパラメータを使い、次の2つの検証を行え。
+
+(i) holdout期間(26週)の**週次累積購買数**について、実績と予測を重ねた折れ線図（トラッキングプロット）。
+(ii) 個人レベルの**予測購買数デシル別の実績平均**（校正確認の棒グラフ）。
+
+将来購買数の予測には、講義ノートと同じ方針（$\lambda$の事後Gamma分布 $\text{Gamma}(r+x, \alpha+T)$ からのシミュレーション、P(alive)による生死判定）を使うこと。
+
+```{r}
+#| eval: false
+# ---- ここに(i)(ii)のシミュレーションと図を書く ----
+```
+
+::: {.callout-tip}
+## ヒント：なぜシミュレーションで評価するのか
+
+将来購買数の条件付き期待値には、教科書的にはガウス超幾何関数を含む閉形式が存在するが、この課題では実装しない。代わりに、「$\lambda$の事後分布（Gamma共役性から閉形式で求まる）からシミュレーションで$\lambda$を引き、P(alive)で生死を判定し、Poisson過程を前向きに走らせる」という方針を使う。この設計判断の理由を講義ノートで振り返っておくこと。
+:::
+
+## 問7（10点）：上位10%顧客のCLV試算
+
+1回の購買あたりの粗利を`margin = 1200`円、年率割引率を`10%`として、全顧客のCLV（2年間のホライズン）を計算し、CLV上位10%の顧客の一覧（顧客ID、x、t_x、P(alive)、CLV）を表として示せ。
+
+```{r}
+#| eval: false
+margin <- 1200
+annual_discount <- 0.10
+weekly_discount <- annual_discount / 52
+horizon_weeks <- 104
+
+compute_clv <- function(r_hat, alpha_hat, x, tx, T_cal, p_alive, horizon, weekly_d, margin, S = 200) {
+  ______   # 【穴埋め】講義ノートのcompute_clv()を参考に実装する
+}
+
+# ---- 全顧客のCLVを計算し、上位10%を表にする ----
+```
+
+## 問8（10点）：「このリストで何をしてはいけないか」
+
+問7で作った「CLV上位10%リスト」を経営陣に提出したところ、「この10%に来月から広告を集中的に出そう」という提案が出た。この提案の何が問題かを、**3行で**述べよ。第10回講義ノートの該当箇所を踏まえて答えること。
+
+```{r}
+#| eval: false
+# 回答はコードチャンクではなく、テキストで記述してよい
+```
+
+::: {.callout-note}
+## 経営・政策への含意（この課題の締め）
+
+問8への回答が、そのまま「経営・政策への含意を3行で書け」の役割を果たす。CLVという「予測」と、施策の「因果効果」を混同しないという視点は、次回（第11回）のuplift modeling・CATEの回で本格的に扱う中心テーマである。
+:::
+
+---
+
+## 提出方法
+
+- この`.qmd`の穴埋め（`______`と`#| eval: false`）をすべて埋め、`#| eval: false`を外して最後まで render できる状態にする。
+- 各問の出力（表・図）とコメントを含めること。
+- render した HTML を提出。
+
+::: {.callout-important}
+## 配点（合計100点）
+
+- 問1（10）：購買イベントのシミュレーション実装
+- 問2（10）：calibration期間のRFM要約統計量の作成
+- 問3（10）：可視化と記述統計
+- 問4（20）：BG/NBD対数尤度の実装、`optim()`でのMLE、Hessian SE、真値回収
+- 問5（15）：P(alive)の計算・分布・recency-frequency交互作用の解釈
+- 問6（15）：holdout週次トラッキングと予測デシル校正
+- 問7（10）：CLV試算と上位10%リストの作成
+- 問8（10）：CLVに基づく施策提案の問題点を3行で指摘
+:::

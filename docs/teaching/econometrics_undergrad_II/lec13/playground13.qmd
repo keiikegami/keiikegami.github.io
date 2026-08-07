@@ -1,0 +1,243 @@
+---
+title: "Playground 13：動学的意思決定の実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture13.html`）。ここでは推定はせず、「**モデルを解く → 政策関数を眺める → 政策を変えて解き直す**」という動学モデルの遊び方を体感することに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（講義ノートと同じ Rust バスエンジンモデル。編集不可・自動実行）----
+
+EULER <- 0.5772156649015329   # Euler 定数（logsum の定数項）
+
+# 状態遷移行列。P0: 維持（x から距離が進む）, P1: 交換（0 にリセットして進む）
+build_transition <- function(K, p) {
+  nj <- length(p)
+  P0 <- matrix(0, K, K)
+  P1 <- matrix(0, K, K)
+  for (x in 1:K) {          # R は 1-index。状態値は (x-1)
+    xv <- x - 1
+    for (j in 1:nj) {
+      jj <- j - 1
+      P0[x, min(xv + jj, K - 1) + 1] <- P0[x, min(xv + jj, K - 1) + 1] + p[j]
+      P1[x, min(0  + jj, K - 1) + 1] <- P1[x, min(0  + jj, K - 1) + 1] + p[j]
+    }
+  }
+  list(P0 = P0, P1 = P1)
+}
+
+# 価値関数反復（VFI）で Rust モデルを解く。
+# 返り値: 価値関数 V, choice-specific value v0/v1, 交換確率 Pr,
+#         反復回数 niter, 収束フラグ converged, 状態値 xs, 遷移行列 P0/P1
+solve_rust <- function(theta1, RC, beta, K = 20,
+                       p_trans = c(0.30, 0.55, 0.15),
+                       tol = 1e-6, maxit = 20000) {
+  tr <- build_transition(K, p_trans)
+  P0 <- tr$P0; P1 <- tr$P1
+  xs <- 0:(K - 1)
+  u0 <- -theta1 * xs        # 維持の flow utility: -theta1 * x
+  u1 <- rep(-RC, K)         # 交換の flow utility: -RC
+  V  <- rep(0, K)
+  err <- Inf; it <- 0
+  while (it < maxit && err >= tol) {
+    it <- it + 1
+    v0 <- u0 + beta * as.vector(P0 %*% V)
+    v1 <- u1 + beta * as.vector(P1 %*% V)
+    m  <- pmax(v0, v1)                                   # 数値安定化
+    Vnew <- m + log(exp(v0 - m) + exp(v1 - m)) + EULER   # logsum + Euler 定数
+    err  <- max(abs(Vnew - V))
+    V <- Vnew
+  }
+  v0 <- u0 + beta * as.vector(P0 %*% V)
+  v1 <- u1 + beta * as.vector(P1 %*% V)
+  m  <- pmax(v0, v1)
+  Pr <- exp(v1 - m) / (exp(v0 - m) + exp(v1 - m))        # P(交換|x): logit
+  list(V = V, v0 = v0, v1 = v1, Pr = Pr,
+       niter = it, converged = (err < tol),
+       xs = xs, P0 = P0, P1 = P1)
+}
+
+# 交換方針が誘導するマルコフ連鎖の定常分布と、長期の交換率・平均走行距離
+steady_state <- function(sol) {
+  K <- length(sol$Pr)
+  M <- (1 - sol$Pr) * sol$P0 + sol$Pr * sol$P1   # 行 x を方針の確率で重み付け
+  A <- rbind(t(M) - diag(K), rep(1, K))
+  b <- c(rep(0, K), 1)
+  d <- qr.solve(A, b)
+  d <- pmax(d, 0); d <- d / sum(d)
+  list(dist = d,
+       replace_rate = sum(d * sol$Pr),
+       mean_mileage = sum(d * sol$xs))
+}
+
+# P(交換|x) が初めて cut を超える状態（交換の閾値の目安）
+threshold_state <- function(sol, cut = 0.5) {
+  idx <- which(sol$Pr >= cut)
+  if (length(idx) == 0) NA_integer_ else sol$xs[idx[1]]
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：割引因子βと交換行動
+
+Rust (1987) のバスエンジン交換問題を、そのまま実験台にする。状態は走行距離 $x \in \{0, 1, \ldots, K-1\}$（今日は $K=20$）。毎期、維持（$a=0$、その期の費用は $\theta_1 x$）か交換（$a=1$、費用は $RC$、距離は0にリセット）を選ぶ。将来まで見据えた価値（choice-specific value）は、次の Bellman 方程式で決まる：
+
+$$
+v(x, a) = u(x, a) + \beta \sum_{x'} P(x' \mid x, a) V(x')
+$$
+
+$V(x)$ は logsum（Emax）で閉じる——第2回の遺産だ。道具箱の `solve_rust()` がこれを価値関数反復で解き、状態ごとの交換確率（logit）を返す。断っておくと、**この回の $\beta$ は割引因子**である（第2〜4回の選好パラメータの $\beta$ とは別物）。$\beta = 0$ の myopic な意思決定者は将来の維持費増を一切無視するので、交換がほとんど起きなくなる——はずだ。確かめよう。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+betas  <- c(0, 0.5, 0.9, 0.99)   # 割引因子（0 = myopic）。0.999 も試そう
+theta1 <- 0.15                   # 維持費の傾き（1状態あたり）
+RC     <- 8.0                    # エンジン交換費
+# -----------------------
+
+set.seed(202613)
+K <- 20
+sols <- lapply(betas, function(b) solve_rust(theta1, RC, beta = b, K = K))
+
+# 収束の様子：beta が1に近いほど反復回数が増える（縮小係数が beta だから）
+info <- data.frame(
+  beta = betas,
+  iterations = sapply(sols, function(s) s$niter),
+  converged = sapply(sols, function(s) s$converged),
+  P_replace_at_max_x = round(sapply(sols, function(s) s$Pr[K]), 4)
+)
+print(info)
+
+df <- do.call(rbind, lapply(seq_along(betas), function(i) {
+  data.frame(x = sols[[i]]$xs, prob = sols[[i]]$Pr, beta = betas[i])
+}))
+df$beta <- factor(df$beta, levels = betas)
+ggplot(df, aes(x, prob, color = beta)) +
+  geom_line(linewidth = 1) + geom_point(size = 1.2) +
+  labs(x = "mileage state x", y = "P(replace | x)", color = "discount factor") +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `betas <- c(0, 0.5, 0.9, 0.99, 0.999)` にしてみよう。反復回数はどこまで伸びるか。カーブは $\beta = 0.99$ からさらに大きく動くか。価値関数反復は縮小係数 $\beta$ の幾何収束なので、$\beta$ が1に近いほど収束は劇的に遅くなる。
+- `theta1 <- 0.05`（維持費がゆるやかにしか増えない世界）にすると、$\beta$ の違いによるカーブの開きは大きくなるか、小さくなるか。予想してから実行しよう。
+- $\beta = 0$ のカーブは床に張り付いている。$u(x,0) = -0.15x$ と $u(x,1) = -8$ を見比べれば、今日の損得だけなら $x=19$ でも維持が得（$0.15 \times 19 = 2.85 < 8$）だからだ。では forward-looking な意思決定者は、なぜ同じ $x=19$ で8割方交換するのか。
+:::
+
+## 実験2：交換費用と政策関数
+
+DP の解として出てくる「状態ごとの交換確率」を**政策関数**（policy function）と呼ぶ。深層パラメータ $(\theta_1, RC)$ を動かすと、この政策関数がどう動くか。交換費 $RC$ を上げれば交換は割高になり、カーブは右（もっと走り込んでから交換）へずれるはずだ。破線は $P = 0.5$ の目安で、これを初めて超える状態を「交換の閾値」として表に出す。カーブが動く余地を作るため、状態数は $K=40$ に増やしてある。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+RC_values <- c(4, 8, 12)   # エンジン交換費（c(8, 16) にすると2倍実験）
+theta1    <- 0.15          # 維持費の傾き（0.30 にすると？）
+# -----------------------
+
+set.seed(202613)
+K <- 40; beta <- 0.95
+sols <- lapply(RC_values, function(rc) solve_rust(theta1, rc, beta = beta, K = K))
+
+# 交換の閾値：P(交換|x) が初めて 0.5 を超える状態
+thr <- data.frame(
+  RC = RC_values,
+  threshold_x = sapply(sols, threshold_state)
+)
+print(thr)
+
+df <- do.call(rbind, lapply(seq_along(RC_values), function(i) {
+  data.frame(x = sols[[i]]$xs, prob = sols[[i]]$Pr, RC = RC_values[i])
+}))
+df$RC <- factor(df$RC, levels = RC_values)
+ggplot(df, aes(x, prob, color = RC)) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
+  labs(x = "mileage state x", y = "P(replace | x)", color = "replacement cost RC") +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `RC_values <- c(8, 16)` にして、交換費を2倍にすると閾値（表の `threshold_x`）が何状態ぶん後ろにずれるか確かめよう。費用を2倍にしても、閾値は2倍にはならないはずだ。
+- `theta1 <- 0.30`（維持費が急勾配な世界）にすると、カーブの位置だけでなく「立ち上がりの鋭さ」も変わる。$RC$ を変えたときの動き方との違いを観察しよう。
+- $RC$ と $\theta_1$ は、どちらも「交換 vs 維持」の相対コストを動かすのに、政策関数への効き方が違うのはなぜか。維持費の差 $\theta_1 x$ は状態に比例して開いていく、という点から考えてみよう。
+:::
+
+## 実験3：反実仮想 — 交換費用の補助
+
+構造モデルの配当が反実仮想だ。政府（や本社）が交換費を補助して、実効的な交換費が $(1-s) \times RC$ になる政策を考える。**この政策のデータはどこにも存在しない**。それでも、深層パラメータ $(\theta_1, RC)$ が政策で変わらない「好み・技術」である限り、$RC$ を置き換えて DP を解き直すだけで、政策後の世界を丸ごと計算できる——構造モデルがあれば、まだ存在しない政策を計算できるのだ。長期的な効果は、交換方針が誘導するマルコフ連鎖の定常分布（`steady_state()`）から、平均交換率と平均走行距離で測る。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+s_grid <- c(0, 0.1, 0.2, 0.3, 0.4)   # 交換費の補助率（0 = 補助なし）
+# -----------------------
+
+set.seed(202613)
+K <- 20; beta <- 0.95; theta1 <- 0.15; RC <- 8.0   # 実験1と同じ基準ケース
+
+base_ss <- steady_state(solve_rust(theta1, RC, beta = beta, K = K))  # 補助なしの世界
+
+tab <- do.call(rbind, lapply(s_grid, function(s) {
+  sol <- solve_rust(theta1, (1 - s) * RC, beta = beta, K = K)  # 政策後の世界を解き直す
+  ss  <- steady_state(sol)
+  data.frame(
+    subsidy_rate = s,
+    effective_RC = (1 - s) * RC,
+    replace_rate = round(ss$replace_rate, 4),
+    replace_change_pct = round((ss$replace_rate / base_ss$replace_rate - 1) * 100, 1),
+    mean_mileage = round(ss$mean_mileage, 3),
+    mileage_change_pct = round((ss$mean_mileage / base_ss$mean_mileage - 1) * 100, 1)
+  )
+}))
+tab
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `s_grid <- seq(0, 0.6, by = 0.05)` に細かくして、セルの末尾に `ggplot(tab, aes(subsidy_rate, replace_rate)) + geom_line() + geom_point() + labs(x = "subsidy rate", y = "long-run replacement rate")` を足すと、関係の形が一目で見える。
+- 補助の逆、課税も同じ道具で計算できる。`s_grid <- c(0, -0.2, -0.5)`（交換費が1.2倍・1.5倍）にすると、交換率と平均走行距離は補助のときと対称に動くか。
+- 補助率を0.1ずつ上げたときの交換率の増分（`replace_change_pct` の差）は一定か。線形でないなら、逓増と逓減のどちらか。政府が「補助率を倍にすれば効果も倍」と見積もったら、何をどう間違えるか。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture13.html`（NFXP と CCP による推定、myopic 推定の失敗、反実仮想の完全版）
+- coding課題：`assignment13.qmd`（縮小版の Rust モデルをゼロから自分で実装し、NFXP と CCP を比較して反実仮想まで回す）

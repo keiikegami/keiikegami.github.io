@@ -1,0 +1,1018 @@
+---
+title: "Lecture 9：消費者異質性の推定"
+subtitle: "階層モデルと shrinkage｜計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  revealjs:
+    theme: [default, ../slides_theme.scss]
+    slide-number: c/t
+    incremental: true
+    embed-resources: true
+    transition: none
+    center: false
+    width: 1180
+    height: 700
+    margin: 0.08
+    fig-width: 8
+    fig-height: 4.2
+    code-line-numbers: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+set.seed(20269)
+
+theme_slide <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 15, base_family = fam)
+}
+theme_set(theme_slide())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+## 今日の流れ（90分）
+
+| 時間 | 内容 |
+|---|---|
+| 10分 | Quiz（解答5分 + 解説5分） |
+| 10分 | 導入：ダッシュボードの罠 |
+| 7分 | 3つの pooling |
+| 17分 | shrinkage の公式と経験ベイズ |
+| 7分 | James-Stein の衝撃 |
+| 10分 | ベイズ推定の導入（コース初） |
+| 15分 | Gibbs サンプラー手実装 |
+| 9分 | 異質性推定の統一風景と意思決定 |
+| 5分 | まとめ・宿題・次回予告 |
+
+::: {.notes}
+- 今日のメイン: pooling → shrinkage → 経験ベイズ → ベイズ導入 → Gibbs、という一本道。
+- 「ベイズ推定が今日一番の新出概念」であることを最初に宣言しておく。
+- この回はコース後半（第10回BG/NBD、第11回CATE）の考え方の土台になる。
+:::
+
+## Quiz（前回の復習・10分）
+
+::: {.nonincremental}
+
+- 配布した Quiz 9 に解答する（**5分**、メモ・ノート参照可）
+- そのあと解説（**5分**）
+- 採点はしない。前回の内容のセルフチェックとして使うこと
+:::
+
+
+::: {.notes}
+- 解答5分 → 解説5分。解説は別資料 quiz9_solution を使う（スライドには載せない）。
+- 3問とも第8回の核心（activity bias、staggered DiDでの静的TWFEの崩壊、RDDと閾値ゲーミング）に対応。
+- 設問2の「コホートごとに効果が違う」は効果の異質性の話。今日の主役＝異質性の推定への伏線、と解説時に一言。
+:::
+
+# 導入：ダッシュボードの罠 {background-color="#1f3552"}
+
+::: {.notes}
+- ここから本編。この節は10分。
+:::
+
+## 前回とのつながり
+
+- 第6回コンジョイント、第7回A/Bテスト、第8回DiD・RDD——測ってきたのは一貫して「**平均**」
+- だが実務で本当に効くのは、たいてい平均の一歩先：「**誰に**効いたか」
+- 店舗ごと・顧客ごとに反応は違う。この**異質性そのもの**を推定したい
+
+::: {.keybox .fragment}
+今日のゴール：「個別に見たいが、個別のデータは少ない」というジレンマを **partial pooling** で解く。その道具として、本コースで初めて**ベイズ推定**を正面から導入する。
+:::
+
+::: {.notes}
+- 第6回で予告した「個人異質性の本格推定」の回収。第8回の「サブグループ切りの多重検定」問題への答えでもある。
+- ベイズは新しい宗教ではなく「モデル＝条件付き分布の束」の素直な延長、と安心させる。
+:::
+
+## 今日押さえたいこと
+
+1. complete / no / partial という**3つの pooling** の違いが説明できる
+2. **shrinkage の公式**を読める：データが少ない店ほど全体平均に強く縮む
+3. prior のパラメータをデータから推定する**経験ベイズ**を実装できる
+4. **ベイズ推定**（事後分布・信用区間）を頻度論との対比で理解できる
+5. **Gibbs サンプラー**を自分の手で書き、事後分布から意思決定までつなげられる
+
+::: {.notes}
+- 4と5が今日の新出概念。計量I・IIはここまでずっと頻度論だった。
+- 「70%理解できたら先へ。何度も戻ってくるテーマ」と最初に言っておく。
+:::
+
+## ある月次ダッシュボード事件
+
+あなたは全国50店舗チェーンのマーケ担当。先月、全店でクーポン施策を実施した。
+
+- 店舗別の効果をダッシュボードに並べ、「効果トップ5店舗」を経営会議で発表
+- トップ5店に来月の追加予算を投入することが決定
+- ところが翌月、**トップ5店の効果は軒並み凡庸**。逆に先月ドベの店が上位に
+
+. . .
+
+何が起きたのか？ 施策の失敗でも店長の油断でもない。
+
+::: {.notes}
+- 実務あるあるとして語る。受講者の何割かは実際に経験しているはず。
+- 「統計的な必然」であることを次のスライドで種明かし。
+:::
+
+## 平均への回帰：選抜が上振れを拾う
+
+- 観測された効果 = 真の効果 $\theta_i$ + 測定ノイズ
+- たまたまノイズが**上振れ**した店が先月のトップに来る
+- ノイズは翌月別方向に振れる → トップ店の数字は真の水準へ引き戻される
+
+```{r}
+#| label: rtm-setup
+#| include: false
+N        <- 50
+mu_true  <- 2.0
+tau2_true<- 1.0
+sigma2   <- 4.0                               # 1観測あたりの分散（既知とする）
+
+n_i        <- sample(5:30, N, replace = TRUE) # 店ごとの観測数（不均等・小さめ）
+theta_true <- rnorm(N, mu_true, sqrt(tau2_true))
+s2_i       <- sigma2 / n_i                    # 店舗平均 ybar_i の分散
+
+month1 <- rnorm(N, theta_true, sqrt(s2_i))    # 先月の観測
+month2 <- rnorm(N, theta_true, sqrt(s2_i))    # 翌月の観測
+
+top5 <- order(month1, decreasing = TRUE)[1:5]
+```
+
+::: {.fragment}
+```{r}
+#| label: rtm-top5-table
+data.frame(
+  metric = c("先月の観測（ダッシュボード表示）", "その店の真の効果", "翌月の観測"),
+  value  = round(c(mean(month1[top5]), mean(theta_true[top5]), mean(month2[top5])), 3)
+) |> kable(col.names = c("指標", "トップ5店の平均"))
+```
+:::
+
+::: {.warnbox .fragment}
+「トップ」という**選抜そのもの**が、上振れした店を拾う仕掛けになっている。
+:::
+
+::: {.notes}
+- DGP: 真の効果 theta_i ~ N(2, 1)、店ごとに観測数 n_i がバラバラ、観測は theta_i + ノイズ。
+- 先月の派手な値 → 真値はもっと低い → 翌月は真値近くまで下がる、の3段構成を表で読む。
+:::
+
+## no pooling は過分散になる
+
+```{r}
+#| label: fig-overdispersion
+#| fig-height: 3.9
+df_disp <- data.frame(
+  value = c(theta_true, month1),
+  kind  = rep(c("真の効果 theta_i", "no pooling 推定 (ybar_i)"), each = N)
+)
+ggplot(df_disp, aes(value, fill = kind)) +
+  geom_histogram(alpha = 0.5, position = "identity", bins = 20) +
+  geom_vline(data = data.frame(
+    kind = c("真の効果 theta_i", "no pooling 推定 (ybar_i)"),
+    m = c(mean(theta_true), mean(month1))),
+    aes(xintercept = m, color = kind), linetype = "dashed", show.legend = FALSE) +
+  labs(title = "真の効果の分布 vs 店舗別の生の推定の分布",
+       x = "店舗効果", y = "店舗数", fill = NULL) +
+  theme(legend.position = "top")
+```
+
+- 店舗別の生の推定（ybar）の広がりは、真の効果の広がりより**大きい**（ノイズが上乗せ）
+- だから「トップとドベの差」を過大評価し、極端な店にばかり目が行く
+
+::: {.notes}
+- 真のSDは約1、観測のSDはそれより明確に大きい（ノイズ分散が乗るから）。
+- Var(y) = tau2 + sigma_i^2 という分解が、後の経験ベイズの伏線になる。
+:::
+
+## マーケの根源的ジレンマ
+
+::: {.keybox}
+**個別に見たいが、個別のデータは少ない。** 店舗別・顧客別・セグメント別に効果を知りたい。しかし細かく切るほど1セルあたりのデータは薄くなり、推定はノイズに溺れる。
+:::
+
+同じ罠はあちこちに：
+
+- 営業担当別の成約率ランキング（案件10件の担当の成約率は激しく暴れる）
+- 新商品のCTR（最初の1人がクリックしたら「CTR100%」）
+- 地域別・年代別のキャンペーン反応率
+
+. . .
+
+今日はこのジレンマを**統計的に筋の通ったやり方**で解く。
+
+::: {.notes}
+- 人事評価の例：たまたま下振れした少数案件の担当が吊るし上げられるのは不公平で、間違ったインセンティブを生む。
+- 「shrinkage は公平性の道具でもある」という含意はノート参照。
+:::
+
+# 3つの pooling {background-color="#1f3552"}
+
+::: {.notes}
+- この節は7分。
+:::
+
+## complete / no / partial
+
+店舗 $i$ の効果 $\theta_i$ を推定したい。店舗 $i$ の標本平均を $y_i$ と書く。
+
+- **complete pooling**：全店を混ぜて全体平均を全店に使う。$\hat\theta_i = \bar\theta$
+  - 安定だが、**異質性が完全に死ぬ**
+- **no pooling**：各店を独立に推定。$\hat\theta_i = y_i$
+  - 異質性は残るが、**ノイズまみれ**（さっき見た通り）
+- **partial pooling**：両者の**中間**。データが厚い店は $y_i$ を信じ、薄い店は $\bar\theta$ に寄せる
+
+::: {.notes}
+- 「全店一律」か「店舗別バラバラ」か、という実務の二択に第三の道を示すのが今日の話。
+:::
+
+## 2つの極端を1枚の図で
+
+```{r}
+#| label: fig-three-pooling
+#| fig-height: 4.0
+grand <- mean(month1)      # complete pooling の推定（全体平均）
+df3 <- data.frame(store = 1:N, truth = theta_true, nopool = month1)
+ggplot(df3, aes(x = truth)) +
+  geom_point(aes(y = nopool, color = "no pooling (ybar_i)"), size = 1.6, alpha = 0.8) +
+  geom_hline(aes(yintercept = grand, color = "complete pooling"), linetype = "dashed") +
+  geom_abline(slope = 1, intercept = 0, color = "grey60") +
+  scale_color_manual(values = c("no pooling (ybar_i)" = "#1f77b4",
+                                 "complete pooling" = "#d62728")) +
+  labs(title = "真の効果 vs 2つの極端な推定",
+       x = "真の効果 theta_i", y = "推定値", color = NULL,
+       subtitle = "灰色の対角線が理想（推定=真値）。青は散らばりすぎ、赤は潰れすぎ") +
+  theme(legend.position = "top")
+```
+
+::: {.notes}
+- 青（no pooling）は対角線の周りで大きく暴れる。赤（complete）は水平線に潰れる。
+- 理想は対角線だが、そこにピタリ乗る推定は作れない。青と赤の「あいだ」に置くのが partial pooling。
+:::
+
+## バイアスと分散のトレードオフ
+
+::: {.keybox}
+- **complete pooling**：バイアス大・分散小（全店同じと決めつける）
+- **no pooling**：バイアス小・分散大（ノイズを丸ごと拾う）
+- **partial pooling**：このトレードオフを、**店ごとのデータ量に応じて**最適にブレンドする
+:::
+
+. . .
+
+「どれくらいブレンドするか」を決める係数が、次節の主役 —— **shrinkage 係数**。
+
+::: {.notes}
+- データが多い店は no pooling 寄り、少ない店は complete pooling 寄りに「連続的に」動かす、が設計思想。
+:::
+
+# shrinkage の公式と経験ベイズ {background-color="#1f3552"}
+
+::: {.notes}
+- この節は17分。今日の数学的な核。
+:::
+
+## モデル：正規-正規の2段構え
+
+店舗効果は共通の分布から生まれ、観測はその効果のまわりにばらつく。
+
+$$
+\theta_i \sim N(\bar\theta, \tau^2), \qquad y_i \mid \theta_i \sim N(\theta_i, \sigma_i^2)
+$$
+
+- 上の段：**母集団のばらつき** $\tau^2$（店舗間で効果はどれくらい違うか）
+- 下の段：**測定のノイズ** $\sigma_i^2$（店 $i$ の標本平均の不正確さ）
+- $y_i$ は標本平均なので $\sigma_i^2 = \sigma^2 / n_i$ —— **データが多い店ほどノイズが小さい**
+
+::: {.notes}
+- 「モデル＝条件付き分布の束」の2段バージョン。この2段構造を「階層モデル」と呼ぶ。
+- sigma_i^2 = sigma^2 / n_i がこの後ずっと効く。ここを強調。
+:::
+
+## shrinkage の公式（今日の核心）
+
+$\bar\theta, \tau^2$ を既知とすると、$y_i$ を見た後の $\theta_i$ の最良推定（事後平均）は
+
+$$
+\hat\theta_i = B_i \, \bar\theta + (1 - B_i) \, y_i, \qquad B_i = \frac{\sigma_i^2}{\sigma_i^2 + \tau^2}
+$$
+
+- $B_i$ は**縮小の強さ**：大きいほど全体平均 $\bar\theta$ に強く引っ張られる
+- $\sigma_i^2 = \sigma^2/n_i$ なので、**データが少ない店ほど強く全体平均に縮む**
+- $n_i \to \infty$ なら $B_i \to 0$ で $\hat\theta_i \to y_i$（no pooling に一致）
+
+::: {.keybox .fragment}
+情報が乏しい店は、自分の暴れた $y_i$ より、みんなの平均 $\bar\theta$ を信じた方が当たる。導出（正規×正規の平方完成）はノートの折りたたみ callout 参照。
+:::
+
+::: {.notes}
+- 事後平均 = 「データの精度と prior の精度で重みづけた平均」。精度が高い方を信じるだけ。
+- 導出は板書しない。読み方（3つの箇条書き）に時間を使う。
+:::
+
+## 経験ベイズ：全体平均とばらつきをデータから
+
+$\bar\theta$ と $\tau^2$ は本当は未知。**全店のデータから推定してしまう**のが経験ベイズ。$y_i$ の周辺分布のモーメントは
+
+$$
+\mathrm{E}[y_i] = \bar\theta, \qquad \mathrm{Var}(y_i) = \tau^2 + \sigma_i^2
+$$
+
+. . .
+
+なので、モーメント法で
+
+$$
+\hat{\bar\theta} = \frac{1}{N} \sum_{i} y_i, \qquad \hat\tau^2 = \hat{V}_y - \frac{1}{N} \sum_i \sigma_i^2
+$$
+
+- $\hat{V}_y$ は $y_i$ の標本分散。**観測の散らばりからノイズ分を引いた残り**が真の店舗差
+- さっきの「no pooling は過分散」の過剰分を、引き算で取り除いている
+
+::: {.notes}
+- Var(y) = tau2 + ノイズ、だから引き算すればtau2が出る、という非常に素直な発想。
+- 「prior のパラメータをデータから推定する」= 経験ベイズの定義。次節のベイズ導入の伏線。
+:::
+
+## 実装は3行、真値も回収できる
+
+```{r}
+#| label: eb-estimation
+#| echo: true
+#| output-location: fragment
+mu_hat   <- mean(month1)
+var_y    <- var(month1)                    # R の var() は n-1 で割る
+tau2_hat <- max(var_y - mean(s2_i), 1e-6)  # 負にならないよう下限を置く
+
+cat("mu_hat   =", round(mu_hat, 3),   " （真値", mu_true, "）\n")
+cat("tau2_hat =", round(tau2_hat, 3), " （真値", tau2_true, "）\n")
+```
+
+- 全体平均 $\bar\theta = 2$ も店舗間分散 $\tau^2 = 1$ も、真値の近くに戻ってきた
+- DGP を自分で書いたからできる**真値回収**の確認（計量IIの毎回の型）
+
+::: {.notes}
+- max(..., 1e-6) は、ノイズが大きいと引き算が負になりうるための実務的ガード。
+- s2_i は店ごとのノイズ分散 sigma2 / n_i（導入のDGPで作成済み）。
+:::
+
+## 縮小の計算は2行
+
+```{r}
+#| label: eb-shrink
+#| echo: true
+#| output-location: fragment
+B_i    <- s2_i / (s2_i + tau2_hat)               # 縮小係数（店ごと）
+eb_est <- B_i * mu_hat + (1 - B_i) * month1      # 経験ベイズ推定
+```
+
+- 公式をそのまま書いただけ。店ごとに $B_i$ が違う（$n_i$ が違うから）のがポイント
+- これで50店舗ぶんの partial pooling 推定が出た。次の図で動きを見る
+
+::: {.notes}
+- 数式とコードが1対1対応していることを見せる。「階層モデル＝難しい」の印象を壊す。
+:::
+
+## 矢印プロット：全体平均に向かって縮む
+
+```{r}
+#| label: fig-arrow
+#| fig-height: 4.1
+df_arrow <- data.frame(store = 1:N, nopool = month1, eb = eb_est, n_i = n_i)
+ggplot(df_arrow) +
+  geom_segment(aes(x = 1, xend = 2, y = nopool, yend = eb, color = n_i),
+               arrow = arrow(length = unit(0.12, "cm")), alpha = 0.8) +
+  geom_hline(yintercept = mu_hat, linetype = "dashed", color = "grey40") +
+  annotate("text", x = 2.05, y = mu_hat, label = "全体平均", hjust = 0, color = "grey40") +
+  scale_x_continuous(breaks = c(1, 2), labels = c("no pooling", "shrinkage 後"),
+                     limits = c(0.9, 2.4)) +
+  scale_color_viridis_c(name = "店の観測数 n_i") +
+  labs(title = "経験ベイズによる縮小", x = NULL, y = "推定された店舗効果") +
+  theme(legend.position = "right")
+```
+
+::: {.notes}
+- 濃い色（n_i が小さい店）ほど矢印が長い = 大きく全体平均に引き寄せられる。
+- データが厚い店（明るい色）はほとんど動かない。ここが「連続的なブレンド」の可視化。
+:::
+
+## データが少ない店ほど強く縮む
+
+```{r}
+#| label: fig-shrink-vs-n
+#| fig-height: 3.9
+ggplot(data.frame(n_i = n_i, B_i = B_i), aes(n_i, B_i)) +
+  geom_point(color = "#1f77b4", size = 2, alpha = 0.8) +
+  labs(title = "観測数と縮小係数の関係",
+       x = "店の観測数 n_i", y = expression("縮小係数 "*B[i]))
+```
+
+- きれいな右下がり：$n_i$ が小さい店ほど $B_i$（縮小の強さ）が大きい
+- shrinkage の心臓部 ——**情報量に応じて、信じる度合いを連続的に変える**
+
+::: {.notes}
+- 「n_i が5の店とn_iが30の店を同じ扱いにしない」が公式から自動で出る、という美しさ。
+:::
+
+## MSE：本当に当たるようになったか
+
+真値 $\theta_i$ を知っているシミュレーションだからできる検算。平均二乗誤差で3つを比較。
+
+::: {.fragment}
+```{r}
+#| label: mse-table
+mse <- function(est) mean((est - theta_true)^2)
+data.frame(
+  method = c("complete pooling", "no pooling", "empirical Bayes"),
+  MSE    = round(c(mse(mu_hat), mse(month1), mse(eb_est)), 4)
+) |> kable(col.names = c("手法", "MSE（真値との二乗誤差の平均）"))
+```
+:::
+
+- 経験ベイズが最小。ただし「たまたまこのデータで」かもしれない → 反復して確かめる
+
+::: {.notes}
+- 計量IIの哲学：シミュレーションできれば推定量の性質を実験で確かめられる。次のスライドでモンテカルロ。
+:::
+
+## モンテカルロ：平均的にも勝つ
+
+```{r}
+#| label: mse-montecarlo
+one_rep <- function() {
+  n_i  <- sample(5:30, N, replace = TRUE)
+  s2   <- sigma2 / n_i
+  th   <- rnorm(N, mu_true, sqrt(tau2_true))
+  y    <- rnorm(N, th, sqrt(s2))
+  muh  <- mean(y)
+  t2h  <- max(var(y) - mean(s2), 1e-6)
+  B    <- s2 / (s2 + t2h)
+  eb   <- B * muh + (1 - B) * y
+  c(complete = mean((muh - th)^2),
+    nopool   = mean((y - th)^2),
+    eb       = mean((eb - th)^2))
+}
+set.seed(20269)
+sim <- replicate(300, one_rep())               # 300 データセット
+round(rowMeans(sim), 4)
+cat("\nEB が no pooling に勝ったデータセットの割合:",
+    round(mean(sim["eb", ] < sim["nopool", ]), 3), "\n")
+```
+
+- データ生成を300回繰り返しても、経験ベイズの MSE が最小を保つ
+- **縮めるのは、平均への回帰を逆手に取った合理的な戦略**
+
+::: {.notes}
+- ノートでは1000反復。スライドは時間の都合で300に減らしてある（結論は同じ）。
+- 上振れした店を割り引き、下振れした店を持ち上げる → 全員ぶんの合計精度が上がる。
+:::
+
+# James-Stein の衝撃 {background-color="#1f3552"}
+
+::: {.notes}
+- この節は7分。歴史の話で一息つかせつつ、「縮小は小手先の工夫ではない」ことを刻む。
+:::
+
+## Stein のパラドクス
+
+**3つ以上の平均を同時に推定するとき、素朴な標本平均は「許容不能（inadmissible）」**——全体平均に少し縮めた推定量に、**あらゆる真値のもとで**（合計二乗誤差で）負ける。
+
+- Stein (1956)、James and Stein (1961)。統計学史に残る驚きの結果
+- 「各店を各店のデータだけで推定するのが当然」という直感は、3店以上では最適でない
+- 1つや2つでは成り立たず、**3つ以上**で成り立つのがパラドクスめいたところ
+
+::: {.notes}
+- 「他人の情報を借りて自分の推定を補正する」——ズルのようで、実は最適。
+- 前節の「MSEでEBが勝つ」はこの一般定理と地続き、という位置づけ。
+:::
+
+## 打率の実話：Efron and Morris
+
+- 1970年シーズン、序盤に約45打席を終えたメジャーリーガー**18人**
+- 序盤の打率（no pooling）から、シーズン残りの打率（真値扱い）を予測する
+- 序盤打率をそのまま使う vs 全選手平均に縮める、どちらが当たるか
+
+. . .
+
+**結果**：縮小推定の合計予測誤差は素朴推定の**約3分の1**。ほとんどの選手で縮めた方が当たった。首位打者級の Roberto Clemente ですら、縮めた方がわずかに良かった。
+
+::: {.notes}
+- Efron and Morris (1975, 1977)。「序盤の派手な打率に飛びつくと外す」= ダッシュボードの罠と数学的に同じ話。
+- 打率は二項なので分散安定化変換をかけてから正規-正規に載せる（詳細はノート）。
+:::
+
+## シミュレーションで再現する
+
+```{r}
+#| label: james-stein-sim
+js_rep <- function() {
+  k <- 18; nn <- 45
+  p_true <- pmin(pmax(0.265 + 0.03 * rnorm(k), 0.15), 0.40)   # 真の打率
+  hits   <- rbinom(k, nn, p_true)
+  y      <- asin(sqrt((hits + 0.375) / (nn + 0.75)))          # 分散安定化変換
+  v      <- 1 / (4 * nn)                                      # 変換後の理論分散
+  gm     <- mean(y)
+  S      <- sum((y - gm)^2)
+  Bjs    <- max(0, 1 - (k - 3) * v / S)                       # James-Stein 係数
+  js     <- gm + Bjs * (y - gm)
+  mu_t   <- asin(sqrt(p_true))
+  c(raw = mean((y - mu_t)^2), js = mean((js - mu_t)^2))
+}
+set.seed(20269)
+js_sim <- replicate(700, js_rep())
+cat("素朴推定の平均MSE :", round(mean(js_sim["raw", ]), 5), "\n")
+cat("James-Stein のMSE :", round(mean(js_sim["js", ]), 5), "\n")
+cat("誤差の比 (JS/raw) :", round(mean(js_sim["js", ]) / mean(js_sim["raw", ]), 3), "\n")
+cat("JS が勝った割合   :", round(mean(js_sim["js", ] < js_sim["raw", ]), 3), "\n")
+```
+
+- Efron-Morris の「約3分の1」に近い比が、手元のシミュレーションでも出る
+
+::: {.notes}
+- ノートでは2000反復、スライドは700に減らしてある（結論は同じ）。
+- James-Stein 係数 (k-3) の「3」が「3つ以上」の条件と対応している、と一言。
+:::
+
+# ベイズ推定の導入 {background-color="#1f3552"}
+
+::: {.notes}
+- この節は10分。コース初のベイズ。頻度論との対比を丁寧に。
+:::
+
+## ベイズの基本等式
+
+$$
+p(\theta \mid y) \; \propto \; p(y \mid \theta) \; \times \; p(\theta)
+$$
+
+- 左辺：**事後分布（posterior）**——データを見た後の信念
+- 右辺1つ目：**尤度（likelihood）**——第2回でやったあの尤度がそのまま登場
+- 右辺2つ目：**事前分布（prior）**——データを見る前の信念
+
+. . .
+
+最尤法は「尤度を最大化する**1点**」を返す。ベイズは「尤度×prior という**分布まるごと**」を返す。
+
+::: {.notes}
+- ベイズは尤度を捨てるのではなく、尤度に prior を掛けるだけ。第2回との連続性を強調。
+- 「点でなく分布で答える」が今日の後半（信用区間・確率での意思決定）で効いてくる。
+:::
+
+## 頻度論とベイズ：何が違うか
+
+| | 頻度論（計量I・II） | ベイズ（今日から） |
+|---|---|---|
+| パラメータの扱い | 固定された未知の定数 | 確率変数（分布を持つ） |
+| データの扱い | 確率変数（標本抽出でばらつく） | 観測された定数 |
+| 推定の答え | 点推定 + 標準誤差 | 事後分布まるごと |
+| 区間 | 信頼区間 | 信用区間 |
+
+::: {.notes}
+- どちらが正しいという話ではなく、「何をランダムとみなすか」の立場の違い。
+- 計量I・IIでやってきた標本分布・信頼区間の考え方は捨てない。使い分ける。
+:::
+
+## 「prior は恣意的な思い込みでは？」
+
+その反発は健全。だが階層モデルでは、その反発が解消される。
+
+::: {.keybox .fragment}
+**階層の上の段が、下の段の prior になる。** 店舗効果の prior は $N(\bar\theta, \tau^2)$。この $\bar\theta$ と $\tau^2$ は机上のでっち上げではなく、**全店のデータから推定した**（さっきの経験ベイズ）。つまり **prior はデータから正当化される**。「他店の実績」という客観情報が、この店の prior になっている。
+:::
+
+- 経験ベイズ：上の段を**点推定**してから下の段をベイズ
+- フルベイズ：上の段も**分布**で扱う → 次節の Gibbs
+
+::: {.notes}
+- ここが今日の一番おいしいところ。「prior の恣意性」問題が階層構造によって溶ける。
+- 縮小の強さも全体平均もばらつきも、全部データが教えてくれる。
+:::
+
+## 信頼区間と信用区間
+
+- **信頼区間**（頻度論）：手続きを繰り返せば95%が真値を含む。「95%の確率で真値はこの中」とは**厳密には言えない**（$\theta$ は定数だから）
+- **信用区間**（ベイズ）：**真値がこの区間にある確率が95%**。素朴な直感の言い方がそのまま許される
+
+. . .
+
+マーケの現場で
+
+> 「この店の効果が1.5を超える確率は80%です」
+
+と言えるのは、ベイズだから。今日の最後にこれを意思決定に使う。
+
+::: {.notes}
+- 「区間がランダムで theta は固定」vs「theta がランダムで区間は固定」。
+- ベイジアンA/Bテストツールの「Bが勝つ確率85%」表示の正体もこれ、と予告。
+:::
+
+# Gibbs サンプラー手実装 {background-color="#1f3552"}
+
+::: {.notes}
+- この節は15分。今日の第二の見せ場。手を動かすパート。
+:::
+
+## フルベイズへ：なぜ Gibbs が要るか
+
+- 経験ベイズは $\bar\theta, \tau^2$ を点推定で**固定**した。だが本当は $\tau^2$ にも不確実性がある
+- それも込みで事後分布を出すのが**フルベイズ**。問題：多数のパラメータの同時事後分布は**閉じた形で書けない**
+
+. . .
+
+Gibbs サンプラーのアイデアは拍子抜けするほど単純：
+
+> 同時分布から直接引くのは難しい。でも「他を全部固定したときの1つのパラメータの条件付き分布」なら簡単に引ける。だったら**1つずつ、条件付き分布から順番に引く**のを繰り返せばいい。
+
+::: {.notes}
+- 大量に回すと、引いた値の集まりが同時事後分布からのサンプルになる（MCMCの一種）。
+- 計量Iの「モデル＝条件付き分布の束」が、そのまま計算アルゴリズムになる、という回収。
+:::
+
+## モデル：フルベイズ版
+
+$$
+y_{ij} \mid \theta_i \sim N(\theta_i, \sigma^2), \qquad \theta_i \sim N(\bar\theta, \tau^2)
+$$
+
+. . .
+
+$$
+\bar\theta \sim N(\mu_0, \kappa^2), \qquad \tau^2 \sim \mathrm{InvGamma}(a_0, b_0)
+$$
+
+- $\bar\theta$ には広い正規 prior（$\kappa^2$ を巨大に＝ほぼ無情報）
+- $\tau^2$ には逆ガンマ prior（正規分布の分散と**共役**：掛けると同じ族に戻り計算が閉じる）
+- $\sigma^2$ は既知の単純版で進める
+
+::: {.notes}
+- 超パラメータにも prior を置くのがフルベイズ。「上の段のさらに上」まで分布で扱う。
+- 共役 prior は「計算の都合で選ぶ」ことを隠さない（第2回のGumbelと同じ態度）。
+:::
+
+## 完全条件付き分布（1）：店舗効果
+
+$$
+\theta_i \mid \cdot \; \sim \; N(m_i, v_i), \qquad v_i = \left( \frac{n_i}{\sigma^2} + \frac{1}{\tau^2} \right)^{-1}, \qquad m_i = v_i \left( \frac{n_i \bar y_i}{\sigma^2} + \frac{\bar\theta}{\tau^2} \right)
+$$
+
+- $m_i$ をよく見ると、§前半の **shrinkage 公式と同じ形**（データと prior の精度加重平均）
+- Gibbs は毎ステップ、この shrinkage を実行しているにすぎない
+
+::: {.notes}
+- 「Gibbs は魔法ではない」の第一の根拠。条件付き平均が手計算の縮小公式そのもの。
+- 導出は正規×正規の平方完成（ノートの折りたたみcallout参照）。
+:::
+
+## 完全条件付き分布（2）：超パラメータ
+
+$$
+\bar\theta \mid \cdot \; \sim \; N \left( \frac{\sum_i \theta_i / \tau^2 + \mu_0 / \kappa^2}{N / \tau^2 + 1 / \kappa^2}, \; \left( \frac{N}{\tau^2} + \frac{1}{\kappa^2} \right)^{-1} \right)
+$$
+
+. . .
+
+$$
+\tau^2 \mid \cdot \; \sim \; \mathrm{InvGamma} \left( a_0 + \frac{N}{2}, \; b_0 + \frac{1}{2} \sum_i (\theta_i - \bar\theta)^2 \right)
+$$
+
+- $\bar\theta$：$\theta_i$ たちを「$N$ 個の観測」とみなした正規×正規
+- $\tau^2$：共役性のおかげで再び逆ガンマ。R では `1/rgamma(...)` で引ける
+
+::: {.notes}
+- 3本とも「よく知っている分布」に落ちる。だから「順番に引く」が実装できる。
+- 導出の細部はノートのcallout。ここでは形だけ読めればよい。
+:::
+
+## コードは20行 {.smaller}
+
+```{r}
+#| label: gibbs-sampler
+#| echo: true
+#| output-location: fragment
+gibbs_hier <- function(ybar, n_i, sigma2, n_draws = 2000, burn = 500,
+                       mu0 = 0, kappa2 = 1e6, a0 = 0.01, b0 = 0.01) {
+  N     <- length(ybar)
+  theta <- ybar; mu <- mean(ybar); tau2 <- max(var(ybar), 0.1)   # 初期値
+  keep_theta <- matrix(0, n_draws, N)
+  keep_mu <- numeric(n_draws); keep_tau2 <- numeric(n_draws)
+  for (it in 1:(n_draws + burn)) {
+    v_i   <- 1 / (n_i / sigma2 + 1 / tau2)                 # (1) theta_i を引く
+    m_i   <- v_i * (n_i * ybar / sigma2 + mu / tau2)
+    theta <- rnorm(N, m_i, sqrt(v_i))
+    prec  <- N / tau2 + 1 / kappa2                         # (2) mu を引く
+    mean_ <- (sum(theta) / tau2 + mu0 / kappa2) / prec
+    mu    <- rnorm(1, mean_, sqrt(1 / prec))
+    shape <- a0 + N / 2                                    # (3) tau2 を引く
+    rate  <- b0 + 0.5 * sum((theta - mu)^2)
+    tau2  <- 1 / rgamma(1, shape = shape, rate = rate)
+    if (it > burn) {
+      k <- it - burn
+      keep_theta[k, ] <- theta; keep_mu[k] <- mu; keep_tau2[k] <- tau2
+    }
+  }
+  list(theta = keep_theta, mu = keep_mu, tau2 = keep_tau2)
+}
+
+set.seed(20269)
+fit <- gibbs_hier(month1, n_i, sigma2, n_draws = 2000, burn = 500)
+```
+
+ライブラリなし。`rnorm` と `rgamma` を交互に呼ぶループが、フルベイズの事後分布を吐き出す。
+
+::: {.notes}
+- burn-in：初期値の影響が残る序盤を捨てる。ここでは500反復。
+- (1)(2)(3) が前の2枚のスライドの3本の条件付き分布に1対1対応している、と指差し確認。
+:::
+
+## 収束を診る：traceplot
+
+```{r}
+#| label: fig-trace
+#| fig-height: 3.9
+df_trace <- data.frame(
+  iter = seq_along(fit$mu),
+  mu   = fit$mu,
+  tau2 = fit$tau2
+) |> pivot_longer(c(mu, tau2), names_to = "param", values_to = "value")
+ggplot(df_trace, aes(iter, value)) +
+  geom_line(color = "#1f77b4", linewidth = 0.3) +
+  facet_wrap(~param, scales = "free_y",
+             labeller = as_labeller(c(mu = "全体平均 mu", tau2 = "店舗間分散 tau2"))) +
+  labs(title = "Gibbs サンプラーの traceplot", x = "反復", y = NULL)
+```
+
+- 一定の帯の中をランダムに行き来する「毛虫」なら収束の目安。どこかへ流れていたら非定常
+
+::: {.notes}
+- MCMCの実務で最初に見る図。宿題で n_draws を200に減らして見た目の変化を体感してもらう。
+:::
+
+## 超パラメータの事後分布：3つの答え合わせ
+
+```{r}
+#| label: fig-posterior-hyper
+#| fig-height: 3.9
+df_post <- data.frame(mu = fit$mu, tau2 = fit$tau2) |>
+  pivot_longer(everything(), names_to = "param", values_to = "value")
+vlines <- data.frame(
+  param = c("mu", "mu", "tau2", "tau2"),
+  value = c(mu_hat, mu_true, tau2_hat, tau2_true),
+  type  = c("経験ベイズ", "真値", "経験ベイズ", "真値")
+)
+ggplot(df_post, aes(value)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 40, fill = "#1f77b4", alpha = 0.5) +
+  geom_vline(data = vlines, aes(xintercept = value, color = type, linetype = type), linewidth = 0.8) +
+  facet_wrap(~param, scales = "free",
+             labeller = as_labeller(c(mu = "全体平均 mu", tau2 = "店舗間分散 tau2"))) +
+  scale_color_manual(values = c("経験ベイズ" = "#d62728", "真値" = "grey30")) +
+  scale_linetype_manual(values = c("経験ベイズ" = "dashed", "真値" = "dotted")) +
+  labs(title = "超パラメータの事後分布", x = NULL, y = "密度", color = NULL, linetype = NULL) +
+  theme(legend.position = "top")
+```
+
+- Gibbs の事後分布・経験ベイズの点推定・真値がよく一致する
+- フルベイズの追加の利点：$\tau^2$ の**不確実性まで**分布で表現される
+
+::: {.notes}
+- 事後平均・EB点推定・真値の3点セットの数値比較はノート参照（ほぼ一致する）。
+- この単純なモデルでは EB とフルベイズの点推定はほぼ同じ。違いは不確実性の扱い。
+:::
+
+## Gibbs 事後平均 = 経験ベイズの縮小公式
+
+```{r}
+#| label: fig-gibbs-vs-eb
+#| fig-height: 3.9
+post_theta_mean <- colMeans(fit$theta)
+ggplot(data.frame(eb = eb_est, gibbs = post_theta_mean), aes(eb, gibbs)) +
+  geom_abline(slope = 1, intercept = 0, color = "grey60") +
+  geom_point(color = "#1f77b4", size = 2, alpha = 0.8) +
+  labs(title = "Gibbs の店舗別事後平均 vs 経験ベイズ closed form",
+       x = "経験ベイズ closed form", y = "Gibbs 事後平均")
+```
+
+- ほぼ完全に対角線上。**MCMC は魔法ではない**——条件付き分布から乱数を引き続けただけで、理論が予言する縮小推定を再現している
+
+::: {.notes}
+- 相関はほぼ1、ズレは tau2 の不確実性を積分している分だけ（微小）。
+- 「モデル＝条件付き分布の束」がここで完全に回収される。今日いちばん言いたいスライドの1つ。
+:::
+
+## 毛虫プロット：店舗別の信用区間
+
+```{r}
+#| label: fig-caterpillar
+#| fig-height: 4.1
+ci_lo <- apply(fit$theta, 2, quantile, 0.025)
+ci_hi <- apply(fit$theta, 2, quantile, 0.975)
+df_cat <- data.frame(
+  store = 1:N, mean = post_theta_mean, lo = ci_lo, hi = ci_hi,
+  truth = theta_true, n_i = n_i
+) |> arrange(mean) |> mutate(rank = row_number())
+ggplot(df_cat, aes(rank, mean)) +
+  geom_hline(yintercept = mu_hat, linetype = "dashed", color = "grey60") +
+  geom_errorbar(aes(ymin = lo, ymax = hi), color = "#1f77b4", width = 0, alpha = 0.7) +
+  geom_point(size = 1.2, color = "#1f77b4") +
+  geom_point(aes(y = truth), color = "#d62728", size = 1, alpha = 0.8) +
+  labs(title = "店舗別の事後平均と95%信用区間",
+       subtitle = "青 = 事後平均と信用区間、赤 = 真値、破線 = 全体平均",
+       x = "店舗（事後平均の順にソート）", y = "店舗効果 theta_i")
+```
+
+- 赤点（真値）の大半が区間に収まる。**データが少ない店ほど区間が広い**——「この店はよく分からない」を正直に表現できる
+
+::: {.notes}
+- 点推定ランキングにはできない芸当。不確実性の可視化がフルベイズ最大の利点。
+- ノートでは被覆率のシミュレーション（95%信用区間が真値を含む割合はほぼ0.95）も確認している。
+:::
+
+# 異質性推定の統一風景と意思決定 {background-color="#1f3552"}
+
+::: {.notes}
+- この節は9分。今日の構造がコース全体に埋まっていることを見せ、意思決定に着地する。
+:::
+
+## マーケの異質性推定は全部同じ骨格
+
+| モデル | 何が異質か | 上の段（prior） | 登場回 |
+|---|---|---|---|
+| mixed logit / RC logit | 消費者ごとの選好係数 | 正規分布 | 第4回 |
+| HB conjoint | 個人ごとの部分効用 | 正規分布（Gibbsで推定） | 第6回 |
+| 正規階層モデル | 店舗効果 | 正規分布 | 第9回（今日） |
+| BG/NBD | 顧客ごとの購買率 | ガンマ分布 | 第10回（次回） |
+| CATE | 個人ごとの処置効果 | 機械学習で学習 | 第11回 |
+
+「個人ごとにパラメータが違う」＋「そのパラメータは共通の分布から生まれる」＋「その共通分布（prior）をデータから学ぶ」
+
+::: {.notes}
+- 第4回の「消費者ごとに係数が違う」は今日の階層の多変量版だった、という種明かし。
+- 第6回HB conjointは、今日書いたGibbsの多変量版がそのまま動いている。
+:::
+
+## 実証研究：購買履歴の金銭価値
+
+**Rossi, McCulloch and Allenby (1996, Marketing Science)**
+
+- 問い：顧客の**購買履歴**は、ターゲティングにとってどれだけの価値があるか
+- モデル：顧客ごとの logit 係数に階層 prior を置き、Gibbs で個人パラメータを推定（まさに今日の枠組み）
+- 発見：履歴を使った個別ターゲティングは一律配布より利益を大きく改善。**1回の購買履歴でも情報価値がある**
+
+. . .
+
+履歴の薄い顧客は全体平均に縮小され、履歴が溜まるほど個別化される——今日の shrinkage がそのまま実務になる。
+
+::: {.notes}
+- 「情報の価値を金銭で定量化した」点が画期的。第10回BG/NBDはこの路線の直系。
+- ノートには Lenk et al. (1996)（少ない設問で個人部分効用を復元）、Allenby and Rossi (1999) も紹介している。
+:::
+
+## ランキングでなく確率で選ぶ
+
+ダッシュボードの罠に戻る。「上位の店に追加投資」を、点推定ランキングでなく**事後確率**で判断する。
+
+- ルール：「効果が閾値を超える確率が80%以上の店」だけ選ぶ
+- 事後分布のサンプルから、閾値を超えた割合を数えるだけ
+
+::: {.fragment}
+```{r}
+#| label: targeting
+c_thresh <- 3.0
+prob_gt  <- colMeans(fit$theta > c_thresh)          # P(theta_i > c | data)
+sel_prob <- which(prob_gt >= 0.80)                   # 確率ルールで選抜
+top10_np <- order(month1, decreasing = TRUE)[1:10]   # no pooling 点推定トップ10
+
+cat("確率ルール P(theta > 3.0) >= 0.8 で選ばれた店数:", length(sel_prob), "\n")
+cat("no pooling トップ10のうち、確率ルールに落ちた店:",
+    length(setdiff(top10_np, sel_prob)), "店\n")
+```
+:::
+
+::: {.notes}
+- 閾値3.0は全店平均2.0よりかなり上=「本当に効いている」と胸を張れる水準。
+- 「確率で語れる」というベイズの強みが、そのまま投資判断のルールになる。
+:::
+
+## 点推定では上位なのに落ちた店の正体
+
+```{r}
+#| label: targeting-table
+dropped <- setdiff(top10_np, sel_prob)
+data.frame(
+  store        = dropped,
+  n_i          = n_i[dropped],
+  ybar_nopool  = round(month1[dropped], 2),
+  post_mean    = round(post_theta_mean[dropped], 2),
+  prob_gt_c    = round(prob_gt[dropped], 2),
+  truth        = round(theta_true[dropped], 2)
+) |> arrange(n_i) |>
+  kable(col.names = c("店舗", "観測数", "点推定", "事後平均", "P(効果>3)", "真値"))
+```
+
+- 落ちた店は**観測数が少ないのに点推定が派手**な店たち——たまたま上振れしてランキング上位に来ていた
+- **確率ルールは、上振れした小さい店への無駄な投資を自動で回避する**
+
+::: {.notes}
+- 真値の列を見ると、点推定の派手さのわりに真の効果が控えめな店が混じっている。
+- 導入のダッシュボード事件が、ここで解決される（円環構造）。
+:::
+
+## 同じ点推定でも、データが薄いと選ばれない
+
+```{r}
+#| label: fig-targeting
+#| fig-height: 4.0
+df_tgt <- data.frame(ybar = month1, prob = prob_gt, n_i = n_i)
+ggplot(df_tgt, aes(ybar, prob, color = n_i)) +
+  geom_hline(yintercept = 0.80, linetype = "dashed", color = "grey50") +
+  geom_vline(xintercept = c_thresh, linetype = "dotted", color = "grey50") +
+  geom_point(size = 2.2, alpha = 0.85) +
+  scale_color_viridis_c(name = "観測数 n_i") +
+  annotate("text", x = min(month1), y = 0.82, label = "選抜ライン P = 0.8",
+           hjust = 0, color = "grey40", size = 3) +
+  labs(title = "点推定でなく事後確率で選ぶ",
+       x = "no pooling 点推定 (ybar_i)", y = "P(theta_i > c | data)")
+```
+
+- 「効果が高い**かもしれない**」と「効果が高いと**確信できる**」は違う。追加投資は後者に
+
+::: {.notes}
+- 同じ ybar でも n_i が小さい店（濃い色）は事後確率が伸びず、選抜ラインを越えにくい。
+- ベイズは、この区別を確率という共通言語で扱えるようにする。
+:::
+
+## ビジネスの現場で：コールドスタートとA/Bツール
+
+- **レコメンドのコールドスタート**：新商品は履歴ゼロ。「CTR 0/0」や「最初の1クリックで100%」と暴れる → **全体平均から始め、データが溜まるにつれて縮小を緩める**。まさに今日の縮小係数の発想。Thompson sampling も内部で事後分布を使う
+- **ベイジアンA/BテストのUI**：「Bが勝つ確率85%」という表示の正体は、今日の事後確率そのもの。p値と違い、「Bが勝っている確率」を直接答えている
+
+::: {.warnbox .fragment}
+点推定の CTR ランキングで新商品を並べるダッシュボードは、今日の「上振れ選抜」の罠をそのまま踏んでいる。まず疑おう。
+:::
+
+::: {.notes}
+- 第7回のA/Bテストをベイズで見ると事後分布の比較になる、という接続。
+- 受講者の実務ツール（最適化プラットフォーム等）の裏側が今日の数式、という着地。
+:::
+
+# まとめ {background-color="#1f3552"}
+
+::: {.notes}
+- この節は5分（まとめ・宿題・次回予告）。
+:::
+
+## ここが核心
+
+::: {.keybox .fragment}
+- ジレンマ「個別に見たいが個別のデータは少ない」は **partial pooling** で解く
+- **shrinkage の公式**：全体平均と自分のデータの加重平均。**データが少ない店ほど強く縮む**。MSE は no pooling より確実に改善（James-Stein：3つ以上なら縮めた方が必ず勝つ）
+- **経験ベイズ**：prior のパラメータを全店のデータから推定。**prior は思い込みではなくデータから正当化される**
+- **ベイズ推定**（コース初）：事後分布 ∝ 尤度 × prior。点でなく分布で答える → 信用区間・事後確率
+- **Gibbs サンプラー**：条件付き分布から交互に引く20行のループ。事後平均は縮小公式と一致——「モデル＝条件付き分布の束」がそのまま推定アルゴリズムになる
+- 意思決定は点推定ランキングでなく**事後確率**で。上振れした小さい店への無駄な投資を自動回避
+:::
+
+::: {.notes}
+- 1枚で今日を振り返る。冒頭の「押さえたいこと」5点と対応していることを確認。
+:::
+
+## 宿題
+
+::: {.nonincremental}
+
+- shrinkage のコードで `sigma2` を `4.0` から `1.0` に下げて再実行し、縮小係数がどう変わるか確認する。ノイズが小さくなると縮む必要は増えるか減るか、直感と照らす
+- Gibbs の `n_draws` を `2000` から `200` に減らして traceplot を見る。「サンプルが足りない」の見た目を体感する
+- 生成AIに「経験ベイズとフルベイズの違いを階層モデルの文脈で説明して」と聞き、今日の説明と突き合わせる
+- **coding 課題は `assignment9.qmd`**：60店舗のクーポン施策 DGP を自作し、経験ベイズと Gibbs を実装して、確率ベースのターゲティングまで通す
+:::
+
+
+::: {.notes}
+- 課題は今日の内容を一気通貫で自分の手で回す設計。2〜4時間の分量。
+:::
+
+## 次回予告：購買履歴と顧客生涯価値
+
+- 今日の階層構造を**購買履歴**に適用する。顧客ごとに「どれくらいの頻度で買うか」「いつ離脱するか」が違う——店舗効果の異質性と同じ構造
+- **BG/NBD モデル**：購買率の顧客間異質性を**ガンマ分布**でモデル化（今日の正規の prior がガンマに変わるだけ）
+- 顧客生涯価値（CLV）を予測し、「この顧客は生きているか」「今後どれだけ買うか」を確率で答える
+- 注意：次回登場するガンマ分布のパラメータの記号は、需要推定の価格係数とは**全くの別物**
+
+**Reading**：Rossi, Allenby and McCulloch, *Bayesian Statistics and Marketing*；Efron and Morris (1977)
+
+::: {.notes}
+- 「異質性を分布でモデル化し、個人を全体に縮める」発想がそのまま顧客分析の中心的道具になる、という円環で締める。
+:::

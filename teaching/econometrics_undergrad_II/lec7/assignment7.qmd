@@ -1,0 +1,364 @@
+---
+title: "課題7：メールクーポン実験のITT/TOT・CUPED・peeking診断"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(fixest)
+
+set.seed(20267)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この課題のゴール
+
+第7回の講義では、メールクーポン実験（$N=2,000$）を例に、ランダム化推論、検出力・MDE、ITT/TOT、CUPED、peekingを一通り扱った。この課題では、舞台を**ECサイトのメールクーポン実験（$N=10,000$）**に変え、自分の手でデータを生成し、講義で学んだ推定・推論の一式をこの新しいデータに適用する。
+
+具体的には次を確認する。
+
+1. 単純比較（使用者vs非使用者）がTOTを大幅に過大評価すること。
+2. ITT推定＋t検定＋ランダム化推論p値。
+3. TOT：配信をIVにした2SLS。
+4. CUPED/回帰調整によるSE削減率。
+5. peekingによるType I errorの膨張曲線。
+6. この実験のMDE（検出できる最小効果）。
+
+配点は全体で100点。手を動かせば2〜4時間程度で終わる分量を想定している。ヒントのcalloutを活用してほしい。
+:::
+
+## 設定：ECサイトのメールクーポン実験
+
+あなたはECサイトのマーケティング分析チームにいるとしよう。$N=10,000$人の顧客を対象に、メールクーポンの配信実験を計画している。
+
+- **配信$D_i \in \{0,1\}$**：ランダムに50%の確率で配信する。
+- **実験前30日購買額$X_i$（共変量）**：配信とは無関係に決まっている、実験開始前の顧客の購買傾向を表す変数。実験期間のアウトカムと相関$\rho \approx 0.6$を持つように設計する。
+- **使用$U_i \in \{0,1\}$**：配信された顧客のうち、実際にクーポンを使うかどうかは顧客の「能力」（購買意欲・ネットリテラシーなど、観測されない潜在変数）に依存する自己選択。配信されなかった顧客は使いようがない（one-sided noncompliance）。
+- **実験期間購買額$Y_i$（アウトカム）**：使用したことの効果（TOT）を受けて決まる。
+
+真値は
+
+$$
+\text{true\_TOT} = 800\text{円}
+$$
+
+（クーポンを実際に使った顧客の購買額を平均800円押し上げる）とする。ITT（配信そのものの効果）はTOTと使用率の積で決まるので、別途固定する必要はない（Part 1で自然に生成される）。
+
+## Part 1：シミュレーション設計（40点）
+
+### Q1（10点）：配信・能力・実験前購買額の生成
+
+$N=10,000$の顧客について、次の変数を生成せよ。
+
+- 配信 $D_i$：50%の確率でランダムに割り当てる（`rbinom`）。
+- 能力（潜在変数）$\text{ability}_i$：標準正規分布 $N(0,1)$。
+- 実験前30日購買額 $X_i$（`pre_period`）：能力と相関0.7を持つように、次の手順で生成する。
+  1. `z_pre_indep <- rnorm(N, 0, 1)`（能力とは独立なノイズ）
+  2. `pre_z <- 0.7 * ability + sqrt(1 - 0.7^2) * z_pre_indep`
+  3. `pre_period <- 8000 + 2200 * pre_z`
+
+```{r}
+#| label: q1-skeleton
+#| eval: false
+N <- 10000
+
+D <- rbinom(N, 1, ___)
+ability <- rnorm(N, ___, ___)
+
+z_pre_indep <- rnorm(N, 0, 1)
+pre_z <- ___ * ability + sqrt(1 - ___^2) * z_pre_indep
+pre_period <- 8000 + 2200 * ___
+```
+
+::: {.callout-tip}
+## ヒント：なぜ能力から2段階で`pre_period`を作るのか
+
+`pre_period`を単に`ability`の線形関数として作ると、後で使用確率も`pre_period`とほぼ同じ情報を持つ変数になってしまい、CUPEDの効果とTOTの自己選択バイアスが数値的に見分けにくくなる。`z_pre_indep`という独立なノイズを混ぜることで、「能力と実験前購買額は関連するが、完全には一致しない」という、より現実的な設定にしている。
+:::
+
+### Q2（10点）：使用の生成（one-sided noncompliance、能力による自己選択）
+
+配信された顧客のみ、能力に応じた確率でクーポンを使用する。
+
+$$
+\text{use\_prob}_i = \text{clip}(0.35 + 0.28 \times \text{ability}_i,\ 0.02,\ 0.95)
+$$
+
+$$
+U_i = D_i \times \text{Bernoulli}(\text{use\_prob}_i)
+$$
+
+（配信されなかった顧客は自動的に$U_i=0$）
+
+```{r}
+#| label: q2-skeleton
+#| eval: false
+use_prob <- pmin(pmax(___ + ___ * ability, 0.02), 0.95)
+U <- ifelse(D == 1, rbinom(N, 1, use_prob), 0)
+
+cat("配信率:", mean(D), "\n")
+cat("使用率(配信群内):", mean(U[D == 1]), "\n")
+```
+
+::: {.callout-tip}
+## ヒント
+
+使用率(配信群内)はだいたい35〜40%程度になっているはずである。極端に0%や100%に近い場合は、`use_prob`の式を疑うこと。
+:::
+
+### Q3（10点）：実験期間購買額（アウトカム）の生成
+
+実験期間購買額$Y_i$は、実験前購買額と相関$\rho=0.6$を持つ「処置前のベース水準」に、使用の効果（TOT=800円）を加えたものとする。
+
+$$
+\text{outcome\_base}_i = 8200 + 2200 \times (0.6 \times \text{pre\_z}_i + \sqrt{1-0.6^2} \times z_{\text{out},i})
+$$
+
+（$\text{pre\_z}_i$はQ1で作った変数を再利用する。$z_{\text{out},i}$は新しい独立なノイズ）
+
+$$
+Y_i = \max(\text{outcome\_base}_i + U_i \times 800,\ 0)
+$$
+
+```{r}
+#| label: q3-skeleton
+#| eval: false
+true_tot <- 800
+
+z_out_indep <- rnorm(N, 0, 1)
+out_z <- ___ * pre_z + sqrt(1 - ___^2) * z_out_indep
+outcome_base <- 8200 + 2200 * out_z
+
+Y <- pmax(outcome_base + U * ___, 0)
+
+coupon_df <- data.frame(D = D, ability = ability, pre_period = pre_period, U = U, Y = Y)
+```
+
+::: {.callout-tip}
+## ヒント：処置効果を除いた相関を確認する
+
+$\text{corr}(\text{pre\_period}, Y)$をそのまま計算すると、使用$U_i$による処置効果が混ざるため、狙った0.6よりやや高めに出ることがある。処置効果を除いた相関を確認したい場合は、`cor(pre_period, Y - U * true_tot)`のように、処置効果を引いてから相関を取るとよい。
+:::
+
+### Q4（10点）：記述統計と可視化
+
+1. 配信率、使用率（配信群内）、$\text{corr}(\text{pre\_period}, Y)$を計算せよ。
+2. `pre_period`と`Y`の散布図を描け（`geom_smooth`で回帰直線も重ねるとよい）。
+3. 配信群・非配信群それぞれの$Y$の平均・標準偏差を表にまとめよ。
+
+```{r}
+#| label: q4-skeleton
+#| eval: false
+cat("配信率:", mean(coupon_df$D), "\n")
+cat("使用率(配信群内):", mean(coupon_df$U[coupon_df$D == 1]), "\n")
+cat("corr(pre_period, Y):", cor(coupon_df$pre_period, coupon_df$Y), "\n")
+
+# 散布図・記述統計表はここに追加
+```
+
+## Part 2：推定・推論（60点）
+
+### Q5（10点）：単純比較（使用者vs非使用者）がTOTを過大評価することを確認する
+
+配信群の中で、使用者と非使用者の平均$Y$の差を計算し、真値800円と比較せよ。過大評価の倍率も報告すること。
+
+```{r}
+#| label: q5-skeleton
+#| eval: false
+delivered <- coupon_df %>% filter(D == 1)
+naive_diff <- mean(delivered$Y[delivered$U == 1]) - mean(delivered$Y[delivered$U == 0])
+
+cat("単純比較(使用者-非使用者):", naive_diff, "\n")
+cat("真値:", 800, "\n")
+cat("過大評価の倍率:", naive_diff / 800, "\n")
+```
+
+::: {.callout-tip}
+## ヒント：なぜ単純比較は過大評価するのか
+
+使用するかどうかは能力に依存する自己選択である。能力の高い顧客ほどクーポンを使い、かつ能力の高い顧客はクーポンなしでも（`outcome_base`が高いため）購買額が高い。この2つの効果が混ざって、単純比較はTOTを大幅に（2倍以上）過大評価する。倍率がだいたい2〜3倍程度になっていれば正しい実装である。
+:::
+
+### Q6（12点）：ITT推定＋t検定＋ランダム化推論p値
+
+1. ITT（配信群と非配信群の$Y$の平均差）を計算せよ。
+2. `t.test(Y ~ D, data = coupon_df)`でt検定を実行し、p値を報告せよ。
+3. 処置ラベル$D$を2,000回シャッフルし、ランダム化推論のp値を計算せよ。t検定のp値と比較せよ。
+
+```{r}
+#| label: q6-skeleton
+#| eval: false
+itt_hat <- mean(coupon_df$Y[coupon_df$D == 1]) - mean(coupon_df$Y[coupon_df$D == 0])
+
+t_result <- t.test(Y ~ D, data = coupon_df)
+
+n_perm <- 2000
+perm_diffs <- numeric(n_perm)
+for (b in 1:n_perm) {
+  D_shuffled <- sample(coupon_df$D)
+  perm_diffs[b] <- mean(coupon_df$Y[D_shuffled == 1]) - mean(coupon_df$Y[D_shuffled == 0])
+}
+p_perm <- mean(abs(perm_diffs) >= abs(itt_hat))
+```
+
+::: {.callout-tip}
+## ヒント：計算時間について
+
+$N=10,000$で2,000回のシャッフルを行うと、この課題のPCでは数秒〜十数秒程度かかることがある。シャッフルのたびに`coupon_df$Y`全体を並べ替える必要はなく、`sample(coupon_df$D)`でラベルだけをシャッフルすれば十分に速い。もし遅すぎる場合は`n_perm`を1000に減らしても、結論（t検定とほぼ一致すること）は変わらない。
+:::
+
+### Q7（12点）：TOT推定：配信をIVにした2SLS
+
+1. Wald推定量（TOT = ITT ÷ 使用率）を計算せよ。
+2. `fixest::feols()`で、配信$D$を操作変数として使用$U$を内生変数にした2SLSを実行し、TOTを推定せよ。Wald推定量と一致することを確認せよ。
+3. Q5の単純比較、Q7のTOT推定値、真値800円を並べた比較表を作れ。
+
+```{r}
+#| label: q7-skeleton
+#| eval: false
+usage_rate <- mean(coupon_df$U[coupon_df$D == 1])
+wald_tot <- itt_hat / usage_rate
+
+iv_fit <- feols(Y ~ 1 | U ~ D, data = coupon_df, vcov = "hetero")
+summary(iv_fit)
+```
+
+::: {.callout-tip}
+## ヒント：係数の取り出し方
+
+`fixest`のバージョンによって、内生変数の係数名が接頭辞付きになることがある。第3回・第7回講義ノートで使った、名前の部分一致で探すヘルパー関数を再利用するとよい。
+
+```{r}
+#| label: coef-helper
+#| eval: false
+get_coef_for <- function(model, varname) {
+  cf <- coef(model)
+  hit <- grepl(varname, names(cf), fixed = TRUE)
+  cf[hit][1]
+}
+```
+:::
+
+### Q8（10点）：CUPED/回帰調整によるSE削減率
+
+1. `pre_period`を共変量にしたCUPED調整を行い、調整前後のATE（ITT）推定値とSEを比較せよ。
+2. 分散削減率とSE削減率を計算し、$\text{corr}(\text{pre\_period}, Y)^2$の理論値と比較せよ。
+3. 同じ検出力を達成するのに必要なサンプルサイズが何%減るかを報告せよ。
+
+```{r}
+#| label: q8-skeleton
+#| eval: false
+theta_hat <- cov(coupon_df$Y, coupon_df$pre_period) / var(coupon_df$pre_period)
+pre_mean <- mean(coupon_df$pre_period)
+coupon_df$Y_cuped <- coupon_df$Y - theta_hat * (coupon_df$pre_period - pre_mean)
+
+# 調整前・調整後のSEを計算し、分散削減率を出す
+```
+
+::: {.callout-tip}
+## ヒント：ANCOVAとの関係で検算する
+
+CUPEDによる調整は、`feols(Y ~ D + pre_period, data = coupon_df)`という回帰（ANCOVA）の$D$の係数・SEともほぼ同じ結果になるはずである。余裕があれば、この回帰を実行してCUPEDの結果と付き合わせてみるとよい（完全に一致はしないが、非常に近い値になる）。
+:::
+
+### Q9（10点）：peekingシミュレーション（Type I error膨張曲線）
+
+講義ノートの`simulate_peeking()`関数（コピーして使ってよい）を使い、この実験のサンプルサイズ設計（$N_{\max}=10{,}000$程度を想定）のもとで、「何人ごとに検定して止めるか」を変えながらType I errorがどう変わるかを確認せよ。少なくとも4パターン（例：1回だけ、10回、50回、100回）を比較し、図または表にまとめよ。
+
+```{r}
+#| label: q9-skeleton
+#| eval: false
+simulate_peeking <- function(n_max, check_every, n_sims, p0 = 0.10) {
+  false_positive_count <- 0
+  checkpoints <- seq(check_every, n_max, by = check_every)
+  for (s in 1:n_sims) {
+    d_full <- rbinom(n_max, 1, 0.5)
+    y_full <- rbinom(n_max, 1, p0)
+    stopped_significant <- FALSE
+    for (n_cur in checkpoints) {
+      d_cur <- d_full[1:n_cur]; y_cur <- y_full[1:n_cur]
+      n1 <- sum(d_cur == 1); n0 <- sum(d_cur == 0)
+      if (n1 < 5 || n0 < 5) next
+      p1_hat <- mean(y_cur[d_cur == 1]); p0_hat <- mean(y_cur[d_cur == 0])
+      p_pool <- mean(y_cur)
+      se <- sqrt(p_pool * (1 - p_pool) * (1 / n1 + 1 / n0))
+      if (se == 0) next
+      z <- (p1_hat - p0_hat) / se
+      if (abs(z) > 1.96) { stopped_significant <- TRUE; break }
+    }
+    if (stopped_significant) false_positive_count <- false_positive_count + 1
+  }
+  false_positive_count / n_sims
+}
+
+# n_sims は1000程度に抑えると計算時間が現実的になる
+```
+
+::: {.callout-tip}
+## ヒント：計算時間の目安
+
+`n_max=10000`、`n_sims=1000`程度であれば、通常のノートPCで数十秒程度で完了する。4パターンすべてを合わせても2〜3分以内に収まるはずである。もし遅い場合は`n_sims`を減らしてよい（結論の方向性は変わらない）。
+:::
+
+### Q10（3点）：この実験のMDE
+
+1. Q6で得たITTのSE（あるいは調整前のY全体の分散）を使い、この実験規模でのMDE（検出力80%、$\alpha=5\%$）を円単位で計算せよ。
+2. MDEを平均購買額に対する%で表現せよ。
+3. 真のTOT（800円）×使用率と比較して、この実験がITTを検出するのに十分な規模だったかコメントせよ。
+
+```{r}
+#| label: q10-skeleton
+#| eval: false
+n1 <- sum(coupon_df$D == 1); n0 <- sum(coupon_df$D == 0)
+se_itt <- sqrt(var(coupon_df$Y[coupon_df$D == 1]) / n1 + var(coupon_df$Y[coupon_df$D == 0]) / n0)
+
+z_alpha <- qnorm(0.975)
+z_beta <- qnorm(0.80)
+mde <- (z_alpha + z_beta) * se_itt
+
+cat("MDE:", mde, "円\n")
+cat("平均購買額に対する%:", mde / mean(coupon_df$Y) * 100, "%\n")
+```
+
+### Q11（3点）：経営含意（3行で）
+
+あなたはECサイトのマーケティング責任者に、この実験結果を報告しなければならない。次の3点に触れながら、3行以内で報告文を書け。
+
+1. このクーポン施策を「配信し続けるべきか」の判断材料としてITTとTOTのどちらを使うべきか。
+2. 単純比較（使用者vs非使用者）だけで判断するとどんな誤りを犯すか。
+3. CUPEDやサンプルサイズ設計の観点から、次回以降の実験でどんな改善が考えられるか。
+
+::: {.callout-warning}
+## 提出前のチェック
+
+- チャンクを上から順に実行して、未定義変数によるエラーが出ないか確認したか。
+- `itt_hat`、`naive_diff`（Q5）、`wald_tot`・2SLS推定値（Q7）を明確に区別して報告しているか。
+- Q9のpeekingシミュレーションで、覗く回数が増えるほどType I errorが単調に増加していることを確認したか。
+- Q10のMDEが、真のITT（`true_tot * usage_rate`とだいたい一致するはず）と比べてどちらが大きいか（この実験でITTを検出できる規模だったか）にコメントしているか。
+:::

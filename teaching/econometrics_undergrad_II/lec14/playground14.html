@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Kei Ikegami">
+
+<title>Playground 14：ロイヤルティと買いだめの実験室</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="playground14_files/libs/clipboard/clipboard.min.js"></script>
+<script src="playground14_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="playground14_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="playground14_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="playground14_files/libs/quarto-html/popper.min.js"></script>
+<script src="playground14_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="playground14_files/libs/quarto-html/anchor.min.js"></script>
+<link href="playground14_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="playground14_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="playground14_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="playground14_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="playground14_files/libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="playground14_files/libs/quarto-contrib/live-runtime/live-runtime.js" type="module"></script>
+<link href="playground14_files/libs/quarto-contrib/live-runtime/live-runtime.css" rel="stylesheet">
+<script type="module" src="playground14_files/libs/quarto-ojs/quarto-ojs-runtime.js"></script>
+<link href="playground14_files/libs/quarto-ojs/quarto-ojs.css" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul class="collapse">
+  <li><a href="#実験1本物のロイヤルティ-vs-見せかけのロイヤルティ" id="toc-実験1本物のロイヤルティ-vs-見せかけのロイヤルティ" class="nav-link active" data-scroll-target="#実験1本物のロイヤルティ-vs-見せかけのロイヤルティ">実験1：本物のロイヤルティ vs 見せかけのロイヤルティ</a></li>
+  <li><a href="#実験2セールと前借り-post-promotion-dip" id="toc-実験2セールと前借り-post-promotion-dip" class="nav-link" data-scroll-target="#実験2セールと前借り-post-promotion-dip">実験2：セールと前借り — post-promotion dip</a></li>
+  <li><a href="#実験3短期弾力性-vs-長期弾力性" id="toc-実験3短期弾力性-vs-長期弾力性" class="nav-link" data-scroll-target="#実験3短期弾力性-vs-長期弾力性">実験3：短期弾力性 vs 長期弾力性</a></li>
+  <li><a href="#次に読むもの" id="toc-次に読むもの" class="nav-link" data-scroll-target="#次に読むもの">次に読むもの</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Playground 14：ロイヤルティと買いだめの実験室</h1>
+<p class="subtitle lead">計量経済学II（ブラウザ上でRが動きます）</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">作者</div>
+    <div class="quarto-title-meta-contents">
+             <p>Kei Ikegami </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>このページの使い方
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>このページのRコードは、<strong>あなたのブラウザの中で</strong>動いている（WebAssembly + webR）。インストールは一切不要。</li>
+<li><strong>初回だけ、ページ読み込みに30秒〜1分かかる</strong>（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。</li>
+<li>各セルのコードは自由に書き換えて「Run Code」で実行できる。<strong>何をどう壊しても誰にも迷惑はかからない</strong>。おかしくなったらページを再読み込みすれば元に戻る。</li>
+<li>元ネタは講義ノート（<code>lecture14.html</code>）。ここでは「数値をいじって挙動を体感する」ことに集中する。</li>
+</ul>
+</div>
+</div>
+<div class="cell" data-edit="false" data-autorun="true" data-timelimit="120">
+<div>
+<div id="webr-1" class="exercise-cell">
+
+</div>
+<script type="webr-1-contents">
+eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVkaXQiOmZhbHNlLCJldmFsIjp0cnVlLCJvdXRwdXQiOmZhbHNlLCJ0aW1lbGltaXQiOjEyMH0sImNvZGUiOiIjIC0tLS0g5YWx6YCa44Gu6YGT5YW3566x77yI6Kyb576p44OO44O844OI56ysMTTlm57jgajlkIzjgZhER1Djg7vlnKjluqvjg6Ljg4fjg6vjgILnt6jpm4bkuI3lj6/jg7voh6rli5Xlrp/ooYzvvIktLS0tXG5cbiMgLS0tIOWun+mokzHnlKjvvJrjg5bjg6njg7Pjg4lB44KS6LK344GGL+iyt+OCj+OBquOBhOOBruODkeODjeODq0RHUO+8iOism+e+qTEuM+evgO+8iS0tLVxuc2ltdWxhdGVfcGFuZWwgPC0gZnVuY3Rpb24oTiwgVG4sIGJ1cm4sIGxhbWJkYSwgc2lnbWFfbXUsXG4gICAgICAgICAgICAgICAgICAgICAgICAgICBwcmljZV9zZCA9IDAuMywgYmV0YV9wcmljZSA9IC0xLjAsIGNvbnN0ID0gLTAuMikge1xuICBtdV9pIDwtIHJub3JtKE4sIDAsIHNpZ21hX211KVxuICB5X3ByZXYgPC0gcmVwKDAsIE4pXG4gIHlfbWF0IDwtIG1hdHJpeCgwLCBOLCBUbilcbiAgcHJpY2VfbWF0IDwtIG1hdHJpeCgwLCBOLCBUbilcbiAgZm9yICh0IGluIDE6KGJ1cm4gKyBUbikpIHtcbiAgICBwcmljZV90IDwtIHJub3JtKE4sIDAsIHByaWNlX3NkKVxuICAgIHV0aWwgPC0gY29uc3QgKyBiZXRhX3ByaWNlICogcHJpY2VfdCArIGxhbWJkYSAqIHlfcHJldiArIG11X2lcbiAgICBwcm9iIDwtIDEgLyAoMSArIGV4cCgtdXRpbCkpXG4gICAgeV90IDwtIGFzLm51bWVyaWMocnVuaWYoTikgPCBwcm9iKVxuICAgIGlmICh0ID4gYnVybikge1xuICAgICAgeV9tYXRbLCB0IC0gYnVybl0gPC0geV90XG4gICAgICBwcmljZV9tYXRbLCB0IC0gYnVybl0gPC0gcHJpY2VfdFxuICAgIH1cbiAgICB5X3ByZXYgPC0geV90XG4gIH1cbiAgbGlzdCh5ID0geV9tYXQsIHByaWNlID0gcHJpY2VfbWF0LCBtdSA9IG11X2kpXG59XG5cbnBlcnNpc3RlbmNlX3N0YXRzIDwtIGZ1bmN0aW9uKHkpIHtcbiAgeV9sYWcgPC0geVssIC1uY29sKHkpXVxuICB5X25vdyA8LSB5WywgLTFdXG4gIHAxMSA8LSBtZWFuKHlfbm93W3lfbGFnID09IDFdKVxuICBwMTAgPC0gbWVhbih5X25vd1t5X2xhZyA9PSAwXSlcbiAgYyhvdmVyYWxsID0gbWVhbih5KSwgcDExID0gcDExLCBwMTAgPSBwMTAsIGdhcCA9IHAxMSAtIHAxMClcbn1cblxuYnVpbGRfcG9vbGVkX2RmIDwtIGZ1bmN0aW9uKHNpbSkge1xuICBOIDwtIG5yb3coc2ltJHkpOyBUbiA8LSBuY29sKHNpbSR5KVxuICBkYXRhLmZyYW1lKFxuICAgIGlkICAgID0gcmVwKDE6TiwgdGltZXMgPSBUbiAtIDEpLFxuICAgIHkgICAgID0gYXMudmVjdG9yKHNpbSR5WywgLTFdKSxcbiAgICB5X2xhZyA9IGFzLnZlY3RvcihzaW0keVssIC1Ubl0pLFxuICAgIHByaWNlID0gYXMudmVjdG9yKHNpbSRwcmljZVssIC0xXSlcbiAgKVxufVxuXG4jIC0tLSDlrp/pqJMy44O7M+eUqO+8muWcqOW6q+OCkuaMgeOBpOa2iOiyu+iAheOBruWLleeahOioiOeUu+azle+8iOism+e+qTMuMuevgOOBrumWouaVsOOCkuODkeODqeODoeODvOOCv+WMlu+8iS0tLVxuWG1heCA8LSA1OyBBbWF4IDwtIDNcbmJldGFfZHAgPC0gMC45NlxudV9jb25zdW1lIDwtIDMuMFxuc3RvY2tvdXRfY29zdCA8LSAyLjBcbnFfYmFzZSA8LSAwLjY7IHFfc2xvcGUgPC0gMC4wM1xucV9vZl94IDwtIGZ1bmN0aW9uKHgpIHBtaW4ocV9iYXNlICsgcV9zbG9wZSAqIHgsIDAuOTUpXG5cbnNvbHZlX2ludmVudG9yeV9kcCA8LSBmdW5jdGlvbihwX3JlZ3VsYXIgPSAxLjAwLCBwX3NhbGUgPSAwLjc1LCBzYWxlX3Byb2IgPSAxLzgsXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgY19ob2xkID0gMC4xMiwgdG9sID0gMWUtNiwgbWF4aXQgPSA4MDApIHtcbiAgc3RhdGVzIDwtIDA6WG1heDsgYWN0aW9ucyA8LSAwOkFtYXhcbiAgcHJpY2VzIDwtIGMocF9yZWd1bGFyLCBwX3NhbGUpXG4gIHByb2JzX3ByaWNlIDwtIGMoMSAtIHNhbGVfcHJvYiwgc2FsZV9wcm9iKVxuICBlZmMgPC0gZnVuY3Rpb24oeCwgYSwgcCwgVikge1xuICAgIHBvc3QgPC0geCArIGFcbiAgICBxIDwtIHFfb2ZfeChwb3N0KVxuICAgIGNvbnMgPC0gYXMubnVtZXJpYyhwb3N0ID49IDEpXG4gICAgZW5kX2ludiA8LSBwb3N0IC0gY29uc1xuICAgIHZhbF9jIDwtIHVfY29uc3VtZSAqIGNvbnMgLSBwICogYSAtIGNfaG9sZCAqIGVuZF9pbnYgKyBiZXRhX2RwICogVltlbmRfaW52ICsgMV1cbiAgICB2YWxfbiA8LSAtKGlmIChwb3N0ID09IDApIHN0b2Nrb3V0X2Nvc3QgZWxzZSAwKSAtIHAgKiBhIC0gY19ob2xkICogcG9zdCArIGJldGFfZHAgKiBWW3Bvc3QgKyAxXVxuICAgIHEgKiB2YWxfYyArICgxIC0gcSkgKiB2YWxfblxuICB9XG4gIFYgPC0gcmVwKDAsIFhtYXggKyAxKVxuICBwb2xpY3kgPC0gbWF0cml4KDBMLCAyLCBYbWF4ICsgMSlcbiAgZm9yIChpdCBpbiAxOm1heGl0KSB7XG4gICAgcG9sX25ldyA8LSBtYXRyaXgoMEwsIDIsIFhtYXggKyAxKVxuICAgIGZvciAocGlfaWR4IGluIDE6Mikge1xuICAgICAgZm9yICh4aSBpbiBzZXFfYWxvbmcoc3RhdGVzKSkge1xuICAgICAgICBiZXN0X3ZhbCA8LSAtSW5mOyBiZXN0X2EgPC0gMExcbiAgICAgICAgZm9yIChhIGluIGFjdGlvbnMpIHtcbiAgICAgICAgICBpZiAoc3RhdGVzW3hpXSArIGEgPiBYbWF4KSBuZXh0XG4gICAgICAgICAgdmFsIDwtIGVmYyhzdGF0ZXNbeGldLCBhLCBwcmljZXNbcGlfaWR4XSwgVilcbiAgICAgICAgICBpZiAodmFsID4gYmVzdF92YWwpIHsgYmVzdF92YWwgPC0gdmFsOyBiZXN0X2EgPC0gYSB9XG4gICAgICAgIH1cbiAgICAgICAgcG9sX25ld1twaV9pZHgsIHhpXSA8LSBiZXN0X2FcbiAgICAgIH1cbiAgICB9XG4gICAgVl9uZXcgPC0gbnVtZXJpYyhYbWF4ICsgMSlcbiAgICBmb3IgKHhpIGluIHNlcV9hbG9uZyhzdGF0ZXMpKSB7XG4gICAgICB2X3ggPC0gMFxuICAgICAgZm9yIChwaV9pZHggaW4gMToyKSB7XG4gICAgICAgIHZfeCA8LSB2X3ggKyBwcm9ic19wcmljZVtwaV9pZHhdICogZWZjKHN0YXRlc1t4aV0sIHBvbF9uZXdbcGlfaWR4LCB4aV0sIHByaWNlc1twaV9pZHhdLCBWKVxuICAgICAgfVxuICAgICAgVl9uZXdbeGldIDwtIHZfeFxuICAgIH1cbiAgICBlcnIgPC0gbWF4KGFicyhWX25ldyAtIFYpKVxuICAgIFYgPC0gVl9uZXc7IHBvbGljeSA8LSBwb2xfbmV3XG4gICAgaWYgKGVyciA8IHRvbCkgYnJlYWtcbiAgfVxuICBkaW1uYW1lcyhwb2xpY3kpIDwtIGxpc3QoYyhcInJlZ3VsYXIgcHJpY2VcIiwgXCJzYWxlIHByaWNlXCIpLCBwYXN0ZTAoXCJ4PVwiLCBzdGF0ZXMpKVxuICBsaXN0KFYgPSBWLCBwb2xpY3kgPSBwb2xpY3ksIGl0ZXJzID0gaXQpXG59XG5cbnNpbXVsYXRlX2NhbGVuZGFyIDwtIGZ1bmN0aW9uKE5faGgsIFRuLCBzYWxlX2Jvb2wsIHBvbGljeSwgc2FsZV9wcm9iLCBzZWVkID0gMSwgYnVybl9pbiA9IDcwKSB7XG4gIHNldC5zZWVkKHNlZWQpXG4gIHggPC0gcmVwKDBMLCBOX2hoKVxuICBmb3IgKHQgaW4gMTpidXJuX2luKSB7XG4gICAgaXNfc2FsZSA8LSBydW5pZihOX2hoKSA8IHNhbGVfcHJvYlxuICAgIGEgPC0gaWZlbHNlKGlzX3NhbGUsIHBvbGljeVsyLCB4ICsgMV0sIHBvbGljeVsxLCB4ICsgMV0pXG4gICAgcG9zdCA8LSB4ICsgYVxuICAgIG9jYyA8LSBydW5pZihOX2hoKSA8IHFfb2ZfeChwb3N0KVxuICAgIHggPC0gcG9zdCAtIGFzLmludGVnZXIob2NjICYgcG9zdCA+PSAxKVxuICB9XG4gIHVuaXRzIDwtIG51bWVyaWMoVG4pXG4gIGZvciAodCBpbiAxOlRuKSB7XG4gICAgYSA8LSBpZiAoc2FsZV9ib29sW3RdKSBwb2xpY3lbMiwgeCArIDFdIGVsc2UgcG9saWN5WzEsIHggKyAxXVxuICAgIHVuaXRzW3RdIDwtIHN1bShhKVxuICAgIHBvc3QgPC0geCArIGFcbiAgICBvY2MgPC0gcnVuaWYoTl9oaCkgPCBxX29mX3gocG9zdClcbiAgICB4IDwtIHBvc3QgLSBhcy5pbnRlZ2VyKG9jYyAmIHBvc3QgPj0gMSlcbiAgfVxuICB1bml0c1xufVxuXG50aGVtZV9zZXQodGhlbWVfbWluaW1hbChiYXNlX3NpemUgPSAxMykpIn0=
+</script>
+</div>
+</div>
+<section id="実験1本物のロイヤルティ-vs-見せかけのロイヤルティ" class="level2">
+<h2 class="anchored" data-anchor-id="実験1本物のロイヤルティ-vs-見せかけのロイヤルティ">実験1：本物のロイヤルティ vs 見せかけのロイヤルティ</h2>
+<p>講義の謎1をそのまま実験する。消費者 <span class="math inline">\(i\)</span> が期 <span class="math inline">\(t\)</span> にブランドAを買うかどうかの効用は</p>
+<p><span class="math display">\[
+u_{it} = c + \beta_p p_{it} + \lambda y_{i,t-1} + \mu_i + \varepsilon_{it}
+\]</span></p>
+<p>で決まる。<span class="math inline">\(\lambda\)</span> は状態依存の強さ（前回買ったこと<strong>自体</strong>が今回の効用を押し上げる。本物のロイヤルティ）、<span class="math inline">\(\mu_i \sim N(0, \sigma_\mu^2)\)</span> は個人の好みのばらつき（もともと好きな人はずっと好き。ただの異質性）。世界(a)は <span class="math inline">\(\lambda &gt; 0\)</span> かつ <span class="math inline">\(\sigma_\mu = 0\)</span>、世界(b)は <span class="math inline">\(\lambda = 0\)</span> かつ <span class="math inline">\(\sigma_\mu\)</span> が大きい。定数項は全体購買率がそろうように較正してある（講義1.3節と同じ値）。まず観測できる集計統計量——<code>p11</code> = P(買う | 前回買った)、<code>p10</code> = P(買う | 前回買わず)、<code>gap</code> はその差——が2つの世界でほぼ同じになることを確かめ、続けて前回購入ダミーを入れただけのnaiveなpooled logitを両方の世界に当てる。なお講義ノートは <code>fixest::feglm()</code> にクラスタ標準誤差を付けて推定していたが、webRでは標準の <code>glm()</code> で代用する。点推定は同じで、標準誤差はクラスタ化されないぶん小さめに出る（今日の論点は推定値そのものの歪みなので、結論には影響しない）。</p>
+<div class="cell" data-timelimit="90">
+<div>
+<div id="webr-2" class="exercise-cell">
+
+</div>
+<script type="webr-2-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5sYW1iZGFfYSA8LSAxLjE7IHNpZ21hX2EgPC0gMC4wICAgIyDkuJbnlYwoYSnvvJrmnKznianjga7jg63jgqTjg6Tjg6vjg4bjgqPjgaDjgZFcbmxhbWJkYV9iIDwtIDAuMDsgc2lnbWFfYiA8LSAxLjQgICAjIOS4lueVjChiKe+8muWlveOBv+OBruOBsOOCieOBpOOBjeOBoOOBkVxuTiAgPC0gMTUwMCAgICAgICAgICAgICAgICAgICAgICAgICMg5raI6LK76ICF5pWw77yIMjAwMOOBvuOBp++8iVxuVG4gPC0gMjAgICAgICAgICAgICAgICAgICAgICAgICAgICMg6Kaz5ris5pyf6ZaT77yI6YCx77yJXG4jIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tXG5cbnNldC5zZWVkKDE0MSlcbmNvbnN0X2EgPC0gLTAuNTU7IGNvbnN0X2IgPC0gLTAuMjAgICAjIOWFqOS9k+izvOiyt+eOh+OCkuOBneOCjeOBiOOCi+OBn+OCgeOBrui8g+ato+WApFxuXG53b3JsZF9hIDwtIHNpbXVsYXRlX3BhbmVsKE4sIFRuLCBidXJuID0gMjUsIGxhbWJkYSA9IGxhbWJkYV9hLCBzaWdtYV9tdSA9IHNpZ21hX2EsIGNvbnN0ID0gY29uc3RfYSlcbndvcmxkX2IgPC0gc2ltdWxhdGVfcGFuZWwoTiwgVG4sIGJ1cm4gPSAyNSwgbGFtYmRhID0gbGFtYmRhX2IsIHNpZ21hX211ID0gc2lnbWFfYiwgY29uc3QgPSBjb25zdF9iKVxuXG5jYXQoXCLoprPmuKzjgafjgY3jgovpm4boqIjntbHoqIjph4/vvJoy44Gk44Gu5LiW55WM44Gv44G744Go44KT44Gp5ZCM44GY44Gr6KaL44GI44KLXFxuXCIpXG5zdGF0c190YmwgPC0gcmJpbmQocGVyc2lzdGVuY2Vfc3RhdHMod29ybGRfYSR5KSwgcGVyc2lzdGVuY2Vfc3RhdHMod29ybGRfYiR5KSlcbnJvd25hbWVzKHN0YXRzX3RibCkgPC0gYyhwYXN0ZTAoXCIoYSkgbGFtYmRhPVwiLCBsYW1iZGFfYSwgXCIsIHNpZ21hPVwiLCBzaWdtYV9hKSxcbiAgICAgICAgICAgICAgICAgICAgICAgICBwYXN0ZTAoXCIoYikgbGFtYmRhPVwiLCBsYW1iZGFfYiwgXCIsIHNpZ21hPVwiLCBzaWdtYV9iKSlcbnByaW50KHJvdW5kKHN0YXRzX3RibCwgMykpXG5cbmZpdF9hIDwtIGdsbSh5IH4gcHJpY2UgKyB5X2xhZywgZmFtaWx5ID0gYmlub21pYWwoKSwgZGF0YSA9IGJ1aWxkX3Bvb2xlZF9kZih3b3JsZF9hKSlcbmZpdF9iIDwtIGdsbSh5IH4gcHJpY2UgKyB5X2xhZywgZmFtaWx5ID0gYmlub21pYWwoKSwgZGF0YSA9IGJ1aWxkX3Bvb2xlZF9kZih3b3JsZF9iKSlcblxuY2F0KFwiXFxubmFpdmXjgapwb29sZWQgbG9naXTvvIjliY3lm57os7zlhaXjg4Djg5/jg7zlhaXjgorvvInjgYzmjqjlrprjgZnjgotsYW1iZGFcXG5cIilcbmRhdGEuZnJhbWUoXG4gIHdvcmxkID0gYyhcIihhKVwiLCBcIihiKVwiKSxcbiAgdHJ1ZV9sYW1iZGEgPSBjKGxhbWJkYV9hLCBsYW1iZGFfYiksXG4gIGxhbWJkYV9oYXQgID0gcm91bmQoYyhjb2VmKGZpdF9hKVtcInlfbGFnXCJdLCBjb2VmKGZpdF9iKVtcInlfbGFnXCJdKSwgMyksXG4gIHNlICAgICAgICAgID0gcm91bmQoYyhzdW1tYXJ5KGZpdF9hKSRjb2VmZmljaWVudHNbXCJ5X2xhZ1wiLCBcIlN0ZC4gRXJyb3JcIl0sXG4gICAgICAgICAgICAgICAgICAgICAgICBzdW1tYXJ5KGZpdF9iKSRjb2VmZmljaWVudHNbXCJ5X2xhZ1wiLCBcIlN0ZC4gRXJyb3JcIl0pLCAzKVxuKSJ9
+</script>
+</div>
+</div>
+<p>世界(b)の真の <span class="math inline">\(\lambda\)</span> はゼロなのに、naiveな推定は1前後の「有意にプラス」を返す。前回購入ダミーが <span class="math inline">\(\mu_i\)</span>（もともと好きかどうか）の代理変数として働いてしまうからだ。これが<strong>見せかけの状態依存</strong>である。</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>sigma_b &lt;- 0.7</code>（世界(b)の異質性を半分に）にすると、(b)のnaiveな <code>lambda_hat</code> はどこまで下がるか。ゼロまで戻るか。</li>
+<li><code>Tn &lt;- 60</code> にして観測期間を3倍にしてみよう。パネルを長くすれば、naiveな推定は正しい答えに近づくだろうか。</li>
+<li>上の2つの表の数字（集計統計量とnaiveな推定値）だけを渡されたとき、あなたは2つの世界を見分けられるか。観察だけで足りないなら、何を足せばよいか。講義ノート1.5〜1.6節（固定効果ロジット、Wooldridge device）を読んでから、もう一度この表を見直そう。</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="実験2セールと前借り-post-promotion-dip" class="level2">
+<h2 class="anchored" data-anchor-id="実験2セールと前借り-post-promotion-dip">実験2：セールと前借り — post-promotion dip</h2>
+<p>後半の主役、<strong>在庫を持てる財</strong>（洗剤やトイレットペーパー）に移る。講義3.2節の在庫モデル——状態は在庫 <span class="math inline">\(x\)</span>、行動は購入量 <span class="math inline">\(a\)</span>、価値関数反復で最適政策 <span class="math inline">\(a^*(x)\)</span> を解く——をそのまま使い、2000世帯を同じカレンダーの上で動かす。10週目だけセールを打ち、さらにシミュレーションならではの贅沢として、<strong>同じ乱数で「セールを打たなかった世界」も並走させ</strong>、その差からセールの「純増」と「前借り」を分解する。消費者はセールの深さと頻度を織り込んで買い方のルールを決めるので、下のパラメータを変えると裏でDPが解き直される点に注意しよう。</p>
+<div class="cell" data-timelimit="90">
+<div>
+<div id="webr-3" class="exercise-cell">
+
+</div>
+<script type="webr-3-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5kaXNjb3VudCAgPC0gMC4yNSAgICMg44K744O844Or44Gu5rex44GV77yIMC4yNSA9IDI1JeW8leOBje+8iVxuc2FsZV9wcm9iIDwtIDEvOCAgICAjIOOCu+ODvOODq+OBrumgu+W6pu+8iOa2iOiyu+iAheOBjOimi+i+vOOCk+OBp+OBhOOCi+OAgeOCu+ODvOODq+OBjOadpeOCi+eiuueOh++8iVxuc2FsZV93ZWVrIDwtIDEwICAgICAjIDMw6YCx44Gu44GG44Gh44CB5L2V6YCx55uu44Gr44K744O844Or44KS5omT44Gk44GLXG4jIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tXG5cbnNldC5zZWVkKDE0Milcbk5faGggPC0gMjAwMDsgVG5fY2FsIDwtIDMwXG5cbiMg5rex44GV44O76aC75bqm44KS5aSJ44GI44KL44Go44CB5raI6LK76ICF44Gu5pyA6YGp44Gq6LK344GE5pa577yI5pS/562W6Zai5pWw77yJ44GU44Go5aSJ44KP44KLXG5kcCA8LSBzb2x2ZV9pbnZlbnRvcnlfZHAocF9zYWxlID0gMSAtIGRpc2NvdW50LCBzYWxlX3Byb2IgPSBzYWxlX3Byb2IpXG5cbnNhbGVfYm9vbF9ldmVudCA8LSByZXAoRkFMU0UsIFRuX2NhbCk7IHNhbGVfYm9vbF9ldmVudFtzYWxlX3dlZWtdIDwtIFRSVUVcbnVuaXRzX3NhbGUgPC0gc2ltdWxhdGVfY2FsZW5kYXIoTl9oaCwgVG5fY2FsLCBzYWxlX2Jvb2xfZXZlbnQsIGRwJHBvbGljeSwgc2FsZV9wcm9iLCBzZWVkID0gNDIpXG51bml0c19ub25lIDwtIHNpbXVsYXRlX2NhbGVuZGFyKE5faGgsIFRuX2NhbCwgcmVwKEZBTFNFLCBUbl9jYWwpLCBkcCRwb2xpY3ksIHNhbGVfcHJvYiwgc2VlZCA9IDQyKVxuXG5zcGlrZSA8LSB1bml0c19zYWxlW3NhbGVfd2Vla10gLSB1bml0c19ub25lW3NhbGVfd2Vla10gICAjIOOCu+ODvOODq+mAseOBruS4iuS5l+OBm1xucG9zdF93ZWVrcyA8LSAoc2FsZV93ZWVrICsgMSk6VG5fY2FsXG5kaXAgPC0gc3VtKHVuaXRzX25vbmVbcG9zdF93ZWVrc10gLSB1bml0c19zYWxlW3Bvc3Rfd2Vla3NdKSAgIyDjgZ3jga7lvozjgavlpLHjgo/jgozjgZ/osqnlo7JcbnByaW50KGRhdGEuZnJhbWUoXG4gIG1lYXN1cmUgPSBjKFwic3Bpa2U6IGV4dHJhIHVuaXRzIGluIHRoZSBzYWxlIHdlZWtcIixcbiAgICAgICAgICAgICAgXCJkaXA6IHVuaXRzIGxvc3QgaW4gdGhlIGZvbGxvd2luZyB3ZWVrc1wiLFxuICAgICAgICAgICAgICBcIm5ldCBnYWluIG92ZXIgdGhlIHdob2xlIHdpbmRvd1wiLFxuICAgICAgICAgICAgICBcInB1bGwtZm9yd2FyZCBzaGFyZSAoZGlwIC8gc3Bpa2UpXCIpLFxuICB2YWx1ZSA9IHJvdW5kKGMoc3Bpa2UsIGRpcCwgc3Bpa2UgLSBkaXAsXG4gICAgICAgICAgICAgICAgICBpZmVsc2Uoc3Bpa2UgPiAwLCBkaXAgLyBzcGlrZSwgTkEpKSwgMilcbikpXG5cbmRmX3RzIDwtIGRhdGEuZnJhbWUod2VlayA9IDE6VG5fY2FsLCB3aXRoX3NhbGUgPSB1bml0c19zYWxlLCBjb3VudGVyZmFjdHVhbCA9IHVuaXRzX25vbmUpXG5nZ3Bsb3QoZGZfdHMsIGFlcyh3ZWVrKSkgK1xuICBnZW9tX2NvbChhZXMoeSA9IHdpdGhfc2FsZSwgZmlsbCA9IHdlZWsgPT0gc2FsZV93ZWVrKSwgd2lkdGggPSAwLjcpICtcbiAgZ2VvbV9saW5lKGFlcyh5ID0gY291bnRlcmZhY3R1YWwpLCBsaW5ldHlwZSA9IFwiZGFzaGVkXCIsIGNvbG9yID0gXCJncmF5MzBcIiwgbGluZXdpZHRoID0gMC43KSArXG4gIHNjYWxlX2ZpbGxfbWFudWFsKHZhbHVlcyA9IGMoXCJUUlVFXCIgPSBcIiNkNjI3MjhcIiwgXCJGQUxTRVwiID0gXCIjMWY3N2I0XCIpLCBndWlkZSA9IFwibm9uZVwiKSArXG4gIGxhYnModGl0bGUgPSBcIlNhbGUgc3Bpa2UgYW5kIHBvc3QtcHJvbW90aW9uIGRpcFwiLFxuICAgICAgIHN1YnRpdGxlID0gXCJyZWQgPSBzYWxlIHdlZWssIGRhc2hlZCBsaW5lID0gbm8tc2FsZSBjb3VudGVyZmFjdHVhbCAoc2FtZSByYW5kb20gZHJhd3MpXCIsXG4gICAgICAgeCA9IFwid2Vla1wiLCB5ID0gXCJ1bml0cyBzb2xkXCIpIn0=
+</script>
+</div>
+</div>
+<p>セール週に売上が跳ね（スパイク）、直後の数週間は破線（セールなしの世界）を下回る（post-promotion dip）。買いだめした世帯が在庫を消化するだけで、買いに来ないからだ。スパイクの大部分は前借りで、純増はごくわずか——これがPOSデータでおなじみの形の正体である。</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>discount &lt;- 0.40</code> にするとスパイクとdipはどちらも大きくなる。純増（net gain）と前借り率（pull-forward share）はどう動くか。逆に <code>discount &lt;- 0.10</code> ではどうなるか（浅すぎるセールは政策関数を動かせず、スパイクごと消えるはずだ）。</li>
+<li><code>sale_prob &lt;- 0.5</code> にして「2週に1回セールが来る」世界にしてみよう。次のセールがすぐ来るなら在庫を抱える意味は薄い。買いだめは生き残るか。</li>
+<li>セール週のスパイクだけを見て「このセールは大成功」と報告してよいか。net gainとpull-forward shareを根拠に、何週分まで見てから評価すべきか考えよう。</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="実験3短期弾力性-vs-長期弾力性" class="level2">
+<h2 class="anchored" data-anchor-id="実験3短期弾力性-vs-長期弾力性">実験3：短期弾力性 vs 長期弾力性</h2>
+<p><strong>短期弾力性</strong>は「1週だけの不意打ち値下げ」に対する当週の数量反応から、<strong>長期弾力性</strong>は「毎週セール価格が続く世界」と「ずっと通常価格の世界」の定常状態の差から計算する（講義3.4節と同じ扱い）。買いだめできる財では短期が長期を桁違いに上回る。そして静学的な回帰が拾うのはほぼ短期の方だったから、この2つの比は「静学推定が恒久値下げの効果をどれだけ過大評価するか」の目安になる。買いだめの強さを決めるのは在庫保有コスト <code>c_hold</code> だ。</p>
+<div class="cell" data-timelimit="90">
+<div>
+<div id="webr-4" class="exercise-cell">
+
+</div>
+<script type="webr-4-contents">
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5jX2hvbGQgICA8LSAwLjEyICAgIyDlnKjluqvkv53mnInjgrPjgrnjg4jvvIjosrfjgYTjgaDjgoHjga7lvLfjgZXjgpLmsbrjgoHjgovvvInjgIIwLjA144KEMC4yNeOCguippuOBneOBhlxuZGlzY291bnQgPC0gMC4yNSAgICMg5YCk5LiL44GS5bmF77yI5LiA5pmC55qE44Gq5YCk5LiL44GS44Gr44KC5oGS5LmF55qE44Gq5YCk5LiL44GS44Gr44KC5ZCM44GY5bmF44KS5L2/44GG77yJXG4jIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tXG5cbnNldC5zZWVkKDE0Mylcbk5faGggPC0gMjAwMDsgVG5fY2FsIDwtIDMwOyBzYWxlX3Byb2IgPC0gMS84XG5cbmRwIDwtIHNvbHZlX2ludmVudG9yeV9kcChwX3NhbGUgPSAxIC0gZGlzY291bnQsIHNhbGVfcHJvYiA9IHNhbGVfcHJvYiwgY19ob2xkID0gY19ob2xkKVxuY2F0KFwi5pyA6YGp6LO85YWl6YePIGEqKHgp77yaXFxuXCIpXG5wcmludChkcCRwb2xpY3kpXG5cbiMg55+t5pyf77yaMTXpgLHnm67jgaDjgZHjga7kuI3mhI/miZPjgaHlgKTkuIvjgZLjgILlkIzjgZjkubHmlbDjga7jgIzlgKTkuIvjgZLjgarjgZfjgI3kuJbnlYzjgajlvZPpgLHjgpLmr5TjgbnjgotcbnNhbGVfb25jZSA8LSByZXAoRkFMU0UsIFRuX2NhbCk7IHNhbGVfb25jZVsxNV0gPC0gVFJVRVxudV9vbmNlIDwtIHNpbXVsYXRlX2NhbGVuZGFyKE5faGgsIFRuX2NhbCwgc2FsZV9vbmNlLCBkcCRwb2xpY3ksIHNhbGVfcHJvYiwgc2VlZCA9IDcpXG51X2Jhc2UgPC0gc2ltdWxhdGVfY2FsZW5kYXIoTl9oaCwgVG5fY2FsLCByZXAoRkFMU0UsIFRuX2NhbCksIGRwJHBvbGljeSwgc2FsZV9wcm9iLCBzZWVkID0gNylcbnNyX2VsYXN0IDwtICh1X29uY2VbMTVdIC8gdV9iYXNlWzE1XSAtIDEpIC8gKC1kaXNjb3VudClcblxuIyDplbfmnJ/vvJrjgIzmr47pgLHjgrvjg7zjg6vkvqHmoLzjgI3jgajjgIzjgZrjgaPjgajpgJrluLjkvqHmoLzjgI3jga7lrprluLjnirbmhYvjgpLmr5TjgbnjgovvvIjmnKvlsL4xNemAseOBruW5s+Wdh++8iVxudV9sb3cgIDwtIHNpbXVsYXRlX2NhbGVuZGFyKE5faGgsIFRuX2NhbCwgcmVwKFRSVUUsICBUbl9jYWwpLCBkcCRwb2xpY3ksIHNhbGVfcHJvYiwgc2VlZCA9IDgpXG51X2hpZ2ggPC0gc2ltdWxhdGVfY2FsZW5kYXIoTl9oaCwgVG5fY2FsLCByZXAoRkFMU0UsIFRuX2NhbCksIGRwJHBvbGljeSwgc2FsZV9wcm9iLCBzZWVkID0gOClcbmxyX2VsYXN0IDwtIChtZWFuKHRhaWwodV9sb3csIDE1KSkgLyBtZWFuKHRhaWwodV9oaWdoLCAxNSkpIC0gMSkgLyAoLWRpc2NvdW50KVxuXG5lbGFzdF90YmwgPC0gZGF0YS5mcmFtZShcbiAgaG9yaXpvbiA9IGZhY3RvcihjKFwic2hvcnQtcnVuXCIsIFwibG9uZy1ydW5cIiksIGxldmVscyA9IGMoXCJzaG9ydC1ydW5cIiwgXCJsb25nLXJ1blwiKSksXG4gIGRlZmluaXRpb24gPSBjKFwib25lLXdlZWsgc3VycHJpc2UgcHJpY2UgY3V0XCIsIFwicGVybWFuZW50IHByaWNlIGN1dCAoc3RlYWR5IHN0YXRlKVwiKSxcbiAgZWxhc3RpY2l0eSA9IHJvdW5kKGMoc3JfZWxhc3QsIGxyX2VsYXN0KSwgMilcbilcbnByaW50KGVsYXN0X3RibClcbmlmIChhYnMobHJfZWxhc3QpID4gMWUtMTApIHtcbiAgY2F0KFwiXFxu55+t5pyfL+mVt+acn+OBruavlO+8mlwiLCByb3VuZChzcl9lbGFzdCAvIGxyX2VsYXN0LCAxKSwgXCLlgI1cXG5cIilcbn0gZWxzZSB7XG4gIGNhdChcIlxcbuS+oeagvOOBuOOBruWPjeW/nOOBjOS4oeaWueOCvOODreOBq+OBquOBo+OBn++8iOiyt+OBhOOBoOOCgeOBjOa2iOOBiOOBn+iyoe+8ieOAguavlOOBr+Wumue+qeOBp+OBjeOBquOBhOOAglxcblwiKVxufVxuXG5nZ3Bsb3QoZWxhc3RfdGJsLCBhZXMoaG9yaXpvbiwgZWxhc3RpY2l0eSwgZmlsbCA9IGhvcml6b24pKSArXG4gIGdlb21fY29sKHdpZHRoID0gMC41LCBzaG93LmxlZ2VuZCA9IEZBTFNFKSArXG4gIGdlb21faGxpbmUoeWludGVyY2VwdCA9IDAsIGNvbG9yID0gXCJncmF5NDBcIikgK1xuICBzY2FsZV9maWxsX21hbnVhbCh2YWx1ZXMgPSBjKFwic2hvcnQtcnVuXCIgPSBcIiMxZjc3YjRcIiwgXCJsb25nLXJ1blwiID0gXCIjMmNhMDJjXCIpKSArXG4gIGxhYnModGl0bGUgPSBcIlNob3J0LXJ1biB2cyBsb25nLXJ1biBwcmljZSBlbGFzdGljaXR5XCIsXG4gICAgICAgeCA9IE5VTEwsIHkgPSBcImVsYXN0aWNpdHlcIikifQ==
+</script>
+</div>
+</div>
+<p>既定値では短期はおよそ <span class="math inline">\(-6\)</span>、長期はおよそ <span class="math inline">\(-0.2\)</span>、比は30倍前後になるはずだ。1週の値下げには買いだめで激しく反応するが、恒久的に安くなっても1世帯が消費できる量には上限があるので、長期の総量はほとんど増えない。</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>やってみよう
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>c_hold &lt;- 0.05</code>（保管がタダ同然の財）にしてみよう。短期と長期はそれぞれ何倍くらいに膨らむか。比が開くか縮むか、予想してから確かめよう。</li>
+<li><code>c_hold &lt;- 0.25</code> にすると政策関数の2つの行が同じになる（セールでも買いだめしない）はずだ。このとき短期も長期もゼロに落ち、比は定義できなくなる。生鮮食品のように<strong>在庫できない財</strong>の姿だ。</li>
+<li>静学回帰で出てくる弾力性（ほぼ短期）を恒久値下げの売上予測にそのまま使うと、どちら向きに何倍くらい間違えるか。逆に、この間違いが小さくて済むのはどんな商品カテゴリか。</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="次に読むもの" class="level2">
+<h2 class="anchored" data-anchor-id="次に読むもの">次に読むもの</h2>
+<ul>
+<li>講義ノート本体：<code>lecture14.html</code>（観察的同値、Wooldridge device、在庫モデルと反実仮想の完全版）</li>
+<li>coding課題：<code>assignment14.qmd</code>（ブランド選択パネルのDGPをゼロから作り、naive推定・Wooldridge device・在庫DGPの反実仮想まで、今日の内容を一通り自分の手で実装する）</li>
+</ul>
+<script type="webr-data">
+eyJvcHRpb25zIjp7ImJhc2VVcmwiOiJodHRwczovL3dlYnIuci13YXNtLm9yZy92MC42LjAvIn0sInBhY2thZ2VzIjp7InBrZ3MiOlsiZXZhbHVhdGUiLCJrbml0ciIsImh0bWx0b29scyIsImdncGxvdDIiLCJkcGx5ciIsInRpZHlyIl0sInJlcG9zIjpbImh0dHBzOi8vcmVwby5yLXdhc20ub3JnIiwiaHR0cHM6Ly9jcmFuLnItdW5pdmVyc2UuZGV2Il19LCJyZW5kZXJfZGYiOiJkZWZhdWx0In0=
+</script>
+<script type="ojs-module-contents">
+eyJjb250ZW50cyI6W3siY2VsbE5hbWUiOiJ3ZWJyLXdpZGdldC00IiwiaW5saW5lIjpmYWxzZSwibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoie1xuICAvLyBXYWl0IGZvciBvdXRwdXQgdG8gYmUgd3JpdHRlbiB0byB0aGUgRE9NLCB0aGVuIHRyaWdnZXIgd2lkZ2V0IHJlbmRlcmluZ1xuICBhd2FpdCBfd2Vicl92YWx1ZV80O1xuICBpZiAod2luZG93LkhUTUxXaWRnZXRzKSB7XG4gICAgd2luZG93LkhUTUxXaWRnZXRzLnN0YXRpY1JlbmRlcigpO1xuICB9XG4gIGlmICh3aW5kb3cuUGFnZWRUYWJsZURvYykge1xuICAgIHdpbmRvdy5QYWdlZFRhYmxlRG9jLmluaXRBbGwoKTtcbiAgfVxufVxuIn0seyJjZWxsTmFtZSI6IndlYnItNCIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXQiLCJzb3VyY2UiOiJ2aWV3b2YgX3dlYnJfZWRpdG9yXzQgPSB7XG4gIGNvbnN0IHsgV2ViUkV4ZXJjaXNlRWRpdG9yLCBiNjREZWNvZGUgfSA9IHdpbmRvdy5fZXhlcmNpc2Vfb2pzX3J1bnRpbWU7XG4gIGNvbnN0IHNjcmlwdENvbnRlbnQgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yKGBzY3JpcHRbdHlwZT1cXFwid2Vici00LWNvbnRlbnRzXFxcIl1gKS50ZXh0Q29udGVudDtcbiAgY29uc3QgYmxvY2sgPSBKU09OLnBhcnNlKGI2NERlY29kZShzY3JpcHRDb250ZW50KSk7XG5cbiAgY29uc3Qgb3B0aW9ucyA9IE9iamVjdC5hc3NpZ24oeyBpZDogYHdlYnItNC1jb250ZW50c2AgfSwgYmxvY2suYXR0cik7XG4gIGNvbnN0IGVkaXRvciA9IG5ldyBXZWJSRXhlcmNpc2VFZGl0b3Iod2ViUk9qcy53ZWJSUHJvbWlzZSwgYmxvY2suY29kZSwgb3B0aW9ucyk7XG5cbiAgcmV0dXJuIGVkaXRvci5jb250YWluZXI7XG59XG5fd2Vicl92YWx1ZV80ID0gd2ViUk9qcy5wcm9jZXNzKF93ZWJyX2VkaXRvcl80LCB7fSk7XG4ifSx7ImNlbGxOYW1lIjoid2Vici13aWRnZXQtMyIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXRRdWlldCIsInNvdXJjZSI6IntcbiAgLy8gV2FpdCBmb3Igb3V0cHV0IHRvIGJlIHdyaXR0ZW4gdG8gdGhlIERPTSwgdGhlbiB0cmlnZ2VyIHdpZGdldCByZW5kZXJpbmdcbiAgYXdhaXQgX3dlYnJfdmFsdWVfMztcbiAgaWYgKHdpbmRvdy5IVE1MV2lkZ2V0cykge1xuICAgIHdpbmRvdy5IVE1MV2lkZ2V0cy5zdGF0aWNSZW5kZXIoKTtcbiAgfVxuICBpZiAod2luZG93LlBhZ2VkVGFibGVEb2MpIHtcbiAgICB3aW5kb3cuUGFnZWRUYWJsZURvYy5pbml0QWxsKCk7XG4gIH1cbn1cbiJ9LHsiY2VsbE5hbWUiOiJ3ZWJyLTMiLCJpbmxpbmUiOmZhbHNlLCJtZXRob2ROYW1lIjoiaW50ZXJwcmV0Iiwic291cmNlIjoidmlld29mIF93ZWJyX2VkaXRvcl8zID0ge1xuICBjb25zdCB7IFdlYlJFeGVyY2lzZUVkaXRvciwgYjY0RGVjb2RlIH0gPSB3aW5kb3cuX2V4ZXJjaXNlX29qc19ydW50aW1lO1xuICBjb25zdCBzY3JpcHRDb250ZW50ID0gZG9jdW1lbnQucXVlcnlTZWxlY3Rvcihgc2NyaXB0W3R5cGU9XFxcIndlYnItMy1jb250ZW50c1xcXCJdYCkudGV4dENvbnRlbnQ7XG4gIGNvbnN0IGJsb2NrID0gSlNPTi5wYXJzZShiNjREZWNvZGUoc2NyaXB0Q29udGVudCkpO1xuXG4gIGNvbnN0IG9wdGlvbnMgPSBPYmplY3QuYXNzaWduKHsgaWQ6IGB3ZWJyLTMtY29udGVudHNgIH0sIGJsb2NrLmF0dHIpO1xuICBjb25zdCBlZGl0b3IgPSBuZXcgV2ViUkV4ZXJjaXNlRWRpdG9yKHdlYlJPanMud2ViUlByb21pc2UsIGJsb2NrLmNvZGUsIG9wdGlvbnMpO1xuXG4gIHJldHVybiBlZGl0b3IuY29udGFpbmVyO1xufVxuX3dlYnJfdmFsdWVfMyA9IHdlYlJPanMucHJvY2Vzcyhfd2Vicl9lZGl0b3JfMywge30pO1xuIn0seyJjZWxsTmFtZSI6IndlYnItd2lkZ2V0LTIiLCJpbmxpbmUiOmZhbHNlLCJtZXRob2ROYW1lIjoiaW50ZXJwcmV0UXVpZXQiLCJzb3VyY2UiOiJ7XG4gIC8vIFdhaXQgZm9yIG91dHB1dCB0byBiZSB3cml0dGVuIHRvIHRoZSBET00sIHRoZW4gdHJpZ2dlciB3aWRnZXQgcmVuZGVyaW5nXG4gIGF3YWl0IF93ZWJyX3ZhbHVlXzI7XG4gIGlmICh3aW5kb3cuSFRNTFdpZGdldHMpIHtcbiAgICB3aW5kb3cuSFRNTFdpZGdldHMuc3RhdGljUmVuZGVyKCk7XG4gIH1cbiAgaWYgKHdpbmRvdy5QYWdlZFRhYmxlRG9jKSB7XG4gICAgd2luZG93LlBhZ2VkVGFibGVEb2MuaW5pdEFsbCgpO1xuICB9XG59XG4ifSx7ImNlbGxOYW1lIjoid2Vici0yIiwiaW5saW5lIjpmYWxzZSwibWV0aG9kTmFtZSI6ImludGVycHJldCIsInNvdXJjZSI6InZpZXdvZiBfd2Vicl9lZGl0b3JfMiA9IHtcbiAgY29uc3QgeyBXZWJSRXhlcmNpc2VFZGl0b3IsIGI2NERlY29kZSB9ID0gd2luZG93Ll9leGVyY2lzZV9vanNfcnVudGltZTtcbiAgY29uc3Qgc2NyaXB0Q29udGVudCA9IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoYHNjcmlwdFt0eXBlPVxcXCJ3ZWJyLTItY29udGVudHNcXFwiXWApLnRleHRDb250ZW50O1xuICBjb25zdCBibG9jayA9IEpTT04ucGFyc2UoYjY0RGVjb2RlKHNjcmlwdENvbnRlbnQpKTtcblxuICBjb25zdCBvcHRpb25zID0gT2JqZWN0LmFzc2lnbih7IGlkOiBgd2Vici0yLWNvbnRlbnRzYCB9LCBibG9jay5hdHRyKTtcbiAgY29uc3QgZWRpdG9yID0gbmV3IFdlYlJFeGVyY2lzZUVkaXRvcih3ZWJST2pzLndlYlJQcm9taXNlLCBibG9jay5jb2RlLCBvcHRpb25zKTtcblxuICByZXR1cm4gZWRpdG9yLmNvbnRhaW5lcjtcbn1cbl93ZWJyX3ZhbHVlXzIgPSB3ZWJST2pzLnByb2Nlc3MoX3dlYnJfZWRpdG9yXzIsIHt9KTtcbiJ9LHsiY2VsbE5hbWUiOiJ3ZWJyLXdpZGdldC0xIiwiaW5saW5lIjpmYWxzZSwibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoie1xuICAvLyBXYWl0IGZvciBvdXRwdXQgdG8gYmUgd3JpdHRlbiB0byB0aGUgRE9NLCB0aGVuIHRyaWdnZXIgd2lkZ2V0IHJlbmRlcmluZ1xuICBhd2FpdCBfd2Vicl92YWx1ZV8xO1xuICBpZiAod2luZG93LkhUTUxXaWRnZXRzKSB7XG4gICAgd2luZG93LkhUTUxXaWRnZXRzLnN0YXRpY1JlbmRlcigpO1xuICB9XG4gIGlmICh3aW5kb3cuUGFnZWRUYWJsZURvYykge1xuICAgIHdpbmRvdy5QYWdlZFRhYmxlRG9jLmluaXRBbGwoKTtcbiAgfVxufVxuIn0seyJjZWxsTmFtZSI6IndlYnItMSIsImlubGluZSI6ZmFsc2UsIm1ldGhvZE5hbWUiOiJpbnRlcnByZXQiLCJzb3VyY2UiOiJfd2Vicl92YWx1ZV8xID0ge1xuICBjb25zdCB7IGhpZ2hsaWdodFIsIGI2NERlY29kZSB9ID0gd2luZG93Ll9leGVyY2lzZV9vanNfcnVudGltZTtcbiAgY29uc3Qgc2NyaXB0Q29udGVudCA9IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoYHNjcmlwdFt0eXBlPVxcXCJ3ZWJyLTEtY29udGVudHNcXFwiXWApLnRleHRDb250ZW50O1xuICBjb25zdCBibG9jayA9IEpTT04ucGFyc2UoYjY0RGVjb2RlKHNjcmlwdENvbnRlbnQpKTtcblxuICAvLyBEZWZhdWx0IGV2YWx1YXRpb24gY29uZmlndXJhdGlvblxuICBjb25zdCBvcHRpb25zID0gT2JqZWN0LmFzc2lnbih7XG4gICAgaWQ6IFwid2Vici0xLWNvbnRlbnRzXCIsXG4gICAgZWNobzogdHJ1ZSxcbiAgICBvdXRwdXQ6IHRydWVcbiAgfSwgYmxvY2suYXR0cik7XG5cbiAgLy8gRXZhbHVhdGUgdGhlIHByb3ZpZGVkIFIgY29kZVxuICBjb25zdCByZXN1bHQgPSB3ZWJST2pzLnByb2Nlc3Moe2NvZGU6IGJsb2NrLmNvZGUsIG9wdGlvbnN9LCB7fSk7XG5cbiAgLy8gRWFybHkgeWllbGQgd2hpbGUgd2Ugd2FpdCBmb3IgdGhlIGZpcnN0IGV2YWx1YXRpb24gYW5kIHJlbmRlclxuICBpZiAob3B0aW9ucy5vdXRwdXQgJiYgIShcIjFcIiBpbiB3ZWJST2pzLnJlbmRlcmVkT2pzKSkge1xuICAgIGNvbnN0IGNvbnRhaW5lciA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoXCJkaXZcIik7XG4gICAgY29uc3Qgc3Bpbm5lciA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoXCJkaXZcIik7XG5cbiAgICBpZiAob3B0aW9ucy5lY2hvKSB7XG4gICAgICAvLyBTaG93IG91dHB1dCBhcyBoaWdobGlnaHRlZCBzb3VyY2VcbiAgICAgIGNvbnN0IHByZUVsZW0gPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KFwicHJlXCIpO1xuICAgICAgY29udGFpbmVyLmNsYXNzTmFtZSA9IFwic291cmNlQ29kZVwiO1xuICAgICAgcHJlRWxlbS5jbGFzc05hbWUgPSBcInNvdXJjZUNvZGUgclwiO1xuICAgICAgcHJlRWxlbS5hcHBlbmRDaGlsZChoaWdobGlnaHRSKGJsb2NrLmNvZGUpKTtcbiAgICAgIHNwaW5uZXIuY2xhc3NOYW1lID0gXCJzcGlubmVyLWdyb3cgc3Bpbm5lci1ncm93LXNtIG0tMiBwb3NpdGlvbi1hYnNvbHV0ZSB0b3AtMCBlbmQtMFwiO1xuICAgICAgcHJlRWxlbS5hcHBlbmRDaGlsZChzcGlubmVyKTtcbiAgICAgIGNvbnRhaW5lci5hcHBlbmRDaGlsZChwcmVFbGVtKTtcbiAgICB9IGVsc2Uge1xuICAgICAgc3Bpbm5lci5jbGFzc05hbWUgPSBcInNwaW5uZXItYm9yZGVyIHNwaW5uZXItYm9yZGVyLXNtXCI7XG4gICAgICBjb250YWluZXIuYXBwZW5kQ2hpbGQoc3Bpbm5lcik7XG4gICAgfVxuXG4gICAgeWllbGQgY29udGFpbmVyO1xuICB9XG5cbiAgd2ViUk9qcy5yZW5kZXJlZE9qc1tcIjFcIl0gPSB0cnVlO1xuICB5aWVsZCBhd2FpdCByZXN1bHQ7XG59XG4ifSx7ImNlbGxOYW1lIjoid2Vici1wcmVsdWRlIiwiaW5saW5lIjpmYWxzZSwibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoid2ViUk9qcyA9IHtcbiAgY29uc3QgeyBXZWJSLCBDaGFubmVsVHlwZSB9ID0gd2luZG93Ll9leGVyY2lzZV9vanNfcnVudGltZS5XZWJSO1xuICBjb25zdCB7XG4gICAgV2ViUkV2YWx1YXRvcixcbiAgICBXZWJSRW52aXJvbm1lbnRNYW5hZ2VyLFxuICAgIHNldHVwUixcbiAgICBiNjREZWNvZGUsXG4gICAgY29sbGFwc2VQYXRoXG4gIH0gPSB3aW5kb3cuX2V4ZXJjaXNlX29qc19ydW50aW1lO1xuXG4gIGNvbnN0IHN0YXR1c0NvbnRhaW5lciA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKFwiZXhlcmNpc2UtbG9hZGluZy1zdGF0dXNcIik7XG4gIGNvbnN0IGluZGljYXRvckNvbnRhaW5lciA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKFwiZXhlcmNpc2UtbG9hZGluZy1pbmRpY2F0b3JcIik7XG4gIGluZGljYXRvckNvbnRhaW5lci5jbGFzc0xpc3QucmVtb3ZlKFwiZC1ub25lXCIpO1xuXG4gIGxldCBzdGF0dXNUZXh0ID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudChcImRpdlwiKVxuICBzdGF0dXNUZXh0LmNsYXNzTGlzdCA9IFwiZXhlcmNpc2UtbG9hZGluZy1kZXRhaWxzXCI7XG4gIHN0YXR1c1RleHQgPSBzdGF0dXNDb250YWluZXIuYXBwZW5kQ2hpbGQoc3RhdHVzVGV4dCk7XG4gIHN0YXR1c1RleHQudGV4dENvbnRlbnQgPSBgSW5pdGlhbGlzZWA7XG5cbiAgLy8gSG9pc3QgaW5kaWNhdG9yIG91dCBmcm9tIGZpbmFsIHNsaWRlIHdoZW4gcnVubmluZyB1bmRlciByZXZlYWxcbiAgY29uc3QgcmV2ZWFsU3RhdHVzID0gZG9jdW1lbnQucXVlcnlTZWxlY3RvcihcIi5yZXZlYWwgLmV4ZXJjaXNlLWxvYWRpbmctaW5kaWNhdG9yXCIpO1xuICBpZiAocmV2ZWFsU3RhdHVzKSB7XG4gICAgcmV2ZWFsU3RhdHVzLnJlbW92ZSgpO1xuICAgIGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoXCIucmV2ZWFsID4gLnNsaWRlc1wiKS5hcHBlbmRDaGlsZChyZXZlYWxTdGF0dXMpO1xuICB9XG5cbiAgLy8gTWFrZSBhbnkgcmV2ZWFsIHNsaWRlcyB3aXRoIGxpdmUgY2VsbHMgc2Nyb2xsYWJsZVxuICBkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKFwiLnJldmVhbCAuZXhlcmNpc2UtY2VsbFwiKS5mb3JFYWNoKChlbCkgPT4ge1xuICAgIGVsLmNsb3Nlc3QoJ3NlY3Rpb24uc2xpZGUnKS5jbGFzc0xpc3QuYWRkKFwic2Nyb2xsYWJsZVwiKTtcbiAgfSlcblxuICAvLyB3ZWJSIHN1cHBsZW1lbnRhbCBkYXRhIGFuZCBvcHRpb25zXG4gIGNvbnN0IGRhdGFDb250ZW50ID0gZG9jdW1lbnQucXVlcnlTZWxlY3Rvcihgc2NyaXB0W3R5cGU9XFxcIndlYnItZGF0YVxcXCJdYCkudGV4dENvbnRlbnQ7XG4gIGNvbnN0IGRhdGEgPSBKU09OLnBhcnNlKGI2NERlY29kZShkYXRhQ29udGVudCkpO1xuXG4gIC8vIEdyYWIgbGlzdCBvZiByZXNvdXJjZXMgdG8gYmUgZG93bmxvYWRlZFxuICBjb25zdCBmaWxlc0NvbnRlbnQgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yKGBzY3JpcHRbdHlwZT1cXFwidmZzLWZpbGVcXFwiXWApLnRleHRDb250ZW50O1xuICBjb25zdCBmaWxlcyA9IEpTT04ucGFyc2UoYjY0RGVjb2RlKGZpbGVzQ29udGVudCkpO1xuXG4gIC8vIEluaXRpYWxpc2Ugd2ViUiBhbmQgc2V0dXAgZm9yIFIgY29kZSBldmFsdWF0aW9uXG4gIGxldCB3ZWJSUHJvbWlzZSA9IChhc3luYyAod2ViUikgPT4ge1xuICAgIHN0YXR1c1RleHQudGV4dENvbnRlbnQgPSBgRG93bmxvYWRpbmcgd2ViUmA7XG4gICAgYXdhaXQgd2ViUi5pbml0KCk7XG5cbiAgICAvLyBJbnN0YWxsIHByb3ZpZGVkIGxpc3Qgb2YgcGFja2FnZXNcbiAgICAvLyBFbnN1cmUgd2ViUiBkZWZhdWx0IHJlcG8gaXMgaW5jbHVkZWRcbiAgICBkYXRhLnBhY2thZ2VzLnJlcG9zLnB1c2goXCJodHRwczovL3JlcG8uci13YXNtLm9yZ1wiKVxuICAgIGF3YWl0IGRhdGEucGFja2FnZXMucGtncy5tYXAoKHBrZykgPT4gKCkgPT4ge1xuICAgICAgc3RhdHVzVGV4dC50ZXh0Q29udGVudCA9IGBEb3dubG9hZGluZyBwYWNrYWdlOiAke3BrZ31gO1xuICAgICAgcmV0dXJuIHdlYlIuZXZhbFJWb2lkKGBcbiAgICAgICAgd2Vicjo6aW5zdGFsbChwa2csIHJlcG9zID0gcmVwb3MpXG4gICAgICAgIGxpYnJhcnkocGtnLCBjaGFyYWN0ZXIub25seSA9IFRSVUUpXG4gICAgICBgLCB7IGVudjoge1xuICAgICAgICBwa2c6IHBrZyxcbiAgICAgICAgcmVwb3M6IGRhdGEucGFja2FnZXMucmVwb3MsXG4gICAgICB9fSk7XG4gICAgfSkucmVkdWNlKChjdXIsIG5leHQpID0+IGN1ci50aGVuKG5leHQpLCBQcm9taXNlLnJlc29sdmUoKSk7XG5cbiAgICAvLyBEb3dubG9hZCBhbmQgaW5zdGFsbCByZXNvdXJjZXNcbiAgICBhd2FpdCBmaWxlcy5tYXAoKGZpbGUpID0+IGFzeW5jICgpID0+IHtcbiAgICAgIGNvbnN0IG5hbWUgPSBmaWxlLnN1YnN0cmluZyhmaWxlLmxhc3RJbmRleE9mKCcvJykgKyAxKTtcbiAgICAgIHN0YXR1c1RleHQudGV4dENvbnRlbnQgPSBgRG93bmxvYWRpbmcgcmVzb3VyY2U6ICR7bmFtZX1gO1xuICAgICAgY29uc3QgcmVzcG9uc2UgPSBhd2FpdCBmZXRjaChmaWxlKTtcbiAgICAgIGlmICghcmVzcG9uc2Uub2spIHtcbiAgICAgICAgdGhyb3cgbmV3IEVycm9yKGBDYW4ndCBkb3dubG9hZCBcXGAke2ZpbGV9XFxgLiBFcnJvciAke3Jlc3BvbnNlLnN0YXR1c306IFwiJHtyZXNwb25zZS5zdGF0dXNUZXh0fVwiLmApO1xuICAgICAgfVxuICAgICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlc3BvbnNlLmFycmF5QnVmZmVyKCk7XG5cbiAgICAgIC8vIFN0b3JlIFVSTHMgaW4gdGhlIGN3ZCB3aXRob3V0IGFueSBzdWJkaXJlY3Rvcnkgc3RydWN0dXJlXG4gICAgICBpZiAoZmlsZS5pbmNsdWRlcyhcIjovL1wiKSkge1xuICAgICAgICBmaWxlID0gbmFtZTtcbiAgICAgIH1cblxuICAgICAgLy8gQ29sbGFwc2UgaGlnaGVyIGRpcmVjdG9yeSBzdHJ1Y3R1cmVcbiAgICAgIGZpbGUgPSBjb2xsYXBzZVBhdGgoZmlsZSk7XG5cbiAgICAgIC8vIENyZWF0ZSBkaXJlY3RvcnkgdHJlZSwgaWdub3JpbmcgXCJkaXJlY3RvcnkgZXhpc3RzXCIgVkZTIGVycm9yc1xuICAgICAgY29uc3QgcGFydHMgPSBmaWxlLnNwbGl0KCcvJykuc2xpY2UoMCwgLTEpO1xuICAgICAgbGV0IHBhdGggPSAnJztcbiAgICAgIHdoaWxlIChwYXJ0cy5sZW5ndGggPiAwKSB7XG4gICAgICAgIHBhdGggKz0gcGFydHMuc2hpZnQoKSArICcvJztcbiAgICAgICAgY29uc3QgYW5hbHlzaXMgPSBhd2FpdCB3ZWJSLkZTLmFuYWx5emVQYXRoKHBhdGgpO1xuICAgICAgICBpZiAoIWFuYWx5c2lzLmV4aXN0cykge1xuICAgICAgICAgIHRyeSB7XG4gICAgICAgICAgICBhd2FpdCB3ZWJSLkZTLm1rZGlyKHBhdGgpO1xuICAgICAgICAgIH0gY2F0Y2ggKGUpIHtcbiAgICAgICAgICAgIHRocm93IG5ldyBFcnJvcihgRmlsZXN5c3RlbSBFcnJvcjogXCIke2UubWVzc2FnZX1cIi5gKTtcbiAgICAgICAgICB9XG4gICAgICAgIH1cbiAgICAgIH1cblxuICAgICAgLy8gV3JpdGUgdGhpcyBmaWxlIHRvIHRoZSBWRlNcbiAgICAgIHJldHVybiBhd2FpdCB3ZWJSLkZTLndyaXRlRmlsZShmaWxlLCBuZXcgVWludDhBcnJheShkYXRhKSk7XG4gICAgfSkucmVkdWNlKChjdXIsIG5leHQpID0+IGN1ci50aGVuKG5leHQpLCBQcm9taXNlLnJlc29sdmUoKSk7XG5cbiAgICBzdGF0dXNUZXh0LnRleHRDb250ZW50ID0gYEluc3RhbGxpbmcgd2ViUiBzaGltc2A7XG4gICAgYXdhaXQgd2ViUi5ldmFsUlZvaWQoYHdlYnI6OnNoaW1faW5zdGFsbCgpYCk7XG5cbiAgICBzdGF0dXNUZXh0LnRleHRDb250ZW50ID0gYFdlYlIgZW52aXJvbm1lbnQgc2V0dXBgO1xuICAgIGF3YWl0IHNldHVwUih3ZWJSLCBkYXRhKTtcblxuICAgIHN0YXR1c1RleHQucmVtb3ZlKCk7XG4gICAgaWYgKHN0YXR1c0NvbnRhaW5lci5jaGlsZHJlbi5sZW5ndGggPT0gMCkge1xuICAgICAgc3RhdHVzQ29udGFpbmVyLnBhcmVudE5vZGUucmVtb3ZlKCk7XG4gICAgfVxuICAgIHJldHVybiB3ZWJSO1xuICB9KShuZXcgV2ViUihkYXRhLm9wdGlvbnMpKTtcblxuICAvLyBLZWVwIHRyYWNrIG9mIGluaXRpYWwgT0pTIGJsb2NrIHJlbmRlclxuICBjb25zdCByZW5kZXJlZE9qcyA9IHt9O1xuXG4gIGNvbnN0IHByb2Nlc3MgPSBhc3luYyAoY29udGV4dCwgaW5wdXRzKSA9PiB7XG4gICAgY29uc3Qgd2ViUiA9IGF3YWl0IHdlYlJQcm9taXNlO1xuICAgIGNvbnN0IGV2YWx1YXRvciA9IG5ldyBXZWJSRXZhbHVhdG9yKHdlYlIsIGNvbnRleHQpXG4gICAgYXdhaXQgZXZhbHVhdG9yLnByb2Nlc3MoaW5wdXRzKTtcbiAgICByZXR1cm4gZXZhbHVhdG9yLmNvbnRhaW5lcjtcbiAgfVxuXG4gIHJldHVybiB7XG4gICAgcHJvY2VzcyxcbiAgICB3ZWJSUHJvbWlzZSxcbiAgICByZW5kZXJlZE9qcyxcbiAgfTtcbn1cbiJ9XX0=
+</script>
+<div id="exercise-loading-indicator" class="exercise-loading-indicator d-none d-flex align-items-center gap-2">
+<div id="exercise-loading-status" class="d-flex gap-2">
+
+</div>
+<div class="spinner-grow spinner-grow-sm">
+
+</div>
+</div>
+<script type="vfs-file">
+W10=
+</script>
+</section>
+
+</main>
+<!-- /main column -->
+<script type="ojs-module-contents">
+eyJjb250ZW50cyI6W119
+</script>
+<script type="module">
+if (window.location.protocol === "file:") { alert("The OJS runtime does not work with file:// URLs. Please use a web server to view this document."); }
+window._ojs.paths.runtimeToDoc = "../../..";
+window._ojs.paths.runtimeToRoot = "../../../..";
+window._ojs.paths.docToRoot = "..";
+window._ojs.selfContained = false;
+window._ojs.runtime.interpretFromScriptTags();
+</script>
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "コピーしました");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "コピーしました");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

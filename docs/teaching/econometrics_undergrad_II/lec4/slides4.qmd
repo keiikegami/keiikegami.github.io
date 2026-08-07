@@ -1,0 +1,1151 @@
+---
+title: "Lecture 4：異質性のある需要"
+subtitle: "random coefficient logit と合併分析｜計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  revealjs:
+    theme: [default, ../slides_theme.scss]
+    slide-number: c/t
+    incremental: true
+    embed-resources: true
+    transition: none
+    center: false
+    width: 1180
+    height: 700
+    margin: 0.08
+    fig-width: 8
+    fig-height: 4.2
+    code-line-numbers: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(knitr)
+
+set.seed(20264)
+
+theme_slide <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 15, base_family = fam)
+}
+theme_set(theme_slide())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+## 今日の流れ（90分）
+
+| 時間 | 内容 |
+|---|---|
+| 10分 | Quiz（解答5分 + 解説5分） |
+| 8分 | 導入：nested logit への不満 |
+| 12分 | モデル：random coefficient logit |
+| 10分 | シミュレーション：異質性が代替性を変える |
+| 8分 | 識別：異質性はどこから分かるのか |
+| 20分 | 推定＝ミニBLP（縮小写像・IV・GMM） |
+| 15分 | 合併分析：供給側を入れる |
+| 2分 | まとめ・宿題・次回予告 |
+
+::: {.notes}
+- 今日はコース前半の山場。RC logit → ミニBLP → 合併分析、という一本道。
+- 「一度で全部飲み込めなくて当然。70%で先へ進もう」と最初に宣言しておく。
+:::
+
+## Quiz（前回の復習・10分）
+
+::: {.nonincremental}
+
+- 配布した Quiz 4 に解答する（**5分**、メモ・ノート参照可）
+- そのあと解説（**5分**）
+- 採点はしない。前回の内容のセルフチェックとして使うこと
+
+:::
+
+::: {.notes}
+- 解答5分 → 解説5分。解説は別資料 quiz4_solution を使う（スライドには載せない）。
+- 3問とも第3回の核心（IIA、価格内生性とIV、Berry反転）に対応。
+- 設問1のIIAが今日 random coefficient で破られる、という伏線を解説時に一言。
+:::
+
+# 導入：係数を消費者ごとに変える {background-color="#1f3552"}
+
+::: {.notes}
+- ここから本編75分。この節は8分。
+:::
+
+## 前回とのつながり
+
+第3回で手に入れたもの・残った不満：
+
+- **IIA**：logit は「値上げされた財からの流出はシェア比で配分」としか言えない
+- **nested logit**：ネスト内の代替は強くできた。しかし……
+- **Berry反転 + IV**：市場シェアデータから需要を回帰で推定できるようになった
+
+::: {.keybox .fragment}
+今日のゴール：nested logit の残った不満を **random coefficient logit** で乗り越え、**ミニBLP** を手で回し、推定した需要で**合併後の価格上昇**を計算するところまで。
+:::
+
+::: {.notes}
+- 第3回の3点セット（IIA・nested logit・Berry反転+IV）が全部今日の部品になる。
+- Quizの3問がそのままこの3点に対応していたことを指摘。
+:::
+
+## 今日押さえたいこと
+
+1. **係数を消費者ごとに変える**だけで、ネストなしに「似た財ほど強く代替する」が出る
+2. 積分が閉じないので**モンテカルロ積分**でシェアを計算する
+3. 推定は**ミニBLPの三層**：縮小写像 → IV回帰 → GMM
+4. 異質性の識別には **micro moments**（個票）が効く
+5. 供給側（Bertrand-Nash）を足すと、**合併後の価格上昇**を計算できる
+
+::: {.notes}
+- 3が今日の技術的な山場。第2回の最尤法、第3回のIVに続く、3つ目の推定の型（GMM）でもある。
+:::
+
+## 缶コーヒー棚、再び：微糖の値上げ
+
+棚にはブラック・微糖・カフェオレ（+ 買わない）。**微糖が10円値上げ**されたら？
+
+- plain logit の予測：逃げた客は「ブラックとカフェオレにシェア比で」流れる
+- 現実の直感：微糖が好きな人は「少し甘い」が好き → **味の近いカフェオレ**に流れるはず
+
+. . .
+
+なぜモデルはこれを出せないのか。**全員の好みが同じ**だと仮定しているから。
+
+::: {.notes}
+- 第2回から使っている棚の例の完結編。
+- 「甘党の中で微糖が値上げされれば、彼らは同じ甘党向けのカフェオレへ動く」を口頭で。
+:::
+
+## nested logit への不満と、今日の答え
+
+nested logit の残った問題：
+
+- **ネストを人間が事前に決める**必要がある（まったり系・すっきり系、は誰が決めた？）
+- ネストを**またぐ**代替は plain logit と同じ貧しさのまま
+
+. . .
+
+今日の答えは一言：
+
+::: {.keybox .fragment}
+**係数を消費者ごとに変える。** 甘党の $\beta_i$ は大きく、辛党は小さい。学生の $\alpha_i$ は大きく、管理職は小さい。これを集計すると「属性の近い財どうしがよく代替する」が**自動で**現れる。
+:::
+
+::: {.notes}
+- 「答えは一言。あとはその帰結を丁寧に追うだけ」という構図を示して安心させる。
+- カニバリゼーション予測（新商品はどの既存商品を食うか）が実務上の応用例。
+:::
+
+# モデル：random coefficient logit {background-color="#1f3552"}
+
+::: {.notes}
+- この節は12分。数式が続くが、1枚1メッセージで刻む。
+:::
+
+## 効用：係数に i の添字が付く
+
+記法は第2・3回を踏襲（消費者 $i$、財 $j$、市場 $t$、$j=0$ は outside option）：
+
+$$
+u_{ijt} = x_{jt}'\beta_i - \alpha_i p_{jt} + \xi_{jt} + \varepsilon_{ijt}
+$$
+
+- $\varepsilon_{ijt}$：今まで通り Type I 極値分布（Gumbel）
+- $\xi_{jt}$：観測できない製品の魅力（第3回で内生性を生んだあいつ）
+- 変わったのは1点だけ：**係数 $\beta_i, \alpha_i$ に $i$ が付いた**
+
+::: {.notes}
+- 「モデルの変更はこの添字1つだけ」と強調。あとは全部この帰結。
+:::
+
+## 異質性の書き方
+
+好みは「平均 + ばらつき」に分解する：
+
+$$
+\beta_i = \beta + \Sigma^{1/2} \nu_i, \qquad \nu_i \sim N(0, I)
+$$
+
+- $\beta$：平均的な好み
+- $\Sigma$：好みのばらつき（対角成分が「異質性の大きさ」）
+- $\nu_i$：各消費者が引く標準正規乱数
+
+::: {.notes}
+- STYLE通りの記法。Σの対角が今日の推定対象になる、と予告。
+:::
+
+## 価格係数は対数正規で正に固定
+
+価格係数を正規分布にすると、裾で $\alpha_i < 0$（値上げが嬉しい人）が出てしまう。
+
+$$
+\alpha_i = \exp(\bar\alpha + \sigma \nu_i^{p}), \qquad \nu_i^{p} \sim N(0, 1)
+$$
+
+- $\bar\alpha$：log 価格係数の中心
+- $\sigma$：価格感応度のばらつき —— **今日の主役の推定対象**
+
+::: {.warnbox .fragment}
+需要理論的に「価格が上がると嬉しい人」は許したくない。対数正規なら常に $\alpha_i > 0$。Nevo (2000) の実務家ガイドでも符号制約が推奨されている。
+:::
+
+::: {.notes}
+- 今日は最小構成として、価格係数だけに異質性を入れて進む。
+:::
+
+## 個人条件付きでは、ただの logit
+
+$\nu_i$ を1つ固定すれば、その人にとって係数は定数。だからその人の選択確率は第2回の **logit そのもの**：
+
+$$
+s_{ijt}(\nu_i) = \frac{\exp(\delta_{jt} + \mu_{ijt})}{1 + \sum_{k=1}^{J} \exp(\delta_{kt} + \mu_{ikt})}
+$$
+
+- 平均効用：$\delta_{jt} = x_{jt}'\beta - \alpha_0 p_{jt} + \xi_{jt}$（$\alpha_0 = \exp(\bar\alpha)$ は平均価格係数）
+- 個人偏差：$\mu_{ijt} = -(\alpha_i - \alpha_0) p_{jt}$
+
+$\delta$ には $i$ が入らず、異質性は $\mu$ に押し込まれている。この分解が後で効く。
+
+::: {.notes}
+- 「新しいモデルに見えて、中身は logit の積み重ね」という安心感を与える。
+- δとμの分解は縮小写像・IV回帰の伏線。ここを丁寧に。
+:::
+
+## 集計シェア：積分は閉じない → モンテカルロ
+
+市場シェアは、個人の logit 確率を人々について平均（積分）したもの：
+
+$$
+s_{jt}(\delta_{\cdot t}, \sigma) = \int s_{ijt}(\nu) \, dF(\nu)
+$$
+
+. . .
+
+この積分は**閉じた形にならない**。だが第2回の教訓：解けなければ乱数で近似すればいい。
+
+$$
+s_{jt} \approx \frac{1}{ns} \sum_{r=1}^{ns} \frac{\exp(\delta_{jt} + \mu_{jt}(\nu_r))}{1 + \sum_{k=1}^{J} \exp(\delta_{kt} + \mu_{kt}(\nu_r))}
+$$
+
+::: {.keybox .fragment}
+$ns$ 人ぶんの乱数を引いて logit 確率を平均する＝**モンテカルロ積分**。第2回「シミュレーションで選択確率を求める」の正統進化。
+:::
+
+::: {.notes}
+- 第2回でGumbel乱数から経験頻度を数えたのと同じ発想。今回は各人の logit 確率の平均。
+:::
+
+# シミュレーション：異質性が代替性を変える {background-color="#1f3552"}
+
+::: {.notes}
+- この節は10分。今日の第一の見せ場：IIAがネストなしで破れる。
+:::
+
+## シェア計算はコード数行
+
+```{r}
+#| label: sim-shares-fn
+#| echo: true
+#| output-location: fragment
+sim_shares <- function(x, p, beta0, beta_x, sigma_x, abar, sigma_p, nu_x, nu_p) {
+  beta_i  <- beta_x + sigma_x * nu_x            # 属性への好み（人ごと）
+  alpha_i <- exp(abar + sigma_p * nu_p)         # 価格係数（対数正規で正）
+  V  <- beta0 + outer(beta_i, x) - outer(alpha_i, p)  # (ns x J) 効用
+  eV <- exp(V)
+  s_ij <- eV / (1 + rowSums(eV))                # 個人ごとの logit シェア
+  colMeans(s_ij)                                # 人々について平均 = モンテカルロ積分
+}
+```
+
+- 各行が1人の消費者、各列が1つの財
+- 最後の `colMeans` がモンテカルロ積分。**数式をそのまま書いただけ**
+
+::: {.notes}
+- 個人条件付き logit → 平均、の2段構えがコードにそのまま見える。
+- sigma_x = 0, sigma_p = 0 とすれば plain logit に戻る点を口頭で。
+:::
+
+## 設定と集計シェア：同質 vs 異質
+
+3財 + outside。**財1と財2は属性が近い**（x = 1.0 と 0.9）、財3は遠い（x = -0.8）。
+
+```{r}
+#| label: rc-setup
+#| include: false
+x_char <- c(1.0, 0.9, -0.8)
+beta0  <- -1.0
+beta_x <- 1.2
+abar   <- 0.2
+p_base <- c(2.0, 2.1, 1.8)
+
+ns_rc <- 100
+nu_x <- rnorm(ns_rc)
+nu_p <- rnorm(ns_rc)
+
+s_homog <- sim_shares(x_char, p_base, beta0, beta_x, 0.0, abar, 0.0, nu_x, nu_p)
+s_heter <- sim_shares(x_char, p_base, beta0, beta_x, 1.2, abar, 0.6, nu_x, nu_p)
+```
+
+```{r}
+#| label: rc-share-table
+data.frame(
+  product = c("財1", "財2", "財3"),
+  x       = x_char,
+  share_homog = round(s_homog, 4),
+  share_heter = round(s_heter, 4)
+) |> kable(col.names = c("財", "属性x", "シェア（同質）", "シェア（異質）"))
+```
+
+- シェアの水準はどちらのモデルでも作れる。**違いが出るのは代替パターン**
+
+::: {.notes}
+- ここでの異質性は属性への好み（sigma_x = 1.2）と価格感応度（sigma_p = 0.6）の両方。
+- シェアだけ見ても区別がつかない、が次のスライドの布石。
+:::
+
+## plain logit の弾力性行列：IIA の指紋
+
+```{r}
+#| label: rc-elast-calc
+#| include: false
+cross_elast <- function(sigma_x, sigma_p) {
+  eps <- 1e-5
+  s0 <- sim_shares(x_char, p_base, beta0, beta_x, sigma_x, abar, sigma_p, nu_x, nu_p)
+  E  <- matrix(0, 3, 3)
+  for (k in 1:3) {
+    p_up <- p_base; p_up[k] <- p_up[k] + eps
+    s1 <- sim_shares(x_char, p_up, beta0, beta_x, sigma_x, abar, sigma_p, nu_x, nu_p)
+    E[, k] <- (s1 - s0) / eps * p_base[k] / s0
+  }
+  dimnames(E) <- list(paste0("財", 1:3), paste0("値上げ:財", 1:3))
+  round(E, 3)
+}
+
+E_homog <- cross_elast(0.0, 0.0)
+E_heter <- cross_elast(1.2, 0.6)
+```
+
+```{r}
+#| label: rc-elast-homog
+kable(E_homog, caption = "同質（plain logit）の弾力性行列（列 = どの財を値上げしたか）")
+```
+
+- 各列の**非対角成分が縦にすべて同じ値** —— これが IIA の指紋
+- 「財1の値上げへの反応」が、反応する側が財2でも財3でも同じ
+
+::: {.notes}
+- 第3回で見た「交差弾力性に自分の情報が入っていない」の再確認。
+- 数値微分で計算している（式ではなくシミュレーションから直接）。
+:::
+
+## random coefficient の弾力性行列
+
+```{r}
+#| label: rc-elast-heter
+kable(E_heter, caption = "異質（random coefficient）の弾力性行列")
+```
+
+- 財1を値上げしたとき、**属性の近い財2の反応が財3より大きい**（列1を縦に見る）
+- ネストを一切指定していないのに「近い財ほど強く代替」が出た
+
+::: {.keybox .fragment}
+これが今日の第一の見せ場。**異質性を入れるだけで IIA が破れる。** ネストは要らない。データ（属性）が代替の強さを語る。
+:::
+
+::: {.notes}
+- 甘党に人気の財1が値上げされると、甘党は同じく x の大きい財2へ動く。この集計が非対称な行列を作る。
+:::
+
+## 図で見る：財1の値上げへの反応
+
+```{r}
+#| label: fig-rc-cross
+#| fig-height: 3.9
+df_plot <- data.frame(
+  responder = rep(c("財2 (財1と属性が近い)", "財3 (財1と属性が遠い)"), 2),
+  model     = rep(c("plain logit", "random coef."), each = 2),
+  elasticity = c(E_homog[2, 1], E_homog[3, 1], E_heter[2, 1], E_heter[3, 1])
+)
+ggplot(df_plot, aes(model, elasticity, fill = responder)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "財1値上げに対する交差弾力性",
+       x = NULL, y = "交差弾力性", fill = "反応する財") +
+  theme(legend.position = "top")
+```
+
+- plain logit：財2と財3が同じ高さ（IIA）
+- random coefficient：財2が明確に高い
+
+::: {.notes}
+- 1枚で伝わる図。プレゼンではこの1枚だけ覚えて帰ってもらってもいい。
+:::
+
+## 集計需要曲線の形も変わる
+
+```{r}
+#| label: fig-rc-demand
+#| fig-height: 3.9
+p_grid <- seq(1.0, 4.0, length.out = 30)
+demand_curve <- function(sigma_x, sigma_p) {
+  sapply(p_grid, function(pp) {
+    p_try <- p_base; p_try[1] <- pp
+    sim_shares(x_char, p_try, beta0, beta_x, sigma_x, abar, sigma_p, nu_x, nu_p)[1]
+  })
+}
+dc <- data.frame(
+  price = rep(p_grid, 2),
+  share = c(demand_curve(0.0, 0.0), demand_curve(1.2, 0.6)),
+  model = rep(c("plain logit", "random coef."), each = length(p_grid))
+)
+ggplot(dc, aes(price, share, color = model)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = c("plain logit" = "grey50", "random coef." = "#1f77b4")) +
+  labs(title = "財1の自己需要曲線", x = "財1の価格", y = "財1のシェア", color = NULL) +
+  theme(legend.position = "top")
+```
+
+- 価格感応度がばらつくと「敏感な人がまず抜け、鈍感な人が残る」
+- 集計需要の**曲がり方**が変わる → 次の識別の話につながる
+
+::: {.notes}
+- この「曲率の違い」が sigma の識別の源泉の1つ、という次節への橋渡し。
+:::
+
+# 識別：異質性はどこから分かるのか {background-color="#1f3552"}
+
+::: {.notes}
+- この節は8分。実証で最もつまずくところ。言葉で丁寧に。
+:::
+
+## 識別の3つの源泉
+
+異質性パラメータ $\sigma$ は何を見て識別されるのか：
+
+1. **価格反応の「曲がり方」**：敏感な人が先に抜けるので、需要曲線の曲率が均質モデルとずれる
+2. **市場間の選択集合・属性分布の変動**：市場ごとに品揃え・価格が違うことが自然実験になる
+3. **micro moments（個票・アンケート）**：次のスライド
+
+. . .
+
+集計シェアだけだと 1・2 頼み → $\sigma$ の識別はどうしても弱い。
+
+::: {.notes}
+- 「Tが多い（市場が多い）ほど識別が効く」= パネルデータの価値。
+- 実務では 3 が使えるかどうかで精度が大きく変わる。
+:::
+
+## micro moments：個票が識別を救う
+
+集計シェアに、個票由来のモーメントを足す：
+
+- 「この製品の**購入者の平均所得**はいくらか」→ $\alpha_i$ と所得の相関が直接見える
+- 「購入者の **2nd choice**（第一希望がなければ何を買ったか）」→ 代替パターンそのものが観測される
+
+::: {.keybox .fragment}
+2nd choice が分かれば、「誰と誰が競合か」をデータが直接語る。$\sigma$ は一気にクリアに識別される。アンケート・会員データを持つ企業は、この意味で強い。
+:::
+
+::: {.notes}
+- 自社の会員データ・購買ログ・解約アンケートは micro moments の宝庫、という実務への接続。
+:::
+
+## 実証研究：micro moments の威力と安心材料
+
+**Petrin (2002)**：ミニバン導入の便益
+
+- 自動車の集計データ + 「どんな世帯が買ったか」（家族人数など）を micro moment に
+- 代替の相手が正確になり、消費者余剰の増加を年間**約29億ドル**と推定
+
+**Berry and Haile (2024)**：識別理論からの安心材料
+
+- 適切なIVと個票の変動があれば、需要は**かなりノンパラメトリックに識別**できる
+- logit や正規分布という関数形は「識別に必要」なのではなく「推定の都合」
+
+::: {.notes}
+- 分布仮定への不安（正規・対数正規で決め打ちしていいのか）に対する答えがBerry-Haile。
+- 個票を足すことには効率だけでなく識別上の深い意味がある。
+:::
+
+# 推定＝ミニBLP {background-color="#1f3552"}
+
+::: {.notes}
+- この節は20分。今日の技術的な核。三層構造を1枚ずつ進む。
+:::
+
+## ミニBLP の三層構造
+
+$\sigma$ をシェアデータから GMM で推定する。BLP (1995) の構造だけを取り出す：
+
+- **内側（inner loop）**：$\sigma$ を固定 → シミュレーションシェアが観測シェアに一致する $\delta$ を**縮小写像**で解く
+- **中間（linear step）**：$\hat\delta(\sigma)$ を **IV回帰**（第3回の2SLS）にかけ、残差 $\hat\xi$ を得る
+- **外側（outer loop）**：$\hat\xi$ が操作変数と無相関になるよう $\sigma$ を選ぶ（**GMM**）
+
+::: {.keybox .fragment}
+一度手で回せば、実務ツール pyblp が中で何をしているか分かるようになる。
+:::
+
+::: {.notes}
+- この1枚が今日の地図。以降のスライドで内側→中間→外側の順に1つずつ。
+- 第2回MLE、第3回IVに続く3つ目の推定原理がGMM、という位置づけも一言。
+:::
+
+## DGP：観測データを作る
+
+```{r}
+#| label: blp-dgp
+#| include: false
+J <- 3; Tm <- 60; ns_blp <- 100
+beta0_true  <- 4.0      # 定数項
+beta_x_true <- 1.5      # 属性への平均選好
+abar_true   <- 0.5      # log 価格係数の中心
+sigma_true  <- 0.8      # 価格係数のばらつき（推定対象）
+
+x  <- matrix(rnorm(Tm * J), Tm, J)                 # 属性（外生）
+w  <- matrix(runif(Tm * J, 0.3, 1.3), Tm, J)       # コストシフター
+xi <- matrix(rnorm(Tm * J, 0, 0.6), Tm, J)         # 需要ショック
+
+g0 <- 0.2; gx <- 0.2; gw <- 1.0
+omega <- matrix(rnorm(Tm * J, 0, 0.1), Tm, J)
+mc <- exp(g0 + gx * x + gw * w + omega)
+
+alpha0_true <- exp(abar_true)
+price <- mc * 1.4 + 0.8 * pmax(xi, 0) + 0.1        # xi に反応 -> 内生
+
+nu_blp <- rnorm(ns_blp)   # シミュレーション個人（全市場共通）
+
+shares_from_delta <- function(delta_t, p_t, abar, sigma, nu) {
+  alpha_i <- exp(abar + sigma * nu)
+  alpha0  <- exp(abar)
+  mu <- -outer(alpha_i - alpha0, p_t)
+  V  <- sweep(mu, 2, delta_t, "+")
+  eV <- exp(V)
+  colMeans(eV / (1 + rowSums(eV)))
+}
+
+delta_true <- beta0_true + beta_x_true * x - alpha0_true * price + xi
+S_obs <- matrix(0, Tm, J)
+for (t in 1:Tm) {
+  S_obs[t, ] <- shares_from_delta(delta_true[t, ], price[t, ], abar_true, sigma_true, nu_blp)
+}
+S0_obs <- 1 - rowSums(S_obs)
+```
+
+設定（講義ノートの軽量版。シミュレーションドロー数を絞っても結果の質は同じ）：
+
+- $J = 3$ 財 + outside、$T = 60$ 市場、シミュレーション個人 $ns = 100$
+- 真値：$\bar\alpha = 0.5$、$\sigma = 0.8$（これを回収するのがゴール）
+- 価格は「限界費用 + $\xi$ に反応するマークアップ」で生成 → **内生**
+- コストシフター $w$ が操作変数の種
+
+::: {.notes}
+- ノートは ns=200。スライドはドローを半減して軽量化してあるが構造は同一。
+- 「価格が xi に反応する」= 人気商品ほど強気の値付け。第3回のDGPと同じ発想。
+:::
+
+## 価格は内生になっている
+
+```{r}
+#| label: blp-endog-table
+endog_df <- data.frame(
+  product = paste0("財", 1:J),
+  cor_price_xi = round(sapply(1:J, function(j) cor(price[, j], xi[, j])), 3)
+)
+kable(endog_df, col.names = c("財", "corr(price, xi)"))
+```
+
+- 価格と需要ショックに正の相関 → 素朴な OLS では価格反応を**過小評価**（第3回）
+- だから中間ステップは OLS ではなく **IV回帰**でなければならない
+
+::: {.notes}
+- Quiz 設問2の世界がそのままミニBLPの中に埋め込まれている、と接続。
+:::
+
+## 内側：縮小写像で平均効用を解く
+
+$\sigma$ を固定したとき、シミュレーションシェア＝観測シェアとなる $\delta$ を反復で解く：
+
+$$
+\delta_{jt}^{\mathrm{new}} = \delta_{jt} + \ln s_{jt}^{\mathrm{obs}} - \ln s_{jt}(\delta, \sigma)
+$$
+
+- 「予測シェアが観測より小さければ $\delta$ を上げる」という直感的な更新
+- これが**縮小写像**：初期値によらず一意の $\delta$ に収束（BLP 1995 が証明）
+- 初期値は plain logit の **Berry反転** $\ln s_{jt}^{\mathrm{obs}} - \ln s_{0t}^{\mathrm{obs}}$ から
+
+::: {.notes}
+- Berry反転の一般化：sigma = 0 ならこの反復は1回で終わり、Berry反転そのものになる。
+- Quiz 設問3との円環をここで示す。
+:::
+
+## 縮小写像のコード
+
+```{r}
+#| label: solve-delta-fn
+#| echo: true
+#| output-location: fragment
+solve_delta <- function(sigma, abar, S_obs, S0_obs, price, nu,
+                        tol = 1e-10, maxit = 500, trace_t = NULL) {
+  delta <- log(S_obs) - log(S0_obs)    # 初期値 = plain logit の Berry 反転
+  trace <- NULL
+  for (t in 1:nrow(S_obs)) {
+    d <- delta[t, ]; errs <- numeric(0)
+    for (it in 1:maxit) {
+      s_pred <- shares_from_delta(d, price[t, ], abar, sigma, nu)
+      d_new  <- d + log(S_obs[t, ]) - log(s_pred)   # 縮小写像の更新
+      err <- max(abs(d_new - d)); errs <- c(errs, err); d <- d_new
+      if (err < tol) break
+    }
+    delta[t, ] <- d
+    if (!is.null(trace_t) && t == trace_t) trace <- errs
+  }
+  list(delta = delta, trace = trace)
+}
+```
+
+::: {.notes}
+- 市場ごとに独立に解ける（deltaは市場をまたがない）ので for ループで十分。
+- shares_from_delta はモンテカルロシェア関数（δとμの分解版）。
+:::
+
+## 収束の確認：幾何収束
+
+```{r}
+#| label: solve-delta-run
+#| include: false
+res_true <- solve_delta(sigma_true, abar_true, S_obs, S0_obs, price, nu_blp, trace_t = 1)
+recon_err <- max(abs(sapply(1:Tm, function(t)
+  shares_from_delta(res_true$delta[t, ], price[t, ], abar_true, sigma_true, nu_blp) - S_obs[t, ])))
+delta_err <- max(abs(res_true$delta - delta_true))
+n_iter1 <- length(res_true$trace)
+```
+
+```{r}
+#| label: fig-contraction
+#| fig-height: 3.7
+df_trace <- data.frame(iter = seq_along(res_true$trace), err = res_true$trace)
+ggplot(df_trace, aes(iter, err)) +
+  geom_line(color = "#1f77b4", linewidth = 0.9) +
+  geom_point(color = "#1f77b4", size = 0.8) +
+  scale_y_log10(labels = label_number()) +
+  labs(title = "縮小写像の収束（市場1）",
+       x = "反復回数", y = "更新幅の最大値（対数目盛）")
+```
+
+- 対数目盛でほぼ直線に誤差が落ちる＝**幾何収束**。縮小写像の指紋
+- 真の $\sigma$ で解くと、シェアも $\delta$ も機械精度で再現できた（最大誤差 `r formatC(max(recon_err, delta_err), format = "e", digits = 1)`）
+
+::: {.notes}
+- 市場1は `r n_iter1` 回で収束。pyblpのログに出る「contraction iterations」がこれ。
+- 収束が遅い・振動する場合は sigma が大きすぎる領域を探索している兆候、という診断の話も。
+:::
+
+## 中間：IV 回帰で需要ショックを取り出す
+
+$\hat\delta_{jt}(\sigma)$ は線形式に従う（第3回の Berry 反転後の回帰式と同じ形）：
+
+$$
+\delta_{jt} = \beta_0 + \beta_x x_{jt} - \alpha_0 p_{jt} + \xi_{jt}
+$$
+
+- 価格が内生なので **2SLS/GMM**。操作変数 $Z$：定数、$x$、コストシフター $w$、**BLP型IV**（同一市場のライバルの属性和・コスト和）
+- 残差として $\hat\xi_{jt}$ が手に入る
+
+```{r}
+#| label: blp-iv-setup
+#| include: false
+build_Z <- function(x, w) {
+  Tn <- nrow(x); Jn <- ncol(x)
+  Z <- matrix(0, Tn * Jn, 5)
+  row <- 1
+  for (t in 1:Tn) for (j in 1:Jn) {
+    others <- setdiff(1:Jn, j)
+    Z[row, ] <- c(1, x[t, j], w[t, j], sum(x[t, others]), sum(w[t, others]))
+    row <- row + 1
+  }
+  Z
+}
+build_X <- function(x, price) {
+  cbind(1, as.vector(t(x)), as.vector(t(price)))
+}
+
+Z    <- build_Z(x, w)
+Xmat <- build_X(x, price)
+
+gmm_step <- function(sigma, abar) {
+  res <- solve_delta(sigma, abar, S_obs, S0_obs, price, nu_blp)
+  d <- as.vector(t(res$delta))
+  W <- solve(crossprod(Z))
+  ZX <- crossprod(Z, Xmat)
+  Zd <- crossprod(Z, d)
+  theta1 <- solve(t(ZX) %*% W %*% ZX, t(ZX) %*% W %*% Zd)
+  xi_hat <- d - Xmat %*% theta1
+  g <- crossprod(Z, xi_hat)
+  Q <- as.numeric(t(g) %*% W %*% g)
+  list(Q = Q, theta1 = as.vector(theta1), xi_hat = xi_hat)
+}
+```
+
+::: {.notes}
+- ライバルの属性は自財の価格に（競争を通じて）効くが、自財の xi とは無相関、という第3回のBLP型IVの理屈。
+- 線形パラメータはIV回帰で瞬時に出るので、外側の探索は sigma だけでよい。これがBLPの計算上の工夫。
+:::
+
+## 並べ方に注意（よくあるバグ第1位）
+
+::: {.warnbox}
+`solve_delta` は $\delta$ を「市場 × 財」の行列で返す。IV回帰ではこれを1本のベクトルに潰すが、その順序を説明変数側と**厳密に一致させる**こと。ここがズレると $\delta$ と $x$・$p$ の対応が壊れ、推定値が無意味になる。エラーは出ないのに結果だけ狂う、最悪のタイプのバグ。
+:::
+
+- 今回は「市場 $t$ を固定して財 $j$ を回す」順（行列の転置を `as.vector`）で統一
+- 自作するときは、小さい例（2市場2財）で**目視確認**してから本番へ
+
+::: {.notes}
+- 課題でも一番多いバグ。次元チェック・目視確認の習慣づけを促す。
+:::
+
+## 外側：GMM 目的関数の谷
+
+$\sigma$ をグリッドで動かし、目的関数を計算する：
+
+$$
+Q(\sigma) = \hat{\xi}' Z W Z' \hat{\xi}
+$$
+
+```{r}
+#| label: blp-gmm-run
+#| include: false
+sigma_grid <- c(0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4)
+Q_vals <- sapply(sigma_grid, function(s) gmm_step(s, abar_true)$Q)
+best_sigma <- sigma_grid[which.min(Q_vals)]
+fit_best <- gmm_step(best_sigma, abar_true)
+```
+
+::: {.fragment}
+
+```{r}
+#| label: fig-gmm-q
+#| fig-height: 3.7
+df_Q <- data.frame(sigma = sigma_grid, Q = Q_vals)
+ggplot(df_Q, aes(sigma, Q)) +
+  geom_line(color = "#1f77b4", linewidth = 1) +
+  geom_point(size = 2, color = "#1f77b4") +
+  geom_vline(xintercept = sigma_true, linetype = "dashed", color = "grey40") +
+  annotate("text", x = sigma_true + 0.02, y = max(Q_vals) * 0.9,
+           label = "真値", hjust = 0, color = "grey40") +
+  labs(title = "GMM目的関数を最小化する sigma",
+       x = expression(sigma), y = "Q(sigma)")
+```
+
+:::
+
+- 真値 $\sigma = 0.8$ の近くで谷 —— **異質性パラメータを回収できた**
+
+::: {.notes}
+- 実務ではグリッドではなく最適化アルゴリズム（Nelder-Mead等）で探す。直感を掴むには1次元グリッドで十分。
+- 今日は abar を真値に固定して sigma の識別だけを見せている。同時推定も原理は同じ。
+:::
+
+## 線形パラメータも回収できた
+
+```{r}
+#| label: blp-linear-table
+data.frame(
+  parameter = c("定数 (beta_0)", "属性 (beta_x)", "価格 (-alpha_0)"),
+  estimated = round(fit_best$theta1, 3),
+  truth     = round(c(beta0_true, beta_x_true, -alpha0_true), 3)
+) |> kable(col.names = c("パラメータ", "推定値", "真値"))
+```
+
+- IV回帰で出てくる線形パラメータ（定数・属性・平均価格係数）も真値に近い
+- **真値回収の確認**：第2回から続く、新しい推定量を作ったときの必須の儀式
+
+::: {.notes}
+- DGPを自分で書いたからこそできる検証。実データではこの安心は手に入らない。
+:::
+
+## ここが核心：ミニBLP の三層
+
+::: {.keybox .fragment}
+- **内側**：$\sigma$ を固定 → 縮小写像で $\delta$ を解く（シェアを完全一致させる）
+- **中間**：$\hat\delta$ を IV回帰 → 価格の内生性を除去して $\hat\xi$ を得る
+- **外側**：$\hat\xi$ が操作変数と無相関になるよう $\sigma$ を選ぶ（GMM）
+
+実務では pyblp がこれを高速・安定にやる。だが中身はこの三層。一度手で回した人は、pyblp のログを読んで「内側が収束していない」「操作変数が弱い」と**診断できる**。
+:::
+
+::: {.notes}
+- 宿題1（pyblpのドキュメントを眺める）への布石。
+- ここまでで約58分目安。
+:::
+
+## 実証研究：Berry, Levinsohn and Pakes (1995)
+
+- **問い**：新車のシェア・価格・スペックの**集計データだけ**から、需要と各車種のマークアップを推定できるか
+- **データ**：米国自動車市場 1971–1990年。個票なし
+- **方法**：今日のミニBLPの完全版（random coefficient + 縮小写像 + GMM + BLP型IV）
+- **発見**：コストデータを一切見ずに限界費用・マークアップを復元。マークアップ率は多くの車種で**2〜3割**
+
+. . .
+
+「シェアと価格しかないのに、見えない限界費用まで復元できる」——この衝撃が実証IOの出発点。
+
+::: {.notes}
+- 「見えないコストが復元できる」は次の合併分析パートの主役。ここで期待感を作っておく。
+:::
+
+# 合併分析：供給側を入れる {background-color="#1f3552"}
+
+::: {.notes}
+- この節は15分。第二の見せ場。第5回（公取委ゲスト）への直接の布石。
+:::
+
+## 供給側を入れると何ができるか
+
+需要は推定できた。ここに**企業の価格設定行動**（Bertrand競争）を足すと：
+
+1. 観測された価格・シェアから**限界費用を逆算**できる（コストデータ不要）
+2. 「2社が合併したら価格がどれだけ上がるか」を**反実仮想**として計算できる
+
+. . .
+
+これが **merger analysis**。公正取引委員会や欧米当局の合併審査で実際に使われる。
+
+::: {.notes}
+- 第1回からの「構造推定 = 反実仮想のためのパラメータ推定」がここで完成形になる。
+- 価格改定シミュレータ（自社製品だけ所有行列を1にする）も数学的に同じ、という実務接続。
+:::
+
+## Bertrand-Nash の一階条件
+
+各企業は自社製品の利潤を最大化するよう価格を選ぶ。1製品1企業なら、財 $j$ の FOC は
+
+$$
+s_j + (p_j - mc_j) \frac{\partial s_j}{\partial p_j} = 0
+$$
+
+- 第1項：値上げすると今のシェア分だけ利ざやが増える
+- 第2項：値上げすると客が逃げて数量が減る
+- このバランスで価格が決まる。需要の微分は**推定済み**（モンテカルロで計算できる）
+
+::: {.notes}
+- 微分の中身：自己は −α_i s_ij (1 − s_ij) の個人平均、交差は α_i s_ik s_ij の個人平均（ノートのcallout参照）。
+- 「利ざやを取るか、客を逃がさないか」のトレードオフの式、と言葉で。
+:::
+
+## 多製品企業と所有行列
+
+所有行列 $\Omega$（財 $j$ と $k$ が同じ企業なら1）を使うと、FOC は全財まとめて書ける：
+
+$$
+p = mc + \Delta^{-1} s, \qquad \Delta_{jk} = -\Omega_{jk} \frac{\partial s_k}{\partial p_j}
+$$
+
+- 第2項 $\Delta^{-1} s$ が**マークアップ**
+- 価格・シェア・需要の微分が分かれば → 逆に解いて **$mc$ を復元**できる
+- **合併＝ $\Omega$ の該当ブロックを 0 から 1 に書き換える**だけの操作
+
+::: {.keybox .fragment}
+均衡条件が「見えないコスト」を教えてくれる。そして合併の分析は所有行列の書き換えに帰着する。
+:::
+
+::: {.notes}
+- 導出はノートの折りたたみcallout（利潤最大化のFOCをΩでまとめるだけ）。
+- 「合併 = Ωの書き換え」というミニマルな表現が今日二番目に美しいポイント。
+:::
+
+## 均衡を解くコード
+
+```{r}
+#| label: merger-setup
+#| include: false
+abar_m  <- 0.5      # 推定された log 価格係数の中心（前節と整合）
+sigma_m <- 0.8      # 推定された異質性
+Jm <- 4
+nu_m <- rnorm(ns_blp)
+
+xbeta_xi  <- c(3.0, 2.6, 2.9, 2.7)     # 財1-4 の属性込み平均効用（価格を除く）
+mc_true_m <- c(1.0, 1.1, 1.2, 0.9)     # 真の限界費用（答え合わせ用）
+
+choice_probs <- function(p) {
+  alpha_i <- exp(abar_m + sigma_m * nu_m)
+  V <- sweep(-outer(alpha_i, p), 2, xbeta_xi, "+")
+  eV <- exp(V)
+  eV / (1 + rowSums(eV))
+}
+agg_shares <- function(p) colMeans(choice_probs(p))
+
+dS_dp <- function(p) {
+  alpha_i <- exp(abar_m + sigma_m * nu_m)
+  sij <- choice_probs(p)
+  Jmat <- matrix(0, Jm, Jm)
+  for (j in 1:Jm) for (k in 1:Jm) {
+    if (k == j) {
+      Jmat[k, j] <- mean(-alpha_i * sij[, j] * (1 - sij[, j]))
+    } else {
+      Jmat[k, j] <- mean(alpha_i * sij[, k] * sij[, j])
+    }
+  }
+  Jmat
+}
+
+owner_matrix <- function(groups) outer(groups, groups, FUN = function(a, b) as.numeric(a == b))
+
+markup_pieces <- function(p, groups) {
+  Jmat <- dS_dp(p)
+  Omega <- owner_matrix(groups)
+  Delta <- -(Omega * t(Jmat))
+  list(Delta = Delta, s = agg_shares(p))
+}
+```
+
+```{r}
+#| label: solve-eq-fn
+#| echo: true
+#| output-location: fragment
+solve_equilibrium <- function(mc, groups, p_init, tol = 1e-10, maxit = 1000) {
+  p <- p_init
+  for (it in 1:maxit) {
+    mp <- markup_pieces(p, groups)      # Delta(p) と s(p) を計算
+    p_new <- mc + solve(mp$Delta, mp$s) # p = mc + Delta^{-1} s の固定点反復
+    err <- max(abs(p_new - p))
+    p <- p_new
+    if (err < tol) return(list(p = p, iters = it, ok = TRUE))
+  }
+  list(p = p, iters = maxit, ok = FALSE)
+}
+```
+
+- FOC を「価格 = コスト + マークアップ」の**固定点反復**として解く
+- 4財市場。推定済みの $\bar\alpha = 0.5$、$\sigma = 0.8$ をそのまま使う
+
+::: {.notes}
+- markup_pieces（Delta と s の計算）は隠しチャンク。中身は先の式の直訳。
+- 内側の縮小写像と同じ「固定点を反復で解く」パターン。この型は動学（第13回以降）でも再登場する。
+:::
+
+## 答え合わせ：限界費用の逆算
+
+```{r}
+#| label: merger-pre
+#| include: false
+groups_pre <- c(1, 2, 3, 4)   # 合併前：4社バラバラ
+
+eq_pre <- solve_equilibrium(mc_true_m, groups_pre, p_init = mc_true_m * 1.5)
+p0 <- eq_pre$p
+s0 <- agg_shares(p0)
+
+mp0 <- markup_pieces(p0, groups_pre)
+mc_implied <- p0 - solve(mp0$Delta, mp0$s)
+```
+
+合併前の均衡価格 $p_0$ とシェアから、FOC を逆に解いて $mc$ を復元する：
+
+::: {.fragment}
+
+```{r}
+#| label: merger-mc-table
+data.frame(
+  product = paste0("財", 1:4),
+  price0  = round(p0, 3),
+  mc_implied = round(mc_implied, 4),
+  mc_true    = round(mc_true_m, 4)
+) |> kable(col.names = c("財", "合併前価格", "逆算した限界費用", "真の限界費用"))
+```
+
+:::
+
+- 限界費用がぴたりと復元された。コストデータは一切使っていない
+
+::: {.notes}
+- DGPでは真のmcを知っているから答え合わせできる。分析者の仕事は「観測価格から逆算する」ほう。
+- BLP (1995) の「見えないコストの復元」を自分の手で再現した瞬間。
+:::
+
+## 財1・財2が合併したら
+
+所有行列を書き換えて（財1・財2を同一企業に）、新しい均衡を解く：
+
+```{r}
+#| label: merger-post
+#| include: false
+groups_post <- c(1, 1, 3, 4)
+eq_post <- solve_equilibrium(mc_implied, groups_post, p_init = p0)
+p1 <- eq_post$p
+s1 <- agg_shares(p1)
+```
+
+::: {.fragment}
+
+```{r}
+#| label: merger-table
+data.frame(
+  product   = paste0("財", 1:4),
+  merging   = c("当事者", "当事者", "", ""),
+  price_pre  = round(p0, 3),
+  price_post = round(p1, 3),
+  pct_change = round((p1 - p0) / p0 * 100, 2)
+) |> kable(col.names = c("財", "合併", "合併前価格", "合併後価格", "変化率(%)"))
+```
+
+:::
+
+- 当事者（財1・財2）の価格が大きく上がり、非当事者はわずかに上がる
+- 合併後は「財1を値上げしても、逃げた客の一部を自社の財2が受け止める」→ **値上げのブレーキが外れる**。これが**単独効果（unilateral effect）**
+
+::: {.notes}
+- 「ブレーキが外れる」という比喩で単独効果を説明。効率化（コスト削減）はここでは無視している点も一言。
+- 非当事者も少し上げるのは戦略的補完性（相手が上げるとこちらも上げたくなる）。
+:::
+
+## 合併後の価格上昇率
+
+```{r}
+#| label: fig-merger
+#| fig-height: 3.9
+df_m <- data.frame(product = paste0("財", 1:4),
+                   pct = (p1 - p0) / p0 * 100,
+                   merging = c("合併当事者", "合併当事者", "非当事者", "非当事者"))
+ggplot(df_m, aes(reorder(product, -pct), pct, fill = merging)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("合併当事者" = "#d62728", "非当事者" = "grey60")) +
+  labs(title = "合併後の価格上昇率", x = NULL, y = "価格変化 (%)", fill = NULL) +
+  theme(legend.position = "top")
+```
+
+- この図が、合併審査で当局・企業双方が計算して見せ合う「本丸」の1つ
+
+::: {.notes}
+- 需要の代替性（今日の前半）がこの上昇率の大きさを決める。異質性を無視すると合併効果も誤る。
+:::
+
+## diversion ratio と UPP
+
+合併審査で使う簡便指標。**diversion ratio**：財 $j$ の値上げで逃げた客のうち財 $k$ へ流れる割合
+
+$$
+D_{j \to k} = -\frac{\partial s_k / \partial p_j}{\partial s_j / \partial p_j}
+$$
+
+これが大きいほど2財は近い代替財で、合併の弊害が大きい。**UPP**（値上げ圧力の簡便指標、効率化なし版）は $\mathrm{UPP}_1 = D_{1 \to 2}(p_2 - mc_2)$。
+
+```{r}
+#| label: merger-diversion
+Jmat0 <- dS_dp(p0)
+diversion <- function(j, k) -Jmat0[k, j] / Jmat0[j, j]
+upp1 <- diversion(1, 2) * (p0[2] - mc_implied[2])
+data.frame(
+  metric = c("diversion D(1 to 2)", "diversion D(2 to 1)", "UPP(財1, 効率化なし)"),
+  value  = round(c(diversion(1, 2), diversion(2, 1), upp1), 3)
+) |> kable(col.names = c("指標", "値"))
+```
+
+::: {.notes}
+- diversion は「値上げしたら客はどこへ行くか」を1つの数字にしたもの。第2回からの問いの最終形。
+- UPP はフル均衡計算をせずに済むスクリーニング指標。第5回で実務上の使われ方を聞ける。
+:::
+
+## 消費者余剰の変化
+
+各消費者の期待効用は logsum（inclusive value）。価格の単位に直すため $1/\alpha_i$ で割って平均：
+
+$$
+CS = \frac{1}{ns} \sum_{r=1}^{ns} \frac{1}{\alpha_r} \ln\left(1 + \sum_{j=1}^{J} \exp(v_{rj})\right)
+$$
+
+```{r}
+#| label: merger-cs
+cs_logsum <- function(p) {
+  alpha_i <- exp(abar_m + sigma_m * nu_m)
+  V <- sweep(-outer(alpha_i, p), 2, xbeta_xi, "+")
+  inclusive <- log(1 + rowSums(exp(V)))
+  mean(inclusive / alpha_i)
+}
+cs0 <- cs_logsum(p0); cs1 <- cs_logsum(p1)
+data.frame(
+  timing = c("合併前", "合併後", "変化"),
+  cs = round(c(cs0, cs1, cs1 - cs0), 4)
+) |> kable(col.names = c("時点", "消費者余剰（1人あたり）"))
+```
+
+- 値上げの分、消費者が損をする。これが審査で問題視される「消費者への害」
+
+::: {.notes}
+- logsum 公式は第2回のGumbelの性質（最大値が再びGumbel）の贈り物。動学（第13回以降）でもEmaxとして再登場する。
+:::
+
+## 実証研究：合併の予測と事後検証
+
+**Nevo (2001)**：朝食シリアルの高マージンは共謀か
+
+- random coefficient logit + Bertrand でマークアップを計算。マージン**4〜5割**は共謀なしでも製品差別化とブランド力で説明できた
+
+**Miller and Weinberg (2017)**：MillerCoors 合弁の事後検証
+
+- 合弁前データで需要・供給を推定 → 単独 Nash の予測と実際の価格を比較
+- 実際の値上げは単独効果の予測を**上回った** → 協調的値上げの証拠と解釈
+
+::: {.notes}
+- 今日の合併シミュレーション（単独効果の予測）が事後検証のベンチマークとして使われている好例。
+- 「予測 vs 実際」のギャップが協調の問題を炙り出す。第5回の争点にもなる。
+:::
+
+# まとめ {background-color="#1f3552"}
+
+::: {.notes}
+- この節は2分。ここまでで約88分目安。
+:::
+
+## ここが核心
+
+::: {.keybox .fragment}
+- 異質性を入れる＝**係数を消費者ごとに変える**（$\beta_i = \beta + \Sigma^{1/2} \nu_i$、価格係数は対数正規で正に固定）
+- 個人条件付きではただの logit。積分が閉じない → **モンテカルロ積分**
+- 異質性だけで **IIA が破れ**、「属性の近い財どうしがよく代替する」が自動で出る
+- 推定は**ミニBLPの三層**：縮小写像 → IV回帰 → GMM。GMMの谷が真値 $\sigma = 0.8$ の近くに現れた
+- 識別には **micro moments**（購入者属性・2nd choice）が効く
+- 供給側を足すと $p = mc + \Delta^{-1} s$：**限界費用の復元**と**合併後の価格上昇**の計算ができる
+:::
+
+::: {.notes}
+- 1枚で今日を振り返る。「異質性を無視すると代替パターンも合併効果も誤る」が最終メッセージ。
+:::
+
+## 宿題
+
+::: {.nonincremental}
+
+- **pyblp のドキュメントを眺める**：チュートリアルの「problem」「integration」「optimization」が今日の三層のどこに対応するか対応づける（コードは動かさなくてよい）
+- 交差弾力性のコードで `x_char` を `c(1.0, -0.9, -0.8)`（財1と財2を遠く）に変えて、財1と財2の交差弾力性がどう変わるか観察する
+- 合併分析で `groups_post` を `c(1, 1, 1, 4)`（3社合併）に変えて、価格上昇率の変化を見る
+- **coding課題は `assignment4.qmd`**：DGP自作 → $\sigma$ のグリッドGMM → 合併分析まで、今日のすべてを自分の手で通す
+
+:::
+
+::: {.notes}
+- 課題は今回のノートの完全な縮図。重めなので早めの着手を促す。
+:::
+
+## 次回予告：ゲスト講義（合併審査の実務）
+
+- 第5回は**公正取引委員会**の方をお招きし、**企業結合審査の実務**を伺う
+- 今日計算した diversion ratio・UPP・単独効果・消費者余剰が、現実の審査でどう使われ、どこが争点になるのか
+- 経済分析を提出する側（企業・コンサル）と審査する側の攻防を、**道具を握った状態で**聞いてほしい
+- 第6回は、需要データを実験的に作る**コンジョイント分析**へ
+
+**Reading**：上武ほか『実証ビジネス・エコノミクス』第4章、Nevo (2000)、Berry, Levinsohn and Pakes (1995)
+
+::: {.notes}
+- 今日のミニBLPと合併シミュレーションは、第5回を「自分で計算できる技術として」聞くための直接の準備だった、という円環で締める。
+:::

@@ -1,0 +1,485 @@
+---
+title: "課題4：random coefficient logit の推定と合併分析"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+set.seed(20264)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この課題のねらい
+
+第4回でやった **ミニBLP**（縮小写像 → IV回帰 → GMM）と **合併分析**（Bertrand-Nash からの限界費用逆算 → 合併後均衡）を、自分の手で最初から最後まで通す。この回の技術を全部使う、重めの課題だ。焦らず、まずデータを作り、収束を確かめ、それから推定に進もう。
+
+- **Part 1**：J=3・T=60市場の市場データを、価格が内生な形で自作する（40点）。
+- **Part 2**：$\sigma$ のグリッドで GMM を回し、plain logit との弾力性比較、財1・2の合併分析、審査官向けの判断まで（60点）。
+
+配点は合計100点。手を動かせば2〜4時間で終わる分量。穴埋めコードの骨格を惜しみなく与えるので、まず埋めることから始めよ。
+:::
+
+この課題は講義ノート（`lecture4.qmd`）と同じ構造だが、**設定（パラメータ値・文脈）は変えてある**。ノートのコードをコピペするだけでは通らないので、自分で理解して埋めること。
+
+---
+
+# Part 1：市場データを自作する（40点）
+
+## 舞台設定
+
+ある差別化財市場を考える。3つのブランド（財1・財2・財3）＋「買わない」（outside option）。$T=60$ 個の地域市場があり、市場ごとに製品属性・費用・需要ショックが異なる。消費者は価格感応度が異質で、対数正規分布に従う。
+
+モデル（条件付き分布の束）は次の通り。消費者 $i$、財 $j$、市場 $t$：
+
+$$
+u_{ijt} = \beta_0 + \beta_x\, x_{jt} - \alpha_i\, p_{jt} + \xi_{jt} + \varepsilon_{ijt},
+\qquad \alpha_i = \exp(\bar\alpha + \sigma\, \nu_i),\quad \nu_i \sim N(0,1),
+$$
+
+$\varepsilon_{ijt}$ は Type I 極値分布。$j=0$（outside）の効用は $\varepsilon_{i0t}$ のみ（基準）。価格係数だけに異質性を入れ、対数正規で正値を保証する。
+
+**真のパラメータ**（あなたはこれを後で推定で回収する）：
+
+| 記号 | 意味 | 値 |
+|---|---|---|
+| $\beta_0$ | 定数項 | 4.0 |
+| $\beta_x$ | 属性 $x$ への平均選好 | 1.5 |
+| $\bar\alpha$ | log 価格係数の中心 | 0.5 |
+| $\sigma$ | 価格係数のばらつき（推定対象） | 0.8 |
+
+価格は外生ではない。限界費用にマークアップを乗せて決まり、そのマークアップは需要ショック $\xi$ に反応する（需要が強い市場では強気の価格）。これで $p$ と $\xi$ が相関し、内生性が生じる。限界費用は
+
+$$
+mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
+$$
+
+で、$w_{jt}$ は**コストシフター**（需要には入らない ＝ 操作変数の種）。
+
+## 問1（15点）：DGP のパラメータと外生変数を作る
+
+以下のコードを完成させよ。属性 $x$・コストシフター $w$・需要ショック $\xi$・限界費用 $mc$・価格 $price$ を生成する。価格は `price = mc * 1.4 + 0.8 * pmax(xi, 0) + 0.1` で作る（マークアップが $\xi$ の正の部分に反応）。
+
+```{r}
+# 次元
+J <- 3; T <- 60; ns <- 200
+
+# 真のパラメータ
+beta0_true  <- 4.0
+beta_x_true <- 1.5
+abar_true   <- 0.5
+sigma_true  <- 0.8
+alpha_bar_true <- exp(abar_true)   # 平均価格係数
+
+# ---- ここを埋める ----
+# 属性 x: T x J、標準正規
+x  <- matrix(rnorm(T * J), T, J)
+# コストシフター w: T x J、一様分布 [0.3, 1.3]
+w  <- matrix(runif(T * J, 0.3, 1.3), T, J)
+# 需要ショック xi: T x J、平均0・標準偏差0.6の正規
+xi <- matrix(rnorm(T * J, 0, 0.6), T, J)
+
+# 限界費用 mc = exp(g0 + gx*x + gw*w + omega)
+g0 <- 0.2; gx <- 0.2; gw <- 1.0
+omega <- matrix(rnorm(T * J, 0, 0.1), T, J)
+mc <- exp(g0 + gx * x + gw * w + omega)
+
+# 価格（内生）: 限界費用 + xi に反応するマークアップ
+price <- mc * 1.4 + 0.8 * pmax(xi, 0) + 0.1
+
+# シミュレーション個人（価格係数の個人ショック nu、全市場共通）
+nu_p <- rnorm(ns)
+```
+
+::: {.callout-tip}
+## ヒント：なぜ価格が内生になるのか
+
+`price` の式に `xi` が入っているのがミソだ。需要ショック $\xi_{jt}$ が大きい（その財が売れやすい）市場では、企業が強気の価格をつける。だから $p$ と $\xi$ が正に相関する。この相関があるせいで、$\delta = \cdots - \alpha_{\text{bar}} p + \xi$ を素朴にOLSすると $p$ の係数（価格感応度）が過小推定される。第3回でやった内生性の話そのままだ。
+:::
+
+## 問2（15点）：モンテカルロ積分でシェアを計算し、観測シェアを生成する
+
+平均効用 $\delta_{jt} = \beta_0 + \beta_x x_{jt} - \bar\alpha^{\text{lvl}} p_{jt} + \xi_{jt}$ を作り、シミュレーション個人でシェアを計算せよ。まず「$\delta$ を与えるとシェアを返す」関数を完成させる。個人偏差は $\mu_{ij} = -(\alpha_i - \bar\alpha^{\text{lvl}}) p_j$。
+
+```{r}
+# delta_t: (J) 平均効用
+# 戻り値: 集計インサイドシェア (J)
+shares_from_delta <- function(delta_t, p_t, abar, sigma, nu_p) {
+  alpha_i  <- exp(abar + sigma * nu_p)          # (ns) 個人の価格係数
+  abar_lvl <- exp(abar)
+  # mu[i,j] = -(alpha_i - abar_lvl) * p_j   ->  outer() で (ns x J)
+  mu <- -outer(alpha_i - abar_lvl, p_t)
+  V  <- sweep(mu, 2, delta_t, "+")               # delta_t を各列に足す
+  eV <- exp(V)
+  denom <- 1 + rowSums(eV)                        # outside の効用は 0
+  colMeans(eV / denom)                            # 個人シェアを平均
+}
+
+# ---- 観測シェアを真値で生成 ----
+delta_true <- beta0_true + beta_x_true * x - alpha_bar_true * price + xi
+S_obs <- matrix(0, T, J)
+for (t in 1:T) {
+  S_obs[t, ] <- shares_from_delta(delta_true[t, ], price[t, ], abar_true, sigma_true, nu_p)
+}
+S0_obs <- 1 - rowSums(S_obs)
+```
+
+## 問3（10点）：データの記述統計と内生性の確認
+
+生成したデータについて、(a) インサイド／アウトサイドシェアの範囲、(b) 価格と $\xi$ の相関（財ごと）を出し、(c) 「価格が内生である」ことをデータで示せ。ヒストグラムか散布図を1枚描くこと。
+
+```{r}
+# ---- ここを埋める ----
+cat("インサイドシェアの範囲:", round(range(S_obs), 4), "\n")
+cat("アウトサイドシェアの範囲:", round(range(S0_obs), 4), "\n")
+cat("価格とxiの相関（財ごと）:",
+    round(sapply(1:J, function(j) cor(price[, j], xi[, j])), 3), "\n")
+
+# 価格 vs xi の散布図（財1）で内生性を可視化
+df_endog <- data.frame(price = price[, 1], xi = xi[, 1])
+ggplot(df_endog, aes(xi, price)) +
+  geom_point(alpha = 0.6, color = "#1f77b4") +
+  geom_smooth(method = "lm", se = FALSE, color = "grey30") +
+  labs(title = "財1：需要ショック xi と価格の関係（右上がり = 内生）",
+       x = expression(xi), y = "price")
+```
+
+::: {.callout-note}
+## この課題での記述統計の意味
+
+シェアの範囲を見て「outside が大きすぎ／小さすぎ」を確認するのは大事だ。outside がほぼ0だと、値上げしても客が外へ逃げず、弾力性推定が不安定になる。逆に outside がほぼ1だと、そもそも誰も買っていないので情報が乏しい。適度に散っている（例：outside が3〜7割）のが健全である。
+:::
+
+---
+
+# Part 2：推定と合併分析（60点）
+
+## 問4（15点）：縮小写像で $\delta$ を解く
+
+$\sigma$ を固定したとき、シミュレーションシェアを観測シェアに一致させる $\delta$ を、BLP の縮小写像
+
+$$
+\delta^{\text{new}}_{jt} = \delta_{jt} + \ln S^{\text{obs}}_{jt} - \ln s_{jt}(\delta; \sigma)
+$$
+
+で解く関数 `solve_delta` を完成させよ。初期値は plain logit の Berry 反転 $\delta^{(0)} = \ln S^{\text{obs}} - \ln S^{\text{obs}}_0$。真の $\sigma$ で解いて、(a) 観測シェアを再現できること、(b) 市場1の収束の様子（誤差の対数プロット）を示せ。
+
+```{r}
+#| eval: false
+# ---- この関数を完成させる ----
+solve_delta <- function(sigma, abar, S_obs, S0_obs, price, nu_p,
+                        tol = 1e-11, maxit = 1000, trace_t = NULL) {
+  Tn <- nrow(S_obs); Jn <- ncol(S_obs)
+  delta <- ______                                # 【穴埋め】plain-logit 初期値 (T x J)
+  trace <- NULL
+  for (t in 1:Tn) {
+    d <- delta[t, ]
+    errs <- numeric(0)
+    for (it in 1:maxit) {
+      s_pred <- ______                           # 【穴埋め】現在の d でのシミュレーションシェア
+      d_new  <- ______                           # 【穴埋め】縮小写像の更新式
+      err    <- max(abs(d_new - d))
+      errs   <- c(errs, err)
+      d <- d_new
+      if (err < tol) break
+    }
+    delta[t, ] <- d
+    if (!is.null(trace_t) && t == trace_t) trace <- errs
+  }
+  list(delta = delta, trace = trace)
+}
+```
+
+```{r}
+#| eval: false
+# ---- 動作確認（穴埋め後に eval: true にして実行）----
+res_true <- solve_delta(sigma_true, abar_true, S_obs, S0_obs, price, nu_p, trace_t = 1)
+
+# (a) 観測シェアを再現できるか
+recon_err <- max(abs(sapply(1:T, function(t)
+  shares_from_delta(res_true$delta[t, ], price[t, ], abar_true, sigma_true, nu_p) - S_obs[t, ])))
+cat("シェア再現の最大誤差:", recon_err, "\n")
+
+# (b) 収束プロット（対数目盛）
+df_trace <- data.frame(iter = seq_along(res_true$trace), err = res_true$trace)
+ggplot(df_trace, aes(iter, err)) +
+  geom_line(color = "#1f77b4") + geom_point(size = 0.8) +
+  scale_y_log10() +
+  labs(title = "縮小写像の収束（市場1）", x = "反復", y = "更新幅（対数）")
+```
+
+::: {.callout-warning}
+## よくあるバグ：log の中身がゼロ／負
+
+`log(s_pred)` の `s_pred` が数値的にゼロに潰れると `-Inf` が出て発散する。これはシェアが極端に小さい財で起きやすい。初期値を Berry 反転から取り、$\sigma$ が大きすぎなければ普通は起きないが、もし `NaN` が出たら (1) 初期値、(2) $\sigma$ の大きさ、(3) `outer` の符号を疑え。
+:::
+
+## 問5（15点）：GMM 目的関数を $\sigma$ のグリッドで評価する
+
+操作変数 $Z$（定数・$x$・コストシフター $w$・ライバルの $x$ 和・ライバルの $w$ 和）を作り、$\hat\delta(\sigma)$ を IV回帰して残差 $\hat\xi$ を得て、GMM目的関数 $Q(\sigma) = \hat\xi'ZWZ'\hat\xi$（$W = (Z'Z)^{-1}$）を計算する `gmm_step` を完成させよ。$\sigma \in \{0, 0.4, 0.8, 1.2\}$ のグリッドで $Q$ を評価し、argmin が真値 0.8 の近傍にあることを図で示せ。
+
+```{r}
+#| eval: false
+# 操作変数 Z（各行 = 製品×市場、市場 t を固定して財 j を回す順）
+build_Z <- function(x, w) {
+  Tn <- nrow(x); Jn <- ncol(x)
+  Z <- matrix(0, Tn * Jn, 5)
+  row <- 1
+  for (t in 1:Tn) for (j in 1:Jn) {
+    others <- setdiff(1:Jn, j)
+    Z[row, ] <- c(1, x[t, j], w[t, j], sum(x[t, others]), sum(w[t, others]))
+    row <- row + 1
+  }
+  Z
+}
+# 説明変数 X: 定数, x, price（price が内生）。Z と同じ並び順に！
+build_X <- function(x, price) cbind(1, as.vector(t(x)), as.vector(t(price)))
+
+Z    <- build_Z(x, w)
+Xmat <- build_X(x, price)
+
+gmm_step <- function(sigma, abar) {
+  res <- solve_delta(sigma, abar, S_obs, S0_obs, price, nu_p)
+  d <- as.vector(t(res$delta))                    # 【重要】t() で Z と同じ並びに
+  W  <- solve(crossprod(Z))                        # (Z'Z)^{-1}
+  ZX <- crossprod(Z, Xmat)                         # Z'X
+  Zd <- crossprod(Z, d)                            # Z'delta
+  theta1 <- ______                                 # 【穴埋め】IV-GMM: (X'ZWZ'X)^{-1} X'ZWZ'delta
+  xi_hat <- d - Xmat %*% theta1
+  g <- crossprod(Z, xi_hat)                        # Z'xi
+  Q <- ______                                      # 【穴埋め】g' W g
+  list(Q = as.numeric(Q), theta1 = as.vector(theta1), xi_hat = xi_hat)
+}
+```
+
+```{r}
+#| eval: false
+sigma_grid <- c(0.0, 0.4, 0.8, 1.2)
+Q_vals <- sapply(sigma_grid, function(s) gmm_step(s, abar_true)$Q)
+df_Q <- data.frame(sigma = sigma_grid, Q = Q_vals)
+kable(df_Q, digits = 4)
+cat("argmin:", sigma_grid[which.min(Q_vals)], "（真値 0.8）\n")
+
+ggplot(df_Q, aes(sigma, Q)) +
+  geom_line(color = "#1f77b4") + geom_point(size = 2) +
+  geom_vline(xintercept = 0.8, linetype = "dashed") +
+  labs(title = "GMM目的関数", x = expression(sigma), y = "Q")
+```
+
+::: {.callout-warning}
+## よくあるバグ第1位：delta と X の並び順のズレ
+
+`solve_delta` は $\delta$ を `T x J` 行列で返す。これを1本のベクトルに潰すとき、`as.vector(res$delta)`（列優先）と `as.vector(t(res$delta))`（行優先）で並びが変わる。`build_Z`・`build_X` が「市場 t を固定して財 j を回す」（＝行優先）で作っているなら、$\delta$ も `t()` してから `as.vector` すること。ここがズレると $\delta$ と $x$・$p$ の対応が壊れ、推定が無意味になる。**必ず両方の順序を一致させる**。
+:::
+
+## 問6（10点）：plain logit と $\hat\sigma$ で弾力性を比較する
+
+異質性を無視するとどんな間違いを犯すか。$\sigma = 0$（plain logit）と $\hat\sigma$（グリッドの argmin）のそれぞれで、**自己価格弾力性**の分布を計算して比較せよ。ヒストグラムを重ねて描き、「異質性を無視すると何を取り違えるか」を2〜3文で述べよ。
+
+```{r}
+#| eval: false
+# 推定した sigma のもとで、各製品の自己価格弾力性を計算する。
+# 【重要】価格を動かすと delta も動く（delta に -alpha_bar*p が入るから）。
+#         だから delta を「価格の関数」として作り直してから微小変化させる。
+self_elasticities <- function(sigma, abar) {
+  fit <- gmm_step(sigma, abar)
+  th  <- fit$theta1                 # c(const, beta_x, coef_price)   coef_price = -alpha_bar_lvl
+  xih <- matrix(fit$xi_hat, T, J, byrow = TRUE)   # 【t()並びなので byrow=TRUE】
+  const <- th[1]; bx <- th[2]; cprice <- th[3]
+  eps <- 1e-6
+  out <- numeric(0)
+  for (t in 1:T) {
+    delta_of_p <- function(pv) const + bx * x[t, ] + cprice * pv + xih[t, ]
+    p0 <- price[t, ]
+    s0 <- shares_from_delta(delta_of_p(p0), p0, abar, sigma, nu_p)
+    for (j in 1:J) {
+      pj <- p0; pj[j] <- pj[j] + eps
+      s1 <- shares_from_delta(delta_of_p(pj), pj, abar, sigma, nu_p)
+      out <- c(out, (s1[j] - s0[j]) / eps * p0[j] / s0[j])   # eta_jj
+    }
+  }
+  out
+}
+
+e_plain <- self_elasticities(0.0, abar_true)
+e_hat   <- self_elasticities(0.8, abar_true)
+
+df_e <- data.frame(
+  elasticity = c(e_plain, e_hat),
+  model = rep(c("plain logit (sigma=0)", "RC (sigma_hat)"), c(length(e_plain), length(e_hat)))
+)
+ggplot(df_e, aes(elasticity, fill = model)) +
+  geom_histogram(alpha = 0.5, position = "identity", bins = 30) +
+  labs(title = "自己価格弾力性の分布", x = "自己価格弾力性", fill = NULL)
+
+cat("plain: mean", round(mean(e_plain), 3), " sd", round(sd(e_plain), 3), "\n")
+cat("RC   : mean", round(mean(e_hat), 3),   " sd", round(sd(e_hat), 3),   "\n")
+```
+
+::: {.callout-tip}
+## ヒント：何に注目すべきか
+
+平均だけでなく**ばらつき（sd）**を見よ。plain logit は「価格感応度は全員同じ」と仮定するので、弾力性の分布の形が真実とずれる。とくに、高シェア財と低シェア財、高価格財と低価格財で弾力性がどう違うかに注目。異質性を入れたモデルの方が、真の弾力性分布に近い形になるはずだ。
+:::
+
+## 問7（15点）：財1・財2の合併分析
+
+推定した需要（`abar_true` と `sigma = 0.8` を使ってよい）を使い、4財市場での合併を分析せよ。手順：(1) 観測価格から Bertrand-Nash の FOC で限界費用を逆算、(2) 財1・財2を統合（所有行列の書き換え）、(3) 新均衡を固定点反復で解く。価格上昇率と diversion ratio の表を作れ。
+
+まず合併分析用の需要（4財市場）を作る。**Part 1 とは別の市場設定**（下に用意した）を使う。
+
+```{r}
+#| eval: false
+# ---- 合併分析用の4財市場（推定済みパラメータを流用）----
+abar_m  <- 0.5;  sigma_m <- 0.8;  Jm <- 4
+nu_m <- rnorm(ns)                         # この市場のシミュレーション個人
+xbeta_xi  <- c(3.0, 2.6, 2.9, 2.7)        # 各財の x'beta + xi（価格を除く平均効用）
+mc_true_m <- c(1.0, 1.1, 1.2, 0.9)        # 真の限界費用（逆算の答え合わせ用）
+
+# 個人選択確率 (ns x Jm)
+choice_probs <- function(p) {
+  alpha_i <- exp(abar_m + sigma_m * nu_m)
+  V <- sweep(-outer(alpha_i, p), 2, xbeta_xi, "+")
+  eV <- exp(V)
+  eV / (1 + rowSums(eV))
+}
+agg_shares <- function(p) colMeans(choice_probs(p))
+
+# シェアの価格微分 (Jm x Jm), 要素[k,j] = ds_k/dp_j
+dS_dp <- function(p) {
+  alpha_i <- exp(abar_m + sigma_m * nu_m)
+  sij <- choice_probs(p)
+  M <- matrix(0, Jm, Jm)
+  for (j in 1:Jm) for (k in 1:Jm) {
+    if (k == j) M[k, j] <- mean(-alpha_i * sij[, j] * (1 - sij[, j]))
+    else        M[k, j] <- ______                # 【穴埋め】k != j のとき ds_k/dp_j
+  }
+  M
+}
+
+owner_matrix <- function(groups) outer(groups, groups, function(a, b) as.numeric(a == b))
+
+# FOC: p = mc + Delta^{-1} s,  Delta[j,k] = -Omega[j,k] * ds_k/dp_j
+markup_pieces <- function(p, groups) {
+  M <- dS_dp(p)
+  Omega <- owner_matrix(groups)
+  Delta <- ______                                 # 【穴埋め】-(Omega * t(M))
+  list(Delta = Delta, s = agg_shares(p))
+}
+
+# 固定点反復で均衡を解く
+solve_equilibrium <- function(mc, groups, p_init, tol = 1e-11, maxit = 2000) {
+  p <- p_init
+  for (it in 1:maxit) {
+    mp <- markup_pieces(p, groups)
+    p_new <- ______                               # 【穴埋め】mc + solve(Delta, s)
+    if (max(abs(p_new - p)) < tol) return(list(p = p_new, iters = it, ok = TRUE))
+    p <- p_new
+  }
+  list(p = p, iters = maxit, ok = FALSE)
+}
+```
+
+```{r}
+#| eval: false
+# ---- 合併前均衡 → mc 逆算 → 合併後均衡 ----
+groups_pre  <- c(1, 2, 3, 4)
+groups_post <- c(1, 1, 3, 4)   # 財1・財2が合併
+
+eq_pre <- solve_equilibrium(mc_true_m, groups_pre, p_init = mc_true_m * 1.5)
+p0 <- eq_pre$p; s0 <- agg_shares(p0)
+
+# mc 逆算（観測価格から）
+mp0 <- markup_pieces(p0, groups_pre)
+mc_implied <- p0 - solve(mp0$Delta, mp0$s)
+cat("mc 逆算の最大誤差:", max(abs(mc_implied - mc_true_m)), "\n")
+
+# 合併後
+eq_post <- solve_equilibrium(mc_implied, groups_post, p_init = p0)
+p1 <- eq_post$p; s1 <- agg_shares(p1)
+
+# diversion ratio
+M0 <- dS_dp(p0)
+diversion <- function(j, k) -M0[k, j] / M0[j, j]
+
+merger_tbl <- data.frame(
+  product    = paste0("財", 1:4),
+  price_pre  = round(p0, 3),
+  price_post = round(p1, 3),
+  pct_change = round((p1 - p0) / p0 * 100, 2)
+)
+kable(merger_tbl, caption = "合併の価格効果")
+cat("D(財1->財2):", round(diversion(1, 2), 3),
+    " D(財2->財1):", round(diversion(2, 1), 3), "\n")
+```
+
+::: {.callout-warning}
+## よくあるバグ：所有行列の書き換えミス
+
+合併は `groups` ベクトルの該当要素を同じ番号にするだけだ（`c(1,2,3,4)` → `c(1,1,3,4)`）。ここで財2を財1と同じ「1」にし忘れたり、間違って財3まで巻き込んだりすると、全く違う合併を分析してしまう。また `Delta <- -(Omega * t(M))` の **転置 `t(M)` を忘れる**と、`ds_k/dp_j` と `ds_j/dp_k` を取り違えて符号・非対称性が壊れる。合併前の mc 逆算が真値と一致するか、が最良のチェックだ（一致しなければどこか間違っている）。
+:::
+
+## 問8（10点）：審査官向けの1段落
+
+あなたは競争当局の審査官だとする。問7の推定結果（価格上昇率、diversion ratio、必要ならUPP や消費者余剰の変化）に基づいて、**この財1・財2の合併を承認すべきか**を1段落（5〜8文）で論じよ。数値を根拠に引くこと。「どういう条件なら判断が変わるか」（例：効率化＝限界費用の低下があれば、diversion がもっと低ければ）にも触れると良い。
+
+```{r}
+#| eval: false
+# 判断材料を1つの表にまとめておくと書きやすい
+# （UPP・消費者余剰は solution 参照。ここでは価格上昇率と diversion で十分）
+```
+
+::: {.callout-note}
+## 経営・政策への含意（この課題の締め）
+
+上の審査官パラグラフが、そのまま「経営・政策への含意を3行で書け」の役割を果たす。第5回のゲスト講義（公正取引委員会）で、実際の審査ではこの種の分析がどう提出され、どこが争点になるのかを聞く。今日あなたが計算した数字が、現実の企業結合審査の言語であることを意識してほしい。
+:::
+
+---
+
+## 提出方法
+
+- この `.qmd` の穴埋め（`______` と `#| eval: false`）をすべて埋め、`#| eval: false` を外して最後まで render できる状態にする。
+- 各問の出力（表・図）とコメントを含めること。
+- render した HTML を提出。
+
+::: {.callout-important}
+## 配点（合計100点）
+
+- 問1（15）：外生変数・費用・内生価格の生成
+- 問2（15）：モンテカルロ積分でのシェア計算・観測シェア生成
+- 問3（10）：記述統計と内生性の可視化
+- 問4（15）：縮小写像の実装と収束確認
+- 問5（15）：GMM目的関数のグリッド評価と真値近傍での谷
+- 問6（10）：plain logit との弾力性比較と解釈
+- 問7（15）：mc 逆算・合併後均衡・価格上昇率・diversion
+- 問8（10）：審査官向けの判断（数値に基づく論述）
+:::

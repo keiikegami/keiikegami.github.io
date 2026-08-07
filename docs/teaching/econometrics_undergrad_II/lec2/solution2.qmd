@@ -1,0 +1,401 @@
+---
+title: "課題2 解答：動画配信サービスのプラン選択とlogit需要推定"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+set.seed(20263)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この解答について
+
+`assignment2.qmd`の全設問に対する完全な実行可能コードと解説を示す。各設問について「なぜこう書くか」「どこで間違えやすいか」を添え、最後に配点基準を再掲する。
+:::
+
+## Part 1：シミュレーション設計
+
+### 1.1 パラメータのスケール確認
+
+```{r}
+#| label: sol-a2-setup
+
+N <- 3000
+
+price_base <- c(700, 1200, 1800)   # Basic, Standard, Premium（月額・円）
+quality    <- c(1, 2, 3)            # 1=SD, 2=HD, 3=4K
+screens    <- c(1, 2, 4)            # 同時視聴可能数
+
+true_params <- list(
+  beta_quality = 0.9,
+  beta_screens = 0.35,
+  alpha_price  = 0.003
+)
+
+true_params$alpha_price * price_base
+```
+
+`alpha_price = 0.003`のとき、`alpha_price * price`は2.1〜5.4程度になる。これは`beta_quality * quality`（0.9〜2.7）や`beta_screens * screens`（0.35〜1.4）と同程度の大きさであり、価格の効用への影響が、品質・画面数の影響と釣り合うスケールになっている。これがちょうどよいバランスで、極端に大きいと（例えば`alpha_price=0.03`なら21〜54にもなる）、価格差だけで効用が支配され、ほぼ全員が最安値のプラン（あるいはoutside）を選んでしまい、品質・画面数の効果がデータから見えなくなる。逆に小さすぎると、価格が需要にほとんど影響しない不自然なデータになる。**シミュレーションのDGPを設計するときは、まずこの「効用の各項がどれくらいの大きさになるか」という桁感覚を確認する癖をつけるとよい。**
+
+### 1.2 データ生成
+
+```{r}
+#| label: sol-a2-simulate
+
+draw_gumbel <- function(n) {
+  u <- runif(n)
+  -log(-log(u))
+}
+
+simulate_subscription_choice <- function(n, price_base, quality, screens, params) {
+  price_noise <- matrix(rnorm(n * 3, mean = 0, sd = 40), nrow = n, ncol = 3)
+  price <- sweep(price_noise, 2, price_base, "+")
+  price <- pmin(pmax(price, 400), 2500)
+
+  delta <- cbind(
+    params$beta_quality * quality[1] + params$beta_screens * screens[1] - params$alpha_price * price[, 1],
+    params$beta_quality * quality[2] + params$beta_screens * screens[2] - params$alpha_price * price[, 2],
+    params$beta_quality * quality[3] + params$beta_screens * screens[3] - params$alpha_price * price[, 3]
+  )
+  delta_full <- cbind(0, delta)  # outside = 0
+
+  eps <- matrix(draw_gumbel(n * 4), nrow = n, ncol = 4)
+  u <- delta_full + eps
+  choice <- apply(u, 1, which.max) - 1  # 0=outside, 1=Basic, 2=Standard, 3=Premium
+
+  list(choice = choice, price = price)
+}
+
+sim_data <- simulate_subscription_choice(N, price_base, quality, screens, true_params)
+choice_vec <- sim_data$choice
+price_mat <- sim_data$price
+
+table(factor(choice_vec, levels = 0:3, labels = c("outside", "Basic", "Standard", "Premium")))
+```
+
+```{r}
+#| label: fig-sol-a2-share
+#| fig-cap: "動画配信プラン：選択シェア（N=3,000）"
+
+share_df <- data.frame(
+  alt = factor(c("outside", "Basic", "Standard", "Premium"),
+               levels = c("outside", "Basic", "Standard", "Premium")),
+  share = as.numeric(table(factor(choice_vec, levels = 0:3)) / N)
+)
+
+ggplot(share_df, aes(x = alt, y = share, fill = alt)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  scale_fill_manual(values = c("outside" = "gray70", "Basic" = "#4C72B0",
+                                "Standard" = "#DD8452", "Premium" = "#55A868")) +
+  labs(x = "選択肢", y = "シェア", title = "動画配信プラン：選択シェア")
+```
+
+シェアは、outsideが約48%、Basicが約22%、Standardが約16%、Premiumが約14%になる（乱数のseedによって多少上下する）。品質・画面数が上がるほど価格も上がるため、Basicが最も選ばれやすく、Premiumは高品質だが価格の高さがネックになって選ばれにくい、という自然な分布になっている。
+
+**このDGPには`const_A`, `const_B`のようなプラン固有の切片がない。**その理由は設問1.4で扱うが、ここで先取りして述べておくと：もしプラン固有の切片を2つ（Basic用、Standard用。Premiumは基準）加えると、非価格パラメータは合計4つ（切片2つ＋quality係数＋screens係数）になる。ところがプランは3つしかなく、「outsideを基準に正規化した非価格効用の値」は3プラン分、つまり自由度3しかない。4つのパラメータを3つの自由度から復元しようとすると、モデルが**識別されない（ランク落ちする）**。この点は後述する。
+
+### 1.3 属性別クロス集計
+
+```{r}
+#| label: sol-a2-crosstab
+
+plan_summary <- data.frame(
+  plan = c("outside", "Basic", "Standard", "Premium"),
+  n_chosen = as.numeric(table(factor(choice_vec, levels = 0:3))),
+  share = as.numeric(table(factor(choice_vec, levels = 0:3))) / N
+)
+knitr::kable(plan_summary, caption = "プラン別の選択者数とシェア")
+```
+
+```{r}
+#| label: sol-a2-price-band
+
+# Standardプランの支払価格を3つの価格帯に分けて、各消費者がどのプランを選んだか集計する
+price_band <- cut(price_mat[, 2], breaks = quantile(price_mat[, 2], probs = c(0, 1/3, 2/3, 1)),
+                   labels = c("安い", "普通", "高い"), include.lowest = TRUE)
+
+band_df <- data.frame(band = price_band, choice = choice_vec) %>%
+  group_by(band) %>%
+  summarise(
+    share_outside = mean(choice == 0),
+    share_basic = mean(choice == 1),
+    share_standard = mean(choice == 2),
+    share_premium = mean(choice == 3)
+  )
+knitr::kable(band_df, digits = 3, caption = "Standardプランの提示価格帯別の選択シェア")
+```
+
+Standardの提示価格が「高い」群では、Standardのシェアがやや下がり、Basic・outsideのシェアがやや上がる傾向が見える。ただし今回のDGPでは価格変動の標準偏差（sd=40円）が価格水準（700〜1800円）に比べて小さいため、この傾向は緩やかである。これは意図的な設計で、後の反実仮想（+200円）のようなある程度大きな価格変化を見たいときは、こうした小さな変動だけでは捉えきれないことを示唆している。
+
+### 1.4 なぜプラン固有の切片を入れなかったか
+
+**正解**：プランが3つしかないため、非価格パラメータの数がプラン数を超えないようにする必要があるからである。
+
+もう少し正確に言うと、outside optionを基準に正規化した後、モデルが識別できる非価格の情報は「3つのプランそれぞれの、非価格部分の効用レベル」（3つの数）に限られる。この3つの数を、`beta_quality`, `beta_screens`という2つのパラメータだけで説明しようとしているのが、このDGPの設計である（3自由度に対して2パラメータなので、モデルは過剰識別されており、無理なく推定できる）。
+
+もし、これに加えてBasicとStandardの2つのプラン固有切片（`const_basic`, `const_standard`）を加えると、非価格パラメータは合計4つになる。ところが自由度は3つのままなので、**4パラメータ全てを一意に決めることができない**（数学的には、パラメータ空間から効用レベル空間への写像が単射でなくなる、つまりランク落ちする）。実際にこの設定でoptimを走らせると、対数尤度の値は真値相当まできちんと下がるにもかかわらず、個々のパラメータ（特に`beta_quality`と`beta_screens`）の推定値は初期値に依存して大きくばらつき、真値には全く収束しないという現象が起きる。これは実装のバグではなく、**モデルが構造的に識別されていない**ことの帰結である。
+
+::: {.callout-note collapse="true"}
+## 補足：識別のための経験則
+
+一般に、$J$個の内側の選択肢（outside以外）があるとき、モデルが識別できる非価格パラメータの自由度は最大で$J$個である。プラン（あるいはブランド）固有の切片を$J-1$個（1つは基準にするので）置くと、それだけで$J-1$の自由度を使ってしまうので、残りは1自由度しかなく、そこに複数の属性係数を同時に入れることはできない。講義ノートの缶コーヒーの例では、ブランドが3つ（$J=3$）で、切片2つ＋sweetness係数1つ＝非価格パラメータ3つとなり、ちょうど識別限界にあっている。この課題のプラン選択でも、もし切片を入れたいなら、属性係数の数を減らす（quality係数だけにする、など）か、プランの数を増やす必要がある。
+:::
+
+## Part 2：推定・推論
+
+### 2.1 自作対数尤度と`optim()`
+
+```{r}
+#| label: sol-a2-loglik
+
+build_design_sub <- function(price, quality, screens) {
+  n <- nrow(price)
+  X <- array(0, dim = c(n, 4, 3))  # (消費者, 選択肢, パラメータ: beta_quality, beta_screens, alpha)
+  # 選択肢1 = Basic
+  X[, 2, 1] <- quality[1]; X[, 2, 2] <- screens[1]; X[, 2, 3] <- -price[, 1]
+  # 選択肢2 = Standard
+  X[, 3, 1] <- quality[2]; X[, 3, 2] <- screens[2]; X[, 3, 3] <- -price[, 2]
+  # 選択肢3 = Premium
+  X[, 4, 1] <- quality[3]; X[, 4, 2] <- screens[3]; X[, 4, 3] <- -price[, 3]
+  X
+}
+
+neg_loglik_sub <- function(theta, X, choice) {
+  n <- dim(X)[1]
+  J1 <- dim(X)[2]
+  V <- matrix(0, nrow = n, ncol = J1)
+  for (j in 1:J1) {
+    V[, j] <- X[, j, ] %*% theta
+  }
+  V <- V - apply(V, 1, max)
+  expV <- exp(V)
+  denom <- rowSums(expV)
+  chosen_idx <- cbind(1:n, choice + 1)
+  logprob <- V[chosen_idx] - log(denom)
+  -sum(logprob)
+}
+
+X_design <- build_design_sub(price_mat, quality, screens)
+
+opt_result <- optim(
+  par = c(0, 0, 0),
+  fn = neg_loglik_sub,
+  X = X_design,
+  choice = choice_vec,
+  method = "BFGS",
+  hessian = TRUE
+)
+
+theta_hat <- opt_result$par
+names(theta_hat) <- c("beta_quality", "beta_screens", "alpha_price")
+theta_hat
+```
+
+```{r}
+#| label: sol-a2-recovery-table
+
+true_theta <- c(true_params$beta_quality, true_params$beta_screens, true_params$alpha_price)
+
+recovery_df <- data.frame(
+  parameter = c("beta_quality", "beta_screens", "alpha_price"),
+  true_value = true_theta,
+  estimate = round(theta_hat, 4)
+)
+knitr::kable(recovery_df, caption = "真値とMLE推定値の比較（N=3,000）")
+```
+
+推定値は真値の近くに戻ってくる。ただし、`quality`と`screens`はプラン間での値の動き方が似ている（両方とも「Basic<Standard<Premium」の順で単調に増える）ため、この2つの係数を個別に正確に分離するのは、`beta_quality + beta_screens`の合成的な効果を分離するのに比べるとやや難しく、サンプルのブレによって多少大きめの誤差が乗ることがある。この点は2.2のSEを見れば分かるように、`beta_quality`や`beta_screens`のSEは`alpha_price`に比べて相対的に大きい。**個々の係数よりも、非価格効用の合計（$\beta_{\text{quality}}\cdot\text{quality} + \beta_{\text{screens}}\cdot\text{screens}$）で見た方が、推定が安定している**ことを確認しておくとよい（余裕があれば試してほしい）。
+
+::: {.callout-note collapse="true"}
+## よくある間違い
+
+- `build_design_sub`の列（1列目=quality, 2列目=screens, 3列目=-price）と、`theta`の要素の並び（`beta_quality, beta_screens, alpha_price`）がズレていると、全く違う推定値が出る。特に`-price`の符号を忘れる（`+price`にしてしまう）と、価格が高いほど効用が上がるという逆の結果になり、`alpha_price`の推定値が負になる。
+- `choice`が0始まりであることを忘れて`chosen_idx <- cbind(1:n, choice)`のように+1を忘れると、Rの1始まりインデックスとズレて、全く違う（1つ左の）選択肢の確率を拾ってしまう。
+:::
+
+### 2.2 HessianからのSE・信頼区間・検定
+
+```{r}
+#| label: sol-a2-se-ci
+
+vcov_hat <- solve(opt_result$hessian)
+se_hat <- sqrt(diag(vcov_hat))
+
+ci_lower <- theta_hat - 1.96 * se_hat
+ci_upper <- theta_hat + 1.96 * se_hat
+t_stat <- theta_hat / se_hat
+
+inference_df <- data.frame(
+  parameter = c("beta_quality", "beta_screens", "alpha_price"),
+  true_value = true_theta,
+  estimate = round(theta_hat, 4),
+  se = round(se_hat, 5),
+  ci_lower = round(ci_lower, 4),
+  ci_upper = round(ci_upper, 4),
+  t_stat = round(t_stat, 2)
+)
+knitr::kable(inference_df, caption = "推定値・標準誤差・95%信頼区間・t統計量")
+```
+
+`alpha_price`の$t$統計量は絶対値でおよそ7〜8程度になり、1.96を大きく上回るので、5%水準で $H_0: \alpha=0$ を明確に棄却できる。つまり「価格は需要に統計的に有意な影響を与えている」と結論づけられる。真値はいずれのパラメータについても95%信頼区間に収まっている。
+
+### 2.3 `mlogit`パッケージでの検算
+
+```{r}
+#| label: sol-a2-mlogit
+#| eval: false
+
+library(mlogit)
+
+mlogit_df <- data.frame(
+  id = rep(1:N, each = 4),
+  alt = rep(c("outside", "Basic", "Standard", "Premium"), times = N),
+  chosen = as.vector(t(sapply(choice_vec, function(c) as.numeric(0:3 == c)))),
+  price = as.vector(t(cbind(0, price_mat))),
+  qual = rep(c(0, quality), times = N),
+  scr = rep(c(0, screens), times = N)
+)
+
+mlogit_data <- mlogit.data(mlogit_df, choice = "chosen", shape = "long",
+                            alt.var = "alt", id.var = "id")
+
+mlogit_fit <- mlogit(chosen ~ price + qual + scr | 0, data = mlogit_data,
+                      reflevel = "outside")
+summary(mlogit_fit)
+```
+
+`| 0`としているのは、選択肢固有の切片を入れないという意味である（1.4で確認した識別上の理由から、切片無しのモデルであることをここでも反映させている）。`mlogit`の係数の符号は、価格を`price`としてそのまま入れているので、`alpha_price`の推定値とは符号が逆になる点に注意する（自作コードでは`-price`を説明変数にしているため）。絶対値は自作の推定値と近い値になるはずである。
+
+### 2.4 反実仮想：Standardプランを値上げしたら
+
+```{r}
+#| label: sol-a2-counterfactual
+
+compute_shares_sub <- function(theta, price, quality, screens) {
+  X_j <- build_design_sub(price, quality, screens)
+  n <- dim(X_j)[1]; J1 <- dim(X_j)[2]
+  V <- matrix(0, nrow = n, ncol = J1)
+  for (j in 1:J1) V[, j] <- X_j[, j, ] %*% theta
+  V <- V - apply(V, 1, max)
+  expV <- exp(V)
+  expV / rowSums(expV)
+}
+
+shares_before <- colMeans(compute_shares_sub(theta_hat, price_mat, quality, screens))
+
+price_mat_new <- price_mat
+price_mat_new[, 2] <- price_mat_new[, 2] + 200  # Standardだけ+200円
+
+shares_after <- colMeans(compute_shares_sub(theta_hat, price_mat_new, quality, screens))
+
+cf_df <- data.frame(
+  plan = c("outside", "Basic", "Standard", "Premium"),
+  share_before = round(shares_before, 4),
+  share_after = round(shares_after, 4),
+  change = round(shares_after - shares_before, 4)
+)
+knitr::kable(cf_df, caption = "Standard+200円の反実仮想：シェアの変化")
+```
+
+```{r}
+#| label: sol-a2-iia-check
+
+lost_from_standard <- shares_before[3] - shares_after[3]
+gain_others <- (shares_after - shares_before)[c(1, 2, 4)]
+names(gain_others) <- c("outside", "Basic", "Premium")
+
+relative_gain <- gain_others / shares_before[c(1, 2, 4)]
+names(relative_gain) <- c("outside", "Basic", "Premium")
+
+iia_df <- data.frame(
+  destination = c("outside", "Basic", "Premium"),
+  absolute_gain = round(gain_others, 4),
+  share_before_destination = round(shares_before[c(1, 2, 4)], 4),
+  relative_gain = round(relative_gain, 4)
+)
+knitr::kable(iia_df, caption = "Standardからの流出先ごとの内訳とIIAの兆候")
+```
+
+`relative_gain`（各流出先が受け取ったシェア増分を、その流出先の元のシェアで割った値）の列を見ると、outside・Basic・Premiumの3つでほぼ同じ値になっている。つまり、**Standardから流出した客は、outside・Basic・Premiumのそれぞれの「元々の人気度（シェア）」に比例して均等に流れている**。BasicがStandardと属性的に近い（品質・画面数が近い）からといって、Basicに優先的に流れるわけではなく、Premium（かなり属性の違うプラン）も同じ比率で恩恵を受ける。
+
+これは直感的にはやや奇妙である。実際には、Standardに近い属性を持つプラン（この場合はBasicの方がPremiumより近いと考えられる）ほど多くの流入を受けそうなものだが、logitモデルはその「近さ」を一切考慮しない。この性質はIIA（Independence of Irrelevant Alternatives）と呼ばれ、次回の講義（nested logitモデル）で、この制約をどう緩和するかを学ぶ。
+
+### 2.5 モンテカルロによる被覆率の確認
+
+```{r}
+#| label: sol-a2-montecarlo
+
+n_mc <- 200
+covered_mc <- matrix(NA, nrow = n_mc, ncol = 3)
+
+for (m in 1:n_mc) {
+  sim_m <- simulate_subscription_choice(N, price_base, quality, screens, true_params)
+  X_m <- build_design_sub(sim_m$price, quality, screens)
+
+  opt_m <- optim(par = c(0, 0, 0), fn = neg_loglik_sub,
+                 X = X_m, choice = sim_m$choice, method = "BFGS", hessian = TRUE)
+
+  vcov_m <- tryCatch(solve(opt_m$hessian), error = function(e) NULL)
+  if (!is.null(vcov_m)) {
+    se_m <- sqrt(diag(vcov_m))
+    lo_m <- opt_m$par - 1.96 * se_m
+    hi_m <- opt_m$par + 1.96 * se_m
+    covered_mc[m, ] <- (lo_m <= true_theta) & (true_theta <= hi_m)
+  }
+}
+
+coverage_rate <- colMeans(covered_mc, na.rm = TRUE)
+names(coverage_rate) <- c("beta_quality", "beta_screens", "alpha_price")
+coverage_rate
+```
+
+3つのパラメータいずれについても、被覆率はおおむね0.90〜0.98程度の範囲に収まる（乱数のブレにより多少前後する）。目標の0.95に近い値であり、Hessianベースの標準誤差が信頼区間の構築に妥当に機能していることが確認できる。200回程度のモンテカルロでは、被覆率自体にも標本誤差があるので、0.95からやや離れていても（例えば0.91や0.98でも）過度に心配する必要はない。
+
+### 2.6 経営への含意（解答例）
+
+> Standardプランの値上げは、価格弾力性からシェア減少をある程度正確に予測できるが、減少分の相当な割合は「解約」ではなく自社の別プラン（Basic・Premium）への流入として吸収される点を踏まえる必要がある。ただし、logitモデルは流出先の配分比率を各プランの人気度だけで決めてしまうため、実際にBasicとPremiumのどちらが「Standardに近い」代替先かという実務的な直感を反映できていない可能性があり、この点は次回学ぶより柔軟なモデル（nested logit）で補正して確認すべきである。
+
+::: {.callout-note collapse="true"}
+## 配点基準（再掲・詳細）
+
+- **Part 1（30点）**
+  - DGPの実装：Gumbel乱数を正しく使い、価格・品質・画面数から効用を組み立て、選択が正しくシミュレートできていれば15点。`choice`の0始まりインデックスの扱いや、価格のクリップ処理などの細部まで整っていれば満点。DGPが動くが挙動が不自然（例えば全員outsideなど）な場合は、スケール感の考察（設問1.1）の記述内容次第で部分点。
+  - 可視化・記述統計：シェアの棒グラフとクロス集計が適切であれば10点。
+  - 1.4の考察：「プラン数と非価格パラメータ数の関係」に触れていれば5点（完全な正答でなくても、方向性が合っていれば満点でよい）。
+- **Part 2（70点）**
+  - 自作MLEと真値回収表：`build_design_sub`と`neg_loglik_sub`が正しく実装され、真値の近くに収束していれば20点。列の並びのミスなど軽微な実装ミスがあっても、ロジック自体が正しければ半分程度の部分点を与える。
+  - SE・CI・検定：Hessianの逆行列からSEを正しく計算し、$t$統計量で検定の結論を述べていれば15点。
+  - `mlogit`検算：`eval: false`で構わないので、記法が概ね正しく整っていれば10点（実行結果の一致を文章で言及していればなお良い）。
+  - 反実仮想とIIAの兆候：値上げ前後のシェア比較表と、流出先ごとの相対的な増分比較まで到達し、「比例的に分配される」という観察を言葉にできていれば15点。
+  - モンテカルロ被覆率：200回のループが正しく回り、被覆率が0.9台に収まっていれば10点。
+  - 2.6の経営含意3行は、Part 2の完成度に対する加点要素として評価する（弾力性・カニバリゼーション・解約の3観点のうち2つ以上に触れていれば十分）。
+:::

@@ -1,0 +1,259 @@
+---
+title: "Playground 2：logit需要モデルの実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture2.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（講義ノートと同じ関数群。編集不可・自動実行）----
+
+draw_gumbel <- function(n) -log(-log(runif(n)))
+
+simulate_coffee_choice <- function(n, price_base, sweetness, params) {
+  price_noise <- matrix(rnorm(n * 3, mean = 0, sd = 8), nrow = n, ncol = 3)
+  price <- sweep(price_noise, 2, price_base, "+")
+  price <- pmin(pmax(price, 60), 200)
+  delta <- cbind(
+    params$const_A + params$beta_sweet * sweetness[1] - params$alpha_price * price[, 1],
+    params$const_B + params$beta_sweet * sweetness[2] - params$alpha_price * price[, 2],
+    0              + params$beta_sweet * sweetness[3] - params$alpha_price * price[, 3]
+  )
+  delta_full <- cbind(0, delta)
+  eps <- matrix(draw_gumbel(n * 4), nrow = n, ncol = 4)
+  u <- delta_full + eps
+  choice <- apply(u, 1, which.max) - 1
+  list(choice = choice, price = price)
+}
+
+build_design <- function(price, sweetness) {
+  n <- nrow(price)
+  X <- array(0, dim = c(n, 4, 4))
+  X[, 2, 1] <- 1; X[, 2, 3] <- sweetness[1]; X[, 2, 4] <- -price[, 1]
+  X[, 3, 2] <- 1; X[, 3, 3] <- sweetness[2]; X[, 3, 4] <- -price[, 2]
+  X[, 4, 3] <- sweetness[3]; X[, 4, 4] <- -price[, 3]
+  X
+}
+
+neg_loglik_mnl <- function(theta, X, choice) {
+  n <- dim(X)[1]; J1 <- dim(X)[2]
+  V <- matrix(0, nrow = n, ncol = J1)
+  for (j in 1:J1) V[, j] <- X[, j, ] %*% theta
+  V <- V - apply(V, 1, max)
+  expV <- exp(V)
+  denom <- rowSums(expV)
+  chosen_idx <- cbind(1:n, choice + 1)
+  logprob <- V[chosen_idx] - log(denom)
+  -sum(logprob)
+}
+
+fit_mnl <- function(choice, price, sweetness) {
+  X <- build_design(price, sweetness)
+  opt <- optim(par = c(0, 0, 0, 0), fn = neg_loglik_mnl,
+               X = X, choice = choice, method = "BFGS", hessian = TRUE)
+  se <- sqrt(diag(solve(opt$hessian)))
+  list(theta = opt$par, se = se)
+}
+
+compute_shares <- function(theta, price, sweetness) {
+  X <- build_design(price, sweetness)
+  n <- dim(X)[1]; J1 <- dim(X)[2]
+  V <- matrix(0, nrow = n, ncol = J1)
+  for (j in 1:J1) V[, j] <- X[, j, ] %*% theta
+  V <- V - apply(V, 1, max)
+  expV <- exp(V)
+  expV / rowSums(expV)
+}
+
+elasticity_matrix <- function(theta, price_base, sweetness) {
+  s <- compute_shares(theta, matrix(price_base, nrow = 1), sweetness)[1, ]
+  a <- theta[4]
+  E <- matrix(NA, 3, 3, dimnames = list(c("A", "B", "C"), c("A", "B", "C")))
+  for (j in 1:3) for (k in 1:3) {
+    E[j, k] <- if (j == k) -a * price_base[j] * (1 - s[j + 1]) else a * price_base[k] * s[k + 1]
+  }
+  E
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：Gumbel乱数からlogit公式が「出てくる」ことを確かめる
+
+logit公式はどこにも書いていないのに、「Gumbelノイズ付き効用の最大値を選ぶ」だけで選択頻度が公式と一致する。$\delta$（各ブランドの魅力度）と$N$を変えて確かめよう。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+delta_true <- c(0.8, 0.3, -0.2)   # ブランドA, B, Cの魅力度（outsideは0）
+N <- 100000                        # シミュレーションする消費者数
+# -----------------------
+
+set.seed(20262)
+J <- length(delta_true)
+eps <- matrix(draw_gumbel(N * (J + 1)), N, J + 1)
+u <- sweep(eps, 2, c(0, delta_true), "+")
+choice <- apply(u, 1, which.max) - 1
+
+emp <- sapply(0:J, function(j) mean(choice == j))
+theory <- c(1, exp(delta_true)) / (1 + sum(exp(delta_true)))
+
+df <- data.frame(
+  alt = factor(rep(c("outside", "A", "B", "C"), 2),
+               levels = c("outside", "A", "B", "C")),
+  prob = c(emp, theory),
+  type = rep(c("simulation", "logit formula"), each = 4)
+)
+ggplot(df, aes(alt, prob, fill = type)) +
+  geom_col(position = position_dodge(0.7), width = 0.6) +
+  labs(x = "alternative", y = "probability", fill = NULL) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `delta_true <- c(0, 0, 0)` にすると4つのシェアはどうなるか。予想してから実行しよう。
+- `N <- 500` に減らすと2本の棒はどれくらいズレるか。`N` を増やすとどう収束していくか。
+- どれか1つの $\delta$ を5にしてみよう。他のシェアは「比率を保ったまま」縮むか？（この性質が後のIIAにつながる）
+:::
+
+## 実験2：最尤法の真値回収 — サンプルサイズとSEの関係
+
+DGPの真のパラメータを自分で決め、そのデータから自作MLEが真値を取り戻せるかを見る。講義の核心「**真値回収はいつでも最初にやるべき検証**」を体感しよう。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+true_params <- list(
+  const_A     = 1.2,
+  const_B     = 0.6,
+  beta_sweet  = 0.5,
+  alpha_price = 0.02   # 価格係数（0.005や0.05も試そう）
+)
+N <- 3000              # 消費者数（300に減らすと？ 10000に増やすと？）
+# -----------------------
+
+set.seed(20262)
+price_base <- c(130, 120, 110)
+sweetness  <- c(3, 6, 5)
+
+sim <- simulate_coffee_choice(N, price_base, sweetness, true_params)
+fit <- fit_mnl(sim$choice, sim$price, sweetness)
+
+true_theta <- unlist(true_params)
+data.frame(
+  parameter = c("const_A", "const_B", "beta_sweet", "alpha_price"),
+  true_value = round(true_theta, 4),
+  estimate = round(fit$theta, 4),
+  se = round(fit$se, 5),
+  ci_low = round(fit$theta - 1.96 * fit$se, 4),
+  ci_high = round(fit$theta + 1.96 * fit$se, 4)
+)
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `N` を300、3000、10000と変えて、SEがおおよそ $1/\sqrt{N}$ で縮むことを確認しよう。
+- `alpha_price <- 0.001`（価格がほぼ効かない世界）にすると、`alpha_price` のSEは相対的にどうなるか。データの中の価格変動が「効用の差」をほとんど生まないとき、推定は難しくなる。
+- 真値が95%信頼区間から外れることもある。何度かseedを変えて（`set.seed(1)` など）、だいたい20回に1回くらい外れる感覚を掴もう。
+:::
+
+## 実験3：弾力性行列とIIA — logitの便利さと不便さ
+
+推定はスキップして、パラメータから直接、弾力性行列 $\eta_{jj} = -\alpha p_j (1 - s_j)$、$\eta_{jk} = \alpha p_k s_k$ を計算する。**列を縦に見る**のがポイント。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+theta <- c(1.2, 0.6, 0.5, 0.02)   # const_A, const_B, beta_sweet, alpha_price
+price_base <- c(130, 120, 110)     # A, B, Cの価格
+sweetness  <- c(3, 6, 5)           # A, B, Cの甘さ
+# -----------------------
+
+E <- elasticity_matrix(theta, price_base, sweetness)
+round(E, 4)
+```
+
+::: {.callout-note}
+## やってみよう
+
+- B列（Bの値上げの影響）を縦に見ると、AとCの交差弾力性が**完全に同じ**になっている。`sweetness` をどう変えてもこの一致が崩れないことを確認しよう。これがIIA。
+- `theta[4]`（価格係数）を0.05にすると、対角（自己弾力性）はどう変わるか。
+- Bの価格を200にして（シェアを潰して）、B列の交差弾力性がどう変わるか見てみよう。交差弾力性は「相手のシェア」だけで決まる。
+:::
+
+## 実験4：収入を最大化する価格を探す
+
+需要モデルが手に入ると、価格設定の問いに答えられる。Aの価格を動かして、シェアと収入（価格 × シェア）の曲線を描く。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+theta <- c(1.2, 0.6, 0.5, 0.02)   # 実験2の推定値を貼り付けてもよい
+price_B <- 120                     # 競合Bの価格
+price_C <- 110                     # 競合Cの価格
+# -----------------------
+
+sweetness <- c(3, 6, 5)
+grid <- seq(60, 250, by = 2)
+share_A <- revenue_A <- numeric(length(grid))
+for (i in seq_along(grid)) {
+  s <- compute_shares(theta, matrix(c(grid[i], price_B, price_C), nrow = 1), sweetness)[1, ]
+  share_A[i] <- s[2]
+  revenue_A[i] <- grid[i] * s[2]
+}
+best <- grid[which.max(revenue_A)]
+
+df <- data.frame(price = grid, share = share_A, revenue = revenue_A)
+ggplot(df, aes(price, revenue)) +
+  geom_line(color = "#DD8452", linewidth = 1) +
+  geom_vline(xintercept = best, linetype = "dashed", color = "gray40") +
+  annotate("text", x = best + 12, y = max(revenue_A) * 0.5,
+           label = paste0("best = ", best)) +
+  labs(x = "price of brand A", y = "revenue (price x share)")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- 価格係数 `theta[4]` を0.01（鈍感な客）と0.05（敏感な客）にして、収入最大化価格がどう動くか比べよう。
+- 競合Bが値下げ（`price_B <- 90`）してきたら、Aの最適価格はどうすべきか。モデルに聞いてみよう。
+- 実験2で自分が推定した `fit$theta` をここに貼れば、「推定 → 意思決定」のパイプラインが一周する。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture2.html`（導出・推論・モンテカルロの完全版）
+- coding課題：`assignment2.qmd`（動画配信サービスのプラン選択を題材に、今日の手順をゼロから自分で実装する）

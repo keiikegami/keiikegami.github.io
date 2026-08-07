@@ -1,0 +1,383 @@
+---
+title: "課題9：階層モデルと shrinkage — 経験ベイズと Gibbs サンプラー"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+set.seed(20269)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この課題のねらい
+
+第9回でやった **partial pooling / shrinkage** を、自分の手で最初から最後まで通す。60店舗のクーポン施策を題材に、(1) データを自作し、(2) 経験ベイズのモーメント法で縮小推定を作り、(3) MSE で no pooling に勝つことを確かめ、(4) Gibbs サンプラーを手実装してフルベイズの事後分布を出し、(5) 点推定ランキングでなく事後確率でターゲティングする、という流れだ。
+
+- **Part 1**：60店舗のクーポン施策 DGP を自作（40点）。
+- **Part 2**：経験ベイズ・MSE比較・Gibbs実装・確率ベースのターゲティング（60点）。
+
+配点は合計100点。手を動かせば2〜4時間で終わる分量。**完全条件付き分布の式は下に与える**ので、まずコードの穴を埋めることから始めよ。焦らず、まずデータを作り、縮小の様子を眺め、それから Gibbs に進もう。
+:::
+
+この課題は講義ノート（`lecture9.qmd`）と同じ構造だが、**設定（店舗数・ノイズの大きさ・閾値・文脈）は変えてある**。ノートのコードをコピペするだけでは通らないので、自分で理解して埋めること。
+
+---
+
+# Part 1：クーポン施策データを自作する（40点）
+
+## 舞台設定
+
+あるドラッグストアチェーンが、全 $N=60$ 店舗でクーポン施策を打った。店舗 $i$ の**真のクーポン効果**（1人あたり購入額の増分、単位：百円）を $\theta_i$ とする。効果は店舗ごとに違い、共通の分布から生まれる。各店舗では $n_i$ 人の来店客について効果が観測されるが、**店舗の規模はバラバラ**（大型店は客が多く、小型店は少ない）。
+
+モデル（条件付き分布の束）は次の通り。店舗 $i$、客 $j$：
+
+$$
+\theta_i \sim N(\bar\theta,\ \tau^2), \qquad
+y_{ij} \mid \theta_i \sim N(\theta_i,\ \sigma^2).
+$$
+
+店舗 $i$ の標本平均 $\bar y_i = \frac{1}{n_i}\sum_j y_{ij}$ が、その店の「生のクーポン効果推定値（no pooling 推定）」だ。標本平均の分布は $\bar y_i \mid \theta_i \sim N(\theta_i,\ \sigma^2/n_i)$ なので、**測定分散は $s_i^2 = \sigma^2/n_i$**（客が少ない店ほど大きい）。
+
+**真のパラメータ**（あなたはこれを後で推定で回収する）：
+
+| 記号 | 意味 | 値 |
+|---|---|---|
+| $\bar\theta$ | 全店平均のクーポン効果 | 2.0 |
+| $\tau^2$ | 店舗間の効果のばらつき（分散） | 1.0 |
+| $\sigma^2$ | 客1人あたりの観測ノイズ（既知とする） | 9.0 |
+| $N$ | 店舗数 | 60 |
+
+$\sigma^2$ は既知として扱う（実務では店内のばらつきから別途推定できるが、この課題では簡単のため与える）。$n_i$ は $5$〜$100$ の範囲でバラバラにする。
+
+## 問1（15点）：DGP のパラメータと店舗別データを作る
+
+以下のコードを完成させよ。店舗ごとの真の効果 $\theta_i$、観測数 $n_i$、そして**店舗別の標本平均** $\bar y_i$（no pooling 推定）を生成する。$\bar y_i$ は $N(\theta_i,\ \sigma^2/n_i)$ から直接引いてよい（客ごとの生データを作ってから平均しても同じ）。
+
+```{r}
+#| eval: false
+# 次元・真のパラメータ
+N          <- 60
+mu_true    <- 2.0     # 全店平均効果 theta_bar
+tau2_true  <- 1.0     # 店舗間分散
+sigma2     <- 9.0     # 客1人あたりのノイズ分散（既知）
+
+set.seed(23)          # この課題は seed=23 で固定（採点の再現性のため）
+
+# ---- ここを埋める ----
+# 店ごとの観測数 n_i：5..100 の整数を一様に（不均等な店舗規模）。sample() を使う
+n_i        <- ______
+# 店ごとの真の効果 theta_i ~ N(mu_true, tau2_true)。rnorm の第3引数は「標準偏差」なので sqrt に注意
+theta_true <- ______
+# 店舗平均 ybar_i の測定分散 s2_i = sigma2 / n_i
+s2_i       <- ______
+# no pooling 推定 = 店舗別標本平均 ybar_i ~ N(theta_i, s2_i)。rnorm(N, 平均, 標準偏差)
+ybar       <- ______
+```
+
+::: {.callout-tip}
+## ヒント：なぜ小さい店ほど推定が暴れるのか
+
+$\bar y_i \sim N(\theta_i,\ \sigma^2/n_i)$ だから、$n_i$ が小さい店ほど分散 $\sigma^2/n_i$ が大きく、真の効果 $\theta_i$ から大きくズレた値が出やすい。$n_i=6$ の店なら $s_i^2 = 9/6 = 1.5$、$n_i=96$ の店なら $s_i^2 = 9/96 \approx 0.09$——16倍以上の差がある。この非対称なノイズが、shrinkage の効きどころだ。
+:::
+
+## 問2（15点）：no pooling 推定と真値の散布図、過分散の確認
+
+生成したデータについて、(a) no pooling 推定 $\bar y_i$ と真値 $\theta_i$ の散布図を描き（対角線を引く）、(b) 「no pooling 推定の散らばりが真の効果の散らばりより大きい（過分散）」ことを標準偏差の比較で示せ。
+
+```{r}
+#| eval: false
+# ---- ここを埋める ----
+# (a) no pooling 推定 vs 真値の散布図（点を n_i で色分けすると小さい店の暴れが見える）
+df_np <- data.frame(truth = theta_true, nopool = ybar, n_i = n_i)
+ggplot(df_np, aes(truth, nopool, color = n_i)) +
+  geom_abline(slope = 1, intercept = 0, color = "grey60") +
+  geom_point(size = 2, alpha = 0.85) +
+  scale_color_viridis_c(name = "観測数 n_i") +
+  labs(title = "no pooling 推定 vs 真値", x = "真の効果 theta_i", y = "no pooling 推定 (ybar_i)")
+
+# (b) 過分散の確認
+cat("真の効果の標準偏差       :", round(sd(theta_true), 3), "\n")
+cat("no pooling 推定の標準偏差:", round(sd(ybar), 3), "\n")
+```
+
+::: {.callout-note}
+## この散布図の読み方
+
+対角線（推定=真値）から縦に大きく外れている点ほど、推定誤差が大きい。色（$n_i$）に注目すると、**濃い色＝小さい店ほど対角線から外れやすい**はずだ。この「小さい店が外れる」構造が、次の Part 2 で全体平均に縮められる対象になる。
+:::
+
+## 問3（10点）：測定分散と観測数の関係を可視化
+
+$s_i^2 = \sigma^2/n_i$（測定分散）を $n_i$ に対してプロットし、「小さい店ほど測定分散が大きい」ことを図で確認せよ。この $s_i^2$ が、次節の縮小係数 $B_i$ を決める。
+
+```{r}
+#| eval: false
+# ---- ここを埋める ----
+ggplot(data.frame(n_i = n_i, s2_i = s2_i), aes(n_i, s2_i)) +
+  geom_point(color = "#1f77b4", size = 2, alpha = 0.8) +
+  labs(title = "観測数と測定分散", x = "観測数 n_i", y = expression("測定分散 "*s[i]^2*" = sigma2 / n_i"))
+```
+
+---
+
+# Part 2：経験ベイズ・Gibbs・ターゲティング（60点）
+
+## 問4（12点）：経験ベイズのモーメント法で shrinkage
+
+モーメント法で $\hat{\bar\theta}$ と $\hat\tau^2$ を推定し、縮小推定 $\hat\theta_i = B_i\hat{\bar\theta} + (1-B_i)\bar y_i$、$B_i = s_i^2/(s_i^2+\hat\tau^2)$ を計算せよ。次に (a) $\hat{\bar\theta}, \hat\tau^2$ が真値の近くに来ることを確認し、(b) 「no pooling → shrinkage 後」の矢印プロットを描け。
+
+モーメント法の式（講義 §3.1）：$\hat{\bar\theta} = \frac1N\sum_i \bar y_i$、$\hat\tau^2 = \widehat{\mathrm{Var}}(\bar y_i) - \overline{s_i^2}$。
+
+```{r}
+#| eval: false
+# ---- 経験ベイズ（モーメント法）----
+mu_hat   <- ______     # ybar の平均
+tau2_hat <- ______     # Var(ybar) から平均測定分散 mean(s2_i) を引く。負にならないよう max(..., 1e-6)
+B_i      <- ______     # 縮小係数 s2_i / (s2_i + tau2_hat)
+eb_est   <- ______     # 縮小公式 B_i * mu_hat + (1 - B_i) * ybar
+
+# (a) 真値の回収を確認
+cat("mu_hat   =", round(mu_hat, 3),   " （真値", mu_true, "）\n")
+cat("tau2_hat =", round(tau2_hat, 3), " （真値", tau2_true, "）\n")
+```
+
+```{r}
+#| eval: false
+# (b) 矢印プロット（no pooling -> shrinkage 後）。色 = n_i。
+df_arrow <- data.frame(nopool = ybar, eb = eb_est, n_i = n_i)
+ggplot(df_arrow) +
+  geom_segment(aes(x = 1, xend = 2, y = nopool, yend = eb, color = n_i),
+               arrow = arrow(length = unit(0.12, "cm")), alpha = 0.8) +
+  geom_hline(yintercept = mu_hat, linetype = "dashed", color = "grey40") +
+  scale_x_continuous(breaks = c(1, 2), labels = c("no pooling", "shrinkage 後"), limits = c(0.9, 2.3)) +
+  scale_color_viridis_c(name = "観測数 n_i") +
+  labs(title = "経験ベイズによる縮小", x = NULL, y = "推定された店舗効果")
+```
+
+::: {.callout-warning}
+## よくあるバグ：tau2_hat が負になる
+
+`var(ybar) - mean(s2_i)` は、たまたま観測の散らばりが小さいと**負になる**ことがある（分散が負なのは無意味）。だから `max(..., 1e-6)` で下限を置く。もし `tau2_hat` が0近くに張り付いたら、それは「店舗差がほとんど無い（＝ complete pooling でよい）」という診断でもある。今回の DGP（真の $\tau^2=1$）ではそうはならないはずだ。
+:::
+
+## 問5（10点）：MSE 比較表（complete / no pooling / EB）
+
+3つの推定量の MSE $= \frac1N\sum_i(\hat\theta_i - \theta_i)^2$ を計算し、表にせよ。経験ベイズが最小になることを確認する。さらに、データ生成を1000回繰り返して**平均的にも**経験ベイズが勝つことをモンテカルロで示せ。
+
+```{r}
+#| eval: false
+# ---- ここを埋める ----
+mse <- function(est) mean((est - theta_true)^2)
+data.frame(
+  method = c("complete pooling", "no pooling", "empirical Bayes"),
+  MSE    = round(c(mse(mu_hat), mse(ybar), mse(eb_est)), 4)   # complete は全店 mu_hat
+) |> kable(caption = "3つの推定量の MSE")
+
+# モンテカルロ：1000 データセットで平均 MSE を比較
+one_rep <- function() {
+  n   <- sample(5:100, N, replace = TRUE)
+  s2  <- sigma2 / n
+  th  <- rnorm(N, mu_true, sqrt(tau2_true))
+  y   <- rnorm(N, th, sqrt(s2))
+  muh <- mean(y)
+  t2h <- max(var(y) - mean(s2), 1e-6)
+  B   <- s2 / (s2 + t2h)
+  eb  <- B * muh + (1 - B) * y
+  c(complete = mean((muh - th)^2), nopool = mean((y - th)^2), eb = mean((eb - th)^2))
+}
+set.seed(20269)
+sim <- replicate(1000, one_rep())
+round(rowMeans(sim), 4)
+cat("EB が no pooling に勝った割合:", round(mean(sim["eb", ] < sim["nopool", ]), 3), "\n")
+```
+
+## 問6（20点）：Gibbs サンプラーを手実装する
+
+正規階層モデルの Gibbs サンプラーを完成させよ。**完全条件付き分布は下に与える**（講義 §6.1 の導出結果）。$\bar\theta$ には広い正規 prior、$\tau^2$ には逆ガンマ prior を置く。
+
+**完全条件付き分布（これを使え）**：
+
+$$
+\theta_i \mid \cdots \sim N(m_i, v_i),\quad
+v_i = \left(\frac{n_i}{\sigma^2} + \frac{1}{\tau^2}\right)^{-1},\quad
+m_i = v_i\left(\frac{n_i \bar y_i}{\sigma^2} + \frac{\bar\theta}{\tau^2}\right).
+$$
+
+$$
+\bar\theta \mid \cdots \sim N\!\left(\frac{\sum_i \theta_i/\tau^2 + \mu_0/\kappa^2}{N/\tau^2 + 1/\kappa^2},\ \left(\frac{N}{\tau^2} + \frac{1}{\kappa^2}\right)^{-1}\right).
+$$
+
+$$
+\tau^2 \mid \cdots \sim \text{Inv-Gamma}\!\left(a_0 + \frac{N}{2},\ b_0 + \frac12\sum_i(\theta_i - \bar\theta)^2\right)
+\quad\Longrightarrow\quad
+\tau^2 = \frac{1}{\texttt{rgamma}(1, \text{shape}, \text{rate})}.
+$$
+
+```{r}
+#| eval: false
+# ---- この関数を完成させる ----
+gibbs_hier <- function(ybar, n_i, sigma2, n_draws = 2000, burn = 500,
+                       mu0 = 0, kappa2 = 1e6, a0 = 0.01, b0 = 0.01) {
+  N     <- length(ybar)
+  theta <- ybar                            # 初期値
+  mu    <- mean(ybar)
+  tau2  <- max(var(ybar), 0.1)
+  keep_theta <- matrix(0, n_draws, N)
+  keep_mu    <- numeric(n_draws)
+  keep_tau2  <- numeric(n_draws)
+  for (it in 1:(n_draws + burn)) {
+    # (1) theta_i を引く（ベクトル化）。上の theta_i の完全条件付き分布の v_i, m_i を実装
+    v_i   <- ______     # 事後分散：精度 (n_i/sigma2 + 1/tau2) の逆数。分散でなく精度を足す
+    m_i   <- ______     # 事後平均：v_i * (データ精度*ybar + prior精度*mu)
+    theta <- rnorm(N, m_i, sqrt(v_i))       # rnorm の第3引数は標準偏差 = sqrt(v_i)
+    # (2) mu を引く（mean_ と prec は用意済み）
+    prec  <- N / tau2 + 1 / kappa2
+    mean_ <- (sum(theta) / tau2 + mu0 / kappa2) / prec
+    mu    <- ______     # rnorm(1, mean_, 標準偏差)。標準偏差 = sqrt(1/prec)
+    # (3) tau2 を引く（逆ガンマ = 1/ガンマ）。shape, rate は用意済み
+    shape <- a0 + N / 2
+    rate  <- b0 + 0.5 * sum((theta - mu)^2)
+    tau2  <- ______     # 逆ガンマ = 1 / rgamma(1, shape = shape, rate = rate)
+    if (it > burn) {
+      k <- it - burn
+      keep_theta[k, ] <- theta
+      keep_mu[k]      <- mu
+      keep_tau2[k]    <- tau2
+    }
+  }
+  list(theta = keep_theta, mu = keep_mu, tau2 = keep_tau2)
+}
+
+set.seed(23)
+fit <- gibbs_hier(ybar, n_i, sigma2, n_draws = 2000, burn = 500)
+```
+
+続いて、(a) $\bar\theta, \tau^2$ の traceplot、(b) 店舗別事後平均が経験ベイズ closed form と一致すること、を示せ。
+
+```{r}
+#| eval: false
+# (a) traceplot
+df_trace <- data.frame(iter = seq_along(fit$mu), mu = fit$mu, tau2 = fit$tau2) |>
+  pivot_longer(c(mu, tau2), names_to = "param", values_to = "value")
+ggplot(df_trace, aes(iter, value)) +
+  geom_line(color = "#1f77b4", linewidth = 0.3) +
+  facet_wrap(~param, scales = "free_y") +
+  labs(title = "Gibbs の traceplot", x = "反復", y = NULL)
+
+# (b) Gibbs 事後平均 vs 経験ベイズ
+post_theta_mean <- colMeans(fit$theta)
+ggplot(data.frame(eb = eb_est, gibbs = post_theta_mean), aes(eb, gibbs)) +
+  geom_abline(slope = 1, intercept = 0, color = "grey60") +
+  geom_point(color = "#1f77b4", size = 2, alpha = 0.8) +
+  labs(title = "Gibbs 事後平均 = 経験ベイズ", x = "経験ベイズ", y = "Gibbs 事後平均")
+cat("Gibbs事後平均 と EB の相関:", round(cor(post_theta_mean, eb_est), 5), "\n")
+```
+
+::: {.callout-warning}
+## よくあるバグ：rgamma の rate と scale の取り違え
+
+R の `rgamma` は `rate`（尺度の逆数）と `scale` のどちらでも指定できるが、**両方を混同すると全く違う分布になる**。ここでは `rate = b0 + 0.5*sum((theta-mu)^2)` を使う。逆ガンマは「ガンマの逆数」なので `1 / rgamma(...)` で作る。もし $\tau^2$ の traceplot が異常に大きい／小さい値で暴れたら、まず rate/scale と逆数の取り方を疑え。また `v_i` の計算で `n_i / sigma2` を `n_i * sigma2` と書き間違えるミスも多い（精度＝分散の逆数、を思い出せ）。
+:::
+
+## 問7（10点）：点推定でなく事後確率でターゲティング
+
+追加予算を「効果の高い店」に投じたい。ここでは **「効果が $c=3.0$（百円）を超える確率が80%以上の店」** を選抜し、no pooling の点推定トップ10と比較せよ。どの店が「点推定では上位なのに確率ルールで落ちるか」、その店の $n_i$ と真値に注目して1〜2文でコメントすること。
+
+```{r}
+#| eval: false
+# ---- ここを埋める ----
+c_thresh <- 3.0
+# 各店について P(theta_i > c | data) を、事後サンプル fit$theta が c を超えた割合として計算
+# ヒント：fit$theta は (draw 数 x 店数) の行列。列ごとに (fit$theta > c_thresh) の平均を取る
+prob_gt  <- ______
+sel_prob <- which(prob_gt >= 0.80)          # 確率ルールで選抜
+top10_np <- order(ybar, decreasing = TRUE)[1:10]   # no pooling トップ10
+
+cat("確率ルール P(theta>3.0)>=0.8 の店数:", length(sel_prob), "\n")
+cat("no pooling トップ10 のうち確率ルールに落ちた店:", length(setdiff(top10_np, sel_prob)), "店\n")
+
+# 点推定では上位、だが確率ルールで落ちた店の正体
+dropped <- setdiff(top10_np, sel_prob)
+if (length(dropped) > 0) {
+  data.frame(
+    store = dropped, n_i = n_i[dropped],
+    ybar = round(ybar[dropped], 2), post_mean = round(post_theta_mean[dropped], 2),
+    prob_gt = round(prob_gt[dropped], 2), truth = round(theta_true[dropped], 2)
+  ) |> arrange(desc(ybar)) |> kable(caption = "点推定では上位、確率ルールで落ちた店")
+}
+```
+
+::: {.callout-tip}
+## ヒント：何が起きているか
+
+閾値 $c=3.0$ は全店平均 $\bar\theta=2.0$ より**上**にある。だから「効果が3.0を超えると確信できる」ためには、点推定が高いだけでなく、**不確実性が小さい（＝ $n_i$ が大きい）**必要がある。$n_i$ が小さい店は、$\bar y_i$ がたまたま高くても事後分布が横に広く、$P(\theta_i > 3.0)$ が0.8に届かない。真値 `truth` を見ると、落ちた店の中に「実は3.0を超えていない」店が混じっているはずだ。確率ルールは、そういう**上振れした小さい店への無駄打ち**を自動で避けている。
+:::
+
+## 問8（8点）：経営含意を3行で
+
+上の分析（矢印プロット、MSE、確率ベースのターゲティング）を踏まえ、**このドラッグストアの本部がクーポン施策の店舗別評価をどう運用すべきか**を、経営含意として3行で書け。とくに「ダッシュボードの店舗別ランキングをそのまま信じることの危険」と「小さい店の扱い」に触れること。
+
+```{r}
+#| eval: false
+# 判断材料を1つの表にまとめておくと書きやすい
+data.frame(
+  approach = c("no pooling トップ10", "確率ルール P(>3.0)>=0.8"),
+  n_selected = c(10, length(sel_prob))
+) |> kable()
+```
+
+::: {.callout-note}
+## この課題の締め
+
+第9回で学んだ通り、「個別に見たいが個別のデータは少ない」というジレンマは、あらゆるマーケの現場（店舗評価・顧客ターゲティング・営業評価・レコメンド）に現れる。今日あなたが手を動かした shrinkage と Gibbs は、次回（第10回）の顧客パネル分析（BG/NBD）で、購買履歴の異質性推定として再登場する。「異質性を分布でモデル化し、データの薄い個体を全体に縮める」という発想を、自分の道具にしてほしい。
+:::
+
+---
+
+## 提出方法
+
+- この `.qmd` の穴埋め（`______`）をすべて埋め、各 chunk の `#| eval: false` を外して、最後まで render できる状態にする。
+- 各問の出力（表・図）とコメントを含めること。
+- render した HTML を提出。
+
+::: {.callout-important}
+## 配点（合計100点）
+
+- 問1（15）：DGP のパラメータ・観測数・店舗別標本平均の生成
+- 問2（15）：no pooling 推定 vs 真値の散布図、過分散の確認
+- 問3（10）：測定分散と観測数の関係の可視化
+- 問4（12）：経験ベイズのモーメント法・縮小推定・矢印プロット
+- 問5（10）：MSE比較表とモンテカルロでの平均的優位
+- 問6（20）：Gibbs サンプラーの実装・traceplot・EBとの一致確認
+- 問7（10）：事後確率ベースのターゲティングと点推定との比較
+- 問8（8）：経営含意（3行）
+:::

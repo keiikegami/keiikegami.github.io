@@ -1,0 +1,232 @@
+---
+title: "Playground 1：予測と因果の実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture1.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（講義ノートと同じDGP・関数群。編集不可・自動実行）----
+
+# 広告費シミュレーション：地力(quality)が広告費と売上の両方に効く
+# conf_strength: quality→広告費の係数（講義ノートでは30）
+# beta_quality : quality→log(売上)の係数（講義ノートでは0.4）
+# beta_ad      : 真の広告効果（講義ノートでは0.002）
+simulate_stores <- function(n_stores, conf_strength, beta_quality,
+                            beta_ad = 0.002) {
+  quality  <- rnorm(n_stores, mean = 0, sd = 1)
+  ad_spend <- 100 + conf_strength * quality + rnorm(n_stores, mean = 0, sd = 15)
+  ad_spend <- pmax(ad_spend, 10)
+  log_sales <- 5.0 + beta_quality * quality + beta_ad * ad_spend +
+    rnorm(n_stores, mean = 0, sd = 0.15)
+  data.frame(quality = quality, ad_spend = ad_spend, log_sales = log_sales)
+}
+
+# 価格シミュレーション：需要ショックが価格と数量の両方に効く
+# gamma_price: 需要ショック→log(価格)の係数（講義ノートでは0.3）
+# phi_demand : 需要ショック→log(数量)の直接効果（講義ノートでは0.8）
+simulate_price_weeks <- function(n_weeks, gamma_price, phi_demand,
+                                 true_elasticity = -1.2) {
+  demand_shock <- rnorm(n_weeks, mean = 0, sd = 1)
+  log_price <- log(1000) + gamma_price * demand_shock +
+    rnorm(n_weeks, mean = 0, sd = 0.05)
+  log_q <- log(500) + true_elasticity * log_price + phi_demand * demand_shock +
+    rnorm(n_weeks, mean = 0, sd = 0.1)
+  data.frame(demand_shock = demand_shock, log_price = log_price, log_q = log_q)
+}
+
+# 「広告費をmultiplier倍にしたら売上は何%変わるか」を
+# 真のモデルと素朴OLSモデルの両方で計算する
+naive_vs_true_effect <- function(df, multiplier = 2, beta_ad = 0.002) {
+  beta_naive <- coef(lm(log_sales ~ ad_spend, data = df))[["ad_spend"]]
+  delta_ad   <- (multiplier - 1) * df$ad_spend
+  true_pct   <- (exp(mean(beta_ad * delta_ad)) - 1) * 100
+  naive_pct  <- (exp(mean(beta_naive * delta_ad)) - 1) * 100
+  c(true_pct = true_pct, naive_pct = naive_pct)
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：交絡の強さと素朴OLSのバイアス
+
+講義ノートのシミュレーション1、「広告費と売上の罠」の世界だ。地力（quality）の強い店舗ほど本部が広告費を多く配分し、地力はそれ自体が売上を押し上げる。交絡のツマミは2つある。quality→広告費の `conf_strength`（ノートでは30）と、quality→売上の `beta_quality`（ノートでは0.4）だ。真の広告効果は `0.002` しかない。qualityを見ない素朴なOLSの係数が真値の数倍に膨らみ、quality込みのOLSが真値のすぐ近くに戻ることを、表で確かめよう。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+conf_strength <- 30    # quality→広告費の強さ（ノートでは30。交絡の源泉その1）
+beta_quality  <- 0.4   # quality→log(売上)の効果（ノートでは0.4。交絡の源泉その2）
+n_stores      <- 300   # 店舗数
+# -----------------------
+
+set.seed(20261)
+true_beta_ad <- 0.002  # 真の広告効果（広告費1万円で売上+0.2%程度）
+df <- simulate_stores(n_stores, conf_strength, beta_quality,
+                      beta_ad = true_beta_ad)
+
+fit_naive <- lm(log_sales ~ ad_spend, data = df)
+fit_ctrl  <- lm(log_sales ~ ad_spend + quality, data = df)
+
+b_naive <- coef(fit_naive)[["ad_spend"]]
+b_ctrl  <- coef(fit_ctrl)[["ad_spend"]]
+
+data.frame(
+  model   = c("naive OLS (ad_spend only)", "OLS with quality", "true value"),
+  beta_ad = round(c(b_naive, b_ctrl, true_beta_ad), 5),
+  bias    = round(c(b_naive, b_ctrl, true_beta_ad) - true_beta_ad, 5)
+)
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `conf_strength <- 0`（本部が地力と無関係に予算を配る世界）にすると、素朴OLSの係数は真値0.002にほぼ一致するか。予想してから実行しよう。
+- `beta_quality <- 0.8`（地力の売上への効果を2倍）にすると、素朴OLSの係数はどれくらい膨らむか。広告の真の効果は何ひとつ変わっていないのに、である。
+- このバイアスは、データを増やせば消える種類の問題だろうか。予想してから `n_stores` を10倍にして確かめ、「識別の問題」と「推定精度の問題」の違いを自分の言葉で説明してみよう。
+:::
+
+## 実験2：価格の内生性 — 弾力性の符号が逆転する瞬間
+
+講義ノートのシミュレーション2、「値上げすると売上が増える？」の世界。繁忙期（需要ショックが大きい週）ほど店は強気の価格を付ける。その強気さが `gamma_price`（ノートでは0.3）だ。真の需要曲線は弾力性-1.2の右下がりなのに、log-log OLSの推定弾力性は `gamma_price` 次第で符号までひっくり返る。図は両対数なので、真の需要曲線もOLSの回帰直線もまっすぐな線として重なる。`gamma_price` を0から少しずつ上げて（あるいは0.3から少しずつ下げて）、推定値がプラスに転じる境目を探そう。境目の近くでは標本誤差が邪魔をするので、探索するときは `n_weeks <- 20000` にしておくと見やすい。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+gamma_price <- 0.3    # 需要ショック→価格の強さ（ノートでは0.3。0で交絡が消える）
+phi_demand  <- 0.8    # 需要ショック→数量の直接効果（ノートでは0.8）
+n_weeks     <- 200    # 週数（境目を探すときは20000に増やすとよい）
+# -----------------------
+
+set.seed(20261)
+true_elasticity <- -1.2
+df <- simulate_price_weeks(n_weeks, gamma_price, phi_demand,
+                           true_elasticity = true_elasticity)
+
+fit   <- lm(log_q ~ log_price, data = df)
+e_hat <- coef(fit)[["log_price"]]
+
+print(data.frame(
+  method     = c("log-log OLS", "true elasticity"),
+  elasticity = round(c(e_hat, true_elasticity), 3)
+))
+
+grid <- seq(min(df$log_price), max(df$log_price), length.out = 50)
+lines_df <- data.frame(
+  log_price = rep(grid, 2),
+  log_q = c(coef(fit)[[1]] + e_hat * grid,
+            log(500) + true_elasticity * grid),
+  curve = rep(c("OLS fit", "true demand curve (shock fixed at 0)"), each = 50)
+)
+
+ggplot() +
+  geom_point(data = df, aes(log_price, log_q), alpha = 0.35, color = "gray55") +
+  geom_line(data = lines_df,
+            aes(log_price, log_q, color = curve, linetype = curve),
+            linewidth = 1) +
+  labs(x = "log(price)", y = "log(quantity)",
+       title = paste0("OLS slope = ", round(e_hat, 2),
+                      " vs true = ", true_elasticity),
+       color = NULL, linetype = NULL) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `gamma_price <- 0`（価格設定が需要ショックと無関係な世界）にすると、推定弾力性は真の-1.2の近くに戻る。残ったズレは標本誤差なので、`n_weeks` を増やすとさらに-1.2に近づくことも確かめよう。
+- `phi_demand <- 1.6`（需要ショックの直接効果を2倍）にすると、推定弾力性はどちら向きに、どれくらい動くか。交絡変数が需要に強く効くほど、汚染はひどくなるだろうか。
+- 符号がプラスに転じる境目の `gamma_price` は、あなたの予想よりずっと小さかったはずだ。価格そのものの変動の小ささ（logでsd 0.05）と見比べて、なぜこれほど僅かな交絡でOLSが壊れるのか考えてみよう。
+:::
+
+## 実験3：反実仮想の乖離 — 素朴な予測はどこまで信じてよいか
+
+実験1の世界に戻り、意思決定の言葉に翻訳する。「広告費を2倍にしたら売上は何%増えるか」という反実仮想を、(i) 真のモデルと (ii) 素朴OLSモデルの両方で計算し、その乖離を交絡の強さ $c$（quality→広告費の係数）の関数として描く。サンプルが大きいとき、素朴OLSの係数はおおよそ
+
+$$
+\hat{\beta}_{\mathrm{naive}} \approx \beta_{\mathrm{ad}} + \beta_{\mathrm{quality}} \times \frac{c}{c^2 + 15^2}
+$$
+
+に近づく（15は広告費に入るノイズの標準偏差）。分母に $c^2$ が入っているので、膨らみ方は単調ではない点にも注意して眺めよう。既定の設定では、真の効果はどの $c$ でも22%前後で一定（施策そのものは同じだから）なのに対し、素朴OLSに基づく予測は大きく暴走する。表の `gap_pp` 列が、%ポイントで測った両者の乖離だ。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+conf_grid     <- seq(0, 30, by = 2)   # 試す交絡の強さの範囲（ノートの値は30）
+beta_quality  <- 0.4                  # quality→log(売上)の効果（ノートでは0.4）
+ad_multiplier <- 2                    # 広告費を何倍にする施策か
+# -----------------------
+
+set.seed(20261)
+n_stores <- 5000   # 各点のサンプルサイズ（曲線を滑らかにするため大きめ）
+
+res <- sapply(conf_grid, function(cs) {
+  naive_vs_true_effect(simulate_stores(n_stores, cs, beta_quality),
+                       multiplier = ad_multiplier)
+})
+
+print(data.frame(
+  conf_strength = conf_grid,
+  true_pct      = round(res["true_pct", ], 1),
+  naive_pct     = round(res["naive_pct", ], 1),
+  gap_pp        = round(res["naive_pct", ] - res["true_pct", ], 1)
+))
+
+df_plot <- data.frame(
+  conf  = rep(conf_grid, 2),
+  pct   = c(res["true_pct", ], res["naive_pct", ]),
+  model = factor(rep(c("true effect", "naive OLS prediction"),
+                     each = length(conf_grid)),
+                 levels = c("true effect", "naive OLS prediction"))
+)
+ggplot(df_plot, aes(conf, pct, color = model)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 1.8) +
+  labs(x = "confounding strength c (quality -> ad_spend)",
+       y = paste0("predicted sales change from ads x", ad_multiplier, " (%)"),
+       color = NULL) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `conf_grid <- seq(0, 5, by = 0.5)` にして、弱い交絡の領域をズームしよう。乖離は $c$ がどのあたりから「無視できない」大きさになるか。
+- `ad_multiplier <- 1.2`（2割増というささやかな施策）に変えると、真の効果と乖離の大きさはそれぞれどう変わるか。
+- あなたが意思決定者なら、素朴OLSの予測を使ってよいのは乖離がどこまでのときか。基準を自分で決めて（例：真の効果の±2割以内なら許容、など）、それを満たす $c$ の範囲を表から読み取ってみよう。その範囲の狭さが、このコースで因果推論と構造モデルを学ぶ理由である。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture1.html`（コース全体の見取り図と、今回の2つのシミュレーションの完全版）
+- coding課題：`assignment1.qmd`（今回の価格弾力性シミュレーションを店舗パネルデータに拡張し、操作変数法（2SLS）で真の弾力性を回収する練習）

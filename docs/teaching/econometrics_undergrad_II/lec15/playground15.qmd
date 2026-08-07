@@ -1,0 +1,284 @@
+---
+title: "Playground 15：dynamic pricingの実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- このページのセルは第13回のbackward inductionを回すので、1回の実行に数秒かかることがある。慌てず待とう。
+- 元ネタは講義ノート（`lecture15.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（講義ノートと同じモデル。編集不可・自動実行）----
+
+# 来た客が価格pで買う確率（第2回以来のlogit）
+buy_prob <- function(p, theta0, alpha) {
+  1 / (1 + exp(-(theta0 - alpha * p)))
+}
+
+# 1期あたりの購買確率：到着確率 × 来た客が買う確率
+purchase_prob <- function(p, theta0, alpha, lambda_bar) {
+  lambda_bar * buy_prob(p, theta0, alpha)
+}
+
+# Bellman方程式をbackward inductionで解く（講義ノートのsolve_dpと同じ）
+# 状態(t,c)はRの行列では[t+1, c+1]に対応することに注意（Rは1始まり）
+solve_dp <- function(T_period, C_capacity, theta0, alpha, lambda_bar, p_grid) {
+  V     <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  pstar <- matrix(NA_real_, nrow = T_period + 1, ncol = C_capacity + 1)
+  lam_grid <- purchase_prob(p_grid, theta0, alpha, lambda_bar)
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      # V[t, c] = V(t-1, c-1)（購入時）、V[t, c + 1] = V(t-1, c)（非購入時）
+      obj <- lam_grid * (p_grid + V[t, c]) + (1 - lam_grid) * V[t, c + 1]
+      best <- which.max(obj)
+      V[t + 1, c + 1]     <- obj[best]
+      pstar[t + 1, c + 1] <- p_grid[best]
+    }
+  }
+  list(V = V, pstar = pstar)
+}
+
+# 固定価格pを使い続けたときの期待収益（決定論的な再帰で厳密に評価）
+evaluate_fixed_price <- function(p, T_period, C_capacity, theta0, alpha, lambda_bar) {
+  lam <- purchase_prob(p, theta0, alpha, lambda_bar)
+  W <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  cc <- 1:C_capacity
+  for (t in 1:T_period) {
+    W[t + 1, cc + 1] <- lam * (p + W[t, cc]) + (1 - lam) * W[t, cc + 1]
+  }
+  W[T_period + 1, C_capacity + 1]
+}
+
+# 与えられた価格政策（行列）を「真のモデル」の上で厳密に評価する
+evaluate_policy <- function(pstar_policy, T_period, C_capacity, theta0, alpha, lambda_bar) {
+  W <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  cc <- 1:C_capacity
+  for (t in 1:T_period) {
+    p_vec   <- pstar_policy[t + 1, cc + 1]
+    lam_vec <- purchase_prob(p_vec, theta0, alpha, lambda_bar)
+    W[t + 1, cc + 1] <- lam_vec * (p_vec + W[t, cc]) + (1 - lam_vec) * W[t, cc + 1]
+  }
+  W[T_period + 1, C_capacity + 1]
+}
+
+# 1シーズン分の販売を、動的価格と固定価格の両方で走らせる
+# 公平のため、同じ客の列（同じ乱数）を両方式にぶつける
+simulate_season_pair <- function(T_period, C_capacity, pstar_mat, p_fixed,
+                                 theta0, alpha, lam_season) {
+  u_arrive <- runif(T_period)
+  u_buy    <- runif(T_period)
+  rev_dyn <- 0; c_dyn <- C_capacity
+  rev_fix <- 0; c_fix <- C_capacity
+  i <- 0
+  for (t in T_period:1) {
+    i <- i + 1
+    if (u_arrive[i] < lam_season) {
+      if (c_dyn >= 1) {
+        p <- pstar_mat[t + 1, c_dyn + 1]
+        if (u_buy[i] < buy_prob(p, theta0, alpha)) { rev_dyn <- rev_dyn + p; c_dyn <- c_dyn - 1 }
+      }
+      if (c_fix >= 1) {
+        if (u_buy[i] < buy_prob(p_fixed, theta0, alpha)) { rev_fix <- rev_fix + p_fixed; c_fix <- c_fix - 1 }
+      }
+    }
+  }
+  c(dynamic = rev_dyn, fixed = rev_fix)
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：最適価格の地図 — backward inductionが1枚の絵になる
+
+航空券1路線を考える。状態は「残り日数 $t$」と「残り座席 $c$」。毎期、確率 `lambda_bar` で客が1人現れ、来た客は提示価格 $p$ に対してlogitで買うかどうかを決める。両者を掛けた1期あたりの購買確率が $\lambda(p)$ だ。企業が解くのは、第13回で学んだ形のBellman方程式1本である。
+
+$$
+V(t, c) = \max_p \{ \lambda(p) [ p + V(t-1, c-1) ] + (1 - \lambda(p)) V(t-1, c) \}
+$$
+
+境界条件は「席が尽きたら以後の収益ゼロ、期限が来たらゼロ」。これを $t$ の小さい方から順に埋めていくと、すべての状態での最適価格 $p^*(t,c)$ が1枚の地図になる。右下（時間はたっぷり・席はわずか）ほど高く、左上（締切間近・席が余っている）ほど安くなるはずだ。在庫がだぶつく領域では、価格は静学の最適価格まで下がって張り付く。
+
+```{webr}
+#| timelimit: 120
+# ---- いじるのはここ ----
+C_capacity <- 20    # 座席数（容量）。50以下を推奨
+T_period   <- 30    # 販売期間（日数）。50以下を推奨
+lambda_bar <- 0.95  # 1日に客が1人現れる確率（需要の強さ）
+# -----------------------
+
+set.seed(20265)  # このセルの計算は決定論的だが、作法として固定しておく
+theta0 <- 6.0
+alpha  <- 0.045
+p_grid <- seq(10, 350, by = 5)
+
+dp <- solve_dp(T_period, C_capacity, theta0, alpha, lambda_bar, p_grid)
+
+cat("期待総収益 V(T, C):", round(dp$V[T_period + 1, C_capacity + 1], 1), "\n")
+cat("残り", T_period, "日・残り", C_capacity, "席の価格:",
+    dp$pstar[T_period + 1, C_capacity + 1], "\n")
+cat("残り", T_period, "日・残り1席の価格:", dp$pstar[T_period + 1, 2], "\n")
+cat("残り1日・残り", C_capacity, "席の価格:", dp$pstar[2, C_capacity + 1], "\n")
+
+heat_df <- expand.grid(t = 1:T_period, c = 1:C_capacity)
+heat_df$price <- dp$pstar[cbind(heat_df$t + 1, heat_df$c + 1)]
+
+ggplot(heat_df, aes(t, c, fill = price)) +
+  geom_tile() +
+  scale_fill_viridis_c(name = "optimal price", option = "magma") +
+  labs(x = "remaining days (t)", y = "remaining seats (c)")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `C_capacity <- 40`（容量を倍増）にすると、地図の色はどう変わるか。予想してから実行しよう。希少性が消えた領域では地図はほぼ一色になる。
+- `lambda_bar <- 0.5`（需要が弱い路線）にすると、高価格の領域はどこまで後退するか。`0.95` との地図の違いを見比べよう。
+- 出力の数字を見ると、同じ「ラスト1席」でも、残り30日なら約200、残り1日なら約105と価格が大きく違う。この差はどこから来るのか。「その席を今売らずに取っておく価値（機会費用）」という言葉で説明してみよう。
+:::
+
+## 実験2：動的価格 vs 最適固定価格 — 優位はどこから来るか
+
+講義ノートでは、動的価格の最適固定価格に対するリフトは2.4%と「意外と小さい」ことを見た（Gallego and van Ryzinの理論通り、需要が読みやすい環境では固定価格は強い）。では動的価格の優位はどこから来るのか。ここでは、シーズンごとに需要の水準（到着率）がブレる世界を作る。企業は動的・固定のどちらの方式でも**平均の到着率しか知らずに**価格を設計する。条件は同じで、違いはただ1つ、動的価格だけが売れ行き（残り在庫）を見て走りながら軌道修正できることだ。同じ乱数の客の列を両方式にぶつけて、シーズン収入の分布を比べる。
+
+```{webr}
+#| timelimit: 120
+# ---- いじるのはここ ----
+sigma_demand <- 0.5   # 需要の変動性：シーズンごとの到着率のブレ（0で完全に安定、1で大荒れ）
+C_capacity   <- 15    # 座席数。10に絞ると在庫がタイトな路線になる
+n_sim        <- 200   # シミュレーションするシーズン数（200以下を推奨）
+# -----------------------
+
+set.seed(20265)
+T_period   <- 30
+theta0     <- 6.0
+alpha      <- 0.045
+lambda_bar <- 0.6     # 到着率の「平均」。両方式ともこの平均しか知らない
+p_grid     <- seq(10, 350, by = 5)
+
+# 平均的な需要を前提に、(a) 動的価格の政策と (b) 最適な固定価格1本を設計する
+dp <- solve_dp(T_period, C_capacity, theta0, alpha, lambda_bar, p_grid)
+fixed_rev <- sapply(p_grid, evaluate_fixed_price, T_period = T_period,
+                    C_capacity = C_capacity, theta0 = theta0,
+                    alpha = alpha, lambda_bar = lambda_bar)
+p_fixed <- p_grid[which.max(fixed_rev)]
+
+# シーズンごとに需要の水準が違う世界で、両方式を走らせる
+res <- matrix(0, nrow = n_sim, ncol = 2)
+for (m in 1:n_sim) {
+  lam_season <- min(max(lambda_bar * (1 + sigma_demand * rnorm(1)), 0), 1)
+  res[m, ] <- simulate_season_pair(T_period, C_capacity, dp$pstar, p_fixed,
+                                   theta0, alpha, lam_season)
+}
+
+mean_dyn <- mean(res[, 1]); mean_fix <- mean(res[, 2])
+cat("最適固定価格:", p_fixed, "\n")
+cat("平均シーズン収入（動的価格）:", round(mean_dyn, 1), "\n")
+cat("平均シーズン収入（固定価格）:", round(mean_fix, 1), "\n")
+cat("動的価格のリフト:", round(100 * (mean_dyn - mean_fix) / mean_fix, 2), "%\n")
+
+df <- data.frame(
+  revenue = c(res[, 1], res[, 2]),
+  policy  = rep(c("dynamic", "fixed"), each = n_sim)
+)
+ggplot(df, aes(revenue, fill = policy)) +
+  geom_histogram(position = "identity", alpha = 0.6, bins = 30) +
+  geom_vline(xintercept = c(mean_dyn, mean_fix), linetype = "dashed", color = "gray40") +
+  labs(x = "season revenue", y = "count", fill = NULL) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `sigma_demand <- 1`（需要が大荒れの世界）にすると、リフトと2つのヒストグラムの形はどう変わるか。
+- `C_capacity <- 10`（在庫がタイトな路線）にするとリフトはどうなるか。逆に `C_capacity <- 30`（在庫だぶだぶ）なら。「需要の変動性」と「在庫の逼迫度」がRM導入の判断軸だ、という講義の主張を自分の目で確かめよう。
+- 問い：`sigma_demand <- 0`（需要が完全に安定した世界）にすると、動的価格の優位はどれくらい残るか。ゼロにはならないはずだが、それはなぜか。到着と購買という「コイン投げ」のゆらぎが残っていることに注意して考えよう。
+:::
+
+## 実験3：需要推定の誤差が収入を蝕む
+
+コースの締めくくり。第2回から積み上げてきた需要推定の「誤差」は、消えてなくなるのではなく、価格政策を通じて収入ロスという金額に変換される。真の価格感応度 $\alpha$ に対して、それを $(1+e)$ 倍に見誤った値で価格政策を作り、その政策を**真のモデル**の上で走らせたときの期待収入を厳密に計算する。誤差 $e$ がゼロならロスもゼロ。曲線がどれだけ深く、そして左右にどれだけ非対称かを読もう。
+
+```{webr}
+#| timelimit: 120
+# ---- いじるのはここ ----
+alpha_true <- 0.045  # 真の価格感応度（これが需要弾力性を決める）
+err_max    <- 0.4    # 推定誤差の範囲：±40%まで振る
+C_capacity <- 20     # 座席数。10にすると在庫がタイトな路線になる
+# -----------------------
+
+set.seed(20265)  # このセルの計算は決定論的だが、作法として固定しておく
+T_period   <- 30
+theta0     <- 6.0
+lambda_bar <- 0.95
+p_grid     <- seq(10, 350, by = 5)
+
+# 真のalphaで解いた「本当に最適な」政策の収益がベンチマーク
+V_true <- solve_dp(T_period, C_capacity, theta0, alpha_true,
+                   lambda_bar, p_grid)$V[T_period + 1, C_capacity + 1]
+
+err_grid <- seq(-err_max, err_max, by = 0.05)
+loss_pct <- numeric(length(err_grid))
+for (i in seq_along(err_grid)) {
+  alpha_used <- alpha_true * (1 + err_grid[i])   # 見誤ったalphaで
+  policy <- solve_dp(T_period, C_capacity, theta0, alpha_used,
+                     lambda_bar, p_grid)$pstar   # 政策を作り
+  W <- evaluate_policy(policy, T_period, C_capacity, theta0,
+                       alpha_true, lambda_bar)   # 真のモデルの上で評価する
+  loss_pct[i] <- 100 * (V_true - W) / V_true
+}
+
+df <- data.frame(err = 100 * err_grid, loss = loss_pct)
+i_neg <- which.min(abs(df$err + 20))
+i_pos <- which.min(abs(df$err - 20))
+cat("alphaを", df$err[i_neg], "%見誤ったときの収入ロス:", round(df$loss[i_neg], 2), "%\n")
+cat("alphaを +", df$err[i_pos], "%見誤ったときの収入ロス:", round(df$loss[i_pos], 2), "%\n")
+
+ggplot(df, aes(err, loss)) +
+  geom_line(color = "#DD8452", linewidth = 1) +
+  geom_point(size = 1.8) +
+  geom_vline(xintercept = c(-20, 20), linetype = "dashed", color = "gray40") +
+  labs(x = "estimation error in alpha (%)", y = "revenue loss (%)")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `C_capacity <- 10`（在庫がタイトな路線）にすると、ロス曲線は深くなるか浅くなるか。予想してから実行しよう。
+- `err_max <- 0.6` に広げる、あるいは `alpha_true <- 0.09`（もともと価格に敏感な市場）にすると、曲線の形はどう変わるか。
+- 問い：弾力性を20%見誤ると、収入は何%失われるか。出力から読み取ろう。高めに見誤って安売りするのと、低めに見誤って強気の価格をつけるのとで、痛さは同じだろうか。推定の精度は、そのままカネに直結する。これがこのコースの最後のメッセージだ。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture15.html`（revenue management・surge pricing・推定→最適化パイプラインの完全版）
+- coding課題：`assignment15.qmd`（予約データの生成→backward induction→推定誤差が収益ロスへ変換される過程を、自分の手で一周する）

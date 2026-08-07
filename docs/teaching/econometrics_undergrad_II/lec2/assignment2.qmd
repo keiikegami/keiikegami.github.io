@@ -1,0 +1,271 @@
+---
+title: "課題2：動画配信サービスのプラン選択とlogit需要推定"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+set.seed(20263)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+::: {.callout-important}
+## この課題について
+
+この課題は、講義（`lecture2.qmd`）で扱った「缶コーヒー棚」のロジックを、動画配信サービスのプラン選択という別の題材で自分の手で再現する。設定（選択肢の数、パラメータの値、文脈）は講義ノートとは変えてあるので、コピー＆ペーストではなく、DGPと推定の中身を理解しながら実装してほしい。
+
+配点は合計100点。Part 1はDGPの実装と可視化（30点）、Part 2は推定・推論・反実仮想（70点）。手を動かして2〜4時間程度で終わる分量を想定している。ヒントは惜しみなく置いてあるので、詰まったら読んでほしい。
+:::
+
+## 設定：動画配信サービスのプラン選択
+
+とある動画配信サービスには、3つの有料プラン（Basic・Standard・Premium）と、「加入しない」（outside option）という選択肢がある。各プランには、月額料金（price、円）、画質（quality、1=SD、2=HD、3=4Kの3段階）、同時視聴可能数（screens、同時に視聴できる画面の数）という3つの属性がある。
+
+消費者 $i$ は、これらのプランのうちどれに加入するか（あるいは加入しないか）を、講義で学んだのと同じrandom utility modelで決める。消費者 $i$ がプラン $j$ から得る効用は
+
+$$
+u_{ij} = v_{ij} + \varepsilon_{ij}, \qquad v_{ij} = \beta_{\text{quality}} \cdot \text{quality}_j + \beta_{\text{screens}} \cdot \text{screens}_j - \alpha \cdot \text{price}_{ij}
+$$
+
+であり、$\varepsilon_{ij}$ はGumbel分布（Type I極値分布）に従う。加入しない（outside, $j=0$）の効用は $v_{i0}=0$ に正規化する。
+
+なお、このDGPにはブランド固有の切片（講義ノートのconst_A, const_Bのようなプラン別の定数項）を置いていない。理由は設問1.4で考えてもらう。
+
+## Part 1：シミュレーション設計（30点）
+
+### 1.1 プラン属性とパラメータの設定（5点）
+
+次のプラン属性と真のパラメータ値を使う。
+
+```{r}
+#| label: a2-setup
+
+N <- 3000
+
+# プラン属性: Basic, Standard, Premium
+price_base <- c(700, 1200, 1800)   # 月額（円）
+quality    <- c(1, 2, 3)            # 1=SD, 2=HD, 3=4K
+screens    <- c(1, 2, 4)            # 同時視聴可能数
+
+true_params <- list(
+  beta_quality = 0.9,
+  beta_screens = 0.35,
+  alpha_price  = 0.003   # 価格は円単位。0.003 x 1200円 ~ 3.6程度の効用差になるスケール
+)
+```
+
+**設問1.1**：`alpha_price = 0.003`という値が、月額700〜1800円という価格帯に対してどの程度のスケール感か、`alpha_price * price_base`を計算して確認せよ。もし`alpha_price = 0.03`だったら（10倍大きい場合）、効用差はどうなるか、シェアにどう影響しそうか、1〜2文で予想してから次に進むこと。
+
+```{r}
+#| label: a2-scale-check
+#| eval: false
+
+# ヒント: 以下を実行してスケール感を確認する
+true_params$alpha_price * price_base
+```
+
+### 1.2 Gumbel乱数によるデータ生成（15点）
+
+講義で導入した通り、Gumbel分布に従う乱数は一様乱数から`-log(-log(runif(n)))`で作れる。各消費者について、わずかな価格変動（プロモーションなど）を加えたうえで、効用を計算し、最大効用のプランを選ばせる関数を書け。
+
+```{r}
+#| label: a2-simulate-skeleton
+#| eval: false
+
+draw_gumbel <- function(n) {
+  u <- runif(n)
+  -log(-log(u))
+}
+
+simulate_subscription_choice <- function(n, price_base, quality, screens, params) {
+  # ヒント1: 価格にわずかな個人間ばらつきを与える（プロモーションや地域差のイメージ）。
+  #   例: price_noise <- matrix(rnorm(n * 3, mean = 0, sd = 40), nrow = n, ncol = 3)
+  #       price <- sweep(price_noise, 2, price_base, "+")
+  #       price <- pmin(pmax(price, 400), 2500)  # 極端な値をクリップ
+
+  # ヒント2: 決定的効用 v_ij を3プラン分計算する（cbindで3列の行列にする）。
+  #   delta <- cbind(
+  #     params$beta_quality*quality[1] + params$beta_screens*screens[1] - params$alpha_price*price[,1],
+  #     ...
+  #   )
+
+  # ヒント3: outside option（効用0）の列を先頭に追加する。
+  #   delta_full <- cbind(0, delta)
+
+  # ヒント4: Gumbel誤差を加えて、行ごとに最大値のインデックスを選ばせる。
+  #   eps <- matrix(draw_gumbel(n * 4), nrow = n, ncol = 4)
+  #   u <- delta_full + eps
+  #   choice <- apply(u, 1, which.max) - 1   # 0=outside, 1=Basic, 2=Standard, 3=Premium
+
+  # 戻り値として choice と price の両方を返すこと（後で使う）
+}
+```
+
+::: {.callout-tip}
+## ヒント：DGPのデバッグ手順
+
+1. まず`n=10`くらいの小さいサンプルでコードを走らせ、`choice`ベクトルの中身が0〜3の整数になっているか確認する。
+2. `table(choice)`で頻度を見て、極端に偏っていないか（例えば全員が0=outsideになっていないか）を確認する。全員が同じ選択肢に集中する場合、たいてい価格や属性のスケールがおかしい（1.1の設問を振り返ること）。
+3. うまくいったら`n=3000`で本番実行する。
+:::
+
+シミュレーションしたデータで、選択シェアの棒グラフを描け。
+
+```{r}
+#| label: a2-share-plot-skeleton
+#| eval: false
+
+sim_data <- simulate_subscription_choice(N, price_base, quality, screens, true_params)
+choice_vec <- sim_data$choice
+price_mat <- sim_data$price
+
+# ヒント: table()とggplotのgeom_col()で、outside/Basic/Standard/Premiumのシェアを棒グラフにする
+```
+
+### 1.3 属性別クロス集計（10点）
+
+各プランの選択者数（人数とシェア）を表にまとめよ。さらに、価格帯別（例えば価格を安い/普通/高いの3群に分けるなど、自分で工夫してよい）に選択シェアがどう変わるかを簡単なクロス集計で確認せよ。
+
+::: {.callout-tip}
+## ヒント：クロス集計の作り方
+
+`dplyr::group_by()`と`summarise()`を使うのが簡単である。価格変動が小さいシミュレーション設計であれば、価格帯の違いはそれほど劇的にシェアを変えないかもしれない。それならそれで「なぜそうなるか」を一言添えるとよい（プロモーション幅が小さいから、など）。
+:::
+
+### 1.4 考察：なぜプラン固有の切片を入れなかったか（考察のみ、点数はPart 2の設問と合算）
+
+このDGPには、講義ノートの缶コーヒーの例にあった`const_A`, `const_B`のような、プラン固有の切片（ダミー変数）を入れていない。なぜだと思うか、2〜3文で考えてみよ（正解は`solution2.qmd`で解説する。ヒント：プランの数と、推定したいパラメータの数の関係を考えてみること）。
+
+## Part 2：推定・推論（70点）
+
+### 2.1 自作対数尤度と`optim()`（20点）
+
+講義ノートの`neg_loglik_mnl`関数を参考に、このプラン選択データに対する対数尤度関数を自作し、`optim(method="BFGS", hessian=TRUE)`でパラメータ$(\beta_{\text{quality}}, \beta_{\text{screens}}, \alpha)$を推定せよ。真値と推定値を比較する表を作ること。
+
+```{r}
+#| label: a2-loglik-skeleton
+#| eval: false
+
+build_design_sub <- function(price, quality, screens) {
+  # ヒント: 講義ノートのbuild_design()と同じ発想。
+  # ただしこの課題では選択肢固有の切片が無いので、パラメータは3つだけ
+  # （beta_quality, beta_screens, alpha）。
+  # X[, j, ] の3列がそれぞれ (quality_j, screens_j, -price_j) になるように配列を組む。
+  n <- nrow(price)
+  X <- array(0, dim = c(n, 4, 3))
+  # 選択肢1 = Basic, 2 = Standard, 3 = Premium（列0=outsideは全て0のまま）
+  # X[, 2, 1] <- quality[1]; X[, 2, 2] <- screens[1]; X[, 2, 3] <- -price[, 1]
+  # ... (Standard, Premiumも同様に埋める)
+  X
+}
+
+neg_loglik_sub <- function(theta, X, choice) {
+  # ヒント: 講義ノートのneg_loglik_mnl()とほぼ同じ構造。
+  # V <- 各選択肢のX[,j,] %*% theta を並べた n x 4 行列
+  # オーバーフロー対策で各行の最大値を引く
+  # 選択された選択肢の対数確率の合計にマイナスをつけて返す
+}
+```
+
+::: {.callout-tip}
+## ヒント：真値回収がうまくいかないとき
+
+推定値が真値から大きくズレる場合、まず疑うべきは次の3点である。
+
+1. `build_design_sub`の列の並びと、`theta`の要素の並びが対応しているか（順番がズレていないか）。
+2. `choice`が0始まり（0=outside）になっているか、それとも1始まりになっているか。Rのインデックスは1始まりなので、`choice + 1`のような変換を忘れていないか。
+3. `optim`の初期値が極端すぎないか（`c(0,0,0)`のようなニュートラルな値から始めるのが無難）。
+:::
+
+### 2.2 HessianからのSE・信頼区間・検定（15点）
+
+`optim`が返す`hessian`を使って、標準誤差と95%信頼区間を計算せよ。また、「価格は需要に影響しない」という帰無仮説 $H_0: \alpha = 0$ を検定せよ（$t$統計量を計算し、有意かどうか判断する）。
+
+::: {.callout-tip}
+## ヒント：仮説検定の作り方
+
+$t$統計量は $\hat\alpha / \text{SE}(\hat\alpha)$ で計算できる。計量経済学Iで学んだのと同じ発想で、$|t| > 1.96$ なら5%水準で有意（$H_0$を棄却）と判断してよい。
+:::
+
+### 2.3 `mlogit`パッケージでの検算（10点）
+
+`mlogit`パッケージを使って同じモデルを推定し、自作の推定値と近い値になることを確認せよ（`#| eval: false`で構わないので、記法だけ整えておくこと。実行はレンダー時に行われる）。
+
+```{r}
+#| label: a2-mlogit-skeleton
+#| eval: false
+
+library(mlogit)
+
+# ヒント: long形式のデータフレームに変換してからmlogit.data()、mlogit()を使う。
+# 講義ノートのlec2-mlogit-checkチャンクの書き方を参考にすること。
+```
+
+### 2.4 反実仮想：Standardプランを値上げしたら（15点）
+
+Standardプランの月額を+200円した場合の、各プランの予測シェアを計算せよ。値上げ前後のシェアを比較する表を作り、**「値上げによってStandardから離脱した客のうち、どれくらいの割合がBasicに流れ、どれくらいがPremiumに流れ、どれくらいがoutside（解約）に流れたか」**を計算せよ。
+
+その上で、この「流出の内訳」に何か規則性がないかを観察し、1〜2文で言葉にしてみよ（ヒント：それぞれの流出先の、値上げ前のシェアの大きさと比べてみること）。この観察は、次回の講義で学ぶIIA（Independence of Irrelevant Alternatives）という性質の伏線になっている。
+
+::: {.callout-tip}
+## ヒント：反実仮想の計算手順
+
+1. 元の価格（`price_mat`）でのシェアを計算する（推定したパラメータ`theta_hat`を使う）。
+2. Standardの価格だけ+200円した新しい価格行列を作る。
+3. 新しい価格でのシェアを計算する。
+4. 2つのシェアの差を取る。Standardのシェアがどれだけ減ったか、他のプランのシェアがどれだけ増えたかを見る。
+5. 「Standardからの流出分」に対する「各流出先が受け取った割合」を計算し、その割合が値上げ前の各プランのシェアの比率とどう関係しているかを見る。
+:::
+
+### 2.5 モンテカルロによる被覆率の確認（10点）
+
+同じDGPから200回データを生成し直し、そのたびに推定・95%信頼区間の計算を行い、真値が信頼区間に入る頻度（被覆率）を計算せよ。被覆率が0.95に近いかどうかをコメントすること。
+
+::: {.callout-tip}
+## ヒント：モンテカルロループの書き方
+
+講義ノートの`lec2-montecarlo`チャンクとほぼ同じ構造でよい。ループの中で`simulate_subscription_choice()`と`optim()`を繰り返し呼び出し、都度信頼区間を計算して、真値が入っているかを`TRUE/FALSE`で記録し、最後に平均を取ればよい。200回のループは数十秒程度かかることがあるので、気長に待つこと。
+:::
+
+### 2.6 経営への含意（合計点に含む）
+
+以上の分析結果を踏まえて、動画配信サービスの経営陣に向けて、**「Standardプランの値上げを検討する際に注意すべきこと」を3行程度で書け**。価格弾力性の大きさ、カニバリゼーション（自社プラン間での顧客の奪い合い）、outsideへの流出（純粋な解約）の3つの観点を意識すること。
+
+::: {.callout-note collapse="true"}
+## 配点の目安
+
+- Part 1（30点）：DGPが正しく実装されている（15点）、可視化・記述統計が適切（10点）、1.4の考察に触れている（5点）。
+- Part 2（70点）：自作MLEの実装・真値回収表（20点）、SE・CI・検定（15点）、mlogitでの検算（10点）、反実仮想とIIAの兆候の指摘（15点）、モンテカルロ被覆率（10点）。2.6の経営含意3行は、Part 2全体の完成度に対する加点要素として評価する。
+- 部分点の基準：DGPのコードが動かなくても、ロジックが正しく記述されていれば部分点を与える。真値回収がやや外れていても（サンプリング誤差の範囲内であれば）、実装の考え方が正しければ大きく減点しない。
+:::
+
+## 提出方法
+
+このqmdファイルに直接コードと回答を書き込み、レンダリングしたHTMLファイルと合わせて提出すること。

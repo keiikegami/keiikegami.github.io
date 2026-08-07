@@ -1,0 +1,327 @@
+---
+title: "Playground 14：ロイヤルティと買いだめの実験室"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+author: "Kei Ikegami"
+lang: ja
+format:
+  live-html:
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    theme: cosmo
+engine: knitr
+webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
+  repos:
+    - https://repo.r-wasm.org
+    - https://cran.r-universe.dev
+---
+
+{{< include /_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-important}
+## このページの使い方
+
+- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
+- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
+- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
+- 元ネタは講義ノート（`lecture14.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+:::
+
+```{webr}
+#| edit: false
+#| output: false
+#| autorun: true
+#| timelimit: 120
+# ---- 共通の道具箱（講義ノート第14回と同じDGP・在庫モデル。編集不可・自動実行）----
+
+# --- 実験1用：ブランドAを買う/買わないのパネルDGP（講義1.3節）---
+simulate_panel <- function(N, Tn, burn, lambda, sigma_mu,
+                           price_sd = 0.3, beta_price = -1.0, const = -0.2) {
+  mu_i <- rnorm(N, 0, sigma_mu)
+  y_prev <- rep(0, N)
+  y_mat <- matrix(0, N, Tn)
+  price_mat <- matrix(0, N, Tn)
+  for (t in 1:(burn + Tn)) {
+    price_t <- rnorm(N, 0, price_sd)
+    util <- const + beta_price * price_t + lambda * y_prev + mu_i
+    prob <- 1 / (1 + exp(-util))
+    y_t <- as.numeric(runif(N) < prob)
+    if (t > burn) {
+      y_mat[, t - burn] <- y_t
+      price_mat[, t - burn] <- price_t
+    }
+    y_prev <- y_t
+  }
+  list(y = y_mat, price = price_mat, mu = mu_i)
+}
+
+persistence_stats <- function(y) {
+  y_lag <- y[, -ncol(y)]
+  y_now <- y[, -1]
+  p11 <- mean(y_now[y_lag == 1])
+  p10 <- mean(y_now[y_lag == 0])
+  c(overall = mean(y), p11 = p11, p10 = p10, gap = p11 - p10)
+}
+
+build_pooled_df <- function(sim) {
+  N <- nrow(sim$y); Tn <- ncol(sim$y)
+  data.frame(
+    id    = rep(1:N, times = Tn - 1),
+    y     = as.vector(sim$y[, -1]),
+    y_lag = as.vector(sim$y[, -Tn]),
+    price = as.vector(sim$price[, -1])
+  )
+}
+
+# --- 実験2・3用：在庫を持つ消費者の動的計画法（講義3.2節の関数をパラメータ化）---
+Xmax <- 5; Amax <- 3
+beta_dp <- 0.96
+u_consume <- 3.0
+stockout_cost <- 2.0
+q_base <- 0.6; q_slope <- 0.03
+q_of_x <- function(x) pmin(q_base + q_slope * x, 0.95)
+
+solve_inventory_dp <- function(p_regular = 1.00, p_sale = 0.75, sale_prob = 1/8,
+                               c_hold = 0.12, tol = 1e-6, maxit = 800) {
+  states <- 0:Xmax; actions <- 0:Amax
+  prices <- c(p_regular, p_sale)
+  probs_price <- c(1 - sale_prob, sale_prob)
+  efc <- function(x, a, p, V) {
+    post <- x + a
+    q <- q_of_x(post)
+    cons <- as.numeric(post >= 1)
+    end_inv <- post - cons
+    val_c <- u_consume * cons - p * a - c_hold * end_inv + beta_dp * V[end_inv + 1]
+    val_n <- -(if (post == 0) stockout_cost else 0) - p * a - c_hold * post + beta_dp * V[post + 1]
+    q * val_c + (1 - q) * val_n
+  }
+  V <- rep(0, Xmax + 1)
+  policy <- matrix(0L, 2, Xmax + 1)
+  for (it in 1:maxit) {
+    pol_new <- matrix(0L, 2, Xmax + 1)
+    for (pi_idx in 1:2) {
+      for (xi in seq_along(states)) {
+        best_val <- -Inf; best_a <- 0L
+        for (a in actions) {
+          if (states[xi] + a > Xmax) next
+          val <- efc(states[xi], a, prices[pi_idx], V)
+          if (val > best_val) { best_val <- val; best_a <- a }
+        }
+        pol_new[pi_idx, xi] <- best_a
+      }
+    }
+    V_new <- numeric(Xmax + 1)
+    for (xi in seq_along(states)) {
+      v_x <- 0
+      for (pi_idx in 1:2) {
+        v_x <- v_x + probs_price[pi_idx] * efc(states[xi], pol_new[pi_idx, xi], prices[pi_idx], V)
+      }
+      V_new[xi] <- v_x
+    }
+    err <- max(abs(V_new - V))
+    V <- V_new; policy <- pol_new
+    if (err < tol) break
+  }
+  dimnames(policy) <- list(c("regular price", "sale price"), paste0("x=", states))
+  list(V = V, policy = policy, iters = it)
+}
+
+simulate_calendar <- function(N_hh, Tn, sale_bool, policy, sale_prob, seed = 1, burn_in = 70) {
+  set.seed(seed)
+  x <- rep(0L, N_hh)
+  for (t in 1:burn_in) {
+    is_sale <- runif(N_hh) < sale_prob
+    a <- ifelse(is_sale, policy[2, x + 1], policy[1, x + 1])
+    post <- x + a
+    occ <- runif(N_hh) < q_of_x(post)
+    x <- post - as.integer(occ & post >= 1)
+  }
+  units <- numeric(Tn)
+  for (t in 1:Tn) {
+    a <- if (sale_bool[t]) policy[2, x + 1] else policy[1, x + 1]
+    units[t] <- sum(a)
+    post <- x + a
+    occ <- runif(N_hh) < q_of_x(post)
+    x <- post - as.integer(occ & post >= 1)
+  }
+  units
+}
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+## 実験1：本物のロイヤルティ vs 見せかけのロイヤルティ
+
+講義の謎1をそのまま実験する。消費者 $i$ が期 $t$ にブランドAを買うかどうかの効用は
+
+$$
+u_{it} = c + \beta_p p_{it} + \lambda y_{i,t-1} + \mu_i + \varepsilon_{it}
+$$
+
+で決まる。$\lambda$ は状態依存の強さ（前回買ったこと**自体**が今回の効用を押し上げる。本物のロイヤルティ）、$\mu_i \sim N(0, \sigma_\mu^2)$ は個人の好みのばらつき（もともと好きな人はずっと好き。ただの異質性）。世界(a)は $\lambda > 0$ かつ $\sigma_\mu = 0$、世界(b)は $\lambda = 0$ かつ $\sigma_\mu$ が大きい。定数項は全体購買率がそろうように較正してある（講義1.3節と同じ値）。まず観測できる集計統計量——`p11` = P(買う | 前回買った)、`p10` = P(買う | 前回買わず)、`gap` はその差——が2つの世界でほぼ同じになることを確かめ、続けて前回購入ダミーを入れただけのnaiveなpooled logitを両方の世界に当てる。なお講義ノートは `fixest::feglm()` にクラスタ標準誤差を付けて推定していたが、webRでは標準の `glm()` で代用する。点推定は同じで、標準誤差はクラスタ化されないぶん小さめに出る（今日の論点は推定値そのものの歪みなので、結論には影響しない）。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+lambda_a <- 1.1; sigma_a <- 0.0   # 世界(a)：本物のロイヤルティだけ
+lambda_b <- 0.0; sigma_b <- 1.4   # 世界(b)：好みのばらつきだけ
+N  <- 1500                        # 消費者数（2000まで）
+Tn <- 20                          # 観測期間（週）
+# -----------------------
+
+set.seed(141)
+const_a <- -0.55; const_b <- -0.20   # 全体購買率をそろえるための較正値
+
+world_a <- simulate_panel(N, Tn, burn = 25, lambda = lambda_a, sigma_mu = sigma_a, const = const_a)
+world_b <- simulate_panel(N, Tn, burn = 25, lambda = lambda_b, sigma_mu = sigma_b, const = const_b)
+
+cat("観測できる集計統計量：2つの世界はほとんど同じに見える\n")
+stats_tbl <- rbind(persistence_stats(world_a$y), persistence_stats(world_b$y))
+rownames(stats_tbl) <- c(paste0("(a) lambda=", lambda_a, ", sigma=", sigma_a),
+                         paste0("(b) lambda=", lambda_b, ", sigma=", sigma_b))
+print(round(stats_tbl, 3))
+
+fit_a <- glm(y ~ price + y_lag, family = binomial(), data = build_pooled_df(world_a))
+fit_b <- glm(y ~ price + y_lag, family = binomial(), data = build_pooled_df(world_b))
+
+cat("\nnaiveなpooled logit（前回購入ダミー入り）が推定するlambda\n")
+data.frame(
+  world = c("(a)", "(b)"),
+  true_lambda = c(lambda_a, lambda_b),
+  lambda_hat  = round(c(coef(fit_a)["y_lag"], coef(fit_b)["y_lag"]), 3),
+  se          = round(c(summary(fit_a)$coefficients["y_lag", "Std. Error"],
+                        summary(fit_b)$coefficients["y_lag", "Std. Error"]), 3)
+)
+```
+
+世界(b)の真の $\lambda$ はゼロなのに、naiveな推定は1前後の「有意にプラス」を返す。前回購入ダミーが $\mu_i$（もともと好きかどうか）の代理変数として働いてしまうからだ。これが**見せかけの状態依存**である。
+
+::: {.callout-note}
+## やってみよう
+
+- `sigma_b <- 0.7`（世界(b)の異質性を半分に）にすると、(b)のnaiveな `lambda_hat` はどこまで下がるか。ゼロまで戻るか。
+- `Tn <- 60` にして観測期間を3倍にしてみよう。パネルを長くすれば、naiveな推定は正しい答えに近づくだろうか。
+- 上の2つの表の数字（集計統計量とnaiveな推定値）だけを渡されたとき、あなたは2つの世界を見分けられるか。観察だけで足りないなら、何を足せばよいか。講義ノート1.5〜1.6節（固定効果ロジット、Wooldridge device）を読んでから、もう一度この表を見直そう。
+:::
+
+## 実験2：セールと前借り — post-promotion dip
+
+後半の主役、**在庫を持てる財**（洗剤やトイレットペーパー）に移る。講義3.2節の在庫モデル——状態は在庫 $x$、行動は購入量 $a$、価値関数反復で最適政策 $a^*(x)$ を解く——をそのまま使い、2000世帯を同じカレンダーの上で動かす。10週目だけセールを打ち、さらにシミュレーションならではの贅沢として、**同じ乱数で「セールを打たなかった世界」も並走させ**、その差からセールの「純増」と「前借り」を分解する。消費者はセールの深さと頻度を織り込んで買い方のルールを決めるので、下のパラメータを変えると裏でDPが解き直される点に注意しよう。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+discount  <- 0.25   # セールの深さ（0.25 = 25%引き）
+sale_prob <- 1/8    # セールの頻度（消費者が見込んでいる、セールが来る確率）
+sale_week <- 10     # 30週のうち、何週目にセールを打つか
+# -----------------------
+
+set.seed(142)
+N_hh <- 2000; Tn_cal <- 30
+
+# 深さ・頻度を変えると、消費者の最適な買い方（政策関数）ごと変わる
+dp <- solve_inventory_dp(p_sale = 1 - discount, sale_prob = sale_prob)
+
+sale_bool_event <- rep(FALSE, Tn_cal); sale_bool_event[sale_week] <- TRUE
+units_sale <- simulate_calendar(N_hh, Tn_cal, sale_bool_event, dp$policy, sale_prob, seed = 42)
+units_none <- simulate_calendar(N_hh, Tn_cal, rep(FALSE, Tn_cal), dp$policy, sale_prob, seed = 42)
+
+spike <- units_sale[sale_week] - units_none[sale_week]   # セール週の上乗せ
+post_weeks <- (sale_week + 1):Tn_cal
+dip <- sum(units_none[post_weeks] - units_sale[post_weeks])  # その後に失われた販売
+print(data.frame(
+  measure = c("spike: extra units in the sale week",
+              "dip: units lost in the following weeks",
+              "net gain over the whole window",
+              "pull-forward share (dip / spike)"),
+  value = round(c(spike, dip, spike - dip,
+                  ifelse(spike > 0, dip / spike, NA)), 2)
+))
+
+df_ts <- data.frame(week = 1:Tn_cal, with_sale = units_sale, counterfactual = units_none)
+ggplot(df_ts, aes(week)) +
+  geom_col(aes(y = with_sale, fill = week == sale_week), width = 0.7) +
+  geom_line(aes(y = counterfactual), linetype = "dashed", color = "gray30", linewidth = 0.7) +
+  scale_fill_manual(values = c("TRUE" = "#d62728", "FALSE" = "#1f77b4"), guide = "none") +
+  labs(title = "Sale spike and post-promotion dip",
+       subtitle = "red = sale week, dashed line = no-sale counterfactual (same random draws)",
+       x = "week", y = "units sold")
+```
+
+セール週に売上が跳ね（スパイク）、直後の数週間は破線（セールなしの世界）を下回る（post-promotion dip）。買いだめした世帯が在庫を消化するだけで、買いに来ないからだ。スパイクの大部分は前借りで、純増はごくわずか——これがPOSデータでおなじみの形の正体である。
+
+::: {.callout-note}
+## やってみよう
+
+- `discount <- 0.40` にするとスパイクとdipはどちらも大きくなる。純増（net gain）と前借り率（pull-forward share）はどう動くか。逆に `discount <- 0.10` ではどうなるか（浅すぎるセールは政策関数を動かせず、スパイクごと消えるはずだ）。
+- `sale_prob <- 0.5` にして「2週に1回セールが来る」世界にしてみよう。次のセールがすぐ来るなら在庫を抱える意味は薄い。買いだめは生き残るか。
+- セール週のスパイクだけを見て「このセールは大成功」と報告してよいか。net gainとpull-forward shareを根拠に、何週分まで見てから評価すべきか考えよう。
+:::
+
+## 実験3：短期弾力性 vs 長期弾力性
+
+**短期弾力性**は「1週だけの不意打ち値下げ」に対する当週の数量反応から、**長期弾力性**は「毎週セール価格が続く世界」と「ずっと通常価格の世界」の定常状態の差から計算する（講義3.4節と同じ扱い）。買いだめできる財では短期が長期を桁違いに上回る。そして静学的な回帰が拾うのはほぼ短期の方だったから、この2つの比は「静学推定が恒久値下げの効果をどれだけ過大評価するか」の目安になる。買いだめの強さを決めるのは在庫保有コスト `c_hold` だ。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+c_hold   <- 0.12   # 在庫保有コスト（買いだめの強さを決める）。0.05や0.25も試そう
+discount <- 0.25   # 値下げ幅（一時的な値下げにも恒久的な値下げにも同じ幅を使う）
+# -----------------------
+
+set.seed(143)
+N_hh <- 2000; Tn_cal <- 30; sale_prob <- 1/8
+
+dp <- solve_inventory_dp(p_sale = 1 - discount, sale_prob = sale_prob, c_hold = c_hold)
+cat("最適購入量 a*(x)：\n")
+print(dp$policy)
+
+# 短期：15週目だけの不意打ち値下げ。同じ乱数の「値下げなし」世界と当週を比べる
+sale_once <- rep(FALSE, Tn_cal); sale_once[15] <- TRUE
+u_once <- simulate_calendar(N_hh, Tn_cal, sale_once, dp$policy, sale_prob, seed = 7)
+u_base <- simulate_calendar(N_hh, Tn_cal, rep(FALSE, Tn_cal), dp$policy, sale_prob, seed = 7)
+sr_elast <- (u_once[15] / u_base[15] - 1) / (-discount)
+
+# 長期：「毎週セール価格」と「ずっと通常価格」の定常状態を比べる（末尾15週の平均）
+u_low  <- simulate_calendar(N_hh, Tn_cal, rep(TRUE,  Tn_cal), dp$policy, sale_prob, seed = 8)
+u_high <- simulate_calendar(N_hh, Tn_cal, rep(FALSE, Tn_cal), dp$policy, sale_prob, seed = 8)
+lr_elast <- (mean(tail(u_low, 15)) / mean(tail(u_high, 15)) - 1) / (-discount)
+
+elast_tbl <- data.frame(
+  horizon = factor(c("short-run", "long-run"), levels = c("short-run", "long-run")),
+  definition = c("one-week surprise price cut", "permanent price cut (steady state)"),
+  elasticity = round(c(sr_elast, lr_elast), 2)
+)
+print(elast_tbl)
+if (abs(lr_elast) > 1e-10) {
+  cat("\n短期/長期の比：", round(sr_elast / lr_elast, 1), "倍\n")
+} else {
+  cat("\n価格への反応が両方ゼロになった（買いだめが消えた財）。比は定義できない。\n")
+}
+
+ggplot(elast_tbl, aes(horizon, elasticity, fill = horizon)) +
+  geom_col(width = 0.5, show.legend = FALSE) +
+  geom_hline(yintercept = 0, color = "gray40") +
+  scale_fill_manual(values = c("short-run" = "#1f77b4", "long-run" = "#2ca02c")) +
+  labs(title = "Short-run vs long-run price elasticity",
+       x = NULL, y = "elasticity")
+```
+
+既定値では短期はおよそ $-6$、長期はおよそ $-0.2$、比は30倍前後になるはずだ。1週の値下げには買いだめで激しく反応するが、恒久的に安くなっても1世帯が消費できる量には上限があるので、長期の総量はほとんど増えない。
+
+::: {.callout-note}
+## やってみよう
+
+- `c_hold <- 0.05`（保管がタダ同然の財）にしてみよう。短期と長期はそれぞれ何倍くらいに膨らむか。比が開くか縮むか、予想してから確かめよう。
+- `c_hold <- 0.25` にすると政策関数の2つの行が同じになる（セールでも買いだめしない）はずだ。このとき短期も長期もゼロに落ち、比は定義できなくなる。生鮮食品のように**在庫できない財**の姿だ。
+- 静学回帰で出てくる弾力性（ほぼ短期）を恒久値下げの売上予測にそのまま使うと、どちら向きに何倍くらい間違えるか。逆に、この間違いが小さくて済むのはどんな商品カテゴリか。
+:::
+
+## 次に読むもの
+
+- 講義ノート本体：`lecture14.html`（観察的同値、Wooldridge device、在庫モデルと反実仮想の完全版）
+- coding課題：`assignment14.qmd`（ブランド選択パネルのDGPをゼロから作り、naive推定・Wooldridge device・在庫DGPの反実仮想まで、今日の内容を一通り自分の手で実装する）

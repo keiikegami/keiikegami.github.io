@@ -1,0 +1,368 @@
+---
+title: "課題15：航空券のRevenue Managementと推定誤差の伝播"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+set.seed(20265)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+## この課題について
+
+Lecture 15で学んだ revenue management（RM）の枠組みを、自分の手で一から動かす。テーマは「ある地方路線の航空券」だ。講義本編とはパラメータを変えて、自分で予約データを生成するところから始める。
+
+課題は2部構成。
+
+- **Part 1**：あなたが「神」の立場になって、真のパラメータから航空券の予約プロセスを生成する（DGP）。
+- **Part 2**：あなたが「分析者」の立場になって、Part 1のデータだけを見て価格弾力性を推定し、そこから価格政策を作り、その政策がどれだけ真の最適に近いかを検証する。
+
+配点は合計100点。最後に、手を動かして得た結果をもとに経営への含意を書いてもらう。
+
+::: {.callout-important}
+## この課題で確認してほしいこと
+
+- 有限期間・在庫制約下の動的計画法（Gallego-van Ryzin型RM）を、backward inductionで自分の手で解けること。
+- 動的価格が固定価格に対してどれだけの収益改善をもたらすか、数値で確認できること。
+- 需要推定の誤差が、価格政策の収益ロスという「金額」に変換される様子を、モンテカルロで可視化できること。
+:::
+
+---
+
+## Part 1：航空券1路線の予約データを生成する（30点）
+
+### 設定
+
+とある地方路線を考える。次のパラメータで予約プロセスをシミュレートする。
+
+- 販売期間：$T = 60$ 日（$t=60$ が販売開始日、$t=0$ が出発日）
+- 座席数：$C = 30$ 席
+- 1日あたりの客の到着確率：$\bar\lambda = 0.8$
+- 到着した客の購買確率（真のモデル）：
+
+$$
+\Pr(\text{購入} \mid p, \text{到着}) = \frac{\exp(\theta_0 - \alpha p)}{1 + \exp(\theta_0 - \alpha p)}, \qquad \theta_0 = 5.0,\ \ \alpha = 0.05
+$$
+
+（この $\theta_0, \alpha$ が「真のパラメータ」であり、Part 2ではこれを知らないふりをして推定する。）
+
+### 設問1-1（10点）：一定価格のもとでの予約データ生成
+
+まずは航空会社が「価格を動かさない」場合のブッキングカーブを作る。最適固定価格（後述の設問2-4で使う値を先取りしてよいし、適当な水準で構わない。ここでは仮に $p = 90$ 円を使う）を1本の価格として、$T=60$ 日間、毎日「客が到着するか」「到着したら買うか」をシミュレーションし、日々の販売数・残り座席数を記録せよ。
+
+```{r}
+#| label: assign15-part1-setup
+#| eval: false
+# 真のパラメータ
+theta0_true <- 5.0
+alpha_true  <- 0.05
+lambda_bar  <- 0.8
+T_period    <- 60
+C_capacity  <- 30
+
+p_fixed <- 90  # 一定価格の水準（自分で適当な値を決めてよい）
+
+sigmoid <- function(x) 1 / (1 + exp(-x))
+
+simulate_fixed_price_dgp <- function(seed, T_period, C_capacity, theta0, alpha, lambda_bar, p_fixed) {
+  set.seed(seed)
+  c_remain <- C_capacity
+  records  <- data.frame(day = integer(0), t_remain = integer(0),
+                          arrived = integer(0), purchased = integer(0), c_after = integer(0))
+  for (t in T_period:1) {
+    # ここを埋める：
+    # 1. arrived <- runif(1) < lambda_bar で客の到着を判定する
+    # 2. arrivedがTRUEかつc_remain > 0なら、prob_buy <- sigmoid(theta0 - alpha * p_fixed) を計算し、
+    #    purchased <- as.numeric(runif(1) < prob_buy) で購入を判定する（そうでなければpurchased <- 0）
+    # 3. purchased == 1ならc_remainを1減らす
+    # 4. records に rbind() で1行（day, t_remain, arrived, purchased, c_after）を追加する
+    #    （day = T_period - t + 1、c_after = 更新後のc_remain）
+  }
+  records
+}
+```
+
+::: {.callout-tip}
+## ヒント：ループの骨格
+
+```r
+for (t in T_period:1) {
+  arrived <- runif(1) < lambda_bar
+  purchased <- 0
+  if (arrived && c_remain > 0) {
+    prob_buy <- sigmoid(theta0 - alpha * p_fixed)
+    purchased <- as.numeric(runif(1) < prob_buy)
+  }
+  if (purchased == 1) c_remain <- c_remain - 1
+  records <- rbind(records, data.frame(
+    day = T_period - t + 1, t_remain = t,
+    arrived = as.numeric(arrived), purchased = purchased, c_after = c_remain
+  ))
+}
+```
+在庫がゼロになった後も日数分だけループは回してよい（その場合は`purchased`が常に0になるようにする）。
+:::
+
+### 設問1-2（10点）：ブッキングカーブの可視化
+
+設問1-1で生成したデータから、**累積販売数（cumulative bookings）**を縦軸、**販売開始からの日数**を横軸にとった折れ線グラフ（ブッキングカーブ）を描け。あわせて、シミュレーションを5本（異なるseed）走らせて重ね描きし、「同じ価格ルールでも、実現する予約の進み方にはばらつきがある」ことを視覚的に示せ。
+
+### 設問1-3（10点）：記述統計
+
+生成したデータ（1本でよい）について、以下を計算し、簡単に考察せよ（3〜5行）。
+
+- 最終的な販売数（完売したかどうか）
+- 到着した客のうち、実際に購入した割合（コンバージョン率）
+- 到着したが購入しなかった客の日数分布（在庫切れ前と在庫切れ後で分けて集計できるとなお良い）
+
+::: {.callout-note}
+## 注意：この一定価格データだけでは、Part 2の推定が難しくなる
+
+設問1-1のように**本当に1つの価格だけ**で予約データを生成すると、価格に変動（分散）が無いために、Part 2で購買確率の式にある $\theta_0$ と $\alpha$ の**両方を同時に識別することができない**（価格が動かなければ、価格への反応の大きさ$\alpha$を測りようがない）。これは第2回・第3回で学んだ「変数のばらつきが無いと係数は推定できない」という識別の基本問題そのものだ。
+
+そこで、設問1-1・1-2・1-3は「一定価格のときのブッキングカーブがどう見えるか」を体感するために行うが、**Part 2で使うデータは、次の設問1-4で作る「ほぼ一定だが小さくランダムに変動する価格」のデータに切り替える**。実務でも、まったく同じ1円単位の価格を60日間維持することは稀で、早期割引や曜日効果的な微調整が入るのが普通である。この設問1-4のデータの方が、設問1-1よりも実務のデータに近い。
+:::
+
+### 設問1-4（配点は上記10点に含む、必須）：価格にわずかな変動を持たせたDGP
+
+設問1-1のシミュレーション関数を改造し、価格を「基準価格 $\bar p$ の $\pm 15\%$ の範囲で、5段階（$-15\%, -7.5\%, 0\%, +7.5\%, +15\%$）のいずれかを毎日ランダムに選ぶ」ように変更せよ。基準価格 $\bar p$ は設問2-4で求める最適固定価格に近い値（目安：90前後）を使ってよい。
+
+```{r}
+#| label: assign15-part1-variation
+#| eval: false
+price_variation_pcts <- c(-0.15, -0.075, 0, 0.075, 0.15)
+
+simulate_varying_price_dgp <- function(seed, T_period, C_capacity, theta0, alpha, lambda_bar,
+                                        p_base, variation_pcts) {
+  set.seed(seed)
+  c_remain <- C_capacity
+  prices_obs   <- numeric(0)
+  purchase_obs <- numeric(0)
+  for (t in T_period:1) {
+    if (c_remain == 0) break
+    pct <- sample(variation_pcts, 1)
+    p   <- p_base * (1 + pct)
+    # ここを埋める：設問1-1と同じロジックで到着・購入を判定する。
+    # 到着かつ購入が観測された客についてのみ、prices_obsとpurchase_obsにp・purchasedを追加する
+    # （到着しなかった客・在庫が既にない期は記録しない、という設計にしてよい）。
+    # 購入されたらc_remainを1減らす。
+  }
+  list(prices = prices_obs, purchase = purchase_obs)
+}
+```
+
+このデータ（`prices`, `purchase`）を Part 2 で使う。
+
+---
+
+## Part 2：推定・DP・収益比較（70点）
+
+### 設問2-1（15点）：MLEで価格係数 $\alpha$ を推定する
+
+設問1-4で生成した（到着かつ観測された客の）価格と購買の記録から、$(\theta_0, \alpha)$ を最尤推定せよ。第2回・Lecture 15本編で使ったニュートン法（解析的勾配・ヘシアン）を自分で実装するか、`optim()`を使ってもよい（ヒントに両方の骨格を用意する）。
+
+::: {.callout-tip}
+## ヒント：`optim()`を使う場合
+
+```{r}
+#| eval: false
+neg_loglik <- function(theta, prices, purchase) {
+  theta0 <- theta[1]; alpha <- theta[2]
+  u <- theta0 - alpha * prices
+  p_hat <- 1 / (1 + exp(-u))
+  -sum(purchase * log(p_hat) + (1 - purchase) * log(1 - p_hat))
+}
+
+# ここを埋める：optim()のprices, purchase引数に、設問1-4で生成したdgp_data$prices, dgp_data$purchase
+# （変数名は自分のコードに合わせる）を渡す
+opt_result <- optim(par = c(0, 0.01), fn = neg_loglik,
+                     prices = dgp_data$prices, purchase = dgp_data$purchase, method = "BFGS")
+theta0_hat <- opt_result$par[1]
+alpha_hat  <- opt_result$par[2]
+```
+
+ニュートン法で自作したい場合は、Lecture 15本編の `fit_logit_newton()` を参考にしてよい（ロジットの対数尤度が大域的に凹であることを使うと、解析的な勾配・ヘシアンによる更新が数回で収束する）。
+:::
+
+推定値 $\hat\theta_0, \hat\alpha$ を、真の値 $\theta_0=5.0, \alpha=0.05$ と比較して表にまとめよ。
+
+### 設問2-2（15点）：$\hat\alpha$ でbackward inductionを解き、価格政策のヒートマップを描く
+
+設問2-1で得た $\hat\theta_0, \hat\alpha$ を真のパラメータだと仮定して、Lecture 15本編と同じ形のBellman方程式
+
+$$
+V(t,c) = \max_p \Big\{ \lambda(p)\big[p + V(t-1,c-1)\big] + (1-\lambda(p))V(t-1,c) \Big\}
+$$
+
+をbackward inductionで解け（$\lambda(p) = \bar\lambda \cdot \text{sigmoid}(\hat\theta_0 - \hat\alpha p)$）。得られた最適価格政策 $\hat p^*(t,c)$ を、残り期間×残り座席のヒートマップとして描け。
+
+::: {.callout-tip}
+## ヒント：DP関数の骨格（Lecture 15本編と同じ形）
+
+```{r}
+#| eval: false
+solve_dp <- function(T_period, C_capacity, theta0, alpha, lambda_bar, p_grid) {
+  V      <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  pstar  <- matrix(NA_real_, nrow = T_period + 1, ncol = C_capacity + 1)
+  lamstar <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  lam_grid <- lambda_bar * (1 / (1 + exp(-(theta0 - alpha * p_grid))))
+
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      # Bellman方程式の右辺をそのまま評価すること
+      # （V(t-1,c-1)-V(t-1,c)の差分に簡略化すると符号ミスを起こしやすいので避ける）
+      # V[t, c]     はV(t-1, c-1)（購入時：1期進み、在庫が1つ減る）
+      # V[t, c + 1] はV(t-1, c)  （非購入時：1期進み、在庫は変わらない）
+      # ここを埋める：obj <- lam_grid * (p_grid + V[t, c]) + (1 - lam_grid) * V[t, c + 1]
+      best_idx <- which.max(obj)
+      V[t + 1, c + 1]      <- obj[best_idx]
+      pstar[t + 1, c + 1]  <- p_grid[best_idx]
+      lamstar[t + 1, c + 1] <- lam_grid[best_idx]
+    }
+    V[t + 1, 1] <- 0
+  }
+  list(V = V, pstar = pstar, lamstar = lamstar)
+}
+```
+
+**Rの索引に注意**：状態 $t=0,\dots,T$、$c=0,\dots,C$ に対して、R行列の添字は `t+1`, `c+1` を使う（0始まりの状態を1始まりの行列索引にずらす）。Lecture 15本編の注意書きを読み返しておくこと。
+:::
+
+### 設問2-3（15点）：推定誤差のコスト — $\hat\alpha$ の政策 vs 真の $\alpha$ の政策
+
+次の3つを計算し、比較せよ。
+
+1. **真のパラメータ** $(\theta_0, \alpha) = (5.0, 0.05)$ でbackward inductionを解いた場合の価格政策 $p^*(t,c)$ と、その期待収益 $V(T,C)$。
+2. **設問2-2の推定政策** $\hat p^*(t,c)$ を、**真のモデルの上で**評価したときの期待収益（真のパラメータでの購買確率を使い、行動だけ $\hat p^*(t,c)$ に従わせる）。
+3. 1と2の差（収益ロス）を金額と%の両方で報告せよ。
+
+::: {.callout-tip}
+## ヒント：政策を真のモデルで評価する関数（このまま使ってよい）
+
+```{r}
+#| eval: false
+evaluate_policy_on_true_model <- function(pstar_policy, T_period, C_capacity, theta0, alpha, lambda_bar) {
+  W <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      p <- pstar_policy[t + 1, c + 1]
+      lam_true <- lambda_bar * (1 / (1 + exp(-(theta0 - alpha * p))))
+      W[t + 1, c + 1] <- lam_true * (p + W[t, c]) + (1 - lam_true) * W[t, c + 1]
+    }
+    W[t + 1, 1] <- 0
+  }
+  W[T_period + 1, C_capacity + 1]
+}
+```
+:::
+
+### 設問2-4（10点）：最適固定価格との比較
+
+真のパラメータのもとで、期間中ずっと同じ価格を使い続ける「最適固定価格」を求め（価格のグリッドサーチでよい）、その期待収益を計算せよ。設問2-3の1（真の動的最適収益）と比較し、**動的価格化によって得られる収益リフト（%）**を報告せよ。
+
+::: {.callout-tip}
+## ヒント：固定価格の評価関数（このまま使ってよい）
+
+```{r}
+#| eval: false
+evaluate_fixed_price <- function(p, T_period, C_capacity, theta0, alpha, lambda_bar) {
+  lam <- lambda_bar * (1 / (1 + exp(-(theta0 - alpha * p))))
+  W <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      W[t + 1, c + 1] <- lam * (p + W[t, c]) + (1 - lam) * W[t, c + 1]
+    }
+    W[t + 1, 1] <- 0
+  }
+  W[T_period + 1, C_capacity + 1]
+}
+# fixed_p_grid <- seq(1, 300, length.out = 150) に対してsapplyし、最大値を探す
+```
+:::
+
+### 設問2-5（10点）：モンテカルロで収益ロスの分布を見る
+
+設問1-4のデータ生成から設問2-3の収益ロス計算までの一連の流れを**1つの関数にまとめ**、乱数シードを変えながら**200回繰り返せ**。得られた200個の $\hat\alpha$ と収益ロスについて、
+
+- $\hat\alpha$ の標本分布（ヒストグラム）
+- 収益ロスの分布（ヒストグラム）
+
+を描き、平均・中央値・標準偏差を報告せよ。
+
+::: {.callout-tip}
+## ヒント：モンテカルロループの骨格
+
+```{r}
+#| eval: false
+n_mc <- 200
+alpha_hat_vec    <- rep(NA_real_, n_mc)
+revenue_loss_vec <- rep(NA_real_, n_mc)
+
+for (m in 1:n_mc) {
+  # 1. データ生成：設問1-4の simulate_varying_price_dgp() を、
+  #    seed = 10000 + m、その他の引数は共通の設定（theta0_true, alpha_true, lambda_bar,
+  #    T_period, C_capacity, p_base, price_variation_pcts）で呼び出す
+
+  # 2. 生成された価格に十分なばらつきがあるか確認する（無い場合や観測数が少なすぎる場合は
+  #    このmをスキップして次のmに進む。alpha_hat_vec[m], revenue_loss_vec[m]はNAのままにする）
+
+  # 3. MLE推定：設問2-1の方法でtheta0_hat, alpha_hatを求める
+  #    （alpha_hatが0以下・非有限・極端に大きい場合も「推定失敗」としてスキップする）
+
+  # 4. 推定alphaでDPを解く：設問2-2のsolve_dp()を呼び出す
+
+  # 5. 真のモデルで評価する：設問2-3のevaluate_policy_on_true_model()を使い、
+  #    真の動的最適収益との差（収益ロス）を計算する
+
+  # alpha_hat_vec[m]    <- (求めたalpha_hat)
+  # revenue_loss_vec[m] <- (求めた収益ロス)
+}
+```
+推定が不安定（$\hat\alpha \le 0$ など）になった回はスキップしてよいが、その回数も報告すること。
+:::
+
+### 設問2-6（5点）：経営含意
+
+以下を踏まえて、3行以内（あるいは1段落）で経営への含意をまとめよ。
+
+- 動的価格は固定価格に対してどれだけの収益改善をもたらすか。
+- 推定誤差はどの程度、収益に影響するか。「1路線・1シーズン分」のデータだけで自信を持ってRMを導入してよいか。
+- RM導入を検討する部署に対して、データ収集・実験設計の観点から1つ提案するとしたら何か。
+
+---
+
+## 提出物
+
+- 実行可能な `.qmd`（またはレンダリング済みhtml）
+- 各設問の答え（数値・図・考察）
+
+配点は Part 1（30点）+ Part 2（70点）の合計100点。部分点の基準は `solution15.qmd` を参照。
