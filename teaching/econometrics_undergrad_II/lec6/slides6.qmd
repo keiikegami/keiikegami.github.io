@@ -57,7 +57,7 @@ options(scipen = 8)
 
 ::: {.notes}
 - 今日のメイン：CBC設計 → 「2つの読み方」 → AMCE → WTP、という一本道。
-- 「内生性が設計によって消える」が今日一番の爽快ポイントであることを最初に宣言しておく。
+- ランダム化した価格・属性と未観測な回答要因との相関を、設計で断てることを最初に示す。
 - 前回はゲスト講義だったので、Quizは第4回の内容から出す、と冒頭で断る。
 :::
 
@@ -102,9 +102,9 @@ options(scipen = 8)
 
 1. stated preference と revealed preference の長所・短所を整理できる
 2. choice-based conjoint（CBC）の設計手順が分かる
-3. 属性のランダム化によって、第3回で苦しんだ**内生性が設計によって消える**ことを説明できる
+3. 属性のランダム化によって、第3回で問題になった**価格・属性と未観測要因の相関を断てる**ことを説明できる
 4. **AMCE** を「水準ダミーのOLS + 回答者クラスターSE」で推定できる
-5. **WTP** = 属性係数と価格係数の比、を**デルタ法**で信頼区間つきで出せる
+5. 個人WTP・平均WTP・working-model WTPを区別し、正しく指定されたモデルで**デルタ法**の信頼区間を出せる
 
 ::: {.notes}
 - 3が今日の理論的な核心。4と5が手を動かすパート。
@@ -122,7 +122,7 @@ options(scipen = 8)
    - 第3回で丸ごと1回分を使って2SLSで格闘した
 
 ::: {.notes}
-- 1つ目：反実仮想の中でも「商品空間の外」への外挿は、観測データでは原理的に無理。
+- 1つ目：観測された商品supportの外は、データだけではノンパラメトリックに識別できない。外挿には関数形・不変性の追加仮定が要る。
 - 2つ目：xi と価格の相関。IVという手間のかかる道具が必要だった、という記憶を呼び起こす。
 :::
 
@@ -215,7 +215,7 @@ generate_profiles <- function(n) {
 generate_profiles(4)
 ```
 
-各属性を**独立に**乱数で割り付ける。これがCBCの心臓部。
+この演習では各属性を**独立に**乱数で割り付ける。一般には、既知の割付機構と必要なsupportを保つことが識別の鍵。
 
 ::: {.notes}
 - コードはこれだけ。sample() を属性ごとに独立に呼ぶ、が全て。
@@ -234,7 +234,7 @@ kable(round(cor(profiles_check), 3))
 - 実データでも、プロファイル生成後に必ずこの表を確認する習慣を
 
 ::: {.notes}
-- 「当然の結果」だが、この当然が今日の核心（内生性が消える）の土台。
+- この独立割付では期待される結果で、割付実装を点検する材料。ただし相関が小さいだけでランダム化の妥当性が証明されるわけではない。
 - ランダム化アルゴリズムにバグがあると、ここに相関が出てすぐ発覚する。実務の品質チェックとして本当に使う。
 :::
 
@@ -284,11 +284,11 @@ $$
 - 観測されない魅力があったとしても、属性・価格とは**無関係にランダム**に割り振られている
 
 ::: {.keybox .fragment}
-**内生性が設計によって消える。** 第3回で操作変数を探し回った悩みが、属性をランダム化できる世界では最初から存在しない。
+**ランダム化した属性と未観測な回答要因との相関を設計で断つ。** 第3回の「人気を見越した価格設定」は避けられるが、仮想回答バイアス・carryover・モデル誤特定・外的妥当性は別問題として残る。
 :::
 
 ::: {.notes}
-- ここで感じてほしいのは一種の爽快感。IV探し・弱操作変数・2SLSの手間が全部不要になる。
+- ランダム化した属性のAMCEにはIV・2SLSを要しない。一方、仮想回答バイアス・carryover・モデル誤特定・実市場への外挿は別に検討する。
 - ただしその代償が hypothetical bias。タダ飯はない。
 :::
 
@@ -314,7 +314,7 @@ $$
 
 . . .
 
-さらに強い性質：AMCEの推定は**logitという関数形を仮定しない**。真の選択メカニズムが何であれ、ランダム化さえあればOLSで一致推定できる。
+さらに強い性質：AMCEの推定は**logitという関数形を仮定しない**。既知のランダム割付と、carryover・interference等を排除する標準的な実験仮定のもとで、OLSによる平均比較で推定できる。
 
 ::: {.notes}
 - 関数形フリーの一致性がHainmueller et al. (2014)の主要な貢献のひとつ。
@@ -326,10 +326,10 @@ $$
 ::: {.keybox .fragment}
 CBCデータの2つの読み方：
 
-- 離散選択モデルの目：**属性がランダム化されたおかげで内生性が消えたlogitモデル**
+- 離散選択モデルの目：属性のランダム化で**価格・属性と観測されない魅力の相関を断った選択データ**
 - 因果推論の目：**多属性のランダム化実験**（属性＝多次元の処置、効果＝AMCE）
 
-**この2つは同じデータの2つの読み方にすぎない。** 前者は効用スケール（WTPに変換できる）、後者は選択確率スケール（そのまま解釈できる）を与える。
+**この2つは同じデータの2つの読み方にすぎない。** 前者でWTPを構造解釈するには、異質性を含む選択モデルの正しい指定が追加で必要。後者は実験内の選択確率スケールを直接与える。
 :::
 
 ::: {.notes}
@@ -375,11 +375,11 @@ true_params <- list(
   beta_batt_mean  = 0.5,   # バッテリー12h vs 6h の平均選好
   beta_nc_mean    = 0.8,   # ノイキャンあり vs なし の平均選好
   beta_brand_mean = 0.3,   # 大手 vs 新興 の平均選好
-  alpha_mean      = 0.12,  # 価格係数（千円あたり）
+  alpha_mean      = 0.12,  # 正の価格係数の算術平均（千円あたり）
   sigma_batt  = 0.3,
   sigma_nc    = 0.6,
   sigma_brand = 0.4,
-  sigma_alpha = 0.05
+  sigma_log_alpha = 0.35
 )
 
 price_levels <- c(8, 12, 16)   # 千円単位
@@ -389,24 +389,26 @@ draw_gumbel <- function(n) {
   -log(-log(u))
 }
 
+draw_coefficients <- function(n_resp, params) {
+  mu_log_alpha <- log(params$alpha_mean) - params$sigma_log_alpha^2 / 2
+  data.frame(
+    beta_batt  = params$beta_batt_mean  + params$sigma_batt  * rnorm(n_resp),
+    beta_nc    = params$beta_nc_mean    + params$sigma_nc    * rnorm(n_resp),
+    beta_brand = params$beta_brand_mean + params$sigma_brand * rnorm(n_resp),
+    alpha      = exp(mu_log_alpha + params$sigma_log_alpha * rnorm(n_resp))
+  )
+}
+
 simulate_cbc <- function(n_resp, n_task, params) {
   resp_id <- rep(1:n_resp, each = n_task)
   N <- n_resp * n_task
 
-  z_batt  <- rnorm(n_resp)
-  z_nc    <- rnorm(n_resp)
-  z_brand <- rnorm(n_resp)
-  z_alpha <- rnorm(n_resp)
+  coefs <- draw_coefficients(n_resp, params)
 
-  beta_batt_i  <- params$beta_batt_mean  + params$sigma_batt  * z_batt
-  beta_nc_i    <- params$beta_nc_mean    + params$sigma_nc    * z_nc
-  beta_brand_i <- params$beta_brand_mean + params$sigma_brand * z_brand
-  alpha_i      <- pmax(params$alpha_mean + params$sigma_alpha * z_alpha, 0.01)
-
-  beta_batt_n  <- rep(beta_batt_i,  each = n_task)
-  beta_nc_n    <- rep(beta_nc_i,    each = n_task)
-  beta_brand_n <- rep(beta_brand_i, each = n_task)
-  alpha_n      <- rep(alpha_i,      each = n_task)
+  beta_batt_n  <- rep(coefs$beta_batt,  each = n_task)
+  beta_nc_n    <- rep(coefs$beta_nc,    each = n_task)
+  beta_brand_n <- rep(coefs$beta_brand, each = n_task)
+  alpha_n      <- rep(coefs$alpha,      each = n_task)
 
   priceA <- sample(price_levels, N, replace = TRUE)
   battA  <- as.numeric(sample(c(6, 12), N, replace = TRUE) == 12)
@@ -442,13 +444,13 @@ cbc_raw <- simulate_cbc(n_resp, n_task, true_params)
 - バッテリー12h：平均 0.5（ばらつき 0.3）
 - ノイキャンあり：平均 0.8（ばらつき **0.6**——好みが人によってかなり違う設定）
 - 大手ブランド：平均 0.3（ばらつき 0.4）
-- 価格係数：千円あたり 0.12（ばらつき 0.05、正に切り詰め）
+- 価格係数：算術平均0.12、log標準偏差0.35の対数正規分布（必ず正）
 
 価格は千円単位（8, 12, 16）で扱う。
 
 ::: {.notes}
 - ノイキャンのばらつきをわざと大きくしてある：「刺さる人には刺さる」機能の典型。
-- 価格係数の正値保証（pmax）は第4回の対数正規のかわりの簡便版。
+- 対数正規の位置を補正して、価格係数の算術平均が0.12になるようにしている。
 :::
 
 ## 生成された回答の分布
@@ -468,7 +470,7 @@ ggplot(choice_share, aes(x = choice_label, y = share, fill = choice_label)) +
   labs(x = NULL, y = "選択割合", title = "CBC回答の選択分布（500人 x 8タスク = 4,000タスク）")
 ```
 
-- outside optionが2〜3割、A・Bはほぼ拮抗（ランダム生成なので理論上対称）
+- outsideも相当数選ばれ、A・Bはほぼ拮抗（ランダム生成なので理論上対称）
 - 妥当な分布。DGPを書いたら**必ず記述統計で正気を確認する**
 
 ::: {.notes}
@@ -481,16 +483,17 @@ ggplot(choice_share, aes(x = choice_label, y = share, fill = choice_label)) +
 #| label: s6-to-long
 #| include: false
 to_long <- function(cbc_raw) {
-  keep <- cbc_raw$choice3 != 0
-  d <- cbc_raw[keep, ]
+  d <- cbc_raw
 
   rowsA <- data.frame(
-    resp_id = d$resp_id, price = d$priceA, battery12 = d$battA,
+    resp_id = d$resp_id, task_id = seq_len(nrow(d)),
+    profile = "A", price = d$priceA, battery12 = d$battA,
     noise_cancel = d$ncA, major_brand = d$brandA,
     chosen = as.numeric(d$choice3 == 1)
   )
   rowsB <- data.frame(
-    resp_id = d$resp_id, price = d$priceB, battery12 = d$battB,
+    resp_id = d$resp_id, task_id = seq_len(nrow(d)),
+    profile = "B", price = d$priceB, battery12 = d$battB,
     noise_cancel = d$ncB, major_brand = d$brandB,
     chosen = as.numeric(d$choice3 == 2)
   )
@@ -515,12 +518,25 @@ amce_fit <- feols(
 ```
 
 - 被説明変数：そのプロファイルが選ばれたか（0/1）
+- outsideなら、そのタスクのA・Bは**ともに0**。全タスクを残す
 - 説明変数：属性の水準ダミー（価格は8,000円が基準）
 - `cluster = ~resp_id`：**回答者単位**のクラスターSE
 
 ::: {.notes}
-- outside を選んだタスクは、標準的なconjointの作法に従いA対Bの回帰から除外している（ノートの補足参照）。
+- outsideでなかったことへの条件付けはpost-treatment selection。調査でoutsideを用意したなら、profile outcomeでは(0,0)として残す。
 - feolsのcluster引数ひとつでクラスターSEになる。この1行を惜しむとどうなるかを後で見せる。
+:::
+
+## outsideをどう扱うかで推定対象が変わる
+
+| 推定対象 | データの作り方 | 読み方 |
+|---|---|---|
+| **opt-out-inclusive AMCE** | 全タスク。outsideならA・Bとも0 | outsideを含む選択集合から選ばれる確率の変化 |
+| forced-choice AMCE | 調査時からoutsideなし | 「AかBなら」の相対選好 |
+| inside-conditional比較 | outsideでなかったタスクを事後選択 | 記述的比較。一般にはランダム化AMCEでない |
+
+::: {.warnbox .fragment}
+outsideを分析時に落とすと、処置の影響を受ける選択結果で標本を絞ることになる。
 :::
 
 ## 真のAMCEはどう作るか
@@ -635,11 +651,11 @@ kable(se_compare_df, row.names = FALSE,
 
 :::
 
-- 通常のロバストSE（各行が独立と仮定）は、クラスターSEより**はっきり小さい**
-- 同じ人の8タスクは「実質的に重複した情報」——それを4,000個の独立な情報のように扱うと信頼区間が不当に狭くなる
+- 係数によってcluster SEの方が大きい場合も小さい場合もある——**方向は定理ではない**
+- 大切なのは、8,000 profile行ではなく500回答者を独立単位として設計に合わせること
 
 ::: {.notes}
-- 独立な情報の単位は「タスク数」ではなく「回答者数」に近い、が本質。
+- 同一回答者の8タスクに加え、同一タスクのA・B結果も依存する。
 - DGPを自分で書いたから、相関の源（回答者ごとに固定したランダム係数）がどこにあるか分かる。
 :::
 
@@ -666,7 +682,7 @@ kable(se_compare_df, row.names = FALSE,
 - この節は10分。もう1つの読み方（離散選択モデル）を実行し、AMCEとの使い分けを整理する。
 :::
 
-## 第2回のMLEがそのまま使える
+## 同質logitはworking modelとして使える
 
 ```{r}
 #| label: s6-mle
@@ -689,46 +705,60 @@ opt_cbc <- optim(par = c(0.1, 0.1, 0.1, 0.1), fn = neg_loglik_cbc, d = cbc_raw,
 
 theta_hat_cbc <- opt_cbc$par
 names(theta_hat_cbc) <- c("beta_batt", "beta_nc", "beta_brand", "alpha")
-vcov_cbc <- solve(opt_cbc$hessian)
-se_cbc <- sqrt(diag(vcov_cbc))
+
+vcov_cbc_model <- solve(opt_cbc$hessian)
+cluster_scores_cbc <- function(theta, d) {
+  XA <- cbind(d$battA, d$ncA, d$brandA, -d$priceA)
+  XB <- cbind(d$battB, d$ncB, d$brandB, -d$priceB)
+  vA <- drop(XA %*% theta); vB <- drop(XB %*% theta)
+  m <- pmax(0, vA, vB)
+  denom <- exp(-m) + exp(vA - m) + exp(vB - m)
+  pA <- exp(vA - m) / denom; pB <- exp(vB - m) / denom
+  x_chosen <- XA * as.numeric(d$choice3 == 1) + XB * as.numeric(d$choice3 == 2)
+  rowsum(x_chosen - XA * pA - XB * pB, d$resp_id)
+}
+score_by_resp <- cluster_scores_cbc(theta_hat_cbc, cbc_raw)
+bread <- solve(opt_cbc$hessian)
+G <- nrow(score_by_resp)
+vcov_cbc_cluster <- (G / (G - 1)) * bread %*% crossprod(score_by_resp) %*% bread
 ```
 
 同じデータを、今度は離散選択モデルとして推定する：
 
 - 3択（outside / A / B）のlogitの対数尤度を書く——第2回の `neg_loglik_mnl` とほぼ同じ
-- `optim()` でBFGS、`hessian = TRUE` でSEも取る
-- 属性がランダム化されているので、**IVなしのMLEで価格係数がまっすぐ推定できる**
+- `optim()` でBFGS。属性のランダム化により、価格と観測されない魅力の相関は断たれている
+- ただしDGPはmixed logit、推定式は同質logit：係数は**平均係数ではなく擬似真値**
+- 推論には回答者cluster sandwichを使う
 
 ::: {.notes}
 - コードの中身はノート参照。第2回とほぼ同じなので、スライドでは構造だけ。
-- 市場データなら価格係数のMLEは内生性で歪むところ。ここがCBCのありがたみ。
+- 市場データなら価格内生性も加わる。CBCはその相関を設計で断てるが、異質性の誤指定までは消してくれない。
 :::
 
-## MLEの真値回収
+## 平均係数と擬似真値を混同しない
 
 ```{r}
 #| label: s6-mle-table
 mle_true <- c(true_params$beta_batt_mean, true_params$beta_nc_mean,
               true_params$beta_brand_mean, true_params$alpha_mean)
 
-mle_recovery_df <- data.frame(
+mle_summary_df <- data.frame(
   parameter = names(theta_hat_cbc),
-  true_value = round(mle_true, 4),
+  dgp_mean = round(mle_true, 4),
   estimate = round(theta_hat_cbc, 4),
-  se = round(se_cbc, 4),
-  ci_lower = round(theta_hat_cbc - 1.96 * se_cbc, 4),
-  ci_upper = round(theta_hat_cbc + 1.96 * se_cbc, 4)
+  se_model = round(sqrt(diag(vcov_cbc_model)), 4),
+  se_cluster = round(sqrt(diag(vcov_cbc_cluster)), 4)
 )
-kable(mle_recovery_df, row.names = FALSE,
-      col.names = c("パラメータ", "真値(平均)", "推定値", "SE", "95%CI下限", "95%CI上限"))
+kable(mle_summary_df, row.names = FALSE,
+      col.names = c("parameter", "DGP平均", "working estimate", "SE(model)", "SE(cluster)"))
 ```
 
-- MLEは**集団平均のランダム係数**を信頼区間の中に捉えている
-- 単位は「効用」——それ自体は解釈しにくいが、次節で**円に変換**する
+- $E[\operatorname{logit}(x'\beta_i)]\neq\operatorname{logit}(x'E[\beta_i])$
+- DGP平均は比較材料であって、同質logit MLEの「真値」ではない
 
 ::: {.notes}
-- DGPはmixed logitだが、推定は同質logit。それでも平均パラメータはおおむね回収できる（AMCEと同様、平均的な効果を見ている）。
-- 「効用スケールは為替レート（価格係数）で円に直せる」が次節への橋。
+- 同質logitは混合された確率曲線を1本で近似するworking model。個人WTPの分布が欲しければpanel mixed logitへ戻る。
+- Hessian SEも誤指定下ではmodel-basedにすぎないので、回答者scoreのcluster sandwichを示した。
 :::
 
 ## 効用スケール vs 選択確率スケール
@@ -736,16 +766,15 @@ kable(mle_recovery_df, row.names = FALSE,
 | | logit MLEの係数 | AMCE（OLS） |
 |---|---|---|
 | 単位 | 効用（それ自体は解釈しづらい） | 選択確率の変化（そのまま読める） |
-| 関数形 | Gumbel仮定に依存 | 関数形フリー（ランダム化のみ必要） |
-| 強み | WTPに変換できる。価格を外挿できる | 頑健。実務報告にそのまま使える |
+| 関数形 | 誤差分布・異質性・価格関数形に依存 | 実験内では関数形フリー |
+| 強み | 正しく指定すればWTP・予測・外挿 | 実験水準での確率効果を直接読む |
 
 . . .
 
-使い分け：**「何ポイント選ばれやすくなるか」だけならAMCE**。**「円でいくらの価値か」「実験にない価格への外挿」なら効用モデル**。
+使い分け：**実験水準で何ポイント動くかならAMCE**。WTP・実験外価格への外挿は効用モデルが必要だが、追加の構造仮定が要る。
 
 ::: {.notes}
-- 両方とも同じDGPから同じ方向の結論（ノイキャンが好まれ、価格が嫌われる）を出している。モデルの整合性チェックにもなる。
-- 2つの読み方の使い分けが今日の実務的な結論のひとつ。
+- logitを使えば外挿が自動的に正しくなるわけではない。価格関数形と異質性分布が実験外でも妥当、という仮定が必要。
 :::
 
 # WTPとデルタ法 {background-color="#1f3552"}
@@ -756,23 +785,40 @@ kable(mle_recovery_df, row.names = FALSE,
 
 ## WTPの定義
 
-「ノイキャンにいくら払う気があるか」を効用係数から作る：
+個人 $i$ の「ノイキャンにいくら払う気があるか」を効用係数から作る：
 
-- 属性を「なし→あり」にしたときの効用の変化：$\beta_{\mathrm{attr}}$
-- 価格を1単位上げたときの効用の変化：$-\alpha$
+- 属性を「なし→あり」にしたときの効用の変化：$\beta_{i,\mathrm{attr}}$
+- 価格を1単位上げたときの効用の変化：$-\alpha_i$
 - 属性の効用増と**ちょうど釣り合う値上げ幅**が支払意思額
 
 . . .
 
 $$
-\mathrm{WTP}_{\mathrm{attr}} = \frac{\beta_{\mathrm{attr}}}{\alpha}
+\mathrm{WTP}_{i,\mathrm{attr}} = \frac{\beta_{i,\mathrm{attr}}}{\alpha_i}
 $$
 
-$\alpha$ は「効用1単位あたりの価格」——効用を金額に変換する**為替レート**。
+$\alpha_i$ は効用を金額に変換する**為替レート**。
 
 ::: {.notes}
-- 真値はノイキャンで 0.8 / 0.12 = 約6.7千円。
-- WTPは経営会議の言葉：「追加コスト3,000円でノイキャンを載せるべきか」に直接答える数字。
+- mixed logitでは人ごとに分子も分母も異なる。
+- WTPだけで採算は決まらない。需要量・カニバリゼーション・費用も必要。
+:::
+
+## 「平均WTP」は1つではない
+
+| 量 | 定義 | 必要なモデル |
+|---|---|---|
+| 平均個人WTP | $E[\beta_i/\alpha_i]$ | 個人異質性を扱うmixed logit |
+| 平均係数の比 | $E[\beta_i]/E[\alpha_i]$ | 上と一般に一致しない |
+| working-model WTP | $\beta^*/\alpha^*$ | 同質logitの要約。上2つとは別物 |
+
+$$
+E[\beta_i/\alpha_i]\neq E[\beta_i]/E[\alpha_i]
+$$
+
+::: {.notes}
+- 先に意思決定に必要な推定対象を選ぶ。分布が歪むなら中央値や分位点も有用。
+- 次からはデルタ法をきれいに学ぶため、係数異質性を0にした別の同質logit標本を使う。
 :::
 
 ## 比のSEはどう計算する？：デルタ法
@@ -810,7 +856,7 @@ $$
 
 . . .
 
-これとMLEのHessianから得た共分散行列 $V$（該当する2x2部分）を挟めば
+正しく指定されたMLEなら、Hessianから得た共分散行列 $V$（該当する2x2部分）を挟めば
 
 $$
 \mathrm{SE} = \sqrt{\nabla g' V \nabla g}
@@ -827,21 +873,34 @@ $$
 #| label: s6-wtp-delta
 #| echo: true
 #| output-location: fragment
-beta_nc_hat <- unname(theta_hat_cbc["beta_nc"])
-alpha_hat   <- unname(theta_hat_cbc["alpha"])
+hom_params <- true_params
+hom_params$sigma_batt <- 0
+hom_params$sigma_nc <- 0
+hom_params$sigma_brand <- 0
+hom_params$sigma_log_alpha <- 0
+set.seed(2026062)
+cbc_raw_hom <- simulate_cbc(n_resp, n_task, hom_params)
+opt_cbc_hom <- optim(c(0.1, 0.1, 0.1, 0.1), neg_loglik_cbc,
+                     d = cbc_raw_hom, method = "BFGS", hessian = TRUE)
+theta_hat_hom <- opt_cbc_hom$par
+names(theta_hat_hom) <- c("beta_batt", "beta_nc", "beta_brand", "alpha")
+vcov_cbc_hom <- solve(opt_cbc_hom$hessian)
+
+beta_nc_hat <- unname(theta_hat_hom["beta_nc"])
+alpha_hat   <- unname(theta_hat_hom["alpha"])
 wtp_nc_hat  <- beta_nc_hat / alpha_hat
 
 grad_wtp <- c(1 / alpha_hat, -beta_nc_hat / alpha_hat^2)
-vcov_sub <- vcov_cbc[c(2, 4), c(2, 4)]   # beta_nc と alpha の2x2部分
+vcov_sub <- vcov_cbc_hom[c(2, 4), c(2, 4)]
 se_wtp   <- sqrt(as.numeric(t(grad_wtp) %*% vcov_sub %*% grad_wtp))
 
 round(c(WTP = wtp_nc_hat, SE = se_wtp), 3)
 ```
 
-数式をそのままコードにしただけ。単位は千円。
+このセルだけは**正しく指定された同質DGP**。数式をそのままコードにした。単位は千円。
 
 ::: {.notes}
-- vcov_cbcの並び：theta = (beta_batt, beta_nc, beta_brand, alpha) なので2行目と4行目。
+- 元のmixed-logit標本とは別。Hessianだけの推論を正当化するための基準ケース。
 - インデックスのズレはよくあるバグ。namesで確認する癖を。
 :::
 
@@ -851,7 +910,7 @@ round(c(WTP = wtp_nc_hat, SE = se_wtp), 3)
 
 ```{r}
 #| label: s6-wtp-table
-true_wtp_nc <- true_params$beta_nc_mean / true_params$alpha_mean
+true_wtp_nc <- hom_params$beta_nc_mean / hom_params$alpha_mean
 
 wtp_df <- data.frame(
   quantity = "ノイキャンのWTP（千円）",
@@ -867,11 +926,11 @@ kable(wtp_df, row.names = FALSE,
 
 :::
 
-- 真値（約6.7千円）が95%信頼区間に収まっている
-- 報告の作法：「約7,000円、ただし95%CIは○○〜○○円」と**幅を持たせて**伝える
+- 正しく指定された同質ケースでは、真値（約6.7千円）が95%CIに収まる
+- 実データではWTPの定義とモデルを明記し、点だけでなく**幅**を伝える
 
 ::: {.notes}
-- 「追加コストが3,000円なら採算が取れる」という経営判断の材料になる数字。
+- 「追加コストが3,000円なら採算が取れる」とWTPだけから断定せず、需要量と費用も利益計算へ入れる。
 - 点推定だけの報告は不誠実。計量Iから変わらない推論の作法。
 :::
 
@@ -880,10 +939,15 @@ kable(wtp_df, row.names = FALSE,
 ```{r}
 #| label: s6-wtp-stability
 #| include: false
-simulate_wtp_stability <- function(alpha_true_val, n_resp = 400, n_task = 8) {
+simulate_wtp_stability <- function(alpha_true_val, n_resp = 400, n_task = 8,
+                                   wtp_target = 6) {
   params_try <- true_params
   params_try$alpha_mean <- alpha_true_val
-  params_try$sigma_alpha <- alpha_true_val * 0.3
+  params_try$beta_nc_mean <- wtp_target * alpha_true_val
+  params_try$sigma_batt <- 0
+  params_try$sigma_nc <- 0
+  params_try$sigma_brand <- 0
+  params_try$sigma_log_alpha <- 0
 
   d <- simulate_cbc(n_resp, n_task, params_try)
   opt_try <- optim(par = c(0.1, 0.1, 0.1, max(alpha_true_val, 0.02)),
@@ -919,7 +983,7 @@ ggplot(wtp_stability_df, aes(x = alpha_true, y = cv)) +
        title = "価格係数が小さいほどWTP推定が不安定になる")
 ```
 
-- 価格に鈍感な集団（分母が0に近い）ほど、比の推定は**桁違いに**不安定化
+- 真のWTPを6千円に固定しても、分母が0に近いほど比は**桁違いに**不安定化
 - デルタ法SEの急膨張は、その危険信号
 
 ::: {.notes}
@@ -930,11 +994,11 @@ ggplot(wtp_stability_df, aes(x = alpha_true, y = cv)) +
 ## WTPが暴れたときの実務対処
 
 ::: {.warnbox}
-価格係数 $\alpha$ がゼロと有意に区別できないなら、WTPという指標自体が意味を持たない。まず分母の有意性を確認する。
+価格係数 $\alpha$ の区間がゼロを含むなら分母は弱く識別され、通常のWTP点推定を安定した金額として読めない。価格変動不足・標本不足・モデル誤特定も点検する。
 :::
 
 1. **$\alpha$ 自体の統計的有意性を確認**——ダメなら回答者が価格情報を使っていない
-2. **ブートストラップ**でWTPの標本分布を直接見る（デルタ法の近似が怪しい場面で頑健）
+2. **回答者単位のブートストラップ**で比の歪み・裾を見る。分母がゼロ近傍ならFieller区間なども検討し、非有界区間も弱識別として報告
 3. **価格帯を広げて調査を再設計**——価格の変動が乏しいと $\alpha$ の識別自体が弱い（第3回の弱操作変数と似た構図）
 
 ::: {.notes}
@@ -949,17 +1013,22 @@ ggplot(wtp_stability_df, aes(x = alpha_true, y = cv)) +
 
 ## 属性の相乗効果：交互作用
 
-- ここまでのAMCEは各属性が**独立に**効く前提の集計
-- 「バッテリー長持ち × ノイキャン」は、長時間移動の文脈で**組み合わさって初めて**効くかもしれない
-- 水準ダミーの**交互作用項**を回帰に足せば検定できる（Egami and Imai 2019 の因果的交互作用）
+- 選択確率スケールの交互作用は4セルの**差の差**：
+
+$$
+I=E\{Y(1,1)-Y(1,0)-Y(0,1)+Y(0,0)\}
+$$
+
+- 全属性がランダム化され、outsideタスクも残すので、焦点2属性に飽和したLPMの積項で推定できる
+- Egami and Imai (2019) は多水準・多属性のAMIEへ拡張
 
 . . .
 
-今回のDGPは効用を線形和で作った——つまり**真の交互作用はゼロ**に設計してある。
+効用指数に積項がなくても、logit確率は非線形なので**確率スケールの交互作用はゼロとは限らない**。
 
 ::: {.notes}
-- 「真がゼロと分かっているものを推定して、ちゃんとゼロ近傍が出るか」もDGP自作の教育的な使い方。
-- 宿題で、交互作用ありのDGPに書き換えて有意になることを確認してもらう。
+- 効用スケールの積項と、確率スケールの差の差を区別する。
+- 係数を独立に引いたことも、logit変換の非加法性を消さない。
 :::
 
 ## 交互作用の推定結果
@@ -975,6 +1044,19 @@ interaction_coef_df <- data.frame(
   estimate = coef(interaction_fit),
   se = sqrt(diag(vcov(interaction_fit)))
 )
+
+interaction_cells <- expand.grid(battery12 = 0:1, noise_cancel = 0:1)
+interaction_cells$predicted_probability <- mapply(function(b, n) {
+  d_cf <- cbc_long
+  d_cf$battery12 <- b; d_cf$noise_cancel <- n
+  mean(predict(interaction_fit, newdata = d_cf))
+}, interaction_cells$battery12, interaction_cells$noise_cancel)
+
+interaction_did <- with(interaction_cells,
+  predicted_probability[battery12 == 1 & noise_cancel == 1] -
+  predicted_probability[battery12 == 1 & noise_cancel == 0] -
+  predicted_probability[battery12 == 0 & noise_cancel == 1] +
+  predicted_probability[battery12 == 0 & noise_cancel == 0])
 ```
 
 ```{r}
@@ -992,12 +1074,12 @@ interaction_coef_df %>%
        title = "バッテリー x ノイキャンの交互作用モデル")
 ```
 
-- 交互作用項（battery12:noise_cancel）のCIはゼロを跨ぐ——真がゼロのDGPと整合的
-- 実データでこの項が立てば「2つの機能をセットで売りにする」根拠になる
+- 積項は4セルの平均予測確率の差の差（`r round(interaction_did, 3)`）
+- 符号・CIを確率スケールで読む。効用指数の積項とは別の量
 
 ::: {.notes}
-- 有意になったとしたら標本のブレ。系統的な交互作用ではない、と説明。
-- サブスクのバンドル設計（広告なし×オフライン再生）が実務での典型例。
+- 有意性だけでなく4セルを並べ、「どの組合せが基準からどれだけ動いたか」を確認する。
+- 利益判断には機能の追加費用も必要。
 :::
 
 ## セグメント別AMCE：誰に刺さる機能か
@@ -1060,9 +1142,9 @@ ggplot(seg_compare_df, aes(x = segment, y = amce_nc)) +
 
 ::: {.keybox .fragment}
 - SP（コンジョイント）は属性をランダム化した仮想選択で、**まだ存在しない商品**の需要を測れる。代償はhypothetical bias
-- CBCデータ＝**内生性が設計によって消えたlogit** ＝ **多属性ランダム化実験**。同じデータの2つの読み方
-- AMCEは水準ダミーのOLSで推定。**回答者クラスターSE**を忘れない（忘れるとSEを過小評価）
-- WTPは係数の比 $\beta_{\mathrm{attr}} / \alpha$。SEは**デルタ法**。ただし $\alpha$ が小さいと比が暴れる
+- CBCは価格・属性をランダム化した**選択データ**であり、同時に**多属性ランダム化実験**
+- opt-out-inclusive AMCEはoutsideタスクも残してOLS。**回答者クラスターSE**を忘れない
+- 個人WTPは$\beta_{i,\mathrm{attr}}/\alpha_i$。平均個人WTP・平均係数の比・working-model比を区別。正しく指定されたモデルではSEを**デルタ法**で作れる
 - 平均（AMCE）で設計を決め、異質性（セグメント・個人）でターゲティングを考える → 第9回・第11回へ
 :::
 

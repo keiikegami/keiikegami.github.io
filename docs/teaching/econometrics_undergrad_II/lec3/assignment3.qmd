@@ -44,8 +44,8 @@ options(scipen = 8)
 具体的には次の3つを確認する。
 
 1. plain logitのBerry反転をOLSで推定すると価格係数$\alpha$が過小評価されること。
-2. nested logit版のBerry反転をOLSで推定すると、$\alpha$だけでなくネスト内相関$\rho$も歪むこと。
-3. コストシフターとBLP型IV（競合属性）を使った2SLSで、$\alpha$と$\rho$の両方を回収できること。
+2. nested logit版のBerry反転をOLSで推定すると、$\alpha$だけでなくネスティング・パラメータ$\rho$も歪むこと。
+3. コストシフターと同一ネスト内の競合属性を使った2SLSで、$\alpha$と$\rho$の両方を回収できること。
 
 配点は全体で100点。手を動かせば2〜4時間程度で終わる分量を想定している。ヒントのcalloutを活用してほしい。
 :::
@@ -58,13 +58,7 @@ options(scipen = 8)
 - 財3・財4：**「無糖・すっきり系」**ネスト（微炭酸・無糖）
 - 財0（outside option）：炭酸飲料を買わない（他のカテゴリの飲み物を買う、あるいは何も買わない）
 
-消費者の効用は
-
-$$
-u_{ijt} = \delta_{jt} + \zeta_{igt} \cdot \rho + (1-\rho)\varepsilon_{ijt}
-$$
-
-という一般化extreme value構造から導かれるnested logitに従うとし（講義の記法に合わせ、講義で導入した選択確率の分解式をそのまま使えばよい。$\zeta_{igt}$の分布の詳細に立ち入る必要はない）、平均効用は
+消費者の誤差項は、講義で扱ったcanonical nested-logitのGEV同時分布に従うとする。この課題では、独立なGumbelを足して誤差を疑似生成せず、講義のwithin/betweenシェア写像をそのままDGPとして使う。平均効用は
 
 $$
 \delta_{jt} = x_{jt}'\beta - \alpha p_{jt} + \xi_{jt}
@@ -77,6 +71,8 @@ $$
 $$
 
 とする。
+
+ここで $\lambda=1-\rho$ がdissimilarity parameterである。$0<\lambda\leq1$（$0\leq\rho<1$）が通常のランダム効用モデルと整合的な範囲で、標準的な正規化では同一ネスト内の誤差相関は $1-\lambda^2$。したがって、$\rho$は相関そのものではなく、相関を単調に動かすネスティング・パラメータである。
 
 ## Part 1：シミュレーション設計（40点）
 
@@ -178,11 +174,12 @@ nested_logit_shares_batch <- function(x, price, xi, alpha, beta, rho, nests) {
 }
 ```
 
-この関数を使い、以下を実行せよ。
+この関数を使い、以下を実行せよ。価格内生性とnested-logitの仕様差を混同しないため、**同じ $x,p,\xi$ から2つのDGPを分けて作る**。
 
-1. `nests <- list(c(1,2), c(3,4))`、真値`alpha=2.0, beta=1.5, rho=0.5`でシェアを計算する。
-2. 市場・財・$x$・$w$・$\xi$・価格・シェア・outsideシェア・within shareを1行1観測（$T \times J = 400$行）のデータフレームにまとめる。
-3. `y_berry = log(share) - log(share0)`、`ln_swithin = log(s_within)`の2列を追加する。
+1. 真値`alpha=2.0, beta=1.5, rho=0.5`で**nested DGP**のシェアを計算する。
+2. 同じ変数を使い、`rho=0`で**plain-logit DGP**のシェアも計算する。
+3. nested DGPを`market_df`、plain DGPを`market_df_plain`として、どちらも1行1観測（$T\times J=400$行）にまとめる。
+4. `y_berry = log(share) - log(share0)`を両方に、`ln_swithin = log(s_within)`をnested DGPに追加する。
 
 ```{r}
 #| label: q3-skeleton
@@ -193,6 +190,7 @@ beta_true <- 1.5
 rho_true <- 0.5
 
 nl_result <- nested_logit_shares_batch(x_mkt, price_mkt, xi_mkt, alpha_true, beta_true, rho_true, nests)
+pl_result <- nested_logit_shares_batch(x_mkt, price_mkt, xi_mkt, alpha_true, beta_true, 0, nests)
 
 market_df <- data.frame(
   market = rep(1:T_mkt, times = J_mkt),
@@ -206,6 +204,14 @@ market_df <- data.frame(
   s_within = as.vector(___)
 ) %>%
   mutate(y_berry = ___, ln_swithin = ___)
+
+# plain-logit DGP（同じ x, w, xi, price。違うのは rho=0 のシェア写像だけ）
+market_df_plain <- market_df %>%
+  mutate(
+    share = as.vector(___),
+    share0 = rep(___, times = J_mkt),
+    y_berry = log(share) - log(share0)
+  )
 ```
 
 ### Q4（5点）：記述統計と可視化
@@ -224,7 +230,7 @@ market_df <- data.frame(
 
 ### Q5（10点）：plain logitのBerry反転をOLSで推定する
 
-まず、nestedの構造を無視して（つまりネストを無視して）plain logitとして扱い、Berry反転をOLSで推定してみる。
+まず、Q3で別に作った**plain-logit DGP**を使い、Berry反転をOLSで推定する。ここではモデルの関数形は正しいので、真値との差は価格内生性に由来する。nested DGPをplain logitとして推定すると、価格内生性と仕様誤り（within-share項の欠落）が混ざってしまうので、この設問では使わない。
 
 $$
 y_{jt} = \ln s_{jt} - \ln s_{0t} = x_{jt}'\beta - \alpha p_{jt} + \xi_{jt}
@@ -235,7 +241,7 @@ $$
 ```{r}
 #| label: q5-skeleton
 #| eval: false
-ols_plain <- feols(y_berry ~ price + x, data = market_df, vcov = "hetero")
+ols_plain <- feols(y_berry ~ price + x, data = market_df_plain, vcov = "hetero")
 summary(ols_plain)
 
 alpha_ols_plain <- -coef(ols_plain)["price"]
@@ -266,46 +272,50 @@ summary(ols_nested)
 
 ### Q7（20点）：2SLSで$\alpha$と$\rho$を回収する
 
-Q6のOLS推定には2つの内生変数（`price`と`ln_swithin`）があるので、それぞれに対応する操作変数が必要である。次の3つを操作変数として使う。
+Q6のOLS推定には2つの内生変数（`price`と`ln_swithin`）があるので、含まれる外生変数$x$を除いた操作変数行列に、少なくとも2方向の独立な変動が必要である。この課題では次の2つを除外操作変数として使う。
 
-1. `w`：コストシフター（`price`用）
-2. `rx_within`：**同じネスト内の競合の商品属性の合計**（`ln_swithin`用のBLP型IV）
-3. `rx_other`：**異なるネストの競合の商品属性の合計**（`ln_swithin`用のBLP型IV）
+1. `w`：コストシフター（主に`price`を動かす）
+2. `rx_within`：**同じネスト内の他財の商品属性の合計**（相対効用を通じて主に`ln_swithin`を動かす）
 
-`rx_within`と`rx_other`は、次のように計算する。財$j$がネスト$g$に属するとき、
+`rx_within`は、財$j$がネスト$g$に属するとき、次のように計算する。
 
 $$
-\text{rx\_within}_{jt} = \sum_{k \in g,\, k \neq j} x_{kt}, \qquad
-\text{rx\_other}_{jt} = \sum_{k \notin g} x_{kt}
+\text{rx\_within}_{jt} = \sum_{k \in g,\, k \neq j} x_{kt}.
 $$
 
-これらは「競合の属性」であり、財$j$自身の$\xi_{jt}$には影響しないが、同じネスト内・異なるネストの競合が強い（属性$x$が高い）ときに財$j$のwithin shareを動かす、という発想のBLP型IVである。
+これは、他製品属性を使うという意味でBLP型IVに着想を得た、この課題専用の操作変数である。財$j$自身の$\xi_{jt}$には影響しない一方、同じネストの他財の魅力度を変え、財$j$との**ネスト内の相対効用**を通じて$\bar s_{j|g,t}$を動かす。
+
+一方、異なるネストの属性和`rx_other`はこの課題では使わない。canonical nested logitでは
+
+$$
+\bar s_{j|g,t}
+=\frac{\exp(\delta_{jt}/(1-\rho))}
+{\sum_{k\in g}\exp(\delta_{kt}/(1-\rho))}
+$$
+
+なので、条件付きシェアは他ネストの属性に依存しない。他ネストの属性はネスト選択確率$s_{g,t}$を動かしうるが、$\bar s_{j|g,t}$は動かさないため、このDGPで`ln_swithin`用の除外IVにはならない。標準的なBLP IVは企業IDを使って「同じ企業の他製品」と「他企業の製品」の属性和を分けるが、この課題のネスト区分は企業区分ではないので、両者を同一視しないこと。
 
 ```{r}
 #| label: q7a-skeleton
 #| eval: false
-# 財ごとの「同ネスト内の競合のx合計」「異ネストの競合のx合計」を計算する関数
-compute_rival_x <- function(x, nests) {
+# 財ごとの「同ネスト内の競合のx合計」を計算する関数
+compute_within_rival_x <- function(x, nests) {
   T_ <- nrow(x); J_ <- ncol(x)
   nest_of <- integer(J_)
   for (g in seq_along(nests)) {
     for (j in nests[[g]]) nest_of[j] <- g
   }
   rx_within <- matrix(NA, T_, J_)
-  rx_other <- matrix(NA, T_, J_)
   for (j in 1:J_) {
     g <- nest_of[j]
     rivals_within <- setdiff(nests[[g]], j)
-    rivals_other <- setdiff(1:J_, nests[[g]])
     rx_within[, j] <- if (length(rivals_within) > 0) rowSums(x[, rivals_within, drop = FALSE]) else 0
-    rx_other[, j] <- rowSums(x[, rivals_other, drop = FALSE])
   }
-  list(rx_within = rx_within, rx_other = rx_other)
+  rx_within
 }
 
-rx <- compute_rival_x(x_mkt, nests)
+rx_within_mkt <- compute_within_rival_x(x_mkt, nests)
 market_df$rx_within <- as.vector(___)
-market_df$rx_other <- as.vector(___)
 ```
 
 `fixest::feols()`で複数内生変数の2SLSを実行するには、`|`の後ろに`(内生変数1 + 内生変数2) ~ 操作変数1 + 操作変数2 + ...`の形式で書く。
@@ -314,13 +324,13 @@ market_df$rx_other <- as.vector(___)
 #| label: q7b-skeleton
 #| eval: false
 iv_nested <- feols(
-  y_berry ~ x | price + ln_swithin ~ w + rx_within + rx_other,
+  y_berry ~ x | price + ln_swithin ~ w + rx_within,
   data = market_df, vcov = "hetero"
 )
 summary(iv_nested)
 ```
 
-$\hat\alpha$、$\hat\rho$を真値と比較し、first-stageのF統計量も報告せよ（`price`用、`ln_swithin`用それぞれ）。弱操作変数の懸念があるかどうかコメントせよ。
+$\hat\alpha$、$\hat\rho$を真値と比較せよ。さらに、含まれる外生変数$x$を条件づけた2本のfirst stageを推定し、(i) 除外IV（`w`, `rx_within`）の係数から作る$2\times2$行列のrankが2であること、(ii) 各first stageにおける2本の除外IVのjoint partial Fを確認せよ。回帰全体のFを報告しないこと。rankが2であることは母集団のrank conditionに対応する標本上の確認であり、partial Fが十分かどうかは弱識別を点検するための別の問いである。
 
 ::: {.callout-tip}
 ## ヒント：係数の取り出し方
@@ -341,38 +351,42 @@ get_coef_for <- function(model, varname) {
 ::: {.callout-tip}
 ## ヒント：first-stageの見方
 
-`fixest`で複数内生変数のIVを実行すると、`summary()`の出力に複数のfirst-stage回帰の情報が自動的に含まれる。ただし`fitstat()`の詳細な引数名は`fixest`のバージョンによって変わることがあるので、確実な方法として、`feols(price ~ x + w + rx_within + rx_other, data = market_df)`と`feols(ln_swithin ~ x + w + rx_within + rx_other, data = market_df)`のように、first-stage回帰を自分で明示的に実行し、それぞれに対して`fitstat(fs_price, "f")`のようにF統計量を確認する方法を推奨する。これなら通常の単回帰に対するF統計量なので確実に動作する。
+確実な計算方法は、各内生変数について、reduced model（`~ x`）とfull model（`~ x + w + rx_within`）を`lm()`で推定し、`anova(reduced, full)`の2行目のFを読むこと。この古典的partial Fは「2本の除外IVを同時に落とせるか」を検定する。さらに2本のfull first stageから、行を内生変数（`price`, `ln_swithin`）、列を除外IV（`w`, `rx_within`）とする係数行列を作り、`qr(B)$rank`を確認する。`fitstat(fs, "f")`が返す回帰全体のFは、強い$x$だけで大きくなりうるため代用にならない。なお、このrank確認と古典的partial Fは入門的な診断である。異分散と複数内生変数を本格的に扱う実証では、Sanderson–Windmeijer conditional FやKleibergen–Paap統計量、弱IV頑健推論を使う。
 :::
 
 ::: {.callout-tip}
-## ヒント：なぜ`rx_within`・`rx_other`が価格の操作変数にもならないのか
+## ヒント：このDGPで各操作変数は何を動かすか
 
-理論的には`rx_within`・`rx_other`は`price`に対しても多少の説明力を持つかもしれない（競合が強いと自社も値下げ圧力を受けるため）。しかしこの課題では、`price`の操作変数としては`w`（コストシフター）だけを念頭に置き、`rx_within`・`rx_other`は主に`ln_swithin`の操作変数として設計している。`feols`の2SLS構文では、指定した全ての操作変数が全ての内生変数の識別に使われる（操作変数の数 $\geq$ 内生変数の数であればよい）ので、実装上はまとめて指定してよい。
+この課題の価格式にはライバル属性を入れていないので、`rx_within`は構築上、主に`ln_swithin`を動かす。`price`の関連性は主に`w`が担う。ただし`w`が自財価格を通じてwithin shareも動かすため、単に「IVを1本ずつ内生変数へ割り当てる」のではない。2本のfirst stageを同時に見て、除外IV係数行列がfull rankかを確認する必要がある。操作変数の本数が内生変数以上という本数の確認だけでは、識別も強さも保証されない。
 :::
 
-### Q8（10点）：弾力性行列の比較（logit/nested × OLS/IV）
+### Q8（10点）：弾力性行列の比較（plain/nested × OLS/IV）
 
 次の4通りの弾力性行列を計算し、比較せよ。
 
-1. plain logit・OLSの$\hat\alpha$を使った弾力性行列
-2. plain logit・真値$\alpha=2.0$を使った弾力性行列（ベンチマーク）
-3. nested logit・OLSの$\hat\alpha, \hat\rho$を使った弾力性行列
-4. nested logit・2SLSの$\hat\alpha, \hat\rho$を使った弾力性行列
+1. plain-logit DGP（`market_df_plain`）をOLS推定したモデル
+2. plain-logit DGP（`market_df_plain`）を`w`でIV推定したモデル
+3. nested-logit DGP（`market_df`）をOLS推定したモデル
+4. nested-logit DGP（`market_df`）を`w + rx_within`でIV推定したモデル
 
-nested logitの弾力性は、講義の`elasticity_numeric()`関数（数値微分）を応用して計算してよい。市場平均のシェア・価格を使うこと。表または図でまとめ、「OLSに基づく弾力性行列を使うと、どの財の代替性を見誤りやすいか」を2〜3行で述べよ。
+plain logitのIVモデルを`market_df_plain`で追加推定せよ。4モデルとも、価格と属性の評価点には各DGPに共通する財別平均を使い、**各推定モデル自身の**$\hat\beta,\hat\alpha,\hat\rho$（plainでは$\rho=0$）から基準確率を計算して数値微分すること。nestedモデルの基準確率に真の$\beta$や観測されたnestedシェアを流用してはいけない。表または図でまとめ、「内生性を無視したときに弾力性と代替性をどう見誤るか」を2〜3行で述べよ。
 
 ```{r}
 #| label: q8-skeleton
 #| eval: false
-mean_share_df <- market_df %>% group_by(product) %>% summarize(share = mean(share), price = mean(price))
-mean_delta <- ___  # 平均x, 平均shareから逆算するか、平均deltaを別途計算する
+iv_plain <- feols(y_berry ~ x | price ~ w, data = market_df_plain, vcov = "hetero")
 
-# nested logitの弾力性計算には講義ノートのelasticity_numeric()を再利用してよい
+mean_inputs <- market_df %>%
+  group_by(product) %>%
+  summarize(x = mean(x), price = mean(price), .groups = "drop")
+
+# nested_logit_shares_batch()で各モデル自身の基準確率を作り、価格を1財ずつ微小に動かす
+# 4モデルの (beta_hat, alpha_hat, rho_hat) を混同しないこと
 ```
 
 ### Q9（5点）：$\rho = 0$のWald検定
 
-2SLSで得た$\hat\rho$とその標準誤差を使い、$H_0: \rho = 0$（「nested構造は不要でplain logitで十分」という帰無仮説）に対するWald検定統計量を計算せよ。
+2SLSで得た$\hat\rho$とその標準誤差を使い、$H_0: \rho = 0$（「nested構造は不要でplain logitで十分」という帰無仮説）に対するWald検定統計量を計算せよ。ここでは線形IV式を$\rho<0$にも拡張した無制約推定の通常のWald近似を使う。構造制約$0\leq\rho<1$を推定時に課す場合、$\rho=0$は境界なので通常の$\chi^2_1$近似には注意が要る。
 
 $$
 W = \left(\frac{\hat\rho}{\text{se}(\hat\rho)}\right)^2
@@ -396,7 +410,7 @@ wald_stat <- (rho_hat / se_rho)^2
 
 ### Q10（5点）：経営への含意（3行で）
 
-あなたは飲料メーカーの商品企画担当として、この推定結果をもとに次の問いに答えなければならない。「甘め系ネストの財1を値上げしたとき、一番シェアを奪われる（＝一番怖い競合になる）のはどの財か」。2SLSで推定した弾力性行列を根拠に、3行以内で答えよ。OLSに基づく弾力性行列で同じ問いに答えた場合、結論がどう変わってしまうかにも触れること。
+あなたは飲料メーカーの商品企画担当として、この推定結果をもとに次の問いに答えなければならない。「甘め系ネストの財1を値上げしたとき、一番シェアを奪われる（＝一番怖い競合になる）のはどの財か」。2SLSで推定した弾力性行列を根拠に、3行以内で答えよ。OLSに基づく弾力性行列と比べ、競合順位が変わるかだけでなく、自己反応・同ネスト内への流出・別ネストへの流出の大きさがどう違うかにも触れること。
 
 ::: {.callout-warning}
 ## 提出前のチェック

@@ -60,7 +60,8 @@ simulate_price_weeks <- function(n_weeks, gamma_price, phi_demand,
   demand_shock <- rnorm(n_weeks, mean = 0, sd = 1)
   log_price <- log(1000) + gamma_price * demand_shock +
     rnorm(n_weeks, mean = 0, sd = 0.05)
-  log_q <- log(500) + true_elasticity * log_price + phi_demand * demand_shock +
+  log_q <- log(500) + true_elasticity * (log_price - log(1000)) +
+    phi_demand * demand_shock +
     rnorm(n_weeks, mean = 0, sd = 0.1)
   data.frame(demand_shock = demand_shock, log_price = log_price, log_q = log_q)
 }
@@ -70,8 +71,8 @@ simulate_price_weeks <- function(n_weeks, gamma_price, phi_demand,
 naive_vs_true_effect <- function(df, multiplier = 2, beta_ad = 0.002) {
   beta_naive <- coef(lm(log_sales ~ ad_spend, data = df))[["ad_spend"]]
   delta_ad   <- (multiplier - 1) * df$ad_spend
-  true_pct   <- (exp(mean(beta_ad * delta_ad)) - 1) * 100
-  naive_pct  <- (exp(mean(beta_naive * delta_ad)) - 1) * 100
+  true_pct   <- mean(exp(beta_ad * delta_ad) - 1) * 100
+  naive_pct  <- mean(exp(beta_naive * delta_ad) - 1) * 100
   c(true_pct = true_pct, naive_pct = naive_pct)
 }
 
@@ -116,7 +117,7 @@ data.frame(
 - このバイアスは、データを増やせば消える種類の問題だろうか。予想してから `n_stores` を10倍にして確かめ、「識別の問題」と「推定精度の問題」の違いを自分の言葉で説明してみよう。
 :::
 
-## 実験2：価格の内生性 — 弾力性の符号が逆転する瞬間
+## 実験2：価格の内生性 — 販売数量の弾力性の符号が逆転する瞬間
 
 講義ノートのシミュレーション2、「値上げすると売上が増える？」の世界。繁忙期（需要ショックが大きい週）ほど店は強気の価格を付ける。その強気さが `gamma_price`（ノートでは0.3）だ。真の需要曲線は弾力性-1.2の右下がりなのに、log-log OLSの推定弾力性は `gamma_price` 次第で符号までひっくり返る。図は両対数なので、真の需要曲線もOLSの回帰直線もまっすぐな線として重なる。`gamma_price` を0から少しずつ上げて（あるいは0.3から少しずつ下げて）、推定値がプラスに転じる境目を探そう。境目の近くでは標本誤差が邪魔をするので、探索するときは `n_weeks <- 20000` にしておくと見やすい。
 
@@ -145,7 +146,7 @@ grid <- seq(min(df$log_price), max(df$log_price), length.out = 50)
 lines_df <- data.frame(
   log_price = rep(grid, 2),
   log_q = c(coef(fit)[[1]] + e_hat * grid,
-            log(500) + true_elasticity * grid),
+            log(500) + true_elasticity * (grid - log(1000))),
   curve = rep(c("OLS fit", "true demand curve (shock fixed at 0)"), each = 50)
 )
 
@@ -177,7 +178,7 @@ $$
 \hat{\beta}_{\mathrm{naive}} \approx \beta_{\mathrm{ad}} + \beta_{\mathrm{quality}} \times \frac{c}{c^2 + 15^2}
 $$
 
-に近づく（15は広告費に入るノイズの標準偏差）。分母に $c^2$ が入っているので、膨らみ方は単調ではない点にも注意して眺めよう。既定の設定では、真の効果はどの $c$ でも22%前後で一定（施策そのものは同じだから）なのに対し、素朴OLSに基づく予測は大きく暴走する。表の `gap_pp` 列が、%ポイントで測った両者の乖離だ。
+に近づく（15は広告費に入るノイズの標準偏差）。分母に $c^2$ が入っているので、膨らみ方は単調ではない点にも注意して眺めよう。既定の設定では、真の効果はどの $c$ でもおおむね22%前後である（店舗別の変化率を平均するため、広告費分布の分散や10万円でのクリップにより僅かには動く）。それに対し、素朴OLSに基づく予測は大きく暴走する。表の `gap_pp` 列が、%ポイントで測った両者の乖離だ。
 
 ```{webr}
 #| timelimit: 60

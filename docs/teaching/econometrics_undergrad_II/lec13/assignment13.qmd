@@ -278,9 +278,9 @@ cat("NFXP 実行時間:", round(nfxp_time, 2), "秒\n")
 ```
 
 ::: {.callout-warning}
-## よくあるバグ：$\beta$ を推定しようとして地獄を見る
+## 識別上の注意：$\beta$ を選択データだけで推定する難しさ
 
-**$\beta$ を推定対象に加えてはいけない。** 割引因子は選択データだけからは識別が難しく（$\beta$ と flow utility がもつれる）、`optim` の探索が発散したり、無意味な値（$\beta > 1$ や負）に飛んだりする。$\beta = 0.95$ は**固定**し、推定するのは $(\theta_1, RC)$ の2つだけ。これは実務の標準的な慣習でもある。
+この課題では **$\beta$ を推定対象に加えない**。選択データだけでは割引因子とflow utilityを一般に分離できず、追加の除外制約・外部情報・正規化が要る。ここの尤度へ無制約に$\beta$を足すと目的関数が平坦・不安定になり、探索が$\beta>1$や負の値へ飛ぶこともある。$\beta=0.95$を固定して$(\theta_1,RC)$だけを推定し、必要なら別の固定値で感度分析する。
 :::
 
 ## 問5（15点）：Hotz-Miller の CCP で推定する
@@ -292,7 +292,7 @@ $$
 \;=\; \theta_1\, x - RC.
 $$
 
-$y(x)$ を経験 CCP から計算し、$x$ に回帰する（傾き=$\theta_1$、切片=$-RC$）。$\hat P = 0$ 対策に Laplace 平滑化、薄い状態対策に観測数 $\geq 30$ の状態だけ重み付き回帰。
+$y(x)$ を経験 CCP から計算し、$x$ に回帰する（傾き=$\theta_1$、切片=$-RC$）。$\hat P=0$対策にはJeffreys/add-half平滑化 $(n_1+0.5)/(n+1)$ を使う（Laplace/add-oneは $(n_1+1)/(n+2)$）。薄い状態対策として観測数 $\geq30$ の状態をWLSに使う。
 
 ```{r}
 #| eval: false
@@ -302,13 +302,18 @@ diffP <- P1 - P0
 n_x  <- sapply(0:(K - 1), function(xv) sum(X == xv))
 n1_x <- sapply(0:(K - 1), function(xv) sum(A[X == xv]))
 
-# Laplace 平滑化した CCP
+# Jeffreys/add-half 平滑化した CCP
 Psm    <- (n1_x + 0.5) / (n_x + 1.0)
 logP1h <- log(Psm); logP0h <- log(1 - Psm)
 
-# 将来項の logP1（未観測状態は隣で代用）
+# 将来項の logP1（未観測状態は最も近い観測状態で代用。境界も安全に処理）
 logP1h_full <- logP1h
-for (xv in 1:K) if (n_x[xv] == 0) logP1h_full[xv] <- logP1h_full[xv - 1]
+observed_idx <- which(n_x > 0)
+if (length(observed_idx) == 0) stop("CCPを計算できる観測状態がない")
+for (idx in which(n_x == 0)) {
+  nearest <- observed_idx[which.min(abs(observed_idx - idx))]
+  logP1h_full[idx] <- logP1h[nearest]
+}
 
 # y(x) を計算 → 観測数>=30 の状態で重み付き回帰
 y_hat <- ______                                 # 【穴埋め】logP1h - logP0h + beta * (P1-P0) 行 x logP1h_full

@@ -54,13 +54,52 @@ fit_local_linear <- function(x, y, h) {
 
 # sunabの係数から「相対期間・推定値・SE」の表を取り出す（実験2で使う）
 sunab_es_table <- function(fit) {
-  cf <- coef(fit)
-  sd_all <- sqrt(diag(vcov(fit)))
-  keep <- grepl("::-?[0-9]+$", names(cf))
+  tab <- aggregate(fit, "period")
   data.frame(
-    e = as.numeric(sub(".*::(-?[0-9]+)$", "\\1", names(cf)[keep])),
-    est = unname(cf[keep]),
-    se = unname(sd_all[keep])
+    e = as.numeric(sub(".*::(-?[0-9]+)$", "\\1", rownames(tab))),
+    est = unname(tab[, "Estimate"]),
+    se = unname(tab[, "Std. Error"])
+  )
+}
+
+# 集計済みの相対期間係数が同時にゼロかを検定する
+sunab_pretrend_wald <- function(fit, periods, n_clusters) {
+  beta <- fit$coefficients
+  beta_names <- names(beta)
+  V_raw <- vcov(fit)[beta_names, beta_names, drop = FALSE]
+  X_raw <- model.matrix(fit)[, beta_names, drop = FALSE]
+  period_name <- sub("::.*$", "", rownames(aggregate(fit, "period"))[1])
+  targets <- paste0(period_name, "::", periods)
+  targets <- targets[vapply(
+    targets,
+    function(z) any(startsWith(beta_names, paste0(z, ":cohort::"))),
+    logical(1)
+  )]
+
+  A <- matrix(0, nrow = length(targets), ncol = length(beta),
+              dimnames = list(targets, beta_names))
+  for (j in seq_along(targets)) {
+    idx <- startsWith(beta_names, paste0(targets[j], ":cohort::"))
+    shares <- colSums(sign(X_raw[, idx, drop = FALSE]))
+    A[j, idx] <- shares / sum(shares)
+  }
+
+  b <- drop(A %*% beta)
+  V <- A %*% V_raw %*% t(A)
+  eig <- eigen(V, symmetric = TRUE)
+  keep <- eig$values > max(eig$values) * 1e-8
+  V_inv <- eig$vectors[, keep, drop = FALSE] %*%
+    diag(1 / eig$values[keep], nrow = sum(keep)) %*%
+    t(eig$vectors[, keep, drop = FALSE])
+  df1 <- sum(keep)
+  F_stat <- drop(t(b) %*% V_inv %*% b) / df1
+
+  data.frame(
+    tested_periods = paste(periods, collapse = ", "),
+    F_statistic = F_stat,
+    df1 = df1,
+    df2 = n_clusters - 1,
+    p_value = pf(F_stat, df1, n_clusters - 1, lower.tail = FALSE)
   )
 }
 
@@ -75,7 +114,7 @@ $$
 y_{it} = \mu_i + \lambda_t + \tau \cdot D_i P_t + s \cdot D_i t + \varepsilon_{it}
 $$
 
-$s$（= `trend_gap`）がゼロなら並行トレンドが成立し、DiDは $\tau$ を正しく当てる。$s \neq 0$ のとき、DiDの期待値は $\tau + s \times (\bar{t}_{\mathrm{post}} - \bar{t}_{\mathrm{pre}})$ にズレる。下の設定は前半8期・後半8期なので、バイアスはちょうど $s$ の8倍だ。図は処置群と対照群の平均の差を処置1期前で0に揃えたもので、素朴なevent studyに相当する。処置前の点が横一線に見えるか、目を凝らしてほしい。
+$s$（= `trend_gap`）がゼロなら並行トレンドが成立し、DiDは期待値で $\tau$ を捉える。$s \neq 0$ のとき、DiDの期待値は $\tau + s \times (\bar{t}_{\mathrm{post}} - \bar{t}_{\mathrm{pre}})$ にズレる。下の設定は前半8期・後半8期なので、バイアスはちょうど $s$ の8倍だ。図は処置群と対照群の平均の差を処置1期前で0に揃えたもので、素朴なevent studyに相当する。処置前の点が横一線に見えるか、目を凝らしてほしい。
 
 ```{webr}
 #| timelimit: 90
@@ -143,7 +182,7 @@ ggplot(gap_df, aes(event_time, gap_norm)) +
 
 - `trend_gap <- 0.005` にしてみよう。図のプレトレンドはほぼ完全にフラットに見えるはずだ。それでも表の `bias / true (%)` は何%残るか。
 - `trend_gap` は0.02のまま、`tau_true <- 0.1`（もともと効果が小さい施策）に変えてみよう。バイアスは真値の何倍になるか。効果が小さい施策ほど、同じ違反が致命傷になる。
-- 「プレトレンドがフラットに見える＝並行トレンド成立」と言えないのはなぜか。この装置で「図では無罪に見えるが、推定は有罪」という例を自分で作れることを踏まえて、言葉で説明してみよう。
+- 「プレトレンドがフラットに見える＝並行トレンド成立」と言えないのはなぜか。この装置で、違反が図では見えにくくても推定には無視できない偏りが残る例を作り、言葉で説明してみよう。
 :::
 
 ## 実験2：staggered adoptionと符号反転 — 静的TWFEが壊れる瞬間
@@ -190,16 +229,20 @@ pan <- expand.grid(unit = 1:G, time = 1:Tt) %>%
 
 true_att <- mean(pan$true_effect[pan$treated == 1])
 
-static_fit <- feols(y ~ treated | unit + time, data = pan)
+static_fit <- feols(y ~ treated | unit + time, data = pan, vcov = ~unit)
 twfe_est <- unname(coef(static_fit)["treated"])
 
-sun_fit <- feols(y ~ sunab(adopt_t, time) | unit + time, data = pan)
+sun_fit <- feols(y ~ sunab(adopt_t, time) | unit + time,
+                 data = pan, vcov = ~unit)
 sun_att <- as.numeric(coef(summary(sun_fit, agg = "att")))[1]
 
 data.frame(
   method = c("true ATT", "static TWFE", "Sun-Abraham (sunab)"),
   estimate = round(c(true_att, twfe_est, sun_att), 3)
 )
+
+# 直近4リードのクラスタ頑健な同時検定
+sunab_pretrend_wald(sun_fit, periods = -5:-2, n_clusters = G)
 
 # event study：sunabの係数（点とヒゲ）・真の動的効果（実線）・静的TWFE（破線）
 es <- sunab_es_table(sun_fit) %>% filter(e >= -8, e <= 12)
@@ -231,7 +274,9 @@ ggplot() +
 ## やってみよう
 
 - `growth_late <- 0.15`（`growth_early` と同じ値）にして、コホート間の異質性を消してみよう。符号反転は消えるか。消えたとして、静的TWFEは真のATTまで戻るか、それともゼロ近くまで縮んだままか。
-- `growth_early` を0.05から0.30まで動かして、真のATTと静的TWFEの乖離がどう広がるか見てみよう。sunabはどの設定でも真値を追えているか。
+- 次に`true_effect <- tau_const * treated`と書き換え、効果をコホート間でも経過期間間でも一定にしてみよう。このとき静的TWFEは真値まで戻るか。
+- `growth_early` を0.05から0.30まで動かして、真のATTと静的TWFEの乖離がどう広がるか見てみよう。sunabの推定は各設定で真値にどの程度近いか。
+- Wald検定がp値の大きさだけで「並行トレンドが成り立つ」と証明できないのはなぜか。小さな違反への検出力を考えよう。
 - なぜ「すでに処置されて効果が成長し続けている県」を対照群に使うと、推定値が下に引っ張られるのか。event studyの図のどの部分が、その「動き続けている対照群」に当たるかを考えてみよう。
 :::
 

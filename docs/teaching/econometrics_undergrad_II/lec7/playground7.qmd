@@ -53,7 +53,7 @@ theme_set(theme_minimal(base_size = 13))
 真に効果がある施策でも、$N$が足りなければ検定は「有意」と言ってくれない。ここでは真の効果量・サンプルサイズ・アウトカムのばらつきを自分で決め、その世界でA/Bテストを200回繰り返して、p < 0.05になった割合（= 検出力）を数える。2群の平均比較で検出力$1-\beta$を達成するのに必要な片群サンプルサイズは
 
 $$
-n = \frac{2 \sigma^2 (z_{\alpha/2} + z_{\beta})^2}{\tau^2}
+n = \frac{2 \sigma^2 (z_{1-\alpha/2} + z_{1-\beta})^2}{\tau^2}
 $$
 
 で近似できる（$\tau$は真の効果、$\sigma$はアウトカムのSD）。シミュレーションの検出力がこの公式とどれくらい一致するかも見る。
@@ -161,7 +161,7 @@ ggplot(res_peek, aes(k, type1_error)) +
 
 ## 実験3：ITTとTOT — 「配る効果」と「使う効果」は別物
 
-クーポンは配っても全員が使うわけではない。配信$Z$はランダムだが、使用$X$は顧客の自己選択で決まる（購買意欲の高い人ほど使う）。このとき配信の効果（ITT）と使用の効果（TOT）は別の量であり、one-sided noncompliance（配られない人は使えない）のもとでは
+クーポンは配っても全員が使うわけではない。配信$Z$はランダムだが、使用$X$は顧客の自己選択で決まる（購買意欲の高い人ほど使う）。このとき配信の効果（ITT）と使用の効果（TOT）は別の量である。ランダム割り当て・first stage・排除制約・monotonicityに加え、one-sided noncompliance（配られない人は使えない）が成立すれば、実際の使用者はcomplierなので
 
 $$
 \text{TOT} = \frac{\text{ITT}}{P(X = 1 \mid Z = 1)}
@@ -182,7 +182,8 @@ Z <- rbinom(N, 1, 0.5)                    # 配信（ランダム化）
 ability <- rnorm(N)                       # 観測されない購買意欲
 use_prob <- pmin(pmax(compliance + 0.25 * ability, 0.02), 0.98)
 X <- ifelse(Z == 1, rbinom(N, 1, use_prob), 0)   # 使用（配信されないと使えない）
-Y <- 5000 + 1500 * ability + true_tot * X + rnorm(N, mean = 0, sd = 2000)
+Y0 <- pmax(5000 + 1500 * ability + rnorm(N, mean = 0, sd = 2000), 0)
+Y <- Y0 + true_tot * X  # 個人ごとの効果を厳密にtrue_totへ固定
 ab_df <- data.frame(Z, X, Y)
 
 itt_hat   <- coef(lm(Y ~ Z, data = ab_df))["Z"]
@@ -223,7 +224,7 @@ $$
 \text{Var}(Y^{c}) = \text{Var}(Y) (1 - \rho^2)
 $$
 
-になる。つまりSEは$\sqrt{1 - \rho^2}$倍に縮む。追加のサンプルなしで検出力を買える、実務標準の手法である。
+になる（母集団の最適係数を使う理論式）。つまりSEは$\sqrt{1 - \rho^2}$倍に縮む。有限標本で$\theta$も推定する場合は毎回の保証ではないので、調整後SEを実際に確認する。
 
 ```{webr}
 #| timelimit: 60

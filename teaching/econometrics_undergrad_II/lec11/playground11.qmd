@@ -61,17 +61,20 @@ make_retention_data <- function(n, risk_slope, base_effect = 0.08) {
   D <- rbinom(n, 1, 0.5)                   # クーポンを50%にランダム配布
   stay0 <- rbinom(n, 1, 1 - p0)
   stay1 <- rbinom(n, 1, 1 - p1)
+  principal_stratum <- ifelse(stay0 == 0 & stay1 == 1, "persuadable",
+    ifelse(stay0 == 1 & stay1 == 1, "sure thing",
+      ifelse(stay0 == 0 & stay1 == 0, "lost cause", "sleeping dog")))
   stay <- ifelse(D == 1, stay1, stay0)     # 観測される継続（1 = 継続）
   data.frame(usage_hours, billing_trouble, price_sensitivity,
-             risk_score, D, stay, tau_true)
+             risk_score, D, stay, tau_true, stay0, stay1, principal_stratum)
 }
 
 # T-learner：処置群・対照群で別々にlmを推定し、予測値の差をCATE推定値とする
-fit_tlearner <- function(df) {
+fit_tlearner <- function(train_df, newdata) {
   f <- stay ~ usage_hours + billing_trouble + price_sensitivity
-  mu1 <- lm(f, data = df[df$D == 1, ])
-  mu0 <- lm(f, data = df[df$D == 0, ])
-  predict(mu1, newdata = df) - predict(mu0, newdata = df)
+  mu1 <- lm(f, data = train_df[train_df$D == 1, ])
+  mu0 <- lm(f, data = train_df[train_df$D == 0, ])
+  predict(mu1, newdata = newdata) - predict(mu0, newdata = newdata)
 }
 
 # Qini曲線：並び順order_idxで上位k人に配ったときの累積増分継続者数
@@ -107,7 +110,7 @@ $$
 \tau(x) = E[Y(1) - Y(0) \mid X = x]
 $$
 
-が**まったく別の量**だという点にある。ここでは通信キャリアのクーポンRCT（10,000人、50%にランダム配布、アウトカムは翌月の継続）をシミュレートする。`risk_slope` が「リスクが高い人ほど効果が下がる」構造の強さを決めるノブだ。予算内（上位25%）に配るとして、(a) リスクスコア順、(b) uplift（T-learnerの $\hat\tau(x)$）順、(c) ランダム、の3通りを比べる。`true_total_effect` は配った人たちの真の効果の合計（＝本当に防げる解約数）、`est_incremental_stays` はRCTログの群間差から推定した増分継続者数である。
+が**まったく別の量**だという点にある。ここでは通信キャリアのクーポンRCTをシミュレートし、60%を学習、40%を独立評価に使う。`risk_slope` が「リスクが高い人ほど効果が下がる」構造の強さを決める。`true_total_effect` と`est_incremental_stays`はどちらも学習に使っていない評価標本で計算する。
 
 ```{webr}
 #| timelimit: 60
@@ -120,27 +123,36 @@ budget_frac <- 0.25   # クーポンを配れるのは全体の上位25%まで
 set.seed(111)
 N <- 10000
 df <- make_retention_data(N, risk_slope)
-df$tau_hat <- fit_tlearner(df)
+train_id <- sample(seq_len(N), floor(0.60 * N))
+train_df <- df[train_id, ]
+eval_df <- df[-train_id, ]
+eval_df$tau_hat <- fit_tlearner(train_df, eval_df)
 
-cat("cor(risk_score, tau_true) =", round(cor(df$risk_score, df$tau_true), 3), "\n")
+cat("evaluation cor(risk_score, tau_true) =",
+    round(cor(eval_df$risk_score, eval_df$tau_true), 3), "\n")
 
-k <- floor(budget_frac * N)
-target_risk   <- order(-df$risk_score)[1:k]   # (a) リスクスコア上位に配る
-target_uplift <- order(-df$tau_hat)[1:k]      # (b) uplift推定値上位に配る
-target_random <- sample(N, k)                 # (c) ランダムに配る
+n_eval <- nrow(eval_df)
+k <- floor(budget_frac * n_eval)
+target_risk   <- order(-eval_df$risk_score)[1:k]
+target_uplift <- order(-eval_df$tau_hat)[1:k]
+target_random <- sample(seq_len(n_eval), k)
 
 policy_row <- function(name, idx) {
-  d <- df$D[idx]; y <- df$stay[idx]
+  d <- eval_df$D[idx]; y <- eval_df$stay[idx]
   data.frame(policy = name,
-             true_total_effect = round(sum(df$tau_true[idx]), 1),
+             true_total_effect = round(sum(eval_df$tau_true[idx]), 1),
              est_incremental_stays = round((mean(y[d == 1]) - mean(y[d == 0])) * length(idx), 1))
 }
 rbind(policy_row("(a) risk top", target_risk),
       policy_row("(b) uplift top", target_uplift),
       policy_row("(c) random", target_random))
+
+cat("\nPrincipal-strata shares within negative-CATE evaluation rows:\n")
+neg_tab <- prop.table(table(eval_df$principal_stratum[eval_df$tau_true < 0]))
+round(neg_tab, 3)
 ```
 
-リスク上位を狙う (a) は、ランダムに配る (c) にすら負ける。高リスク層は「もう決めている」lost causesと「触ると逆効果」のsleeping dogsが集まる場所だからである。
+このDGPではリスク上位を狙う (a) がランダムに負けうる。ただし、表が示す通り負のCATE層にも4類型が混在する。principal stratumは個人の $(Y(0),Y(1))$、CATEは条件付き平均であり、負のCATEは「その人がsleeping dog」という意味ではない。
 
 ::: {.callout-note}
 ## やってみよう
@@ -163,15 +175,18 @@ hetero <- 1.0   # 効果の異質性の強さ。0で「誰に配っても同じ�
 set.seed(222)
 N <- 10000
 df <- make_retention_data(N, risk_slope = 0.6 * hetero)
-df$tau_hat <- fit_tlearner(df)
+train_id <- sample(seq_len(N), floor(0.60 * N))
+train_df <- df[train_id, ]
+eval_df <- df[-train_id, ]
+eval_df$tau_hat <- fit_tlearner(train_df, eval_df)
 
-q_uplift <- qini_curve(order(-df$tau_hat), df$D, df$stay) %>%
+q_uplift <- qini_curve(order(-eval_df$tau_hat), eval_df$D, eval_df$stay) %>%
   mutate(policy = "uplift order (T-learner)")
-q_risk <- qini_curve(order(-df$risk_score), df$D, df$stay) %>%
+q_risk <- qini_curve(order(-eval_df$risk_score), eval_df$D, eval_df$stay) %>%
   mutate(policy = "churn-risk order")
-ate <- mean(df$stay[df$D == 1]) - mean(df$stay[df$D == 0])
+ate <- mean(eval_df$stay[eval_df$D == 1]) - mean(eval_df$stay[eval_df$D == 0])
 q_random <- data.frame(frac = q_uplift$frac,
-                       incremental = ate * floor(q_uplift$frac * N),
+                       incremental = ate * floor(q_uplift$frac * nrow(eval_df)),
                        policy = "random")
 
 qini_all <- bind_rows(q_uplift, q_risk, q_random)
@@ -193,47 +208,70 @@ ggplot(qini_all, aes(frac, incremental, color = policy, linetype = policy)) +
 
 ## 実験3：IPWで施策ルールをオフライン評価する
 
-新しい配分ルールを思いつくたびにA/Bテストをやり直すのはコストが高い。質の良いRCTログが1本あれば、任意のルール $\pi(x)$ の政策価値をIPW（逆確率重み付け）で推定できる。
+新しい配分ルールを思いつくたびにA/Bテストをやり直すのはコストが高い。ただし、一つのRCTログで閾値を探し、同じログで最良値を報告すると評価に過適合する。そこでここでは、**trainでCATEを学習 → validationで閾値を選択 → testで固定ルールを1回評価**という3ステップを実装する。
 
 $$
 \hat{V}(\pi) = \frac{1}{n} \sum_{i=1}^{n} \frac{\mathrm{1}\{D_i = \pi(X_i)\} \, Y_i}{P(D_i \mid X_i)}
 $$
 
-ログの中で「たまたまルールと同じ割り当てを受けた人」だけを取り出し、割り当て確率（ここでは0.5）の逆数で重み付けする、という操作である。ここでは「推定uplift $\hat\tau(x)$ が閾値以上の人にだけ配る」ルールを、全員配布・誰にも配らない、と比較する。`value` は各ルールの下での平均継続率（の推定値）だ。閾値を動かして、政策価値が最大になる場所を手で探してみよう。これが講義で触れたpolicy learningの入り口である。
+ログの中で「たまたまルールと同じ割り当てを受けた人」だけを取り出し、割り当て確率（ここでは0.5）の逆数で重み付けする。validationでは、平均継続率からクーポンコストを引いた`net_value`を最大化する閾値を選ぶ。
 
 ```{webr}
 #| timelimit: 60
 # ---- いじるのはここ ----
-threshold <- 0.02   # 推定uplift（tau_hat）がこの値以上の人にだけクーポンを配る
+threshold_grid <- seq(-0.05, 0.10, by = 0.01)
+coupon_cost <- 0.02   # 継続率換算の1枚あたりコスト
 # -----------------------
 
 set.seed(333)
 N <- 10000
 df <- make_retention_data(N, risk_slope = 0.6)
-df$tau_hat <- fit_tlearner(df)
+
+ids <- sample(seq_len(N))
+train_id <- ids[1:floor(0.50 * N)]
+valid_id <- ids[(floor(0.50 * N) + 1):floor(0.75 * N)]
+test_id <- ids[(floor(0.75 * N) + 1):N]
+train_df <- df[train_id, ]
+valid_df <- df[valid_id, ]
+test_df <- df[test_id, ]
+valid_df$tau_hat <- fit_tlearner(train_df, valid_df)
+test_df$tau_hat <- fit_tlearner(train_df, test_df)
+
+validation_search <- do.call(rbind, lapply(threshold_grid, function(th) {
+  rule <- valid_df$tau_hat >= th
+  val <- ipw_value(rule, valid_df$D, valid_df$stay)$value
+  data.frame(threshold = th, frac_treated = mean(rule),
+             value = val, net_value = val - coupon_cost * mean(rule))
+}))
+best_threshold <- validation_search$threshold[which.max(validation_search$net_value)]
+
+cat("Best threshold chosen only on validation =", best_threshold, "\n")
+validation_search[order(-validation_search$net_value), ][1:5, ]
 
 policies <- list(
-  "treat all"                  = rep(TRUE, N),
-  "treat none"                 = rep(FALSE, N),
-  "rule: tau_hat >= threshold" = df$tau_hat >= threshold
+  "treat all"                     = rep(TRUE, nrow(test_df)),
+  "treat none"                    = rep(FALSE, nrow(test_df)),
+  "validation-chosen uplift rule" = test_df$tau_hat >= best_threshold
 )
 
 res <- do.call(rbind, lapply(names(policies), function(nm) {
   cbind(data.frame(policy = nm, frac_treated = mean(policies[[nm]])),
-        ipw_value(policies[[nm]], df$D, df$stay))
+        ipw_value(policies[[nm]], test_df$D, test_df$stay))
 }))
-res[, -1] <- round(res[, -1], 4)
+res$net_value <- res$value - coupon_cost * res$frac_treated
+numeric_cols <- vapply(res, is.numeric, logical(1))
+res[numeric_cols] <- lapply(res[numeric_cols], round, 4)
 res
 ```
 
-「閾値ルール」は全員配布より配布割合が小さいのに、政策価値は同等以上になるはずだ。sleeping dogs（効果がマイナスの層）を外せるからである。
+最後の表は、validationで一度固定した閾値を、手を触れていないtestで評価したものだ。通常のSE・CIは、このように政策がtestから独立に固定され、i.i.d.・overlap・有限分散などが成り立つ場合の近似である。
 
 ::: {.callout-note}
 ## やってみよう
 
-- `threshold` を-0.05、0、0.03、0.08と動かして、`value` が最大になる閾値を手で探そう。理屈の上では0付近が最適になるはずだが、実際の表ではどうか。
-- クーポン1枚のコストが継続率換算で0.02だとしよう。セルの最後に `res$value - 0.02 * res$frac_treated` を追加して、コスト込みの順位がどう変わるか見てみよう。最適な閾値も0より上に動くはずだ。
-- 最適な閾値を「同じデータで探して、同じデータで評価する」と、そのルールの価値は過大評価されがちである。なぜか。これがpolicy learningでsample splittingが必要になる理由につながる。
+- `threshold_grid`の間隔を0.02、0.005に変えると、validationの最良値とtestの値はどう変わるか。候補が多いほどvalidationに過適合しやすいことも確認しよう。
+- `coupon_cost` を0、0.01、0.04に変えると、選ばれる閾値と配布割合はどう動くか。
+- test結果を見た後にグリッドやコストを変え続ければ、testもvalidation化する。最終testは一度だけ使う。限られたデータをより効率的に使う方法がnested cross-fittingである。
 :::
 
 ## 次に読むもの

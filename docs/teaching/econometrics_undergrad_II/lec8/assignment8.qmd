@@ -37,13 +37,54 @@ theme_lecture <- function() {
 theme_set(theme_lecture())
 knitr::opts_chunk$set(fig.align = "center", dpi = 144)
 options(scipen = 8)
+
+# sunabの集計済み相対期間係数に対する、クラスタ頑健な同時Wald検定
+sunab_pretrend_wald <- function(fit, periods, n_clusters) {
+  beta <- fit$coefficients
+  beta_names <- names(beta)
+  V_raw <- vcov(fit)[beta_names, beta_names, drop = FALSE]
+  X_raw <- model.matrix(fit)[, beta_names, drop = FALSE]
+  period_name <- sub("::.*$", "", rownames(aggregate(fit, "period"))[1])
+  targets <- paste0(period_name, "::", periods)
+  targets <- targets[vapply(
+    targets,
+    function(z) any(startsWith(beta_names, paste0(z, ":cohort::"))),
+    logical(1)
+  )]
+
+  A <- matrix(0, nrow = length(targets), ncol = length(beta),
+              dimnames = list(targets, beta_names))
+  for (j in seq_along(targets)) {
+    idx <- startsWith(beta_names, paste0(targets[j], ":cohort::"))
+    shares <- colSums(sign(X_raw[, idx, drop = FALSE]))
+    A[j, idx] <- shares / sum(shares)
+  }
+
+  b <- drop(A %*% beta)
+  V <- A %*% V_raw %*% t(A)
+  eig <- eigen(V, symmetric = TRUE)
+  keep <- eig$values > max(eig$values) * 1e-8
+  V_inv <- eig$vectors[, keep, drop = FALSE] %*%
+    diag(1 / eig$values[keep], nrow = sum(keep)) %*%
+    t(eig$vectors[, keep, drop = FALSE])
+  df1 <- sum(keep)
+  F_stat <- drop(t(b) %*% V_inv %*% b) / df1
+
+  data.frame(
+    tested_periods = paste(periods, collapse = ", "),
+    F_statistic = F_stat,
+    df1 = df1,
+    df2 = n_clusters - 1,
+    p_value = pf(F_stat, df1, n_clusters - 1, lower.tail = FALSE)
+  )
+}
 ```
 
 ## この課題について
 
-第8回の講義では、staggered adoption（施策の導入時期が単位ごとにバラバラ）のもとで、素朴な静的TWFE（two-way fixed effects）推定がどれほど深刻に歪みうるか、そして`fixest::sunab`を使えばその歪みを補正できることをシミュレーションで確認した。また、会員ランクのような閾値を利用したRDDの基本も学んだ。
+第8回の講義では、staggered adoption（施策の導入時期が単位ごとにバラバラ）のもとで、素朴な静的TWFE（two-way fixed effects）推定がどれほど深刻に歪みうるか、そして`fixest::sunab`でSun-Abraham型のevent studyを推定する方法をシミュレーションで確認した。また、会員ランクのような閾値を利用したRDDの基本も学んだ。
 
-この課題では、講義ノートと**同じ構造・異なる設定**のDGPを自分の手で構築し、静的TWFEの歪みとsunabによる補正を再現した上で、会員ランクRDDの推定を独立に行う。
+この課題では、講義ノートと**同じ構造・異なる設定**のDGPを自分の手で構築し、静的TWFEとSun-Abraham型推定を比較した上で、会員ランクRDDの推定を独立に行う。
 
 - **Part 1**：小売チェーンの**店舗**（都道府県ではなく個別店舗）における新レジシステムの時差導入DGPを自作する（配点40点）。
 - **Part 2**：(i) 前後比較・単純比較、(ii) 静的TWFE、(iii) sunabによるevent study、(iv) pre-trend確認、(v) 会員ランクRDD、(vi) 経営含意3行、を行う（配点60点）。
@@ -56,7 +97,7 @@ options(scipen = 8)
 - staggered adoption・動的異質効果というDGPを自分の手で書けるようになる。
 - 静的TWFEが真の効果の符号やスケールをどう見誤るかを、自分のシミュレーションで確認する。
 - `fixest::sunab`を使ったevent studyの実装と、その出力の読み方（係数名の対応、`ref.p`の意味）を身につける。
-- `rdrobust`を使った基本的なRDD推定と、走行変数のヒストグラムによるbunching確認の作法を身につける。
+- `rdrobust`を使った基本的なRDD推定と、走行変数のヒストグラムをbunchingの診断材料として読む作法を身につける。
 :::
 
 ## Part 1：店舗レベルstaggered rolloutのシミュレーション設計（配点40点）
@@ -72,7 +113,7 @@ options(scipen = 8)
 - 効果は動的：導入後の経過月数 $e = t - \text{adopt}_i$ に対して線形に成長する。ただし成長の傾き $\theta_i$ は店舗ごとに異なり、**早期導入店舗ほど効果の伸びが大きく**（$\theta_{\text{early}} = 0.18$）、**後期導入店舗ほど効果の伸びが小さい**（$\theta_{\text{late}} = -0.10$、講義ノートの値から少し変えてある）。傾きは導入時点に応じて線形補間で決まる：
 
 $$
-\theta_i = \theta_{\text{early}} + \frac{\text{adopt}_i - \text{adopt}_{\text{lo}}}{\text{adopt}_{\text{hi}} - 1 - \text{adopt}_{\text{lo}}} \left(\theta_{\text{late}} - \theta_{\text{early}}\right)
+\theta_i = \theta_{\text{early}} + \frac{\text{adopt}_i - \text{adopt}_{\text{lo}}}{\text{adopt}_{\text{hi}} - \text{adopt}_{\text{lo}}} \left(\theta_{\text{late}} - \theta_{\text{early}}\right)
 $$
 
 - 店舗固定効果 $\mu_i \sim N(0, 1)$、月固定効果 $\lambda_t \sim N(0, 0.4^2)$、共通トレンド $0.012 \times t$、誤差項は標準偏差0.25の正規分布。
@@ -182,14 +223,14 @@ late_store <- rollout_df %>% filter(adopt_t <= T_a) %>%
 
 ### 設問2-1（10点）：前後比較・単純比較
 
-処置群店舗について、導入前（`treated == 0`の期間）と導入後（`treated == 1`の期間）の`y`の平均を単純に比較せよ。また、同じ期間について、処置群店舗と対照群（never-treated）店舗の平均`y`をそのまま比較せよ（時間の違いを無視した単純な群間比較）。
+処置群店舗について、導入前（`treated == 0`の期間）と導入後（`treated == 1`の期間）の`y`の平均を単純に比較せよ。また、**最終月**における処置群店舗と対照群（never-treated）店舗の平均`y`をそのまま比較せよ。
 
 これら2つの「素朴な」比較の値を、Part 1で確認した真のATT（`true_effect`の平均）と並べて表にまとめ、どちらの比較がより真値に近いか、あるいはどちらも大きくずれているかをコメントせよ。
 
 ::: {.callout-tip}
 ## ヒント：なぜこれらの比較は不十分か
 
-前後比較は、店舗固定効果は相殺できても、共通トレンド（`0.012 * month`）や月固定効果の影響を受ける。処置群vs対照群の単純な群間比較は、店舗固定効果の違い（もともとの店舗の水準差）を無視してしまう。どちらも、次の設問で見る固定効果込みの回帰に劣ることを確認するのが狙いである。
+前後比較は、共通トレンド（`0.012 * month`）や月固定効果を処置効果に混ぜる。最終月の群間比較は店舗の水準差を混ぜるうえ、最終月の効果と「全処置セルの平均ATT」という異なる対象を比べている。数値が偶然真値に近いかどうかではなく、各比較が何を混ぜ、どの対象を測っているかを説明するのが狙いである。次の静的TWFEも万能な正解ではなく、動学的・コホート別異質性のため別の歪みを持つ。
 :::
 
 ### 設問2-2（12点）：静的TWFE推定
@@ -197,7 +238,8 @@ late_store <- rollout_df %>% filter(adopt_t <= T_a) %>%
 Part 1で作ったデータを使い、次の静的TWFE回帰を実行せよ。
 
 ```r
-static_fit_a <- feols(y ~ treated | store + month, data = rollout_df)
+static_fit_a <- feols(y ~ treated | store + month,
+                      data = rollout_df, vcov = ~store)
 ```
 
 推定された係数を、Part 1で確認した真のATT（`true_effect`の平均）と比較し、**符号が一致しているか、大きさはどの程度ズレているか**を明示的にコメントせよ。
@@ -208,12 +250,13 @@ static_fit_a <- feols(y ~ treated | store + month, data = rollout_df)
 もし静的TWFEの符号が真のATTと逆になっていたら、それは実装ミスではなく、講義で学んだ「禁じられた比較」（すでに処置され、かつ動学的に効果が成長し続けている店舗を対照に使ってしまう）が起きている可能性が高い。慌てず、講義ノートの説明を振り返りながら、なぜこの現象が起きるのかを自分の言葉で書けるようにしておこう。
 :::
 
-### 設問2-3（12点）：sunabによるevent studyの復元
+### 設問2-3（12点）：sunabによるevent studyの推定
 
-`fixest::sunab()`を使って、動的効果を正しく復元するevent studyを推定せよ。
+`fixest::sunab()`を使って、コホート×相対期間の異質性に頑健なSun-Abraham型event studyを推定せよ。
 
 ```r
-sunab_fit_a <- feols(y ~ sunab(adopt_t, month) | store + month, data = rollout_df)
+sunab_fit_a <- feols(y ~ sunab(adopt_t, month) | store + month,
+                     data = rollout_df, vcov = ~store)
 ```
 
 以下を行え。
@@ -227,26 +270,32 @@ sunab_fit_a <- feols(y ~ sunab(adopt_t, month) | store + month, data = rollout_d
 `coef(sunab_fit_a)`で係数名を確認すると、`month::-3`や`month::5`のような形式で「処置からの相対期間」に対応する係数が並んでいるはずである。負の数字が処置前（pre-period）、正の数字（および0）が処置後（post-period）に対応する。
 :::
 
-### 設問2-4（8点）：pre-trendの確認
+### 設問2-4（8点）：pre-trendの記述と同時検定
 
-sunabの推定結果から、処置前（`month::`のマイナス値に対応する）係数だけを取り出し、その平均絶対値を計算せよ。この値がゼロに近いかどうかをコメントし、「並行トレンドの補助的な支持証拠」として解釈できるかを論じよ。
+sunabの推定結果について、次の2つを行え。
+
+1. 直近4期の処置前係数（$e=-5,-4,-3,-2$）を取り出し、平均絶対値を計算する。
+2. セットアップチャンクで用意した`sunab_pretrend_wald()`を使い、この4係数が同時にゼロかを、店舗クラスタ頑健なWald検定で確かめる。
+
+図、平均絶対値、Wald検定のp値をまとめて解釈せよ。「棄却できないことは並行トレンドの証明ではない」ことと、pre-trend検定は小さな違反に対して検出力が低いことも明記すること。
 
 ::: {.callout-tip}
 ## ヒント：処置前係数の抽出
 
 ```r
 #| eval: false
-coefs_a <- coef(sunab_fit_a)
-names_a <- names(coefs_a)
-pre_idx_a <- grepl("^month::-", names_a)
-pre_coefs_a <- coefs_a[pre_idx_a]
+pre_periods_a <- -5:-2
+period_table_a <- aggregate(sunab_fit_a, "period")
+pre_names_a <- paste0("month::", pre_periods_a)
+pre_coefs_a <- period_table_a[pre_names_a, "Estimate"]
 mean(abs(pre_coefs_a), na.rm = TRUE)
+sunab_pretrend_wald(sunab_fit_a, pre_periods_a, n_clusters = G_a)
 ```
 :::
 
 ### 設問2-5（別課題・13点）：会員ランクRDD
 
-ここからは別のデータセットを使う独立した設問である。ある小売チェーンの会員制度で、**年間購入額が5万円を超えるとゴールド会員になり、翌年の購買額が変化する**という状況を考える。次のDGPでデータを生成せよ（このDGPには走行変数の操作＝bunchingは含めない）。
+ここからは別のデータセットを使う独立した設問である。ある小売チェーンの会員制度で、**年間購入額が5万円以上になるとゴールド会員になり、翌年の購買額が変化する**という状況を考える。次のDGPでデータを生成せよ（このDGPには走行変数の操作＝bunchingは含めない）。
 
 ```{r}
 #| eval: false
@@ -274,9 +323,10 @@ rdd_df_a <- data.frame(
 
 以下を行え。
 
-(a) `rdrobust::rdrobust(y, x, c = cutoff)`でジャンプの大きさを推定し、真値1.2万円と比較せよ。
+(a) `rdrobust::rdrobust(y, x, c = cutoff)`でジャンプを推定し、`Conventional`の点推定値と`Robust`の95%信頼区間を報告して、真値1.2万円と比較せよ。
 (b) `rdrobust::rdplot(y, x, c = cutoff)`でビン分割散布図を描け。
-(c) 走行変数`annual_purchase`のヒストグラムを、カットオフ付近に注目して描き、カットオフ直下・直上のカウントを数えて比を計算せよ。この比がほぼ1（滑らか）であることを確認し、bunching（閾値ゲーミング）が起きていないことを述べよ。
+(c) 走行変数`annual_purchase`のヒストグラムを、カットオフ付近に注目して描き、カットオフ直下・直上のカウント比を計算せよ。この標本で目立つbunchingが見えないかを診断し、単純な比が1に近くても「操作なし」やRDDの妥当性の証明にはならないことを述べよ。
+(d) この推定値を因果効果として読むために必要な仮定を二つ挙げ、推定対象がカットオフ近傍の局所効果であることを説明せよ。
 
 ::: {.callout-tip}
 ## ヒント：カットオフ直下・直上のカウント
@@ -288,7 +338,7 @@ count_above <- sum(rdd_df_a$annual_purchase >= cutoff_a & rdd_df_a$annual_purcha
 count_above / count_below
 ```
 
-操作なしのDGPなので、この比はおおむね1に近い値になるはずである。もし3倍・4倍のように大きくずれていたら、DGPの実装を見直すこと。
+操作なしのDGPなので、この比はおおむね1に近い値になるはずである。もし3倍・4倍のように大きくずれていたら、DGPの実装を見直すこと。ただし、これはビン幅に左右される粗い診断であり、McCrary型の密度検定そのものではない。
 :::
 
 ### 設問2-6（経営含意・5点）：経営・政策への含意を3行で書け

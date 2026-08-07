@@ -95,8 +95,10 @@ solve_inventory_dp <- function(p_regular = 1.00, p_sale = 0.75, sale_prob = 1/8,
     q <- q_of_x(post)
     cons <- as.numeric(post >= 1)
     end_inv <- post - cons
-    val_c <- u_consume * cons - p * a - c_hold * end_inv + beta_dp * V[end_inv + 1]
-    val_n <- -(if (post == 0) stockout_cost else 0) - p * a - c_hold * post + beta_dp * V[post + 1]
+    # 欠品損失は消費機会が来たのに在庫がない枝だけ
+    val_c <- (if (post >= 1) u_consume else -stockout_cost) -
+      p * a - c_hold * end_inv + beta_dp * V[end_inv + 1]
+    val_n <- -p * a - c_hold * post + beta_dp * V[post + 1]
     q * val_c + (1 - q) * val_n
   }
   V <- rep(0, Xmax + 1)
@@ -134,8 +136,9 @@ simulate_calendar <- function(N_hh, Tn, sale_bool, policy, sale_prob, seed = 1, 
   set.seed(seed)
   x <- rep(0L, N_hh)
   for (t in 1:burn_in) {
-    is_sale <- runif(N_hh) < sale_prob
-    a <- ifelse(is_sale, policy[2, x + 1], policy[1, x + 1])
+    # 週次価格は市場で共通
+    is_sale <- runif(1) < sale_prob
+    a <- if (is_sale) policy[2, x + 1] else policy[1, x + 1]
     post <- x + a
     occ <- runif(N_hh) < q_of_x(post)
     x <- post - as.integer(occ & post >= 1)
@@ -159,7 +162,7 @@ theme_set(theme_minimal(base_size = 13))
 講義の謎1をそのまま実験する。消費者 $i$ が期 $t$ にブランドAを買うかどうかの効用は
 
 $$
-u_{it} = c + \beta_p p_{it} + \lambda y_{i,t-1} + \mu_i + \varepsilon_{it}
+u^1_{it}-u^0_{it} = c + \beta_p p_{it} + \lambda y_{i,t-1} + \mu_i + \eta_{it}
 $$
 
 で決まる。$\lambda$ は状態依存の強さ（前回買ったこと**自体**が今回の効用を押し上げる。本物のロイヤルティ）、$\mu_i \sim N(0, \sigma_\mu^2)$ は個人の好みのばらつき（もともと好きな人はずっと好き。ただの異質性）。世界(a)は $\lambda > 0$ かつ $\sigma_\mu = 0$、世界(b)は $\lambda = 0$ かつ $\sigma_\mu$ が大きい。定数項は全体購買率がそろうように較正してある（講義1.3節と同じ値）。まず観測できる集計統計量——`p11` = P(買う | 前回買った)、`p10` = P(買う | 前回買わず)、`gap` はその差——が2つの世界でほぼ同じになることを確かめ、続けて前回購入ダミーを入れただけのnaiveなpooled logitを両方の世界に当てる。なお講義ノートは `fixest::feglm()` にクラスタ標準誤差を付けて推定していたが、webRでは標準の `glm()` で代用する。点推定は同じで、標準誤差はクラスタ化されないぶん小さめに出る（今日の論点は推定値そのものの歪みなので、結論には影響しない）。
@@ -205,7 +208,7 @@ data.frame(
 
 - `sigma_b <- 0.7`（世界(b)の異質性を半分に）にすると、(b)のnaiveな `lambda_hat` はどこまで下がるか。ゼロまで戻るか。
 - `Tn <- 60` にして観測期間を3倍にしてみよう。パネルを長くすれば、naiveな推定は正しい答えに近づくだろうか。
-- 上の2つの表の数字（集計統計量とnaiveな推定値）だけを渡されたとき、あなたは2つの世界を見分けられるか。観察だけで足りないなら、何を足せばよいか。講義ノート1.5〜1.6節（固定効果ロジット、Wooldridge device）を読んでから、もう一度この表を見直そう。
+- 上の2つの表だけで2つの世界を見分けられるか。講義ノート1.5〜1.6節を読み、動学FEの問題と、残差ランダム効果を積分するWooldridge型CREを区別してから考え直そう。
 :::
 
 ## 実験2：セールと前借り — post-promotion dip
@@ -252,7 +255,7 @@ ggplot(df_ts, aes(week)) +
        x = "week", y = "units sold")
 ```
 
-セール週に売上が跳ね（スパイク）、直後の数週間は破線（セールなしの世界）を下回る（post-promotion dip）。買いだめした世帯が在庫を消化するだけで、買いに来ないからだ。スパイクの大部分は前借りで、純増はごくわずか——これがPOSデータでおなじみの形の正体である。
+セール週に売上が跳ね（スパイク）、直後の数週間は破線（セールなしの世界）を下回る（post-promotion dip）。買いだめした世帯が在庫を消化するためだ。どの程度が前借りかは上の`pull-forward share`で確認し、固定した割合として一般化しない。
 
 ::: {.callout-note}
 ## やってみよう
@@ -264,7 +267,7 @@ ggplot(df_ts, aes(week)) +
 
 ## 実験3：短期弾力性 vs 長期弾力性
 
-**短期弾力性**は「1週だけの不意打ち値下げ」に対する当週の数量反応から、**長期弾力性**は「毎週セール価格が続く世界」と「ずっと通常価格の世界」の定常状態の差から計算する（講義3.4節と同じ扱い）。買いだめできる財では短期が長期を桁違いに上回る。そして静学的な回帰が拾うのはほぼ短期の方だったから、この2つの比は「静学推定が恒久値下げの効果をどれだけ過大評価するか」の目安になる。買いだめの強さを決めるのは在庫保有コスト `c_hold` だ。
+**短期弾力性**は「1週だけの不意打ち値下げ」に対する当週の数量反応から、**長期弾力性**は「毎週セール価格」と「ずっと通常価格」の各レジームでDPを解き直した定常状態から計算する。両者は別のestimandであり、比はこの較正での目安にすぎない。
 
 ```{webr}
 #| timelimit: 90
@@ -286,9 +289,11 @@ u_once <- simulate_calendar(N_hh, Tn_cal, sale_once, dp$policy, sale_prob, seed 
 u_base <- simulate_calendar(N_hh, Tn_cal, rep(FALSE, Tn_cal), dp$policy, sale_prob, seed = 7)
 sr_elast <- (u_once[15] / u_base[15] - 1) / (-discount)
 
-# 長期：「毎週セール価格」と「ずっと通常価格」の定常状態を比べる（末尾15週の平均）
-u_low  <- simulate_calendar(N_hh, Tn_cal, rep(TRUE,  Tn_cal), dp$policy, sale_prob, seed = 8)
-u_high <- simulate_calendar(N_hh, Tn_cal, rep(FALSE, Tn_cal), dp$policy, sale_prob, seed = 8)
+# 長期：各恒久レジームの期待のもとで政策関数から解き直す
+dp_low  <- solve_inventory_dp(p_sale = 1 - discount, sale_prob = 1, c_hold = c_hold)
+dp_high <- solve_inventory_dp(p_sale = 1 - discount, sale_prob = 0, c_hold = c_hold)
+u_low  <- simulate_calendar(N_hh, Tn_cal, rep(TRUE,  Tn_cal), dp_low$policy,  1, seed = 8)
+u_high <- simulate_calendar(N_hh, Tn_cal, rep(FALSE, Tn_cal), dp_high$policy, 0, seed = 8)
 lr_elast <- (mean(tail(u_low, 15)) / mean(tail(u_high, 15)) - 1) / (-discount)
 
 elast_tbl <- data.frame(
@@ -311,7 +316,7 @@ ggplot(elast_tbl, aes(horizon, elasticity, fill = horizon)) +
        x = NULL, y = "elasticity")
 ```
 
-既定値では短期はおよそ $-6$、長期はおよそ $-0.2$、比は30倍前後になるはずだ。1週の値下げには買いだめで激しく反応するが、恒久的に安くなっても1世帯が消費できる量には上限があるので、長期の総量はほとんど増えない。
+表示された数値は、短期には基準政策、長期にはレジーム別に解き直した政策を使っている。倍率は`c_hold`、消費機会、在庫上限などに依存するので、固定値として暗記しない。
 
 ::: {.callout-note}
 ## やってみよう
@@ -323,5 +328,5 @@ ggplot(elast_tbl, aes(horizon, elasticity, fill = horizon)) +
 
 ## 次に読むもの
 
-- 講義ノート本体：`lecture14.html`（観察的同値、Wooldridge device、在庫モデルと反実仮想の完全版）
-- coding課題：`assignment14.qmd`（ブランド選択パネルのDGPをゼロから作り、naive推定・Wooldridge device・在庫DGPの反実仮想まで、今日の内容を一通り自分の手で実装する）
+- 講義ノート本体：`lecture14.html`（識別、Wooldridge型CRE、在庫モデルと反実仮想の完全版）
+- coding課題：`assignment14.qmd`（ブランド選択パネルのDGP、naive推定、CRE、在庫DGPの反実仮想）

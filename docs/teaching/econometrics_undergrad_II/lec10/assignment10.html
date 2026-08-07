@@ -2443,7 +2443,7 @@ window.Quarto = {
 </tr>
 <tr class="even">
 <td><span class="math inline">\(\alpha\)</span></td>
-<td>購買率Gammaの尺度パラメータ</td>
+<td>購買率Gammaのrateパラメータ（scaleではない）</td>
 <td>7.0</td>
 </tr>
 <tr class="odd">
@@ -2468,7 +2468,7 @@ window.Quarto = {
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(E[\lambda] = r/\alpha\)</span>、<span class="math inline">\(E[p] = a/(a+b)\)</span> という近似的な目安を頭に入れておくと、DGPが「妥当な」データを生成しているか検算しやすい。上の値だと、週あたり平均購買率はどれくらいになるか、平均的な離脱確率はどれくらいになるか、まず自分で計算してから先に進もう。</p>
+<p><span class="math inline">\(E[\lambda] = r/\alpha\)</span>、<span class="math inline">\(E[p] = a/(a+b)\)</span> は、このパラメータ化のもとでの正確な平均である。ここで<span class="math inline">\(\alpha\)</span>は<strong>rate</strong>なので、Rでは<code>rgamma(..., rate = alpha)</code>と書く。上の値から週あたり平均購買率と平均離脱確率を計算し、DGPのスケールを検算してから先へ進もう。</p>
 </div>
 </div>
 </section>
@@ -2578,33 +2578,31 @@ L(r,\alpha,a,b \mid x, t_x, T) = \frac{B(a, b+x)}{B(a,b)} \cdot \frac{\Gamma(r+x
 <span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  ln_A0 <span class="ot">&lt;-</span> ______                       <span class="co"># 【穴埋め】第1項(常に生きている経路)の対数</span></span>
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  ln_A1 <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(</span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    x <span class="sc">&gt;</span> <span class="dv">0</span>,</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    ______,                             <span class="co"># 【穴埋め】第2項(t_xで離脱した経路)の対数</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="sc">-</span><span class="cn">Inf</span></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">logsumexp2</span>(ln_A0, ln_A1)</span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>neg_loglik_bgnbd <span class="ot">&lt;-</span> <span class="cf">function</span>(theta_log, x, tx, T) {</span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  params <span class="ot">&lt;-</span> <span class="fu">exp</span>(theta_log)</span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  r <span class="ot">&lt;-</span> params[<span class="dv">1</span>]; alpha <span class="ot">&lt;-</span> params[<span class="dv">2</span>]; a <span class="ot">&lt;-</span> params[<span class="dv">3</span>]; b <span class="ot">&lt;-</span> params[<span class="dv">4</span>]</span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(<span class="fu">bgnbd_loglik</span>(r, alpha, a, b, x, tx, T))</span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  ln_A1 <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="sc">-</span><span class="cn">Inf</span>, <span class="fu">length</span>(x))</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  idx <span class="ot">&lt;-</span> x <span class="sc">&gt;</span> <span class="dv">0</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  ln_A1[idx] <span class="ot">&lt;-</span> ______                  <span class="co"># 【穴埋め】x&gt;0の行だけ第2項を計算</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">logsumexp2</span>(ln_A0, ln_A1)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>neg_loglik_bgnbd <span class="ot">&lt;-</span> <span class="cf">function</span>(theta_log, x, tx, T) {</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  params <span class="ot">&lt;-</span> <span class="fu">exp</span>(theta_log)</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  r <span class="ot">&lt;-</span> params[<span class="dv">1</span>]; alpha <span class="ot">&lt;-</span> params[<span class="dv">2</span>]; a <span class="ot">&lt;-</span> params[<span class="dv">3</span>]; b <span class="ot">&lt;-</span> params[<span class="dv">4</span>]</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(<span class="fu">bgnbd_loglik</span>(r, alpha, a, b, x, tx, T))</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>theta_init <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="fu">c</span>(<span class="at">r =</span> <span class="dv">1</span>, <span class="at">alpha =</span> <span class="dv">1</span>, <span class="at">a =</span> <span class="dv">1</span>, <span class="at">b =</span> <span class="dv">1</span>))</span>
 <span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>theta_init <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="fu">c</span>(<span class="at">r =</span> <span class="dv">1</span>, <span class="at">alpha =</span> <span class="dv">1</span>, <span class="at">a =</span> <span class="dv">1</span>, <span class="at">b =</span> <span class="dv">1</span>))</span>
-<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>opt_result <span class="ot">&lt;-</span> <span class="fu">optim</span>(</span>
-<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">par =</span> theta_init, <span class="at">fn =</span> neg_loglik_bgnbd,</span>
-<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> x_cal, <span class="at">tx =</span> tx_cal, <span class="at">T =</span> <span class="fu">rep</span>(T_cal, N),</span>
-<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">&quot;L-BFGS-B&quot;</span>, <span class="at">hessian =</span> <span class="cn">TRUE</span></span>
-<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>theta_hat <span class="ot">&lt;-</span> <span class="fu">exp</span>(opt_result<span class="sc">$</span>par)</span>
-<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(theta_hat) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;r&quot;</span>, <span class="st">&quot;alpha&quot;</span>, <span class="st">&quot;a&quot;</span>, <span class="st">&quot;b&quot;</span>)</span>
-<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- ここにHessianからのSE・信頼区間の計算と、真値との比較表を書く ----</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>opt_result <span class="ot">&lt;-</span> <span class="fu">optim</span>(</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">par =</span> theta_init, <span class="at">fn =</span> neg_loglik_bgnbd,</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> x_cal, <span class="at">tx =</span> tx_cal, <span class="at">T =</span> <span class="fu">rep</span>(T_cal, N),</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">&quot;L-BFGS-B&quot;</span>, <span class="at">hessian =</span> <span class="cn">TRUE</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>theta_hat <span class="ot">&lt;-</span> <span class="fu">exp</span>(opt_result<span class="sc">$</span>par)</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(theta_hat) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;r&quot;</span>, <span class="st">&quot;alpha&quot;</span>, <span class="st">&quot;a&quot;</span>, <span class="st">&quot;b&quot;</span>)</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- ここにHessianからのSE・信頼区間の計算と、真値との比較表を書く ----</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2616,7 +2614,8 @@ L(r,\alpha,a,b \mid x, t_x, T) = \frac{B(a, b+x)}{B(a,b)} \cdot \frac{\Gamma(r+x
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(x=0\)</span>のときに第2項を計算してはいけない理由を、講義ノートに戻って確認しよう。また、<code>ln_A0</code>と<code>ln_A1</code>を単純に<code>exp()</code>してから足して<code>log()</code>を取ると、パラメータの初期値次第で数値がオーバーフロー・アンダーフローしうる。<code>logsumexp2()</code>を必ず経由すること。<code>ifelse(x &gt; 0, ..., -Inf)</code>の<code>...</code>部分は、<code>x=0</code>の行についても（使われないとはいえ）Rが式を評価してしまうことがあるので、<code>b+x-1</code>が<code>x=0</code>のとき<code>b-1</code>になって<code>lbeta()</code>が奇妙な値を返す可能性がある点に注意——実害があるかどうか、実際に手元で確認してみるとよい。</p>
+<p><span class="math inline">\(x=0\)</span>のときに第2項を計算してはいけない理由を、講義ノートに戻って確認しよう。また、<code>ln_A0</code>と<code>ln_A1</code>を単純に<code>exp()</code>してから足して<code>log()</code>を取ると、パラメータの初期値次第で数値がオーバーフロー・アンダーフローしうる。<code>logsumexp2()</code>を必ず経由すること。<code>ifelse(x &gt; 0, ..., -Inf)</code>は非採用行の式まで評価して警告を出しうるので、上の骨格のように<code>idx &lt;- x &gt; 0</code>で対象行だけ計算する。</p>
+<p>Hessianの逆行列から得るSEは、正しく特定された独立同分布の尤度を前提にした<strong>モデルベースSE</strong>であることも1文で明記せよ。</p>
 </div>
 </div>
 </section>
@@ -2653,9 +2652,24 @@ L(r,\alpha,a,b \mid x, t_x, T) = \frac{B(a, b+x)}{B(a,b)} \cdot \frac{\Gamma(r+x
 <li>holdout期間(26週)の<strong>週次累積購買数</strong>について、実績と予測を重ねた折れ線図（トラッキングプロット）。</li>
 <li>個人レベルの<strong>予測購買数デシル別の実績平均</strong>（校正確認の棒グラフ）。</li>
 </ol>
-<p>将来購買数の予測には、講義ノートと同じ方針（<span class="math inline">\(\lambda\)</span>の事後Gamma分布 <span class="math inline">\(\text{Gamma}(r+x, \alpha+T)\)</span> からのシミュレーション、P(alive)による生死判定）を使うこと。</p>
+<p>将来購買数の予測には、講義ノートと同じ方針を使うこと。具体的には、calibration終了時点で生存している経路について</p>
+<p><span class="math display">\[
+\lambda\mid x,T,\mathrm{alive}\sim\mathrm{Gamma}(r+x,\ \mathrm{rate}=\alpha+T),\qquad
+p\mid x,\mathrm{alive}\sim\mathrm{Beta}(a,b+x)
+\]</span></p>
+<p>から<span class="math inline">\(\lambda,p\)</span>を引き、P(alive)で開始時点の生死を引く。生存パスでは、待ち時間を<span class="math inline">\(\mathrm{Exp}(\lambda)\)</span>から引き、<strong>予測期間内の各購買直後に確率<span class="math inline">\(p\)</span>で離脱判定</strong>を行うこと。開始時点で生存した顧客を26週間ずっと生存扱いしてはいけない。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- ここに(i)(ii)のシミュレーションと図を書く ----</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>simulate_future_path <span class="ot">&lt;-</span> <span class="cf">function</span>(lambda, p_drop, horizon_weeks) {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 【穴埋め】待ち時間→購買を記録→確率p_dropで離脱、を期間終了まで繰り返す</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>simulate_holdout_weekly <span class="ot">&lt;-</span> <span class="cf">function</span>(r_hat, alpha_hat, a_hat, b_hat,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>                                    x, T_cal, p_alive, n_weeks, <span class="at">S =</span> <span class="dv">20</span>) {</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 【穴埋め】事後lambda・事後p・開始時点の生死を引き、</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="co"># event timeを(w-1,w]へ集計してS本の平均を返す</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- ここに(i)(ii)の全顧客への適用と図を書く ----</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2667,24 +2681,25 @@ L(r,\alpha,a,b \mid x, t_x, T) = \frac{B(a, b+x)}{B(a,b)} \cdot \frac{\Gamma(r+x
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>将来購買数の条件付き期待値には、教科書的にはガウス超幾何関数を含む閉形式が存在するが、この課題では実装しない。代わりに、「<span class="math inline">\(\lambda\)</span>の事後分布（Gamma共役性から閉形式で求まる）からシミュレーションで<span class="math inline">\(\lambda\)</span>を引き、P(alive)で生死を判定し、Poisson過程を前向きに走らせる」という方針を使う。この設計判断の理由を講義ノートで振り返っておくこと。</p>
+<p>将来購買数の条件付き期待値には、教科書的にはガウス超幾何関数を含む閉形式が存在するが、この課題では実装しない。イベントツリーは「T時点で死亡なら0、生存なら次の待ち時間、期間内なら購買、購買直後に離脱なら終了、生存なら次の待ち時間へ」である。予測でもDGPと同じ順序を保つこと。</p>
 </div>
 </div>
 </section>
 <section id="問710点上位10顧客のclv試算" class="level2">
 <h2 class="anchored" data-anchor-id="問710点上位10顧客のclv試算">問7（10点）：上位10%顧客のCLV試算</h2>
-<p>1回の購買あたりの粗利を<code>margin = 1200</code>円、年率割引率を<code>10%</code>として、全顧客のCLV（2年間のホライズン）を計算し、CLV上位10%の顧客の一覧（顧客ID、x、t_x、P(alive)、CLV）を表として示せ。</p>
+<p>1回の購買あたりの粗利を<code>margin = 1200</code>円、実効年率を<code>10%</code>として、全顧客のCLV（2年間のホライズン）を計算し、CLV上位10%の顧客の一覧（顧客ID、x、t_x、P(alive)、CLV）を表として示せ。ここでのCLVは無限期間の生涯価値ではなく、104週で打ち切った予測価値である。<span class="math inline">\(\lambda\)</span>、待ち時間、ホライズン、割引率の単位をすべて週に揃えること。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>margin <span class="ot">&lt;-</span> <span class="dv">1200</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>annual_discount <span class="ot">&lt;-</span> <span class="fl">0.10</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>weekly_discount <span class="ot">&lt;-</span> annual_discount <span class="sc">/</span> <span class="dv">52</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>weekly_discount <span class="ot">&lt;-</span> (<span class="dv">1</span> <span class="sc">+</span> annual_discount)<span class="sc">^</span>(<span class="dv">1</span> <span class="sc">/</span> <span class="dv">52</span>) <span class="sc">-</span> <span class="dv">1</span></span>
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>horizon_weeks <span class="ot">&lt;-</span> <span class="dv">104</span></span>
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>compute_clv <span class="ot">&lt;-</span> <span class="cf">function</span>(r_hat, alpha_hat, x, tx, T_cal, p_alive, horizon, weekly_d, margin, <span class="at">S =</span> <span class="dv">200</span>) {</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  ______   <span class="co"># 【穴埋め】講義ノートのcompute_clv()を参考に実装する</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 全顧客のCLVを計算し、上位10%を表にする ----</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>compute_clv <span class="ot">&lt;-</span> <span class="cf">function</span>(r_hat, alpha_hat, a_hat, b_hat, x, T_cal, p_alive,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>                        horizon_weeks, weekly_d, margin, <span class="at">S =</span> <span class="dv">200</span>) {</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  ______   <span class="co"># 【穴埋め】問6と同じ将来パスを使い、各購買を週単位で割り引く</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 全顧客のCLVを計算し、上位10%を表にする ----</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="問810点このリストで何をしてはいけないか" class="level2">
@@ -2731,8 +2746,8 @@ L(r,\alpha,a,b \mid x, t_x, T) = \frac{B(a, b+x)}{B(a,b)} \cdot \frac{\Gamma(r+x
 <li>問3（10）：可視化と記述統計</li>
 <li>問4（20）：BG/NBD対数尤度の実装、<code>optim()</code>でのMLE、Hessian SE、真値回収</li>
 <li>問5（15）：P(alive)の計算・分布・recency-frequency交互作用の解釈</li>
-<li>問6（15）：holdout週次トラッキングと予測デシル校正</li>
-<li>問7（10）：CLV試算と上位10%リストの作成</li>
+<li>問6（15）：事後<span class="math inline">\(\lambda,p\)</span>と予測中の離脱を含むholdout週次トラッキング、予測デシル校正</li>
+<li>問7（10）：時間単位と将来離脱を整合させたCLV試算、上位10%リストの作成</li>
 <li>問8（10）：CLVに基づく施策提案の問題点を3行で指摘</li>
 </ul>
 </div>

@@ -12,6 +12,7 @@ lec{N}/                # N = 1,2,3,4,6,7,8,9,10,11,13,14,15（第5・12回はゲ
   quiz{N}_solution.qmd # クイズ解答・解説（クイズ実施後に公開。N=1は無し）
   playground{N}.qmd    # ブラウザ実験室（quarto-live/webR。ブラウザ内でRが動く）
   assignment{N}.qmd    # coding課題（Part 1: シミュレーション設計 / Part 2: 推定・推論）
+  solution{N}.qmd      # 課題解答（教員のローカル検証用。公開しない）
 index.qmd              # コーストップページ（全回へのリンクと紹介文）
 _quarto.yml            # プロジェクト設定（ルートの_extensions/をlec配下から解決するため）
 slides_theme.scss      # スライド共通テーマ（全回で共有）
@@ -34,7 +35,7 @@ render_all.sh          # 一括レンダースクリプト（quarto-live拡張�
 
 ```bash
 cd このフォルダ
-bash render_all.sh          # 全39ファイル + index をrender（初回は数十分かかります）
+bash render_all.sh          # 各回89個のQMD + index を順にrender（初回は数十分かかります）
 bash render_all.sh lec3     # 特定の回だけrender
 ```
 
@@ -44,12 +45,13 @@ bash render_all.sh lec3     # 特定の回だけrender
 
 ## レンダーに失敗したら
 
-`render_log.txt` に全ログが残ります。失敗があった場合はこのファイルをClaudeに渡してください（該当箇所を特定して修正します）。
-qmd内のRコードはすべて執筆時にPython/numpyでロジック検証済みですが、R環境での実行は初回renderが最初のテストになります。
+`render_log.txt` に全ログが残ります。失敗があった場合は、まず末尾のエラーと該当QMDを確認してください。
+通常のRチャンクはQuarto renderで、ブラウザ実験室のRチャンクはローカルRでの連続実行に加えて、公開後に実ブラウザでも確認します。
 
 ## 公開時の注意
 
-- 課題解答（`solution{N}.qmd` / `solution{N}.html`）は公開用リポジトリに含めません。
+- 課題解答（`solution{N}.qmd` / `solution{N}.html`）は教員のローカル検証用であり、公開先へコピーしないでください。`index.qmd` にも解答リンクは置きません。
+- 課題はHTML版に加えて `assignment{N}.qmd` を公開し、受講者がダウンロードしてコードを書き足せるようにします。
 - 各HTMLは `embed-resources: true` の自己完結ファイルなので、そのままWebサイトに配置できます。
 
 ## 設計メモ

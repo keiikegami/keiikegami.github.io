@@ -2419,7 +2419,7 @@ window.Quarto = {
 <p><span class="math display">\[
 u_{ij} = v_{ij} + \varepsilon_{ij}, \qquad v_{ij} = \beta_{\text{quality}} \cdot \text{quality}_j + \beta_{\text{screens}} \cdot \text{screens}_j - \alpha \cdot \text{price}_{ij}
 \]</span></p>
-<p>であり、<span class="math inline">\(\varepsilon_{ij}\)</span> はGumbel分布（Type I極値分布）に従う。加入しない（outside, <span class="math inline">\(j=0\)</span>）の効用は <span class="math inline">\(v_{i0}=0\)</span> に正規化する。</p>
+<p>であり、<span class="math inline">\(\varepsilon_{ij}\)</span> は<strong>スケール1</strong>のGumbel分布（Type I極値分布）に従う。加入しない（outside, <span class="math inline">\(j=0\)</span>）の効用を <span class="math inline">\(v_{i0}=0\)</span> とする位置正規化に加え、この誤差スケールの固定が尺度正規化である。したがって推定する係数は、誤差のスケールに対する相対値として解釈する。</p>
 <p>なお、このDGPにはブランド固有の切片（講義ノートのconst_A, const_Bのようなプラン別の定数項）を置いていない。理由は設問1.4で考えてもらう。</p>
 </section>
 <section id="part-1シミュレーション設計30点" class="level2">
@@ -2524,7 +2524,7 @@ u_{ij} = v_{ij} + \varepsilon_{ij}, \qquad v_{ij} = \beta_{\text{quality}} \cdot
 </section>
 <section id="考察なぜプラン固有の切片を入れなかったか考察のみ点数はpart-2の設問と合算" class="level3">
 <h3 class="anchored" data-anchor-id="考察なぜプラン固有の切片を入れなかったか考察のみ点数はpart-2の設問と合算">1.4 考察：なぜプラン固有の切片を入れなかったか（考察のみ、点数はPart 2の設問と合算）</h3>
-<p>このDGPには、講義ノートの缶コーヒーの例にあった<code>const_A</code>, <code>const_B</code>のような、プラン固有の切片（ダミー変数）を入れていない。なぜだと思うか、2〜3文で考えてみよ（ヒント：プランの数と、推定したいパラメータの数の関係を考えてみること）。</p>
+<p>このDGPには、講義ノートの缶コーヒーの例にあった<code>const_A</code>, <code>const_B</code>のような、プラン固有の切片（ダミー変数）を入れていない。なぜだと思うか、2〜3文で考えてみよ。ヒント：この課題ではqualityとscreensが各プランに固定されている。outside/Basic/Standard/Premiumを行、候補の切片ダミー・quality・screensを列にした小さな行列を書き、列ランクと列数を比べるとよい。なお、属性が市場や選択機会をまたいで変化するデータでは結論が変わり得る。</p>
 </section>
 </section>
 <section id="part-2推定推論70点" class="level2">
@@ -2574,7 +2574,7 @@ u_{ij} = v_{ij} + \varepsilon_{ij}, \qquad v_{ij} = \beta_{\text{quality}} \cdot
 </section>
 <section id="hessianからのse信頼区間検定15点" class="level3">
 <h3 class="anchored" data-anchor-id="hessianからのse信頼区間検定15点">2.2 HessianからのSE・信頼区間・検定（15点）</h3>
-<p><code>optim</code>が返す<code>hessian</code>を使って、標準誤差と95%信頼区間を計算せよ。また、「価格は需要に影響しない」という帰無仮説 <span class="math inline">\(H_0: \alpha = 0\)</span> を検定せよ（<span class="math inline">\(t\)</span>統計量を計算し、有意かどうか判断する）。</p>
+<p><code>optim</code>が返す<code>hessian</code>を使って、標準誤差と95%信頼区間を計算せよ。また、「価格は需要に影響しない」という帰無仮説 <span class="math inline">\(H_0: \alpha = 0\)</span> をWald検定せよ（大標本の<span class="math inline">\(z\)</span>統計量を計算し、有意かどうか判断する）。ここでの逆Hessianは、正しく特定されたiid選択尤度のもとでの<strong>モデルベースSE</strong>であることも1文で明記せよ。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2585,18 +2585,19 @@ u_{ij} = v_{ij} + \varepsilon_{ij}, \qquad v_{ij} = \beta_{\text{quality}} \cdot
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(t\)</span>統計量は <span class="math inline">\(\hat\alpha / \text{SE}(\hat\alpha)\)</span> で計算できる。計量経済学Iで学んだのと同じ発想で、<span class="math inline">\(|t| &gt; 1.96\)</span> なら5%水準で有意（<span class="math inline">\(H_0\)</span>を棄却）と判断してよい。</p>
+<p>大標本のWald <span class="math inline">\(z\)</span>統計量は <span class="math inline">\(\hat\alpha / \text{SE}(\hat\alpha)\)</span> で計算できる。<span class="math inline">\(|z|&gt;1.96\)</span> なら、標準正規近似による両側5%水準で <span class="math inline">\(H_0\)</span> を棄却する。</p>
 </div>
 </div>
 </section>
 <section id="mlogitパッケージでの検算10点" class="level3">
 <h3 class="anchored" data-anchor-id="mlogitパッケージでの検算10点">2.3 <code>mlogit</code>パッケージでの検算（10点）</h3>
-<p><code>mlogit</code>パッケージを使って同じモデルを推定し、自作の推定値と近い値になることを確認せよ（<code>#| eval: false</code>で構わないので、記法だけ整えておくこと。実行はレンダー時に行われる）。</p>
+<p><code>mlogit</code>パッケージを使って同じモデルを推定し、自作の推定値と近い値になることを確認せよ。提出用レンダーでは<code>#| eval: false</code>で構わないが、可能なら手元のRセッションで一度実行すること。<code>eval: false</code>のチャンクはレンダー時には実行されない。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(mlogit)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ヒント: long形式のデータフレームに変換してからmlogit.data()、mlogit()を使う。</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 講義ノートのlec2-mlogit-checkチャンクの書き方を参考にすること。</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ヒント: long形式に変換し、mlogit.data(..., chid.var = &quot;id&quot;)で各人の選択集合を指定する。</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 各idについてchosenが4行中ちょうど1つだけTRUEか、推定前に必ず確認する。</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 講義ノートのlec2-mlogit-checkチャンクの書き方を参考にすること。</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="反実仮想standardプランを値上げしたら15点" class="level3">
@@ -2618,7 +2619,7 @@ u_{ij} = v_{ij} + \varepsilon_{ij}, \qquad v_{ij} = \beta_{\text{quality}} \cdot
 <li>Standardの価格だけ+200円した新しい価格行列を作る。</li>
 <li>新しい価格でのシェアを計算する。</li>
 <li>2つのシェアの差を取る。Standardのシェアがどれだけ減ったか、他のプランのシェアがどれだけ増えたかを見る。</li>
-<li>「Standardからの流出分」に対する「各流出先が受け取った割合」を計算し、その割合が値上げ前の各プランのシェアの比率とどう関係しているかを見る。</li>
+<li>「Standardからの流出分」に対する「各流出先が受け取った割合」を <code>redistribution_share &lt;- gain_others / lost_from_standard</code> で計算する。あわせて、値上げ前の各行き先のシェアをStandard以外のシェア合計で割った<strong>条件付きシェア</strong>を作り、2つを同じ表で比べる。</li>
 </ol>
 </div>
 </div>
@@ -2657,7 +2658,7 @@ u_{ij} = v_{ij} + \varepsilon_{ij}, \qquad v_{ij} = \beta_{\text{quality}} \cdot
 <div class="callout-body-container callout-body">
 <ul>
 <li>Part 1（30点）：DGPが正しく実装されている（15点）、可視化・記述統計が適切（10点）、1.4の考察に触れている（5点）。</li>
-<li>Part 2（70点）：自作MLEの実装・真値回収表（20点）、SE・CI・検定（15点）、mlogitでの検算（10点）、反実仮想とIIAの兆候の指摘（15点）、モンテカルロ被覆率（10点）。2.6の経営含意3行は、Part 2全体の完成度に対する加点要素として評価する。</li>
+<li>Part 2（70点）：自作MLEの実装・真値回収表（20点）、SE・CI・Wald検定（15点）、mlogitでの検算（10点）、反実仮想とIIAの兆候の指摘（15点）、モンテカルロ被覆率（10点）。2.6の経営含意3行は、Part 2全体の完成度に対する加点要素として評価する。</li>
 <li>部分点の基準：DGPのコードが動かなくても、ロジックが正しく記述されていれば部分点を与える。真値回収がやや外れていても（サンプリング誤差の範囲内であれば）、実装の考え方が正しければ大きく減点しない。</li>
 </ul>
 </div>

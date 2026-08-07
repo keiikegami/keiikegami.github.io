@@ -43,7 +43,7 @@ options(scipen = 8)
 第14回でやった「state dependenceと異質性の識別」「買いだめとセールの動学」を、自分の手で最初から最後まで通す。
 
 - **Part 1**：ブランド選択パネルのDGPを自作する（N=1,000人×T=20週、2ブランド+outside、真のstate dependenceと個人異質性を両方含む）（30点）。
-- **Part 2**：naiveなpooled logitのバイアス確認、Wooldridge deviceでの改善確認、placebo実験、買いだめDPの完成と反実仮想、経営含意（70点）。
+- **Part 2**：naiveなpooled logitのバイアス確認、Wooldridge型CRE（残差REの積分）、placebo実験、買いだめDPの完成と反実仮想、経営含意（70点）。
 
 配点は合計100点。手を動かせば2〜4時間で終わる分量。穴埋めコードの骨格を惜しみなく与えるので、まず埋めることから始めよ。
 :::
@@ -246,98 +246,107 @@ cat("true lambda =", lambda_true, "\n")
 `optim`の初期値をすべて0にしているが、収束しない場合は初期値を変えてみるか、`method = "Nelder-Mead"`を試すとよい。また、`BFGS`は勾配を数値微分で近似するため多少時間がかかるが、この規模のデータ（N=1000×T=19程度）なら数秒〜数十秒で終わるはずだ。
 :::
 
-## 問4（15点）：Wooldridge deviceでの改善を確認する
+## 問4（15点）：Wooldridge型CREで残差異質性を積分する
 
-初期選択のダミーと、個人内平均価格を説明変数に追加したWooldridge device版を推定せよ。
+単に初期選択と個人内平均価格をpooled MNLへ加えるだけでは、残差異質性をゼロと置いている。ここでは
+
+$$
+\mu_{ij}=\rho_{0j}\mathbb 1[y_{i0}=j]+\rho_{pj}\bar p_{ij}+r_{ij},
+\qquad r_{ij}\stackrel{ind}{\sim}N(0,\sigma_r^2)
+$$
+
+と置き、個人内の各期の選択確率を掛けてから $(r_{i1},r_{i2})$ を積分する。以下の5点Gauss--Hermite求積を完成させよ。
 
 ```{r}
 #| eval: false
-build_wooldridge_mnl_df <- function(sim) {
-  Nn <- dim(sim$y)[1]; Tn <- dim(sim$y)[2]
-  y0 <- sim$y[, 1]
-  y0_is1 <- as.numeric(y0 == 1)
-  y0_is2 <- as.numeric(y0 == 2)
-  price_bar1 <- rowMeans(sim$price[, -1, 1])
-  price_bar2 <- rowMeans(sim$price[, -1, 2])
+normal_gh <- function(n = 5) {
+  J <- matrix(0, n, n)
+  off <- sqrt((1:(n - 1)) / 2)
+  J[cbind(1:(n - 1), 2:n)] <- off
+  J[cbind(2:n, 1:(n - 1))] <- off
+  eg <- eigen(J, symmetric = TRUE)
+  ord <- order(eg$values)
+  list(z = sqrt(2) * eg$values[ord], w = eg$vectors[1, ord]^2)
+}
 
-  y_lag <- sim$y[, -Tn]; y_now <- sim$y[, -1]
-  price_now <- sim$price[, -1, ]
-  Tm1 <- Tn - 1
+build_cre_mnl_panel <- function(sim) {
+  Tm <- dim(sim$y)[2]
   list(
-    y    = as.vector(y_now),
-    p1   = as.vector(price_now[, , 1]),
-    p2   = as.vector(price_now[, , 2]),
-    lag1 = as.numeric(as.vector(y_lag == 1)),
-    lag2 = as.numeric(as.vector(y_lag == 2)),
-    y0_1 = rep(y0_is1, times = Tm1),
-    y0_2 = rep(y0_is2, times = Tm1),
-    pbar1 = rep(price_bar1, times = Tm1),
-    pbar2 = rep(price_bar2, times = Tm1)
+    y = sim$y[, -1, drop = FALSE],
+    p1 = sim$price[, -1, 1, drop = FALSE][, , 1],
+    p2 = sim$price[, -1, 2, drop = FALSE][, , 1],
+    lag1 = 1 * (sim$y[, -Tm, drop = FALSE] == 1),
+    lag2 = 1 * (sim$y[, -Tm, drop = FALSE] == 2),
+    y0_1 = 1 * (sim$y[, 1] == 1),
+    y0_2 = 1 * (sim$y[, 1] == 2),
+    pbar1 = rowMeans(sim$price[, -1, 1]),
+    pbar2 = rowMeans(sim$price[, -1, 2])
   )
 }
 
-# 8パラメータ版の尤度・MLE（c1,c2,beta_p,lambda,rho_y0_1,rho_y0_2,rho_pbar1,rho_pbar2）
-mnl_loglik_wool <- function(theta, d) {
+mnl_cre_loglik <- function(theta, d, gh) {
   c1 <- theta[1]; c2 <- theta[2]; bp <- theta[3]; lam <- theta[4]
   r01 <- theta[5]; r02 <- theta[6]; rp1 <- theta[7]; rp2 <- theta[8]
-  V1 <- c1 + bp * d$p1 + lam * d$lag1 + r01 * d$y0_1 + rp1 * d$pbar1
-  V2 <- ______                                       # 【穴埋め】V1と対称的にbrand2の効用を作る
-  V_full <- cbind(0, V1, V2)
-  V_full <- V_full - apply(V_full, 1, max)
-  eV <- exp(V_full)
-  probs <- eV / rowSums(eV)
-  n <- length(d$y)
-  chosen_probs <- probs[cbind(1:n, d$y + 1)]
-  sum(log(pmax(chosen_probs, 1e-300)))
+  sigma_r <- exp(theta[9])
+  base1 <- c1 + bp*d$p1 + lam*d$lag1 + r01*d$y0_1 + rp1*d$pbar1
+  base2 <- c2 + bp*d$p2 + lam*d$lag2 + r02*d$y0_2 + rp2*d$pbar2
+  log_terms <- matrix(NA_real_, nrow(d$y), length(gh$z)^2)
+  k <- 0
+  for (q1 in seq_along(gh$z)) for (q2 in seq_along(gh$z)) {
+    k <- k + 1
+    V1 <- base1 + sigma_r * gh$z[q1]
+    V2 <- base2 + sigma_r * gh$z[q2]
+    mx <- pmax(0, V1, V2)
+    logden <- mx + log(exp(-mx) + exp(V1 - mx) + exp(V2 - mx))
+    chosen_v <- ______  # 【穴埋め】outsideなら0、brand1ならV1、brand2ならV2
+    log_terms[, k] <- rowSums(chosen_v - logden) + log(gh$w[q1]) + log(gh$w[q2])
+  }
+  m <- apply(log_terms, 1, max)
+  sum(m + log(rowSums(exp(log_terms - m))))
 }
 
-mnl_mle_wool <- function(d) {
-  neg_ll <- function(theta) -mnl_loglik_wool(theta, d)
-  opt <- optim(par = rep(0, 8), fn = neg_ll, method = "BFGS")
+mnl_mle_cre <- function(sim, start_lambda) {
+  d <- build_cre_mnl_panel(sim); gh <- normal_gh(5)
+  start <- c(-0.3, -0.4, -1, start_lambda, 0, 0, 0, 0, log(1))
+  opt <- optim(start, function(th) -mnl_cre_loglik(th, d, gh),
+               method = "BFGS", control = list(maxit = 250, reltol = 1e-7))
+  stopifnot(opt$convergence == 0)
   opt$par
 }
 
-df_wool <- build_wooldridge_mnl_df(dgp)
-theta_wool <- mnl_mle_wool(df_wool)
-cat("naive lambda_hat:     ", round(theta_naive[4], 3), "\n")
-cat("wooldridge lambda_hat:", round(theta_wool[4], 3), "\n")
-cat("true lambda:          ", lambda_true, "\n")
+theta_cre <- mnl_mle_cre(dgp, theta_naive[4])
+cat("naive lambda_hat:", round(theta_naive[4], 3), "\n")
+cat("CRE lambda_hat:  ", round(theta_cre[4], 3), "\n")
+cat("CRE sigma_r_hat:", round(exp(theta_cre[9]), 3), "\n")
+cat("true lambda:     ", lambda_true, "\n")
 ```
 
-$\hat\lambda$のバイアスは、Wooldridge deviceでどの程度縮小したか。**残っているバイアスの大きさも正直に報告せよ**（講義ノートの教訓：「効くが完治しない」）。
+$\hat\lambda$が真値へ近づいたかを報告し、求積点を3点・7点に変えた感度も確認せよ。分布指定が近似なので、必ず真値へ完全一致するとは限らない。
 
 ## 問5（20点）：placebo実験——見せかけの状態依存を自分で作る
 
-ここまでは真の$\lambda=1.0$のデータで練習してきた。今度は**自分でplacebo DGPを作る**：真の$\lambda=0$（状態依存は一切ない）で、個人異質性だけが強い（$\sigma_\mu$を大きめに、例えば1.5程度）データを生成し、naiveなpooled multinomial logitで推定したら何が起きるかを確認せよ。
+真の$\lambda=0$、強い個人異質性だけを持つデータを生成し、naive推定とCREを比較せよ。
 
 ```{r}
 #| eval: false
-# (i) placebo DGP: lambda=0, 異質性のみ
-dgp_placebo <- simulate_panel_mnl(N, Tn, BURN, lambda = ______, sigma_mu = ______, seed = 142)  # 【穴埋め】
+dgp_placebo <- simulate_panel_mnl(N, Tn, BURN, lambda = ______,
+                                  sigma_mu = ______, seed = 142)  # 【穴埋め】
 
-# (ii) naive推定
 df_placebo <- build_pooled_mnl_df(dgp_placebo)
 theta_placebo_naive <- mnl_mle(df_placebo$y, df_placebo$p1, df_placebo$p2,
                                 df_placebo$lag1, df_placebo$lag2)
-cat("placebo DGP (true lambda=0) でのnaive lambda_hat:", round(theta_placebo_naive[4], 3), "\n")
+theta_placebo_cre <- mnl_mle_cre(dgp_placebo, theta_placebo_naive[4])
 
-# (iii) Wooldridge deviceでの改善も確認
-df_placebo_wool <- build_wooldridge_mnl_df(dgp_placebo)
-theta_placebo_wool <- mnl_mle_wool(df_placebo_wool)
-cat("placebo DGP でのWooldridge lambda_hat:", round(theta_placebo_wool[4], 3), "\n")
+cat("placebo true lambda: ", 0, "\n")
+cat("placebo naive lambda:", round(theta_placebo_naive[4], 3), "\n")
+cat("placebo CRE lambda:  ", round(theta_placebo_cre[4], 3), "\n")
 ```
 
-真の$\lambda=0$にもかかわらず、naive推定がどれだけ大きな偽の$\hat\lambda$を検出したか、Wooldridge deviceがそれをどれだけ縮小したかを、表または図で示せ。**この結果を2〜3文で解釈せよ**（何が起きているか、なぜそれが実務上危険か）。
-
-::: {.callout-warning}
-## この実験の意義
-
-この問いこそが今日の課題の核心である。「異質性しかない世界で、naiveな推定が本物の状態依存を『発見』してしまう」ことを、あなた自身のシミュレーションで再現できたら、講義ノートの主張（見せかけの状態依存の危険性）を完全に理解したことになる。もし$\hat\lambda$が0に近い値しか出なければ、DGPの$\sigma_\mu$が小さすぎる可能性がある。$\sigma_\mu$を大きくして（1.5〜2.0程度）再実行してみよ。
-:::
+結果を表または図で示し、(i) なぜnaive推定が偽の状態依存を生むのか、(ii) なぜ初期値を足すだけでなく個人尤度で残差REを積分するのか、(iii) CREにも分布誤指定リスクがあること、を3〜5文で説明せよ。
 
 ## 問6（15点）：買いだめDPと反実仮想
 
-以下は、講義ノート3.2節の在庫DPを、**在庫上限・購入上限が異なるパラメータ**で書いた骨格である。完成させ、(a) 政策関数の確認、(b) セール頻度を2倍にする反実仮想での売上・利益変化、(c) 短期/長期弾力性を報告せよ。
+以下は、講義ノート3.2節の在庫DPを、**在庫上限・購入上限が異なるパラメータ**で書いた骨格である。完成させ、(a) 政策関数の確認、(b) セール頻度を2倍にする反実仮想での売上・利益変化、(c) 短期/長期弾力性を報告せよ。価格変化が大きいため、(c)はlog-log回帰と尺度をそろえて $\log(Q_1/Q_0)/\log(P_1/P_0)$ で定義する。
 
 ```{r}
 #| eval: false
@@ -362,14 +371,13 @@ expected_flow_continuation <- function(x, a, p, V) {
     consumption <- as.numeric(post >= 1)
     end_inv <- post - consumption
     cost <- p * a + c_hold * end_inv
-    benefit <- u_consume * consumption
+    benefit <- if (post >= 1) u_consume else -stockout_cost
     benefit - cost + beta_dp * V[end_inv + 1]
   }
   val_noconsume <- {
     end_inv <- post
     cost <- p * a + c_hold * end_inv
-    benefit <- -(if (post == 0) stockout_cost else 0)
-    benefit - cost + beta_dp * V[end_inv + 1]
+    -cost + beta_dp * V[end_inv + 1]
   }
   q * val_consume + (1 - q) * val_noconsume
 }
@@ -426,8 +434,8 @@ simulate_calendar_general <- function(N_hh, Tn, sale_bool, policy, sale_prob_arg
   set.seed(seed)
   x <- rep(0L, N_hh)
   for (t in 1:burn_in) {
-    is_sale <- runif(N_hh) < sale_prob_arg
-    a <- ifelse(is_sale, policy[2, x + 1], policy[1, x + 1])
+    is_sale <- runif(1) < sale_prob_arg
+    a <- if (is_sale) policy[2, x + 1] else policy[1, x + 1]
     post <- x + a
     q <- q_of_x(post)
     occ <- runif(N_hh) < q
@@ -479,41 +487,47 @@ units_sale_event <- simulate_calendar_general(N_hh, 25, c(rep(FALSE, 9), TRUE, r
                                                dp_base$policy, 1/10, seed = 42)$units
 units_no_event   <- simulate_calendar_general(N_hh, 25, rep(FALSE, 25),
                                                dp_base$policy, 1/10, seed = 42)$units
-pct_cut <- p_sale / p_regular - 1
-sr_pct_change <- units_sale_event[10] / units_no_event[10] - 1
-sr_elasticity <- sr_pct_change / pct_cut
+log_price_change <- log(p_sale / p_regular)
+sr_log_q_change <- log(units_sale_event[10] / units_no_event[10])
+sr_elasticity <- sr_log_q_change / log_price_change
 
 stationary_units <- function(always_sale, seed) {
   Tp <- 60
   sale_bool <- rep(always_sale, Tp)
-  policy_use <- dp_base$policy
-  u <- simulate_calendar_general(N_hh, Tp, sale_bool, policy_use, if (always_sale) 1 else 0, seed = seed, burn_in = 150)$units
+  cf_prob <- if (always_sale) 1 else 0
+  policy_use <- solve_inventory_dp_general(cf_prob)$policy
+  u <- simulate_calendar_general(N_hh, Tp, sale_bool, policy_use,
+                                 cf_prob, seed = seed, burn_in = 150)$units
   mean(tail(u, 15))
 }
 units_permanent_sale    <- stationary_units(TRUE,  seed = 99)
-units_permanent_regular <- stationary_units(FALSE, seed = 100)
-lr_pct_change <- units_permanent_sale / units_permanent_regular - 1
-lr_elasticity <- lr_pct_change / pct_cut
+units_permanent_regular <- stationary_units(FALSE, seed = 99)
+lr_log_q_change <- log(units_permanent_sale / units_permanent_regular)
+lr_elasticity <- lr_log_q_change / log_price_change
 
 cat("短期弾力性:", round(sr_elasticity, 3), "\n")
 cat("長期弾力性:", round(lr_elasticity, 3), "\n")
-cat("比:", round(sr_elasticity / lr_elasticity, 1), "倍\n")
+if (abs(lr_elasticity) > 1e-10) {
+  cat("短期/長期の比:", round(sr_elasticity / lr_elasticity, 1), "倍\n")
+} else {
+  cat("長期弾力性が0なので比は定義できない\n")
+}
 ```
 
 ::: {.callout-tip}
-## ヒント：`stationary_units`の`always_sale`引数について
+## ヒント：恒久反実仮想では政策関数も変わる
 
-`always_sale=TRUE`（恒久的にセール価格）の世界を作るとき、`simulate_calendar_general`の`sale_prob_arg`は本来「DPを解くときに使ったセール確率」を意味する変数だが、恒久的にセール価格の世界を作る際は単に「毎期セール」というカレンダーを渡せばよく、DPの政策関数自体は`dp_base$policy`（元のセール確率1/10で解いたもの）をそのまま使う。これは意図的な近似だ——本来なら「セールが恒久的だと知っている」消費者は、政策関数自体を解き直すはずだが（`sale_prob=1`でDPを解き直す）、ここでは「短期的にはセールが来る確率は1/10だと思っているが、たまたま今回はずっとセールが続いた」という設定に近い。両方を試して結果を比較してみるのもよい発展課題である。
+「今週たまたまセール」と「今後ずっとセール」は別の情報集合である。恒久セールなら`sale_prob_arg=1`、恒久通常価格なら`0`としてDPを解き直し、その政策関数の下でバーンインも同じ価格レジームにする。
 :::
 
 ## 問7（5点）：経営含意3行
 
-問3〜5の$\lambda$の推定結果を踏まえて、「新規顧客への初回割引に投資すべきか」という問いに、**3行以内**で答えよ。あなたのシミュレーションで回収された$\hat\lambda$（naiveとWooldridgeの両方の値、および真値）を根拠として引用すること。
+問3〜5の$\lambda$の推定結果を踏まえて、「新規顧客への初回割引に投資すべきか」という問いに、**3行以内**で答えよ。あなたのシミュレーションで回収された$\hat\lambda$（naiveとCRE、および真値）を根拠として引用すること。ただし、投資判断には、値引きによる因果的な獲得増、値引き・獲得費用、将来マージン、ベースライン継続率と顧客異質性、離脱、競合反応を合わせた増分NPVが必要だと明記せよ。
 
 ::: {.callout-note}
 ## 書き方のヒント
 
-「本課題のシミュレーションでは真の$\lambda$は◯◯、naive推定は△△、Wooldridge deviceは□□だった。このズレの大きさから、初回割引投資の正当化には（過大評価・過小評価）のリスクがあり、実務では〜〜すべきである」というような骨格で書くとよい。数値を引用すること。
+「本課題のシミュレーションでは真の$\lambda$は◯◯、naive推定は△△、CREは□□だった。naive値だけで将来購買を予測すると〜〜のリスクがある。実務では推定感度に加え、獲得費用と将来マージンを使ってNPVを比較する」という骨格で書くとよい。
 :::
 
 ---
@@ -530,8 +544,8 @@ cat("比:", round(sr_elasticity / lr_elasticity, 1), "倍\n")
 - 問1（20）：DGP関数（softmax・逆関数法での選択生成）の完成
 - 問2（10）：記述統計（シェア・リピート率）と可視化
 - 問3（15）：naiveなpooled multinomial logitの実装とlambda_hat過大評価の確認
-- 問4（15）：Wooldridge deviceの実装と改善度合いの報告（残るバイアスも正直に）
-- 問5（20）：placebo DGPの自作、naive/Wooldridgeでの見せかけの状態依存の確認と解釈
+- 問4（15）：Wooldridge型CREの個人尤度とGauss--Hermite積分
+- 問5（20）：placebo DGPの自作、naive/CREでの見せかけの状態依存の確認と解釈
 - 問6（15）：買いだめDPの完成、セール頻度2倍の反実仮想、短期・長期弾力性の報告
 - 問7（5）：経営含意3行（数値を根拠に）
 :::

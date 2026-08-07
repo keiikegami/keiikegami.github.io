@@ -73,8 +73,10 @@ $\varepsilon_{ijt}$ は Type I 極値分布。$j=0$（outside）の効用は $\v
 |---|---|---|
 | $\beta_0$ | 定数項 | 4.0 |
 | $\beta_x$ | 属性 $x$ への平均選好 | 1.5 |
-| $\bar\alpha$ | log 価格係数の中心 | 0.5 |
+| $\bar\alpha$ | log価格係数の平均 | 0.5 |
 | $\sigma$ | 価格係数のばらつき（推定対象） | 0.8 |
+
+対数正規分布では、$e^{\bar\alpha}$は中央値であり、平均は$E[\alpha_i]=e^{\bar\alpha+\sigma^2/2}$である。この区別を以降の平均効用分解で使う。
 
 価格は外生ではない。限界費用にマークアップを乗せて決まり、そのマークアップは需要ショック $\xi$ に反応する（需要が強い市場では強気の価格）。これで $p$ と $\xi$ が相関し、内生性が生じる。限界費用は
 
@@ -97,7 +99,7 @@ beta0_true  <- 4.0
 beta_x_true <- 1.5
 abar_true   <- 0.5
 sigma_true  <- 0.8
-alpha_bar_true <- exp(abar_true)   # 平均価格係数
+alpha_bar_true <- exp(abar_true + sigma_true^2 / 2)   # 水準での平均 E[alpha_i]
 
 # ---- ここを埋める ----
 # 属性 x: T x J、標準正規
@@ -122,21 +124,21 @@ nu_p <- rnorm(ns)
 ::: {.callout-tip}
 ## ヒント：なぜ価格が内生になるのか
 
-`price` の式に `xi` が入っているのがミソだ。需要ショック $\xi_{jt}$ が大きい（その財が売れやすい）市場では、企業が強気の価格をつける。だから $p$ と $\xi$ が正に相関する。この相関があるせいで、$\delta = \cdots - \alpha_{\text{bar}} p + \xi$ を素朴にOLSすると $p$ の係数（価格感応度）が過小推定される。第3回でやった内生性の話そのままだ。
+`price` の式に `xi` が入っているのがミソだ。需要ショック $\xi_{jt}$ が大きい（その財が売れやすい）市場では、企業が強気の価格をつける。だから $p$ と $\xi$ が正に相関する。この相関があるせいで、$\delta = \cdots - \alpha_0 p + \xi$ を素朴にOLSすると $p$ の係数（価格感応度）が過小推定される。第3回でやった内生性の話そのままだ。
 :::
 
 ## 問2（15点）：モンテカルロ積分でシェアを計算し、観測シェアを生成する
 
-平均効用 $\delta_{jt} = \beta_0 + \beta_x x_{jt} - \bar\alpha^{\text{lvl}} p_{jt} + \xi_{jt}$ を作り、シミュレーション個人でシェアを計算せよ。まず「$\delta$ を与えるとシェアを返す」関数を完成させる。個人偏差は $\mu_{ij} = -(\alpha_i - \bar\alpha^{\text{lvl}}) p_j$。
+平均価格係数を $\alpha_0=E[\alpha_i]=e^{\bar\alpha+\sigma^2/2}$ と置き、平均効用 $\delta_{jt} = \beta_0 + \beta_x x_{jt} - \alpha_0 p_{jt} + \xi_{jt}$ を作る。個人偏差は $\mu_{ij}=-(\alpha_i-\alpha_0)p_j$ なので、$\delta+\mu$の価格項が$-\alpha_i p_j$に戻ることをまず手で検算せよ。
 
 ```{r}
 # delta_t: (J) 平均効用
 # 戻り値: 集計インサイドシェア (J)
 shares_from_delta <- function(delta_t, p_t, abar, sigma, nu_p) {
   alpha_i  <- exp(abar + sigma * nu_p)          # (ns) 個人の価格係数
-  abar_lvl <- exp(abar)
-  # mu[i,j] = -(alpha_i - abar_lvl) * p_j   ->  outer() で (ns x J)
-  mu <- -outer(alpha_i - abar_lvl, p_t)
+  alpha_mean <- exp(abar + sigma^2 / 2)
+  # mu[i,j] = -(alpha_i - E[alpha_i]) * p_j   ->  outer() で (ns x J)
+  mu <- -outer(alpha_i - alpha_mean, p_t)
   V  <- sweep(mu, 2, delta_t, "+")               # delta_t を各列に足す
   eV <- exp(V)
   denom <- 1 + rowSums(eV)                        # outside の効用は 0
@@ -151,6 +153,12 @@ for (t in 1:T) {
 }
 S0_obs <- 1 - rowSums(S_obs)
 ```
+
+::: {.callout-note}
+## 推定中の分布族について
+
+真値では$\alpha_0=E[\alpha_i]$なので価格係数は純粋な対数正規になる。問5では候補$\sigma$ごとに$\alpha_0$を線形IVで自由に推定するため、探索中は「推定中心値＋中心化した対数正規偏差」というshifted familyである。これは$\alpha_0$をprofile outする教育用簡略化。純粋な対数正規を常に保つ推定では、$\bar\alpha$と$\sigma$をともに外側で非線形推定する。
+:::
 
 ## 問3（10点）：データの記述統計と内生性の確認
 
@@ -244,7 +252,7 @@ ggplot(df_trace, aes(iter, err)) +
 
 ## 問5（15点）：GMM 目的関数を $\sigma$ のグリッドで評価する
 
-操作変数 $Z$（定数・$x$・コストシフター $w$・ライバルの $x$ 和・ライバルの $w$ 和）を作り、$\hat\delta(\sigma)$ を IV回帰して残差 $\hat\xi$ を得て、GMM目的関数 $Q(\sigma) = \hat\xi'ZWZ'\hat\xi$（$W = (Z'Z)^{-1}$）を計算する `gmm_step` を完成させよ。$\sigma \in \{0, 0.4, 0.8, 1.2\}$ のグリッドで $Q$ を評価し、argmin が真値 0.8 の近傍にあることを図で示せ。
+操作変数 $Z$（定数・$x$・コストシフター $w$・他製品の $x$ 和・$w$ 和）を作り、$\hat\delta(\sigma)$ をIV回帰して残差$\hat\xi$を得て、GMM目的関数を計算する。これは企業IDを省いた教育用の簡略IVである。標準的なBLP IVは、同一企業の他製品と他企業の製品の属性和を分ける。どちらにも、自財の$\xi$と無相関という除外制約が必要である。
 
 ```{r}
 #| eval: false
@@ -284,9 +292,10 @@ gmm_step <- function(sigma, abar) {
 #| eval: false
 sigma_grid <- c(0.0, 0.4, 0.8, 1.2)
 Q_vals <- sapply(sigma_grid, function(s) gmm_step(s, abar_true)$Q)
+best_sigma <- sigma_grid[which.min(Q_vals)]
 df_Q <- data.frame(sigma = sigma_grid, Q = Q_vals)
 kable(df_Q, digits = 4)
-cat("argmin:", sigma_grid[which.min(Q_vals)], "（真値 0.8）\n")
+cat("argmin:", best_sigma, "（真値 0.8）\n")
 
 ggplot(df_Q, aes(sigma, Q)) +
   geom_line(color = "#1f77b4") + geom_point(size = 2) +
@@ -307,11 +316,11 @@ ggplot(df_Q, aes(sigma, Q)) +
 ```{r}
 #| eval: false
 # 推定した sigma のもとで、各製品の自己価格弾力性を計算する。
-# 【重要】価格を動かすと delta も動く（delta に -alpha_bar*p が入るから）。
+# 【重要】価格を動かすと delta も動く（delta に -alpha0*p が入るから）。
 #         だから delta を「価格の関数」として作り直してから微小変化させる。
 self_elasticities <- function(sigma, abar) {
   fit <- gmm_step(sigma, abar)
-  th  <- fit$theta1                 # c(const, beta_x, coef_price)   coef_price = -alpha_bar_lvl
+  th  <- fit$theta1                 # c(const, beta_x, coef_price)   coef_price = -alpha0
   xih <- matrix(fit$xi_hat, T, J, byrow = TRUE)   # 【t()並びなので byrow=TRUE】
   const <- th[1]; bx <- th[2]; cprice <- th[3]
   eps <- 1e-6
@@ -330,11 +339,12 @@ self_elasticities <- function(sigma, abar) {
 }
 
 e_plain <- self_elasticities(0.0, abar_true)
-e_hat   <- self_elasticities(0.8, abar_true)
+e_hat   <- self_elasticities(best_sigma, abar_true)
+rc_label <- sprintf("RC (sigma_hat=%.1f)", best_sigma)
 
 df_e <- data.frame(
   elasticity = c(e_plain, e_hat),
-  model = rep(c("plain logit (sigma=0)", "RC (sigma_hat)"), c(length(e_plain), length(e_hat)))
+  model = rep(c("plain logit (sigma=0)", rc_label), c(length(e_plain), length(e_hat)))
 )
 ggplot(df_e, aes(elasticity, fill = model)) +
   geom_histogram(alpha = 0.5, position = "identity", bins = 30) +
@@ -387,7 +397,8 @@ dS_dp <- function(p) {
 
 owner_matrix <- function(groups) outer(groups, groups, function(a, b) as.numeric(a == b))
 
-# FOC: p = mc + Delta^{-1} s,  Delta[j,k] = -Omega[j,k] * ds_k/dp_j
+# FOC: s - Delta(p - mc) = 0,  Delta[j,k] = -Omega[j,k] * ds_k/dp_j
+#      <=> p = mc + Delta^{-1} s
 markup_pieces <- function(p, groups) {
   M <- dS_dp(p)
   Omega <- owner_matrix(groups)
@@ -454,7 +465,7 @@ cat("D(財1->財2):", round(diversion(1, 2), 3),
 ```{r}
 #| eval: false
 # 判断材料を1つの表にまとめておくと書きやすい
-# （UPP・消費者余剰は発展課題。ここでは価格上昇率と diversion で十分）
+# （ここでは価格上昇率と diversion の報告で十分）
 ```
 
 ::: {.callout-note}

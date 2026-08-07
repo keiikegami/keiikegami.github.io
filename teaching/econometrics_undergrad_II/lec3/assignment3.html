@@ -2360,7 +2360,7 @@ window.Quarto = {
   <li><a href="#q510点plain-logitのberry反転をolsで推定する" id="toc-q510点plain-logitのberry反転をolsで推定する" class="nav-link" data-scroll-target="#q510点plain-logitのberry反転をolsで推定する">Q5（10点）：plain logitのBerry反転をOLSで推定する</a></li>
   <li><a href="#q610点nested-logit版のberry反転をolsで推定する" id="toc-q610点nested-logit版のberry反転をolsで推定する" class="nav-link" data-scroll-target="#q610点nested-logit版のberry反転をolsで推定する">Q6（10点）：nested logit版のBerry反転をOLSで推定する</a></li>
   <li><a href="#q720点2slsでalphaとrhoを回収する" id="toc-q720点2slsでalphaとrhoを回収する" class="nav-link" data-scroll-target="#q720点2slsでalphaとrhoを回収する">Q7（20点）：2SLSで<span class="math inline">\(\alpha\)</span>と<span class="math inline">\(\rho\)</span>を回収する</a></li>
-  <li><a href="#q810点弾力性行列の比較logitnested-olsiv" id="toc-q810点弾力性行列の比較logitnested-olsiv" class="nav-link" data-scroll-target="#q810点弾力性行列の比較logitnested-olsiv">Q8（10点）：弾力性行列の比較（logit/nested × OLS/IV）</a></li>
+  <li><a href="#q810点弾力性行列の比較plainnested-olsiv" id="toc-q810点弾力性行列の比較plainnested-olsiv" class="nav-link" data-scroll-target="#q810点弾力性行列の比較plainnested-olsiv">Q8（10点）：弾力性行列の比較（plain/nested × OLS/IV）</a></li>
   <li><a href="#q95点rho-0のwald検定" id="toc-q95点rho-0のwald検定" class="nav-link" data-scroll-target="#q95点rho-0のwald検定">Q9（5点）：<span class="math inline">\(\rho = 0\)</span>のWald検定</a></li>
   <li><a href="#q105点経営への含意3行で" id="toc-q105点経営への含意3行で" class="nav-link" data-scroll-target="#q105点経営への含意3行で">Q10（5点）：経営への含意（3行で）</a></li>
   </ul></li>
@@ -2411,8 +2411,8 @@ window.Quarto = {
 <p>具体的には次の3つを確認する。</p>
 <ol type="1">
 <li>plain logitのBerry反転をOLSで推定すると価格係数<span class="math inline">\(\alpha\)</span>が過小評価されること。</li>
-<li>nested logit版のBerry反転をOLSで推定すると、<span class="math inline">\(\alpha\)</span>だけでなくネスト内相関<span class="math inline">\(\rho\)</span>も歪むこと。</li>
-<li>コストシフターとBLP型IV（競合属性）を使った2SLSで、<span class="math inline">\(\alpha\)</span>と<span class="math inline">\(\rho\)</span>の両方を回収できること。</li>
+<li>nested logit版のBerry反転をOLSで推定すると、<span class="math inline">\(\alpha\)</span>だけでなくネスティング・パラメータ<span class="math inline">\(\rho\)</span>も歪むこと。</li>
+<li>コストシフターと同一ネスト内の競合属性を使った2SLSで、<span class="math inline">\(\alpha\)</span>と<span class="math inline">\(\rho\)</span>の両方を回収できること。</li>
 </ol>
 <p>配点は全体で100点。手を動かせば2〜4時間程度で終わる分量を想定している。ヒントのcalloutを活用してほしい。</p>
 </div>
@@ -2425,11 +2425,7 @@ window.Quarto = {
 <li>財3・財4：<strong>「無糖・すっきり系」</strong>ネスト（微炭酸・無糖）</li>
 <li>財0（outside option）：炭酸飲料を買わない（他のカテゴリの飲み物を買う、あるいは何も買わない）</li>
 </ul>
-<p>消費者の効用は</p>
-<p><span class="math display">\[
-u_{ijt} = \delta_{jt} + \zeta_{igt} \cdot \rho + (1-\rho)\varepsilon_{ijt}
-\]</span></p>
-<p>という一般化extreme value構造から導かれるnested logitに従うとし（講義の記法に合わせ、講義で導入した選択確率の分解式をそのまま使えばよい。<span class="math inline">\(\zeta_{igt}\)</span>の分布の詳細に立ち入る必要はない）、平均効用は</p>
+<p>消費者の誤差項は、講義で扱ったcanonical nested-logitのGEV同時分布に従うとする。この課題では、独立なGumbelを足して誤差を疑似生成せず、講義のwithin/betweenシェア写像をそのままDGPとして使う。平均効用は</p>
 <p><span class="math display">\[
 \delta_{jt} = x_{jt}&#39;\beta - \alpha p_{jt} + \xi_{jt}
 \]</span></p>
@@ -2438,6 +2434,7 @@ u_{ijt} = \delta_{jt} + \zeta_{igt} \cdot \rho + (1-\rho)\varepsilon_{ijt}
 \alpha = 2.0, \quad \beta = 1.5, \quad \rho = 0.5
 \]</span></p>
 <p>とする。</p>
+<p>ここで <span class="math inline">\(\lambda=1-\rho\)</span> がdissimilarity parameterである。<span class="math inline">\(0&lt;\lambda\leq1\)</span>（<span class="math inline">\(0\leq\rho&lt;1\)</span>）が通常のランダム効用モデルと整合的な範囲で、標準的な正規化では同一ネスト内の誤差相関は <span class="math inline">\(1-\lambda^2\)</span>。したがって、<span class="math inline">\(\rho\)</span>は相関そのものではなく、相関を単調に動かすネスティング・パラメータである。</p>
 </section>
 <section id="part-1シミュレーション設計40点" class="level2">
 <h2 class="anchored" data-anchor-id="part-1シミュレーション設計40点">Part 1：シミュレーション設計（40点）</h2>
@@ -2539,11 +2536,12 @@ p_{jt} = mc_{jt} + \text{markup}_{jt}
 <span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">s =</span> s, <span class="at">s0 =</span> s0, <span class="at">s_within =</span> s_within)</span>
 <span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>この関数を使い、以下を実行せよ。</p>
+<p>この関数を使い、以下を実行せよ。価格内生性とnested-logitの仕様差を混同しないため、<strong>同じ <span class="math inline">\(x,p,\xi\)</span> から2つのDGPを分けて作る</strong>。</p>
 <ol type="1">
-<li><code>nests &lt;- list(c(1,2), c(3,4))</code>、真値<code>alpha=2.0, beta=1.5, rho=0.5</code>でシェアを計算する。</li>
-<li>市場・財・<span class="math inline">\(x\)</span>・<span class="math inline">\(w\)</span>・<span class="math inline">\(\xi\)</span>・価格・シェア・outsideシェア・within shareを1行1観測（<span class="math inline">\(T \times J = 400\)</span>行）のデータフレームにまとめる。</li>
-<li><code>y_berry = log(share) - log(share0)</code>、<code>ln_swithin = log(s_within)</code>の2列を追加する。</li>
+<li>真値<code>alpha=2.0, beta=1.5, rho=0.5</code>で<strong>nested DGP</strong>のシェアを計算する。</li>
+<li>同じ変数を使い、<code>rho=0</code>で<strong>plain-logit DGP</strong>のシェアも計算する。</li>
+<li>nested DGPを<code>market_df</code>、plain DGPを<code>market_df_plain</code>として、どちらも1行1観測（<span class="math inline">\(T\times J=400\)</span>行）にまとめる。</li>
+<li><code>y_berry = log(share) - log(share0)</code>を両方に、<code>ln_swithin = log(s_within)</code>をnested DGPに追加する。</li>
 </ol>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>nests <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">4</span>))</span>
@@ -2552,19 +2550,28 @@ p_{jt} = mc_{jt} + \text{markup}_{jt}
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>rho_true <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
 <span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>nl_result <span class="ot">&lt;-</span> <span class="fu">nested_logit_shares_batch</span>(x_mkt, price_mkt, xi_mkt, alpha_true, beta_true, rho_true, nests)</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>market_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">market =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span>T_mkt, <span class="at">times =</span> J_mkt),</span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">product =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span>J_mkt, <span class="at">each =</span> T_mkt),</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> <span class="fu">as.vector</span>(x_mkt),</span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">w =</span> <span class="fu">as.vector</span>(w_mkt),</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">xi =</span> <span class="fu">as.vector</span>(xi_mkt),</span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">price =</span> <span class="fu">as.vector</span>(price_mkt),</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">share =</span> <span class="fu">as.vector</span>(___),</span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">share0 =</span> <span class="fu">rep</span>(___, <span class="at">times =</span> J_mkt),</span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">s_within =</span> <span class="fu">as.vector</span>(___)</span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">y_berry =</span> ___, <span class="at">ln_swithin =</span> ___)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>pl_result <span class="ot">&lt;-</span> <span class="fu">nested_logit_shares_batch</span>(x_mkt, price_mkt, xi_mkt, alpha_true, beta_true, <span class="dv">0</span>, nests)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>market_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">market =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span>T_mkt, <span class="at">times =</span> J_mkt),</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">product =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span>J_mkt, <span class="at">each =</span> T_mkt),</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> <span class="fu">as.vector</span>(x_mkt),</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">w =</span> <span class="fu">as.vector</span>(w_mkt),</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">xi =</span> <span class="fu">as.vector</span>(xi_mkt),</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">price =</span> <span class="fu">as.vector</span>(price_mkt),</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">share =</span> <span class="fu">as.vector</span>(___),</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">share0 =</span> <span class="fu">rep</span>(___, <span class="at">times =</span> J_mkt),</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">s_within =</span> <span class="fu">as.vector</span>(___)</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">y_berry =</span> ___, <span class="at">ln_swithin =</span> ___)</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co"># plain-logit DGP（同じ x, w, xi, price。違うのは rho=0 のシェア写像だけ）</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>market_df_plain <span class="ot">&lt;-</span> market_df <span class="sc">%&gt;%</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">share =</span> <span class="fu">as.vector</span>(___),</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">share0 =</span> <span class="fu">rep</span>(___, <span class="at">times =</span> J_mkt),</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">y_berry =</span> <span class="fu">log</span>(share) <span class="sc">-</span> <span class="fu">log</span>(share0)</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="q45点記述統計と可視化" class="level3">
@@ -2593,13 +2600,13 @@ p_{jt} = mc_{jt} + \text{markup}_{jt}
 <h2 class="anchored" data-anchor-id="part-2推定推論60点">Part 2：推定・推論（60点）</h2>
 <section id="q510点plain-logitのberry反転をolsで推定する" class="level3">
 <h3 class="anchored" data-anchor-id="q510点plain-logitのberry反転をolsで推定する">Q5（10点）：plain logitのBerry反転をOLSで推定する</h3>
-<p>まず、nestedの構造を無視して（つまりネストを無視して）plain logitとして扱い、Berry反転をOLSで推定してみる。</p>
+<p>まず、Q3で別に作った<strong>plain-logit DGP</strong>を使い、Berry反転をOLSで推定する。ここではモデルの関数形は正しいので、真値との差は価格内生性に由来する。nested DGPをplain logitとして推定すると、価格内生性と仕様誤り（within-share項の欠落）が混ざってしまうので、この設問では使わない。</p>
 <p><span class="math display">\[
 y_{jt} = \ln s_{jt} - \ln s_{0t} = x_{jt}&#39;\beta - \alpha p_{jt} + \xi_{jt}
 \]</span></p>
 <p><code>fixest::feols()</code>を使ってOLS推定し、<span class="math inline">\(\hat\alpha\)</span>を真値と比較せよ。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>ols_plain <span class="ot">&lt;-</span> <span class="fu">feols</span>(y_berry <span class="sc">~</span> price <span class="sc">+</span> x, <span class="at">data =</span> market_df, <span class="at">vcov =</span> <span class="st">&quot;hetero&quot;</span>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>ols_plain <span class="ot">&lt;-</span> <span class="fu">feols</span>(y_berry <span class="sc">~</span> price <span class="sc">+</span> x, <span class="at">data =</span> market_df_plain, <span class="at">vcov =</span> <span class="st">&quot;hetero&quot;</span>)</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(ols_plain)</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>alpha_ols_plain <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fu">coef</span>(ols_plain)[<span class="st">&quot;price&quot;</span>]</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
@@ -2632,51 +2639,52 @@ y_{jt} = x_{jt}&#39;\beta - \alpha p_{jt} + \rho \ln \bar{s}_{j|g,t} + \xi_{jt}
 </section>
 <section id="q720点2slsでalphaとrhoを回収する" class="level3">
 <h3 class="anchored" data-anchor-id="q720点2slsでalphaとrhoを回収する">Q7（20点）：2SLSで<span class="math inline">\(\alpha\)</span>と<span class="math inline">\(\rho\)</span>を回収する</h3>
-<p>Q6のOLS推定には2つの内生変数（<code>price</code>と<code>ln_swithin</code>）があるので、それぞれに対応する操作変数が必要である。次の3つを操作変数として使う。</p>
+<p>Q6のOLS推定には2つの内生変数（<code>price</code>と<code>ln_swithin</code>）があるので、含まれる外生変数<span class="math inline">\(x\)</span>を除いた操作変数行列に、少なくとも2方向の独立な変動が必要である。この課題では次の2つを除外操作変数として使う。</p>
 <ol type="1">
-<li><code>w</code>：コストシフター（<code>price</code>用）</li>
-<li><code>rx_within</code>：<strong>同じネスト内の競合の商品属性の合計</strong>（<code>ln_swithin</code>用のBLP型IV）</li>
-<li><code>rx_other</code>：<strong>異なるネストの競合の商品属性の合計</strong>（<code>ln_swithin</code>用のBLP型IV）</li>
+<li><code>w</code>：コストシフター（主に<code>price</code>を動かす）</li>
+<li><code>rx_within</code>：<strong>同じネスト内の他財の商品属性の合計</strong>（相対効用を通じて主に<code>ln_swithin</code>を動かす）</li>
 </ol>
-<p><code>rx_within</code>と<code>rx_other</code>は、次のように計算する。財<span class="math inline">\(j\)</span>がネスト<span class="math inline">\(g\)</span>に属するとき、</p>
+<p><code>rx_within</code>は、財<span class="math inline">\(j\)</span>がネスト<span class="math inline">\(g\)</span>に属するとき、次のように計算する。</p>
 <p><span class="math display">\[
-\text{rx\_within}_{jt} = \sum_{k \in g,\, k \neq j} x_{kt}, \qquad
-\text{rx\_other}_{jt} = \sum_{k \notin g} x_{kt}
+\text{rx\_within}_{jt} = \sum_{k \in g,\, k \neq j} x_{kt}.
 \]</span></p>
-<p>これらは「競合の属性」であり、財<span class="math inline">\(j\)</span>自身の<span class="math inline">\(\xi_{jt}\)</span>には影響しないが、同じネスト内・異なるネストの競合が強い（属性<span class="math inline">\(x\)</span>が高い）ときに財<span class="math inline">\(j\)</span>のwithin shareを動かす、という発想のBLP型IVである。</p>
+<p>これは、他製品属性を使うという意味でBLP型IVに着想を得た、この課題専用の操作変数である。財<span class="math inline">\(j\)</span>自身の<span class="math inline">\(\xi_{jt}\)</span>には影響しない一方、同じネストの他財の魅力度を変え、財<span class="math inline">\(j\)</span>との<strong>ネスト内の相対効用</strong>を通じて<span class="math inline">\(\bar s_{j|g,t}\)</span>を動かす。</p>
+<p>一方、異なるネストの属性和<code>rx_other</code>はこの課題では使わない。canonical nested logitでは</p>
+<p><span class="math display">\[
+\bar s_{j|g,t}
+=\frac{\exp(\delta_{jt}/(1-\rho))}
+{\sum_{k\in g}\exp(\delta_{kt}/(1-\rho))}
+\]</span></p>
+<p>なので、条件付きシェアは他ネストの属性に依存しない。他ネストの属性はネスト選択確率<span class="math inline">\(s_{g,t}\)</span>を動かしうるが、<span class="math inline">\(\bar s_{j|g,t}\)</span>は動かさないため、このDGPで<code>ln_swithin</code>用の除外IVにはならない。標準的なBLP IVは企業IDを使って「同じ企業の他製品」と「他企業の製品」の属性和を分けるが、この課題のネスト区分は企業区分ではないので、両者を同一視しないこと。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 財ごとの「同ネスト内の競合のx合計」「異ネストの競合のx合計」を計算する関数</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>compute_rival_x <span class="ot">&lt;-</span> <span class="cf">function</span>(x, nests) {</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 財ごとの「同ネスト内の競合のx合計」を計算する関数</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>compute_within_rival_x <span class="ot">&lt;-</span> <span class="cf">function</span>(x, nests) {</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  T_ <span class="ot">&lt;-</span> <span class="fu">nrow</span>(x); J_ <span class="ot">&lt;-</span> <span class="fu">ncol</span>(x)</span>
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  nest_of <span class="ot">&lt;-</span> <span class="fu">integer</span>(J_)</span>
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (g <span class="cf">in</span> <span class="fu">seq_along</span>(nests)) {</span>
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (j <span class="cf">in</span> nests[[g]]) nest_of[j] <span class="ot">&lt;-</span> g</span>
 <span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  }</span>
 <span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  rx_within <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, T_, J_)</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  rx_other <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, T_, J_)</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>J_) {</span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    g <span class="ot">&lt;-</span> nest_of[j]</span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    rivals_within <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(nests[[g]], j)</span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    rivals_other <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="dv">1</span><span class="sc">:</span>J_, nests[[g]])</span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    rx_within[, j] <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(rivals_within) <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">rowSums</span>(x[, rivals_within, <span class="at">drop =</span> <span class="cn">FALSE</span>]) <span class="cf">else</span> <span class="dv">0</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    rx_other[, j] <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(x[, rivals_other, <span class="at">drop =</span> <span class="cn">FALSE</span>])</span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">rx_within =</span> rx_within, <span class="at">rx_other =</span> rx_other)</span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>rx <span class="ot">&lt;-</span> <span class="fu">compute_rival_x</span>(x_mkt, nests)</span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>market_df<span class="sc">$</span>rx_within <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(___)</span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>market_df<span class="sc">$</span>rx_other <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(___)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>J_) {</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    g <span class="ot">&lt;-</span> nest_of[j]</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    rivals_within <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(nests[[g]], j)</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    rx_within[, j] <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">length</span>(rivals_within) <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">rowSums</span>(x[, rivals_within, <span class="at">drop =</span> <span class="cn">FALSE</span>]) <span class="cf">else</span> <span class="dv">0</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  rx_within</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>rx_within_mkt <span class="ot">&lt;-</span> <span class="fu">compute_within_rival_x</span>(x_mkt, nests)</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>market_df<span class="sc">$</span>rx_within <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(___)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p><code>fixest::feols()</code>で複数内生変数の2SLSを実行するには、<code>|</code>の後ろに<code>(内生変数1 + 内生変数2) ~ 操作変数1 + 操作変数2 + ...</code>の形式で書く。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>iv_nested <span class="ot">&lt;-</span> <span class="fu">feols</span>(</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  y_berry <span class="sc">~</span> x <span class="sc">|</span> price <span class="sc">+</span> ln_swithin <span class="sc">~</span> w <span class="sc">+</span> rx_within <span class="sc">+</span> rx_other,</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  y_berry <span class="sc">~</span> x <span class="sc">|</span> price <span class="sc">+</span> ln_swithin <span class="sc">~</span> w <span class="sc">+</span> rx_within,</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> market_df, <span class="at">vcov =</span> <span class="st">&quot;hetero&quot;</span></span>
 <span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(iv_nested)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p><span class="math inline">\(\hat\alpha\)</span>、<span class="math inline">\(\hat\rho\)</span>を真値と比較し、first-stageのF統計量も報告せよ（<code>price</code>用、<code>ln_swithin</code>用それぞれ）。弱操作変数の懸念があるかどうかコメントせよ。</p>
+<p><span class="math inline">\(\hat\alpha\)</span>、<span class="math inline">\(\hat\rho\)</span>を真値と比較せよ。さらに、含まれる外生変数<span class="math inline">\(x\)</span>を条件づけた2本のfirst stageを推定し、(i) 除外IV（<code>w</code>, <code>rx_within</code>）の係数から作る<span class="math inline">\(2\times2\)</span>行列のrankが2であること、(ii) 各first stageにおける2本の除外IVのjoint partial Fを確認せよ。回帰全体のFを報告しないこと。rankが2であることは母集団のrank conditionに対応する標本上の確認であり、partial Fが十分かどうかは弱識別を点検するための別の問いである。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2707,7 +2715,7 @@ y_{jt} = x_{jt}&#39;\beta - \alpha p_{jt} + \rho \ln \bar{s}_{j|g,t} + \xi_{jt}
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><code>fixest</code>で複数内生変数のIVを実行すると、<code>summary()</code>の出力に複数のfirst-stage回帰の情報が自動的に含まれる。ただし<code>fitstat()</code>の詳細な引数名は<code>fixest</code>のバージョンによって変わることがあるので、確実な方法として、<code>feols(price ~ x + w + rx_within + rx_other, data = market_df)</code>と<code>feols(ln_swithin ~ x + w + rx_within + rx_other, data = market_df)</code>のように、first-stage回帰を自分で明示的に実行し、それぞれに対して<code>fitstat(fs_price, &quot;f&quot;)</code>のようにF統計量を確認する方法を推奨する。これなら通常の単回帰に対するF統計量なので確実に動作する。</p>
+<p>確実な計算方法は、各内生変数について、reduced model（<code>~ x</code>）とfull model（<code>~ x + w + rx_within</code>）を<code>lm()</code>で推定し、<code>anova(reduced, full)</code>の2行目のFを読むこと。この古典的partial Fは「2本の除外IVを同時に落とせるか」を検定する。さらに2本のfull first stageから、行を内生変数（<code>price</code>, <code>ln_swithin</code>）、列を除外IV（<code>w</code>, <code>rx_within</code>）とする係数行列を作り、<code>qr(B)$rank</code>を確認する。<code>fitstat(fs, &quot;f&quot;)</code>が返す回帰全体のFは、強い<span class="math inline">\(x\)</span>だけで大きくなりうるため代用にならない。なお、このrank確認と古典的partial Fは入門的な診断である。異分散と複数内生変数を本格的に扱う実証では、Sanderson–Windmeijer conditional FやKleibergen–Paap統計量、弱IV頑健推論を使う。</p>
 </div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -2716,34 +2724,38 @@ y_{jt} = x_{jt}&#39;\beta - \alpha p_{jt} + \rho \ln \bar{s}_{j|g,t} + \xi_{jt}
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ヒント</span>ヒント：なぜ<code>rx_within</code>・<code>rx_other</code>が価格の操作変数にもならないのか
+<span class="screen-reader-only">ヒント</span>ヒント：このDGPで各操作変数は何を動かすか
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>理論的には<code>rx_within</code>・<code>rx_other</code>は<code>price</code>に対しても多少の説明力を持つかもしれない（競合が強いと自社も値下げ圧力を受けるため）。しかしこの課題では、<code>price</code>の操作変数としては<code>w</code>（コストシフター）だけを念頭に置き、<code>rx_within</code>・<code>rx_other</code>は主に<code>ln_swithin</code>の操作変数として設計している。<code>feols</code>の2SLS構文では、指定した全ての操作変数が全ての内生変数の識別に使われる（操作変数の数 <span class="math inline">\(\geq\)</span> 内生変数の数であればよい）ので、実装上はまとめて指定してよい。</p>
+<p>この課題の価格式にはライバル属性を入れていないので、<code>rx_within</code>は構築上、主に<code>ln_swithin</code>を動かす。<code>price</code>の関連性は主に<code>w</code>が担う。ただし<code>w</code>が自財価格を通じてwithin shareも動かすため、単に「IVを1本ずつ内生変数へ割り当てる」のではない。2本のfirst stageを同時に見て、除外IV係数行列がfull rankかを確認する必要がある。操作変数の本数が内生変数以上という本数の確認だけでは、識別も強さも保証されない。</p>
 </div>
 </div>
 </section>
-<section id="q810点弾力性行列の比較logitnested-olsiv" class="level3">
-<h3 class="anchored" data-anchor-id="q810点弾力性行列の比較logitnested-olsiv">Q8（10点）：弾力性行列の比較（logit/nested × OLS/IV）</h3>
+<section id="q810点弾力性行列の比較plainnested-olsiv" class="level3">
+<h3 class="anchored" data-anchor-id="q810点弾力性行列の比較plainnested-olsiv">Q8（10点）：弾力性行列の比較（plain/nested × OLS/IV）</h3>
 <p>次の4通りの弾力性行列を計算し、比較せよ。</p>
 <ol type="1">
-<li>plain logit・OLSの<span class="math inline">\(\hat\alpha\)</span>を使った弾力性行列</li>
-<li>plain logit・真値<span class="math inline">\(\alpha=2.0\)</span>を使った弾力性行列（ベンチマーク）</li>
-<li>nested logit・OLSの<span class="math inline">\(\hat\alpha, \hat\rho\)</span>を使った弾力性行列</li>
-<li>nested logit・2SLSの<span class="math inline">\(\hat\alpha, \hat\rho\)</span>を使った弾力性行列</li>
+<li>plain-logit DGP（<code>market_df_plain</code>）をOLS推定したモデル</li>
+<li>plain-logit DGP（<code>market_df_plain</code>）を<code>w</code>でIV推定したモデル</li>
+<li>nested-logit DGP（<code>market_df</code>）をOLS推定したモデル</li>
+<li>nested-logit DGP（<code>market_df</code>）を<code>w + rx_within</code>でIV推定したモデル</li>
 </ol>
-<p>nested logitの弾力性は、講義の<code>elasticity_numeric()</code>関数（数値微分）を応用して計算してよい。市場平均のシェア・価格を使うこと。表または図でまとめ、「OLSに基づく弾力性行列を使うと、どの財の代替性を見誤りやすいか」を2〜3行で述べよ。</p>
+<p>plain logitのIVモデルを<code>market_df_plain</code>で追加推定せよ。4モデルとも、価格と属性の評価点には各DGPに共通する財別平均を使い、<strong>各推定モデル自身の</strong><span class="math inline">\(\hat\beta,\hat\alpha,\hat\rho\)</span>（plainでは<span class="math inline">\(\rho=0\)</span>）から基準確率を計算して数値微分すること。nestedモデルの基準確率に真の<span class="math inline">\(\beta\)</span>や観測されたnestedシェアを流用してはいけない。表または図でまとめ、「内生性を無視したときに弾力性と代替性をどう見誤るか」を2〜3行で述べよ。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>mean_share_df <span class="ot">&lt;-</span> market_df <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(product) <span class="sc">%&gt;%</span> <span class="fu">summarize</span>(<span class="at">share =</span> <span class="fu">mean</span>(share), <span class="at">price =</span> <span class="fu">mean</span>(price))</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>mean_delta <span class="ot">&lt;-</span> ___  <span class="co"># 平均x, 平均shareから逆算するか、平均deltaを別途計算する</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co"># nested logitの弾力性計算には講義ノートのelasticity_numeric()を再利用してよい</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>iv_plain <span class="ot">&lt;-</span> <span class="fu">feols</span>(y_berry <span class="sc">~</span> x <span class="sc">|</span> price <span class="sc">~</span> w, <span class="at">data =</span> market_df_plain, <span class="at">vcov =</span> <span class="st">&quot;hetero&quot;</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>mean_inputs <span class="ot">&lt;-</span> market_df <span class="sc">%&gt;%</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(product) <span class="sc">%&gt;%</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">x =</span> <span class="fu">mean</span>(x), <span class="at">price =</span> <span class="fu">mean</span>(price), <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span>)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="co"># nested_logit_shares_batch()で各モデル自身の基準確率を作り、価格を1財ずつ微小に動かす</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 4モデルの (beta_hat, alpha_hat, rho_hat) を混同しないこと</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="q95点rho-0のwald検定" class="level3">
 <h3 class="anchored" data-anchor-id="q95点rho-0のwald検定">Q9（5点）：<span class="math inline">\(\rho = 0\)</span>のWald検定</h3>
-<p>2SLSで得た<span class="math inline">\(\hat\rho\)</span>とその標準誤差を使い、<span class="math inline">\(H_0: \rho = 0\)</span>（「nested構造は不要でplain logitで十分」という帰無仮説）に対するWald検定統計量を計算せよ。</p>
+<p>2SLSで得た<span class="math inline">\(\hat\rho\)</span>とその標準誤差を使い、<span class="math inline">\(H_0: \rho = 0\)</span>（「nested構造は不要でplain logitで十分」という帰無仮説）に対するWald検定統計量を計算せよ。ここでは線形IV式を<span class="math inline">\(\rho&lt;0\)</span>にも拡張した無制約推定の通常のWald近似を使う。構造制約<span class="math inline">\(0\leq\rho&lt;1\)</span>を推定時に課す場合、<span class="math inline">\(\rho=0\)</span>は境界なので通常の<span class="math inline">\(\chi^2_1\)</span>近似には注意が要る。</p>
 <p><span class="math display">\[
 W = \left(\frac{\hat\rho}{\text{se}(\hat\rho)}\right)^2
 \]</span></p>
@@ -2762,7 +2774,7 @@ W = \left(\frac{\hat\rho}{\text{se}(\hat\rho)}\right)^2
 </section>
 <section id="q105点経営への含意3行で" class="level3">
 <h3 class="anchored" data-anchor-id="q105点経営への含意3行で">Q10（5点）：経営への含意（3行で）</h3>
-<p>あなたは飲料メーカーの商品企画担当として、この推定結果をもとに次の問いに答えなければならない。「甘め系ネストの財1を値上げしたとき、一番シェアを奪われる（＝一番怖い競合になる）のはどの財か」。2SLSで推定した弾力性行列を根拠に、3行以内で答えよ。OLSに基づく弾力性行列で同じ問いに答えた場合、結論がどう変わってしまうかにも触れること。</p>
+<p>あなたは飲料メーカーの商品企画担当として、この推定結果をもとに次の問いに答えなければならない。「甘め系ネストの財1を値上げしたとき、一番シェアを奪われる（＝一番怖い競合になる）のはどの財か」。2SLSで推定した弾力性行列を根拠に、3行以内で答えよ。OLSに基づく弾力性行列と比べ、競合順位が変わるかだけでなく、自己反応・同ネスト内への流出・別ネストへの流出の大きさがどう違うかにも触れること。</p>
 <div class="callout callout-style-default callout-warning callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">

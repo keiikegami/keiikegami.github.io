@@ -72,17 +72,17 @@ $$
 u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{coupon},i}\cdot \text{coupon}_{jt} - \alpha_i \cdot \text{price}_{jt}/100 + \varepsilon_{ijt}
 $$
 
-$\text{low\_threshold}_{jt}$は「閾値1,000円以上（低い方）なら1」のダミー、$\text{coupon}_{jt}$は「クーポン配布ありなら1」のダミー、$\text{price}_{jt}$は月額料金（円）である。$\varepsilon_{ijt}$はType I極値分布。個人ごとの部分効用は正規分布に従う異質性を持つ（mixed logit）。
+$\text{low\_threshold}_{jt}$は「閾値1,000円以上（低い方）なら1」のダミー、$\text{coupon}_{jt}$は「クーポン配布ありなら1」のダミー、$\text{price}_{jt}$は月額料金（円）である。$\varepsilon_{ijt}$はType I極値分布。属性係数には正規異質性、必ず正である価格係数には対数正規異質性を持たせる（mixed logit）。
 
 $$
 \beta_{\text{low},i} = \beta_{\text{low}} + \sigma_{\text{low}} z_{\text{low},i}, \qquad
 \beta_{\text{coupon},i} = \beta_{\text{coupon}} + \sigma_{\text{coupon}} z_{\text{coupon},i}, \qquad
-\alpha_i = \alpha + \sigma_\alpha z_{\alpha,i}
+\alpha_i = \exp(\mu_\alpha + \sigma_{\log\alpha}z_{\alpha,i})
 $$
 
-$z_{\cdot,i}\sim N(0,1)$で、各回答者は8タスクすべてで同じ係数を使う（回答者内クラスター相関の源）。
+$z_{\cdot,i}\sim N(0,1)$で、$\mu_\alpha=\log(\bar\alpha)-\sigma_{\log\alpha}^2/2$ として $E[\alpha_i]=\bar\alpha$ に合わせる。各回答者は8タスクすべてで同じ係数を使う（回答者内クラスター相関の源）。
 
-**真のパラメータ**（あなたはこれを後で推定で回収する）：
+**DGPのパラメータ**（AMCEの大標本真値を作るために使う。問6では異質性を0にした別の基準ケースも作る）：
 
 | 記号 | 意味 | 値 |
 |---|---|---|
@@ -91,7 +91,7 @@ $z_{\cdot,i}\sim N(0,1)$で、各回答者は8タスクすべてで同じ係数�
 | $\alpha$ | 価格係数（百円あたり） | 0.35 |
 | $\sigma_{\text{low}}$ | 低閾値選好のばらつき | 0.35 |
 | $\sigma_{\text{coupon}}$ | クーポン選好のばらつき | 0.7（利用頻度の差が大きく効くという想定） |
-| $\sigma_\alpha$ | 価格係数のばらつき | 0.1 |
+| $\sigma_{\log\alpha}$ | log価格係数のばらつき | 0.3 |
 
 ## 問1（10点）：属性・DGPパラメータの設定とプロファイル生成関数
 
@@ -111,7 +111,7 @@ true_params <- list(
   alpha_mean       = ______,   # 【穴埋め】価格係数(0.35, 百円あたり)
   sigma_low    = 0.35,
   sigma_coupon = 0.7,
-  sigma_alpha  = 0.1
+  sigma_log_alpha = 0.3
 )
 
 draw_gumbel <- function(n) {
@@ -152,7 +152,8 @@ simulate_cbc <- function(n_resp, n_task, params) {
 
   beta_low_i    <- params$beta_low_mean    + params$sigma_low    * z_low
   beta_coupon_i <- ______                                          # 【穴埋め】beta_coupon_iを作る
-  alpha_i       <- pmax(params$alpha_mean  + params$sigma_alpha * z_alpha, 0.01)
+  mu_log_alpha  <- log(params$alpha_mean) - params$sigma_log_alpha^2 / 2
+  alpha_i       <- exp(mu_log_alpha + params$sigma_log_alpha * z_alpha)
 
   beta_low_n    <- rep(beta_low_i,    each = n_task)
   beta_coupon_n <- rep(beta_coupon_i, each = n_task)
@@ -185,7 +186,7 @@ head(cbc_raw)
 ::: {.callout-tip}
 ## ヒント：単位に注意
 
-`alpha_mean = 0.35`は「価格が百円動いたときの効用の変化」を表すよう設計している（講義ノートでは価格を千円単位で扱っていたが、今回は月額料金がもっと小さい金額なので百円単位にしてある）。`price / 100`を忘れると、価格の効用への効き方が3桁ずれてしまい、ほぼ全員が「どちらも入会しない」を選ぶ、あるいは逆にほぼ全員が価格を無視する、といった不自然なシェアになる。まず小さいNで`table(cbc_raw$choice3)`を見て、極端に偏っていないか確認する習慣をつけよ。
+`alpha_mean = 0.35`は「価格が百円動いたときの効用の変化」を表すよう設計している（講義ノートでは価格を千円単位で扱っていたが、今回は月額料金がもっと小さい金額なので百円単位にしてある）。`price / 100`の`/100`を忘れて円のまま入れると、価格項は意図した値の**100倍**になり、ほぼ全員が「どちらも入会しない」を選ぶ。逆に、誤ってもう一度100で割る（`price / 10000`）と価格項は意図した値の1/100になり、価格をほぼ無視する。まず小さいNで`table(cbc_raw$choice3)`を見て、極端に偏っていないか確認する習慣をつけよ。
 :::
 
 ## 問3（10点）：プロファイルのランダム化チェックと記述統計
@@ -215,25 +216,26 @@ ggplot(choice_share, aes(x = choice_label, y = share, fill = choice_label)) +
 ::: {.callout-note}
 ## この課題での記述統計の意味
 
-属性間の相関がゼロに近いことを確認するのは「ランダム化が実装バグなく機能しているか」の最も基本的なチェックである。もし相関が大きく出たら、`generate_profiles`のロジックか、`sample`の引数を疑うこと。選択シェアについては、outsideが極端に大きい（例えば9割超）と、A/Bの比較に使える情報が乏しくなり、後のAMCE推定の精度が落ちる。適度にoutsideが選ばれている（2〜4割程度）のが健全な調査設計である。
+属性間の相関がゼロに近いことを確認するのは「ランダム化が実装バグなく機能しているか」の最も基本的なチェックである。もし相関が大きく出たら、`generate_profiles`のロジックか、`sample`の引数を疑うこと。選択シェアについては、outsideがほぼ0ならoutsideの効用水準を識別する情報が乏しく、ほぼ1ならA・Bが選ばれる情報が乏しい。唯一の「健全な比率」があるわけではなく、想定市場に照らして各選択肢に十分な変動があるかを確認する。
 :::
 
 ## 問4（10点）：long形式への変換
 
-AMCE推定用に、各タスクをプランA行・プランB行に分解したlong形式のデータフレームを作る関数`to_long`を完成させよ。outside optionを選んだタスクは、A対Bの2値選択回帰からは除外すること。
+AMCE推定用に、各タスクをプランA行・プランB行に分解したlong形式のデータフレームを作る関数`to_long`を完成させよ。**outside optionを選んだタスクも残し**、そのときはA行・B行の`chosen`をともに0にすること。outsideでなかったことへの条件付けは、属性の影響を受ける結果で標本を選ぶpost-treatment selectionになる。
 
 ```{r}
 #| eval: false
 to_long <- function(cbc_raw) {
-  keep <- cbc_raw$choice3 != 0
-  d <- cbc_raw[keep, ]
+  d <- cbc_raw
 
   rowsA <- data.frame(
-    resp_id = d$resp_id, price = d$priceA, low_threshold = d$lowA, coupon = d$couponA,
+    resp_id = d$resp_id, task_id = seq_len(nrow(d)),
+    profile = "A", price = d$priceA, low_threshold = d$lowA, coupon = d$couponA,
     chosen = as.numeric(______)   # 【穴埋め】choice3が1(=Aが選ばれた)なら1
   )
   rowsB <- data.frame(
-    resp_id = d$resp_id, price = d$priceB, low_threshold = d$lowB, coupon = d$couponB,
+    resp_id = d$resp_id, task_id = seq_len(nrow(d)),
+    profile = "B", price = d$priceB, low_threshold = d$lowB, coupon = d$couponB,
     chosen = as.numeric(______)   # 【穴埋め】choice3が2(=Bが選ばれた)なら1
   )
   rbind(rowsA, rowsB)
@@ -289,9 +291,9 @@ kable(recovery_df, row.names = FALSE)
 1つの標本だけを見ると、偶然95%CIから真値が外れることは（5%の確率で）普通に起こる。もし複数の属性で系統的に大きく外れているように見えたら、(1)`compute_true_amce`の大標本サイズが十分か（1万人未満だと真値自体にまだノイズが残る）、(2)`simulate_cbc`と`to_long`の引数・列名の対応がズレていないか、を確認せよ。
 :::
 
-## 問6（12点）：(ii) logit MLEで効用係数を推定し、月額料金のWTPをデルタ法CI付きで求める
+## 問6（12点）：(ii) 正しく指定されたlogitでWTPのデルタ法CIを作る
 
-第2回・第6回の自作MLEパターンで、`neg_loglik_cbc`を書いてoptimで最大化し、Hessianから共分散行列を得よ。そのうえで、**低閾値（1,000円）へのWTP**をデルタ法で信頼区間付きで求めよ（月額料金の単位＝百円であることに注意）。
+問2の主標本はmixed logitである。同じ標本に同質logitを当てても、そのMLEは平均ランダム係数を回収せず、HessianだけのSEも誤指定に頑健ではない。そこでデルタ法の仕組みを正しく確認するため、**この問だけ**`sigma_low = sigma_coupon = sigma_log_alpha = 0`とした同質logit DGPから新しい標本`cbc_raw_hom`を生成する。第2回・第6回の自作MLEパターンで推定し、低閾値（1,000円）へのWTPをデルタ法で信頼区間付きで求めよ（月額料金の単位＝百円）。
 
 ```{r}
 #| eval: false
@@ -310,7 +312,13 @@ neg_loglik_cbc <- function(theta, d) {
   -sum(logprob)
 }
 
-opt_cbc <- optim(par = c(0.1, 0.1, 0.1), fn = neg_loglik_cbc, d = cbc_raw,
+hom_params <- true_params
+hom_params$sigma_low <- 0
+hom_params$sigma_coupon <- 0
+hom_params$sigma_log_alpha <- 0
+cbc_raw_hom <- simulate_cbc(n_resp, n_task, hom_params)
+
+opt_cbc <- optim(par = c(0.1, 0.1, 0.1), fn = neg_loglik_cbc, d = cbc_raw_hom,
                   method = "BFGS", hessian = TRUE)
 theta_hat <- opt_cbc$par
 names(theta_hat) <- c("beta_low", "beta_coupon", "alpha")
@@ -333,11 +341,13 @@ cat("WTP(低閾値, 百円):", round(wtp_low_hat, 3),
 ## ヒント：単位の読み替え
 
 `alpha`は「百円あたりの効用の変化」なので、WTP=$\beta_{\text{low}}/\alpha$の単位は「百円」になる。実際の円に直すには100倍すればよい。信頼区間の上限・下限も同様に100倍してから報告すること。
+
+この同質ケースの真のWTPは $0.6/0.35\times100$ 円である。元のmixed-logit標本では、平均個人WTP $E[\beta_{\text{low},i}/\alpha_i]$ と平均係数の比 $E[\beta_{\text{low},i}]/E[\alpha_i]$ は一般に一致しない。
 :::
 
 ## 問7（9点）：(iii) 交互作用を1つ推定し解釈する
 
-「低閾値」×「クーポンあり」の交互作用項を含めてAMCEを再推定し、係数とSEを報告せよ。この交互作用が統計的にゼロと区別できるかどうかを判定し、2〜3文で解釈せよ（このDGPで交互作用が実際にどう設計されているかを思い出すこと）。
+「低閾値」×「クーポンあり」の交互作用項を含めてAMCEを再推定し、係数とSEを報告せよ。さらに他の変数を観測値に保ったまま2属性を4通りに置き換えた平均予測確率を作り、$P(1,1)-P(1,0)-P(0,1)+P(0,0)$を計算して2〜3文で解釈せよ。効用指数に積項がなくても、logit確率の非線形性により確率スケールの差の差はゼロとは限らない点に注意すること。
 
 ```{r}
 #| eval: false
@@ -365,7 +375,7 @@ fit_infrequent <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
 
 ## 問9（9点）：(v) クラスターSEを使わない場合とのSE比較
 
-問5と同じ回帰について、`vcov = "hetero"`（通常のロバストSE、クラスターを無視）を指定した場合のSEを計算し、クラスターSEと並べた比較表を作れ。**なぜクラスターSEの方が大きくなるのか（あるいは通常のSEがなぜ縮むのか）を3〜4文で説明せよ**。
+問5と同じ回帰について、`vcov = "hetero"`（通常のロバストSE、クラスターを無視）を指定した場合のSEを計算し、クラスターSEと並べた比較表を作れ。**なぜ回答者クラスターが必要か、またクラスターSEが通常SEより必ず大きくなるわけではない理由**を3〜4文で説明せよ。
 
 ```{r}
 #| eval: false
@@ -383,7 +393,7 @@ kable(se_compare_df, row.names = FALSE)
 ::: {.callout-tip}
 ## ヒント：説明のポイント
 
-「独立な情報の単位は何か」を考えよ。500人×8タスク=4,000行だが、独立にランダムに変動しているのは本当に4,000個の別々の情報なのか、それとも実質500人分の情報なのか。回答者内で誤差が相関する理由（同じ人は毎回似た好みで選ぶ）を、この課題のDGPの言葉（`beta_coupon_i`などが回答者ごとに固定されて8タスクで使い回されること）で説明すると良い解答になる。
+profile-levelデータは500人×8タスク×2プロファイル=8,000行だが、独立なクラスターは500回答者である。`beta_coupon_i`などが8タスクで共有され、同じタスクのA・B結果も依存する。無視した共分散項には正負がありうるので、SEの大小そのものより、ランダム化・回答の単位に分散推定を合わせることが重要である。
 :::
 
 ## 問10（9点）：(vi) 経営含意を3行で

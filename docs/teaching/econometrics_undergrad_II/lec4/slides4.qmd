@@ -139,7 +139,7 @@ nested logit の残った問題：
 今日の答えは一言：
 
 ::: {.keybox .fragment}
-**係数を消費者ごとに変える。** 甘党の $\beta_i$ は大きく、辛党は小さい。学生の $\alpha_i$ は大きく、管理職は小さい。これを集計すると「属性の近い財どうしがよく代替する」が**自動で**現れる。
+**属性に結びつく係数を消費者ごとに変える。** 甘党の $\beta_i$ は大きく、辛党は小さい。学生の $\alpha_i$ は大きく、管理職は小さい。このDGPを集計すると「属性の近い財どうしがよく代替する」が現れる。任意のrandom coefficientが任意の近接性を自動生成するわけではない。
 :::
 
 ::: {.notes}
@@ -193,8 +193,8 @@ $$
 \alpha_i = \exp(\bar\alpha + \sigma \nu_i^{p}), \qquad \nu_i^{p} \sim N(0, 1)
 $$
 
-- $\bar\alpha$：log 価格係数の中心
-- $\sigma$：価格感応度のばらつき —— **今日の主役の推定対象**
+- $\bar\alpha$：log価格係数の平均、$\sigma$：その標準偏差
+- 中央値 $=e^{\bar\alpha}$、**平均 $=e^{\bar\alpha+\sigma^2/2}$**
 
 ::: {.warnbox .fragment}
 需要理論的に「価格が上がると嬉しい人」は許したくない。対数正規なら常に $\alpha_i > 0$。Nevo (2000) の実務家ガイドでも符号制約が推奨されている。
@@ -212,8 +212,8 @@ $$
 s_{ijt}(\nu_i) = \frac{\exp(\delta_{jt} + \mu_{ijt})}{1 + \sum_{k=1}^{J} \exp(\delta_{kt} + \mu_{ikt})}
 $$
 
-- 平均効用：$\delta_{jt} = x_{jt}'\beta - \alpha_0 p_{jt} + \xi_{jt}$（$\alpha_0 = \exp(\bar\alpha)$ は平均価格係数）
-- 個人偏差：$\mu_{ijt} = -(\alpha_i - \alpha_0) p_{jt}$
+- 平均効用：$\delta_{jt} = x_{jt}'\beta - \alpha_0 p_{jt} + \xi_{jt}$（$\alpha_0=E[\alpha_i]=e^{\bar\alpha+\sigma^2/2}$）
+- 個人偏差：$\mu_{ijt} = -(\alpha_i - \alpha_0) p_{jt}$（平均ゼロ）
 
 $\delta$ には $i$ が入らず、異質性は $\mu$ に押し込まれている。この分解が後で効く。
 
@@ -286,15 +286,16 @@ sim_shares <- function(x, p, beta0, beta_x, sigma_x, abar, sigma_p, nu_x, nu_p) 
 x_char <- c(1.0, 0.9, -0.8)
 beta0  <- -1.0
 beta_x <- 1.2
-abar   <- 0.2
+alpha_mean_target <- exp(0.2)
+abar_for_sigma <- function(sigma_p) log(alpha_mean_target) - sigma_p^2 / 2
 p_base <- c(2.0, 2.1, 1.8)
 
 ns_rc <- 100
 nu_x <- rnorm(ns_rc)
 nu_p <- rnorm(ns_rc)
 
-s_homog <- sim_shares(x_char, p_base, beta0, beta_x, 0.0, abar, 0.0, nu_x, nu_p)
-s_heter <- sim_shares(x_char, p_base, beta0, beta_x, 1.2, abar, 0.6, nu_x, nu_p)
+s_homog <- sim_shares(x_char, p_base, beta0, beta_x, 0.0, abar_for_sigma(0.0), 0.0, nu_x, nu_p)
+s_heter <- sim_shares(x_char, p_base, beta0, beta_x, 1.2, abar_for_sigma(0.6), 0.6, nu_x, nu_p)
 ```
 
 ```{r}
@@ -321,11 +322,12 @@ data.frame(
 #| include: false
 cross_elast <- function(sigma_x, sigma_p) {
   eps <- 1e-5
-  s0 <- sim_shares(x_char, p_base, beta0, beta_x, sigma_x, abar, sigma_p, nu_x, nu_p)
+  abar_use <- abar_for_sigma(sigma_p)
+  s0 <- sim_shares(x_char, p_base, beta0, beta_x, sigma_x, abar_use, sigma_p, nu_x, nu_p)
   E  <- matrix(0, 3, 3)
   for (k in 1:3) {
     p_up <- p_base; p_up[k] <- p_up[k] + eps
-    s1 <- sim_shares(x_char, p_up, beta0, beta_x, sigma_x, abar, sigma_p, nu_x, nu_p)
+    s1 <- sim_shares(x_char, p_up, beta0, beta_x, sigma_x, abar_use, sigma_p, nu_x, nu_p)
     E[, k] <- (s1 - s0) / eps * p_base[k] / s0
   }
   dimnames(E) <- list(paste0("財", 1:3), paste0("値上げ:財", 1:3))
@@ -399,9 +401,10 @@ ggplot(df_plot, aes(model, elasticity, fill = responder)) +
 #| fig-height: 3.9
 p_grid <- seq(1.0, 4.0, length.out = 30)
 demand_curve <- function(sigma_x, sigma_p) {
+  abar_use <- abar_for_sigma(sigma_p)
   sapply(p_grid, function(pp) {
     p_try <- p_base; p_try[1] <- pp
-    sim_shares(x_char, p_try, beta0, beta_x, sigma_x, abar, sigma_p, nu_x, nu_p)[1]
+    sim_shares(x_char, p_try, beta0, beta_x, sigma_x, abar_use, sigma_p, nu_x, nu_p)[1]
   })
 }
 dc <- data.frame(
@@ -434,16 +437,16 @@ ggplot(dc, aes(price, share, color = model)) +
 異質性パラメータ $\sigma$ は何を見て識別されるのか：
 
 1. **価格反応の「曲がり方」**：敏感な人が先に抜けるので、需要曲線の曲率が均質モデルとずれる
-2. **市場間の選択集合・属性分布の変動**：市場ごとに品揃え・価格が違うことが自然実験になる
+2. **市場間の選択集合・属性分布の変動**：外生、またはIVで取り出せる変動なら識別に効く
 3. **micro moments（個票・アンケート）**：次のスライド
 
 . . .
 
-集計シェアだけだと 1・2 頼み → $\sigma$ の識別はどうしても弱い。
+集計シェアでも、十分なsupportを持つ**関連した外生変動**と妥当な除外制約／IVがあれば、モデルの仮定のもとで $\sigma$ を識別できる。micro momentsはそこに別の制約を加える。
 
 ::: {.notes}
-- 「Tが多い（市場が多い）ほど識別が効く」= パネルデータの価値。
-- 実務では 3 が使えるかどうかで精度が大きく変わる。
+- 同じsupportと同じ種類の変動のまま市場数 $T$ を増やすのは、主に推定精度を上げる。rank不足やsupport不足といった識別の失敗は、単なる標本数の増加では解消しない。
+- 識別の鍵は、関連する外生変動、除外制約／IV、十分なsupportである。実務ではmicro momentsが使えるかどうかで、識別と精度の両方が強化されうる。
 :::
 
 ## micro moments：個票が識別を救う
@@ -454,24 +457,24 @@ ggplot(dc, aes(price, share, color = model)) +
 - 「購入者の **2nd choice**（第一希望がなければ何を買ったか）」→ 代替パターンそのものが観測される
 
 ::: {.keybox .fragment}
-2nd choice が分かれば、「誰と誰が競合か」をデータが直接語る。$\sigma$ は一気にクリアに識別される。アンケート・会員データを持つ企業は、この意味で強い。
+2nd choice は「誰と誰が競合か」を直接制約し、対応する異質性パラメータの識別を強めうる。どのmomentがどの係数に効くかの対応づけが必要。
 :::
 
 ::: {.notes}
 - 自社の会員データ・購買ログ・解約アンケートは micro moments の宝庫、という実務への接続。
 :::
 
-## 実証研究：micro moments の威力と安心材料
+## 実証研究：micro moments の威力と識別条件
 
 **Petrin (2002)**：ミニバン導入の便益
 
 - 自動車の集計データ + 「どんな世帯が買ったか」（家族人数など）を micro moment に
-- 代替の相手が正確になり、消費者余剰の増加を年間**約29億ドル**と推定
+- 1984–88年累計：消費者便益 **28.05億ドル**、生産者利潤込み総厚生 **29.10億ドル**（年額ではない）
 
-**Berry and Haile (2024)**：識別理論からの安心材料
+**Berry and Haile (2024)**：識別理論が明示する条件
 
-- 適切なIVと個票の変動があれば、需要は**かなりノンパラメトリックに識別**できる
-- logit や正規分布という関数形は「識別に必要」なのではなく「推定の都合」
+- micro dataでも、選択構造・除外変数・support・completeness等の条件のもとで識別
+- 「個票とIVさえあれば自動的に識別」でも、logit/正規仮定の正当化でもない
 
 ::: {.notes}
 - 分布仮定への不安（正規・対数正規で決め打ちしていいのか）に対する答えがBerry-Haile。
@@ -509,7 +512,7 @@ $\sigma$ をシェアデータから GMM で推定する。BLP (1995) の構造�
 J <- 3; Tm <- 60; ns_blp <- 100
 beta0_true  <- 4.0      # 定数項
 beta_x_true <- 1.5      # 属性への平均選好
-abar_true   <- 0.5      # log 価格係数の中心
+abar_true   <- 0.5      # log価格係数の平均
 sigma_true  <- 0.8      # 価格係数のばらつき（推定対象）
 
 x  <- matrix(rnorm(Tm * J), Tm, J)                 # 属性（外生）
@@ -520,15 +523,15 @@ g0 <- 0.2; gx <- 0.2; gw <- 1.0
 omega <- matrix(rnorm(Tm * J, 0, 0.1), Tm, J)
 mc <- exp(g0 + gx * x + gw * w + omega)
 
-alpha0_true <- exp(abar_true)
+alpha0_true <- exp(abar_true + sigma_true^2 / 2)  # 水準での平均 E[alpha_i]
 price <- mc * 1.4 + 0.8 * pmax(xi, 0) + 0.1        # xi に反応 -> 内生
 
 nu_blp <- rnorm(ns_blp)   # シミュレーション個人（全市場共通）
 
 shares_from_delta <- function(delta_t, p_t, abar, sigma, nu) {
   alpha_i <- exp(abar + sigma * nu)
-  alpha0  <- exp(abar)
-  mu <- -outer(alpha_i - alpha0, p_t)
+  alpha0  <- exp(abar + sigma^2 / 2)
+  mu <- -outer(alpha_i - alpha0, p_t)  # 平均からの中心化偏差
   V  <- sweep(mu, 2, delta_t, "+")
   eV <- exp(V)
   colMeans(eV / (1 + rowSums(eV)))
@@ -548,6 +551,10 @@ S0_obs <- 1 - rowSums(S_obs)
 - 真値：$\bar\alpha = 0.5$、$\sigma = 0.8$（これを回収するのがゴール）
 - 価格は「限界費用 + $\xi$ に反応するマークアップ」で生成 → **内生**
 - コストシフター $w$ が操作変数の種
+
+::: {.warnbox}
+真のDGPでは中心値を $E[\alpha_i]$ に置くので価格係数は純粋な対数正規。候補$\sigma$ごとのIVでは中心値を自由に推定するため、探索中は「推定中心値＋中心化した対数正規偏差」というshifted familyになる。純粋な対数正規を全候補で保つなら、$\bar\alpha,\sigma$をともに外側で推定する。
+:::
 
 ::: {.notes}
 - ノートは ns=200。スライドはドローを半減して軽量化してあるが構造は同一。
@@ -659,7 +666,8 @@ $$
 \delta_{jt} = \beta_0 + \beta_x x_{jt} - \alpha_0 p_{jt} + \xi_{jt}
 $$
 
-- 価格が内生なので **2SLS/GMM**。操作変数 $Z$：定数、$x$、コストシフター $w$、**BLP型IV**（同一市場のライバルの属性和・コスト和）
+- 価格が内生なので **2SLS/GMM**。$Z$：定数、$x$、コストシフター$w$、他製品の属性和・コスト和
+- 標準的BLP IVは企業IDで「同一企業の他製品」と「他企業の製品」を分ける。ここは簡略版
 - 残差として $\hat\xi_{jt}$ が手に入る
 
 ```{r}
@@ -698,7 +706,7 @@ gmm_step <- function(sigma, abar) {
 ```
 
 ::: {.notes}
-- ライバルの属性は自財の価格に（競争を通じて）効くが、自財の xi とは無相関、という第3回のBLP型IVの理屈。
+- 他製品属性・コストが自財のxiと無相関という除外制約が必要。企業IDを省いた教育用DGPであることも強調。
 - 線形パラメータはIV回帰で瞬時に出るので、外側の探索は sigma だけでよい。これがBLPの計算上の工夫。
 :::
 
@@ -768,7 +776,7 @@ data.frame(
 ) |> kable(col.names = c("パラメータ", "推定値", "真値"))
 ```
 
-- IV回帰で出てくる線形パラメータ（定数・属性・平均価格係数）も真値に近い
+- IV回帰で出てくる線形パラメータ（定数・属性・価格係数の中心値）も真値に近い
 - **真値回収の確認**：第2回から続く、新しい推定量を作ったときの必須の儀式
 
 ::: {.notes}
@@ -849,7 +857,10 @@ $$
 所有行列 $\Omega$（財 $j$ と $k$ が同じ企業なら1）を使うと、FOC は全財まとめて書ける：
 
 $$
-p = mc + \Delta^{-1} s, \qquad \Delta_{jk} = -\Omega_{jk} \frac{\partial s_k}{\partial p_j}
+s-\Delta(p-mc)=0,\qquad
+\Delta_{jk}=-\Omega_{jk}\frac{\partial s_k}{\partial p_j}
+\quad\Longleftrightarrow\quad
+p=mc+\Delta^{-1}s
 $$
 
 - 第2項 $\Delta^{-1} s$ が**マークアップ**
@@ -870,7 +881,7 @@ $$
 ```{r}
 #| label: merger-setup
 #| include: false
-abar_m  <- 0.5      # 推定された log 価格係数の中心（前節と整合）
+abar_m  <- 0.5      # 推定された log価格係数の平均
 sigma_m <- 0.8      # 推定された異質性
 Jm <- 4
 nu_m <- rnorm(ns_blp)
@@ -1090,6 +1101,7 @@ data.frame(
 **Nevo (2001)**：朝食シリアルの高マージンは共謀か
 
 - random coefficient logit + Bertrand でマークアップを計算。マージン**4〜5割**は共謀なしでも製品差別化とブランド力で説明できた
+- ブランド固定効果だけでなく、他都市価格（Hausman型IV）や流通費用proxy等で価格内生性に対処
 
 **Miller and Weinberg (2017)**：MillerCoors 合弁の事後検証
 
@@ -1112,7 +1124,7 @@ data.frame(
 ::: {.keybox .fragment}
 - 異質性を入れる＝**係数を消費者ごとに変える**（$\beta_i = \beta + \Sigma^{1/2} \nu_i$、価格係数は対数正規で正に固定）
 - 個人条件付きではただの logit。積分が閉じない → **モンテカルロ積分**
-- 異質性だけで **IIA が破れ**、「属性の近い財どうしがよく代替する」が自動で出る
+- 属性に結びついた異質性で**集計IIAが破れ**、このDGPでは「属性の近い財どうしがよく代替する」が出る
 - 推定は**ミニBLPの三層**：縮小写像 → IV回帰 → GMM。GMMの谷が真値 $\sigma = 0.8$ の近くに現れた
 - 識別には **micro moments**（購入者属性・2nd choice）が効く
 - 供給側を足すと $p = mc + \Delta^{-1} s$：**限界費用の復元**と**合併後の価格上昇**の計算ができる

@@ -42,7 +42,7 @@ options(scipen = 8)
 ## この講義で押さえたいこと
 
 1. **「解約リスクが高い顧客に施策を打つ」という直感が、しばしば間違っている**ことを、Ascarza (2018) のRCTの教訓として理解する。解約リスクの高さ（predicted churn）と、施策への感応度（treatment effect）はまったく別の量である。
-2. 顧客を**説得可能（persuadables）・鉄板（sure things）・見込みなし（lost causes）・寝た子を起こす（sleeping dogs）**の4類型に分け、施策が利益を生むのは persuadables だけであることを理解する。
+2. 二値の潜在アウトカムが作る**説得可能（persuadables）・鉄板（sure things）・見込みなし（lost causes）・寝た子を起こす（sleeping dogs）**の4類型と、観測可能な集団平均であるCATEを区別する。
 3. **CATE（条件付き平均処置効果）$\tau(x)$** を、RCTデータからT-learnerとcausal forestで推定する方法を身につけ、過学習を防ぐための sample splitting / honesty の直感を持つ。
 4. **Qini曲線（upliftカーブ）**を自分の手で実装し、「churnスコア順に配る」ことが「ランダムに配る」ことより悪い場合すらあることを、シミュレーションで確認する。
 5. **IPW（逆確率重み付け）による政策価値評価**を使えば、新しい配分ルールを、過去のRCTログから**再実験せずに**評価できることを理解し、実装できるようになる。
@@ -79,7 +79,7 @@ churn予測モデルが答えているのは「この人は将来離脱します
 
 ### predict-then-actの罠
 
-この失敗のパターンには名前をつけておく価値がある。**predict-then-act（予測してから行動する）**という単純な意思決定フローは、次のような暗黙の前提を置いている。
+この失敗パターンを、本講義では便宜上 **predict-then-act（予測してから行動する）の罠**と呼ぶ（特定の推定法の標準名ではない）。この単純な意思決定フローは、次のような暗黙の前提を置いている。
 
 $$
 \text{予測スコアが高い} \implies \text{施策の効果も大きい}
@@ -111,19 +111,31 @@ uplift modelingの文献でよく使われる、顧客を4つに分類する古�
 | **見込みなし（lost causes）** | 解約する | 解約する | 効果なし（もともと去る） |
 | **寝た子を起こす（sleeping dogs）** | 解約しない | 解約する | 施策が逆効果（マイナス） |
 
-**施策が利益を生むのは persuadables だけである。** sure things に施策を打っても、もともと残るはずだった顧客にコストをかけているだけで無駄である。lost causes に施策を打っても、どうせ去るので無駄である。そして sleeping dogs に施策を打つと、**何もしなければ残っていた顧客をわざわざ手放す**という最悪の結果になる。
+継続者数を増やすのは persuadables であり、sleeping dogs では逆に減る。sure things と lost causes の個人処置効果は0である。ただし、これはアウトカムの効果の分解であり、**利益**にはクーポンコストや継続の価値も必要である。コストが正なら、効果0の二類型への配布も純利益を下げる。
 
-churnスコア（解約リスクの予測値）でリスト上位を狙うと、実際には persuadables だけでなく、sure things（もともと粘着質だが何らかの理由でスコアが高く出た人）や、lost causes、そして sleeping dogs が混ざったリストになる。これが「churnスコア上位を狙う」という発想が失敗しうる理由である。
+::: {.callout-warning}
+## 4類型とCATEは別物
 
-### sleeping dogsの実例
+4類型は各個人の組 $(Y_i(0),Y_i(1))$ で定まる **principal stratum** である。しかし現実には同じ人の $Y_i(0)$ と $Y_i(1)$ を同時には観測できないため、通常は個人を一類型に特定できない。一方、CATEは $X=x$ の集団における平均である。二値アウトカムなら
 
-sleeping dogsは机上の空論ではなく、実務でしばしば観察される現象である。
+$$
+\tau(x)=P(\text{persuadable}\mid X=x)-P(\text{sleeping dog}\mid X=x).
+$$
+
+したがって $\tau(x)<0$ は「その集団の大半がsleeping dogs」を意味しない。sleeping dogs の確率が persuadables の確率を上回る、という平均的な差を意味する。
+:::
+
+churnスコア（解約リスクの予測値）でリスト上位を狙うと、実際には persuadables だけでなく、sure things、lost causes、sleeping dogs も混ざりうる。スコアは無施策時の解約を予測しているだけで、施策への反応を分類してはいない。これが「churnスコア上位を狙う」という発想が失敗しうる理由である。
+
+### 負の効果が生じうるメカニズム
+
+施策が逆効果になる経路として、例えば次の仮説が考えられる。
 
 - **解約引き留めの電話**：普段はサービスをそれほど意識せずに使っている顧客に「解約をお考えではないですか」という電話をかけると、かえって「そういえば解約という選択肢もあったな」と顧客に思い出させてしまい、解約率が上がることがある。
 - **退会確認メールでの逆効果キャンペーン**：休眠顧客の掘り起こしキャンペーンで送ったメールが、逆に「このサービス、まだ契約していたのか。この機会に解約しよう」というきっかけを与えてしまうことがある。
 - **値引きオファーの逆効果**：不満を持っていない顧客に「特別値引き」のオファーを送ると、「そもそも値引きが必要なほど、このサービスは値段に見合わない価値なのか」と顧客に疑念を持たせてしまうことがある。
 
-こうした「施策が誰に効くか」を大規模なランダム化実験で継続的に検証してきた実務・研究の蓄積として、カタログ通販業界におけるダイレクトメール施策の実験群（Simesterらによる一連の研究）が知られている。カタログの送付頻度やメールの内容をランダムに変えて顧客の購買行動を追跡するという、まさに本講義のRCTログ活用の考え方を体現した研究群であり、「送付コストに見合うだけの増分売上があるか」をセグメントごとに検証する、という発想は今回学ぶQini曲線・IPW政策評価の実務的な原型の1つと言える。
+これらは直感を与える**仮説的メカニズム**であり、個別事例だけから sleeping dogs の存在や割合を断定してはいけない。確認にはランダム化実験と十分な標本が必要である。後半では、実際のカタログ郵送RCTを用いた Hitsch, Misra, and Zhang (2024) の政策評価を紹介する。
 
 ::: {.callout-note}
 ## ビジネスの現場で：ベンダーの「AIターゲティング」評価チェックリスト
@@ -171,7 +183,7 @@ DGPは次のように設計する。まず、クーポンなしでの解約確�
 
 - 解約リスクが**中位**の層（persuadablesが多いと想定される層）で効果が大きい。
 - 解約リスクが**非常に高い**層では効果がほぼゼロ（もう決めている、lost causes寄り）。
-- **請求トラブルがあった層**では、効果が**負**（sleeping dogs：クーポンが「そういえばこのサービス、料金で揉めたな」と解約を思い出させてしまう）。
+- **請求トラブルがあった層**では、平均的な効果が**負**になりやすい。これはその層でsleeping dogsの確率がpersuadablesの確率を上回る設定であり、層の全員がsleeping dogsという意味ではない。
 
 ```{r}
 n <- 20000
@@ -198,20 +210,34 @@ risk_score <- pmin(pmax(p_churn0 + rnorm(n, 0, 0.02), 0.001), 0.999)
 # クーポンのランダム割り当て（50%）
 D <- rbinom(n, 1, 0.5)
 
-# 真のCATE：tau(x)は「クーポンが解約確率を下げる量」（プラスが望ましい効果）
+# 潜在アウトカムの確率を作るための効果index
 mid_risk_bump <- exp(-0.5 * ((p_churn0 - 0.25) / 0.09)^2)
-tau_true <- 0.16 * mid_risk_bump -
+tau_index <- 0.16 * mid_risk_bump -
   0.22 * billing_trouble -
   0.05 * (p_churn0 > 0.5)
 
-# 潜在アウトカム（解約確率）を生成し、実際に観測される解約を引く
-p_churn1 <- pmin(pmax(p_churn0 - tau_true, 0.001), 0.999)
+# 確率を切り詰めた後の差こそが、継続確率スケールの真のCATE
 p_churn0_clipped <- pmin(pmax(p_churn0, 0.001), 0.999)
+p_churn1 <- pmin(pmax(p_churn0_clipped - tau_index, 0.001), 0.999)
+tau_true <- p_churn0_clipped - p_churn1
 
 churn_potential_0 <- rbinom(n, 1, p_churn0_clipped)
 churn_potential_1 <- rbinom(n, 1, p_churn1)
+stay_potential_0 <- 1 - churn_potential_0
+stay_potential_1 <- 1 - churn_potential_1
+principal_stratum <- case_when(
+  stay_potential_0 == 0 & stay_potential_1 == 1 ~ "persuadable",
+  stay_potential_0 == 1 & stay_potential_1 == 1 ~ "sure thing",
+  stay_potential_0 == 0 & stay_potential_1 == 0 ~ "lost cause",
+  stay_potential_0 == 1 & stay_potential_1 == 0 ~ "sleeping dog"
+)
 churn_obs <- ifelse(D == 1, churn_potential_1, churn_potential_0)
 stay_obs <- 1 - churn_obs   # Y = 継続したかどうか（1=継続）。以下ではこちらを主に使う
+
+# 学習用60%と、モデルやルールの構築に一切使わない最終評価用40%を先に固定
+set.seed(202611)
+train_idx <- sample(seq_len(n), size = floor(0.60 * n), replace = FALSE)
+sample_role <- ifelse(seq_len(n) %in% train_idx, "train", "test")
 
 coupon_df <- data.frame(
   tenure_months = tenure_months,
@@ -223,9 +249,16 @@ coupon_df <- data.frame(
   D = D,
   churn = churn_obs,
   stay = stay_obs,
+  stay_potential_0 = stay_potential_0,
+  stay_potential_1 = stay_potential_1,
+  principal_stratum = principal_stratum,
   tau_true = tau_true,
-  p_churn0 = p_churn0
+  p_churn0 = p_churn0_clipped,
+  sample_role = sample_role
 )
+
+train_df <- coupon_df %>% filter(sample_role == "train")
+test_df <- coupon_df %>% filter(sample_role == "test")
 
 head(coupon_df)
 ```
@@ -261,12 +294,36 @@ ggplot(coupon_df, aes(x = tau_true, fill = factor(billing_trouble))) +
        title = "請求トラブルの有無で、クーポン効果の分布がまったく異なる")
 ```
 
-請求トラブルがない層の分布はほぼ全て0より右側（プラス側）に収まっているのに対し、請求トラブルがある層の分布はほぼ全て0以下（マイナス側）に落ちている。このDGPでは、請求トラブルの有無が「クーポンが効くか、逆効果か」をほぼ決定づける変数になっており、まさに前節で整理した4類型でいうsleeping dogsが、請求トラブル層にほぼ集中していることが視覚的にも確認できる。
+請求トラブル層ではCATEの分布がマイナス側に移る。ただし、この図が描いているのは**条件付き平均効果**であり、principal strataの個人ラベルではない。シミュレーションでは両方の潜在アウトカムを保存したので、負のCATE層の中身を直接数えられる。
+
+```{r}
+strata_by_cate <- coupon_df %>%
+  mutate(cate_group = if_else(tau_true < 0, "tau(x) < 0", "tau(x) >= 0")) %>%
+  count(cate_group, principal_stratum) %>%
+  group_by(cate_group) %>%
+  mutate(share = n / sum(n)) %>%
+  ungroup()
+
+knitr::kable(strata_by_cate, digits = 3,
+             col.names = c("CATE層", "principal stratum", "人数", "層内比率"))
+```
+
+表のとおり、$\tau(x)<0$ の層にも4類型が混在する。このseedでは sleeping dogs は `r sprintf("%.1f%%", 100 * strata_by_cate$share[strata_by_cate$cate_group == "tau(x) < 0" & strata_by_cate$principal_stratum == "sleeping dog"])`、persuadables は `r sprintf("%.1f%%", 100 * strata_by_cate$share[strata_by_cate$cate_group == "tau(x) < 0" & strata_by_cate$principal_stratum == "persuadable"])` であり、負のCATEは「その人がsleeping dogだ」という分類ではない。同じ $X$ をもつ集団内でsleeping dogsの確率がpersuadablesの確率より高いことを表す。
 
 ::: {.callout-note collapse="true"}
-## 補足：なぜこのDGPで請求トラブル層がsleeping dogsになるのか
+## 補足：なぜこのDGPで請求トラブル層のCATEが下がるのか
 
-`billing_trouble` は解約確率を引き上げる要因（`+0.9 * billing_trouble` の項）であると同時に、クーポン効果 `tau_true` を押し下げる要因（`-0.22 * billing_trouble` の項）でもある。つまりこの層は「解約リスクが高い」かつ「クーポンが逆効果」という、まさに sleeping dogs の性質を持つように意図的に設計してある。現実のビジネスでも、料金トラブルを抱えた顧客に割引クーポンを送ることが、必ずしも良い反応を引き出すとは限らない、というのは十分にありうるシナリオである。
+`billing_trouble` は解約確率を引き上げると同時に、効果indexを押し下げる。そのため「リスクが高いが、平均的にはクーポンが逆効果」という層が生じる。これを作るのはprincipal strataの構成比であり、`billing_trouble == 1` が個人のsleeping-dogラベルそのものではない。
+:::
+
+::: {.callout-important}
+## ここからの5ステップ
+
+1. 施策なしのリスクとCATEを区別する。
+2. `train_df` でCATEモデルを学習する。
+3. 価値・コスト・予算制約を入れて配分ルールを固定する。
+4. 学習に使っていない `test_df` でQini型カーブとIPW政策価値を評価する。
+5. 導入後もランダムholdoutを残し、効果の劣化や環境変化を監視する。
 :::
 
 ### T-learner：処置群・対照群それぞれで予測モデルを作る
@@ -282,73 +339,78 @@ CATEを推定するもっとも素朴な方法が**T-learner**である。考え
 ```{r}
 mu1_fit <- feols(stay ~ tenure_months + usage_hours + billing_trouble +
                     price_sensitivity + num_devices,
-                  data = coupon_df %>% filter(D == 1))
+                  data = train_df %>% filter(D == 1))
 mu0_fit <- feols(stay ~ tenure_months + usage_hours + billing_trouble +
                     price_sensitivity + num_devices,
-                  data = coupon_df %>% filter(D == 0))
+                  data = train_df %>% filter(D == 0))
 
-coupon_df$mu1_hat <- predict(mu1_fit, newdata = coupon_df)
-coupon_df$mu0_hat <- predict(mu0_fit, newdata = coupon_df)
-coupon_df$tau_hat_tlearner <- coupon_df$mu1_hat - coupon_df$mu0_hat
+test_df$mu1_hat <- predict(mu1_fit, newdata = test_df)
+test_df$mu0_hat <- predict(mu0_fit, newdata = test_df)
+test_df$tau_hat_tlearner <- test_df$mu1_hat - test_df$mu0_hat
 
-cor(coupon_df$tau_hat_tlearner, coupon_df$tau_true)
+cor(test_df$tau_hat_tlearner, test_df$tau_true)
 ```
 
-真値との相関はかなり高く出るはずである（線形なDGPに対して線形モデルを当てているので、当然ではある）。図で確認しよう。
+真値との相関は比較的高く出るはずである。ただし、これは「線形なDGPに線形モデルを当てた」からではない。このDGPは、ベースライン解約確率にロジスティック関数、効果にGaussian型の山、閾値指示関数、最後に確率のクリッピングを含む**非線形なDGP**である。それでも相関が高くなりやすいのは、標本が大きく、効果を作る観測変数がすべてモデルに入り、今回のパラメータでは支配的な低次のsignalを線形確率モデルが拾えるからである。したがってLPMは大まかな順位を捉えても、山の局所的な曲率、閾値での変化、クリッピング境界を正確に再現するわけではない。図で確認しよう。
 
 ```{r}
 #| fig-cap: "T-learnerによるtau(x)の推定値 vs 真値：概ね対角線上に乗るが、ばらつきもある"
-ggplot(coupon_df, aes(x = tau_true, y = tau_hat_tlearner)) +
+ggplot(test_df, aes(x = tau_true, y = tau_hat_tlearner)) +
   geom_point(alpha = 0.1, color = "steelblue", size = 0.6) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
   labs(x = "真のtau(x)", y = "T-learnerによる推定値",
        title = "T-learner：真値との対応関係")
 ```
 
-### T-learnerの弱点：差の推定は誤差が2倍効く
+### T-learnerの弱点：2本の推定誤差が蓄積する
 
-T-learnerには構造的な弱点がある。$\hat\tau(x) = \hat\mu_1(x) - \hat\mu_0(x)$ という**差**を取っているため、$\hat\mu_1(x)$ の推定誤差と $\hat\mu_0(x)$ の推定誤差が両方乗ってしまう。両者が独立だとすれば、分散は単純に足し合わされる。
+T-learnerでは $\hat\tau(x) = \hat\mu_1(x) - \hat\mu_0(x)$ という2つの推定量の差を作る。その分散は一般に
 
 $$
-\text{Var}(\hat\tau(x)) = \text{Var}(\hat\mu_1(x)) + \text{Var}(\hat\mu_0(x))
+\operatorname{Var}(\hat\tau(x))
+=\operatorname{Var}(\hat\mu_1(x))+\operatorname{Var}(\hat\mu_0(x))
+-2\operatorname{Cov}(\hat\mu_1(x),\hat\mu_0(x))
 $$
 
-つまり、$Y$ そのものを予測するタスクに比べて、その**差**を取るタスクは本質的にノイズに弱い。特に、柔軟なモデル（決定木、ランダムフォレストなど）を$\hat\mu_1$と$\hat\mu_0$に別々に使うと、それぞれが同じデータの別々の部分集合（処置群・対照群）に対して過学習しやすく、その結果として引き算されたときの $\hat\tau(x)$ が非常に不安定になることがある。
+である。処置群と対照群の分離した標本でモデルを学習すると、共分散をほぼ0と見なせる場面では2つの分散が加わる。ただし「分散が2倍」と言えるのは、両方の分散が等しいなどの追加条件があるときだけである。正確な教訓は、二本の局外モデルを別々に学習するため、各モデルのノイズやミススペシフィケーションがCATEに蓄積しうる、ということである。
 
 ::: {.callout-note collapse="true"}
 ## 導出：なぜ「差の分散は大きくなりやすい」か、直感的に
 
-$\hat\mu_1(x)$ は処置群のサンプル（全体の約半分）だけを使って推定される。同様に $\hat\mu_0(x)$ は対照群のサンプル（残り半分）だけを使う。つまりT-learnerの各モデルは、**全データの半分**しか使っていない。柔軟なモデル（決定木の深い分岐など）を使うと、サンプルサイズが小さい部分集合ではノイズを本物のパターンと誤認しやすくなる（過学習）。しかも、$\hat\mu_1$ の過学習と $\hat\mu_0$ の過学習は独立に起きるため、引き算した $\hat\tau(x) = \hat\mu_1(x) - \hat\mu_0(x)$ には**両方の過学習ノイズが乗る**。この問題は、CATE推定というタスクに特有の困難さであり、単に「良い予測モデルを2つ作ればよい」では解決しない。
+$\hat\mu_1(x)$ は処置群、$\hat\mu_0(x)$ は対照群だけで学習するため、各学習標本は全体より小さい。柔軟なモデルではそれぞれの過学習ノイズが差に入る。これは「差だから必ず2倍」という機械的な法則ではないが、T-learnerで差が不安定になりうる重要な理由である。
 :::
 
 この問題への対処として、機械学習の文脈で発達してきたのが **sample splitting（標本分割）** と **honesty（正直な木）** という考え方である。
 
 - **sample splitting**：モデルの構造（例えば決定木の分岐点）を決めるために使うデータと、各葉の中で効果を推定するために使うデータを分ける。こうすることで、「効果が大きく見えたから」という理由で分岐を選び、その同じデータで効果を測る、という循環（過学習の温床）を避けられる。
-- **honesty**：sample splittingをさらに徹底し、木の構造を決める標本と効果を推定する標本を完全に分離した決定木を「honest tree」と呼ぶ。honestな木は、個々の葉の効果推定値が、その葉を作る決定に使われていないデータに基づいているため、統計的推論（信頼区間の構築など）が可能になる。
+- **honesty**：各木の内部で、木の構造を決める標本と葉の効果を推定する標本を分ける。同じ観測が別の木で別の役割を担うことはある。honestyは適応的な分岐のバイアスを減らす重要な材料だが、それだけで有限標本の信頼区間を自動的に保証するわけではない。
 
 ### causal forest：分割基準を「効果の異質性」にする
 
 **causal forest**（Wager and Athey 2018）は、ランダムフォレストの発想をCATE推定に応用したものである。通常のランダムフォレスト（回帰木の集合）は「$Y$ の予測誤差を最小化するように木を分割する」が、causal forestは**「分割の前後で処置効果 $\tau(x)$ の異質性が最大になるように木を分割する」**という基準を使う。つまり、単に $Y$ が予測しやすい方向に分割するのではなく、「この分割によって、左右の葉で効果の大きさがどれだけ違って見えるか」を基準にする。
 
-さらにcausal forestは、上で説明したhonest treesの考え方を組み込んでいる。各木を作る際に標本を2つに分け、片方で木の構造（どの変数でどこを分割するか）を決め、もう片方でその木の各葉における処置効果を推定する。これにより、単一の木では不安定になりがちなCATE推定を、多数の木の平均（フォレスト）として安定化させつつ、統計的な推論（標準誤差）も可能にする。
+さらにcausal forestは、上で説明したhonest treesの考え方を組み込む。各木の内部で分岐選択と葉の効果推定を分け、多数の木を平均する。理論上の一致性や漸近正規性には、honestyに加えてsubsampling、overlap、葉のサイズなどの正則条件も必要である。
 
-これを`grf`パッケージの`causal_forest()`で実行する。**RCTデータでは傾向スコア $e(x)=0.5$ が既知**なので、そのことを明示的に使うこともできるが、ここでは最も標準的な呼び出し方（`causal_forest(X, Y, W)`）に留める。
+これを`grf`パッケージの`causal_forest()`で実行する。RCTの既知の割当確率 $e(x)=0.5$ を `W.hat` として渡し、学習専用データでフォレストを作る。
 
 ```{r}
-X_mat <- as.matrix(coupon_df %>%
+X_train <- as.matrix(train_df %>%
   select(tenure_months, usage_hours, billing_trouble, price_sensitivity, num_devices))
-Y_vec <- coupon_df$stay
-W_vec <- coupon_df$D
+X_test <- as.matrix(test_df %>%
+  select(tenure_months, usage_hours, billing_trouble, price_sensitivity, num_devices))
+Y_train <- train_df$stay
+W_train <- train_df$D
 
-cf <- causal_forest(X_mat, Y_vec, W_vec)
-coupon_df$tau_hat_cf <- predict(cf)$predictions
+cf <- causal_forest(X_train, Y_train, W_train,
+                    W.hat = rep(0.5, nrow(train_df)))
+test_df$tau_hat_cf <- predict(cf, X_test)$predictions
 
-cor(coupon_df$tau_hat_cf, coupon_df$tau_true)
+cor(test_df$tau_hat_cf, test_df$tau_true)
 ```
 
 ```{r}
 #| fig-cap: "T-learner vs causal forest：どちらもtau(x)の傾向を捉えるが、平滑さや極端な領域の扱いに違いがある"
-compare_df <- coupon_df %>%
+compare_df <- test_df %>%
   select(tau_true, tau_hat_tlearner, tau_hat_cf) %>%
   pivot_longer(cols = c(tau_hat_tlearner, tau_hat_cf),
                names_to = "method", values_to = "tau_hat") %>%
@@ -364,21 +426,22 @@ ggplot(compare_df, aes(x = tau_true, y = tau_hat)) +
        title = "T-learnerとcausal forestの推定値 vs 真値")
 ```
 
-平均処置効果（ATE）も、`grf`の関数を使って推定・比較しておこう。
+平均処置効果（ATE）も比較しておこう。`average_treatment_effect(cf)` はフォレストの学習標本を対象にするので、単純な群間差と真値も同じ `train_df` にそろえる。標本をそろえないと、推定手法の違いに標本構成の違いまで混ざってしまう。
 
 ```{r}
 ate_cf <- average_treatment_effect(cf)
-ate_naive <- mean(coupon_df$stay[coupon_df$D == 1]) - mean(coupon_df$stay[coupon_df$D == 0])
+ate_naive_train <- mean(train_df$stay[train_df$D == 1]) -
+  mean(train_df$stay[train_df$D == 0])
 
 ate_comparison <- data.frame(
-  method = c("単純な群間差（RCTなので不偏）", "causal forestのATE推定", "真の値（参考）"),
-  estimate = unname(c(ate_naive, ate_cf["estimate"], mean(coupon_df$tau_true)))
+  method = c("単純な群間差（train RCT）", "causal forestのATE（train）", "真のATE（train）"),
+  estimate = unname(c(ate_naive_train, ate_cf["estimate"], mean(train_df$tau_true)))
 )
 knitr::kable(ate_comparison, digits = 4,
              col.names = c("手法", "推定値"))
 ```
 
-RCTデータなので、実は単純な群間差の平均でもATEは不偏に推定できる（第7回の内容そのもの）。causal forestの価値は、ATEの推定そのものよりも、**個人ごとのCATE $\tau(x)$ を、honestyを保ったまま柔軟に推定できる**点にある。
+RCTデータなので、`train_df` 内の単純な群間差でも、その学習母集団のATEを不偏に推定できる。causal forestの狙いは、個人の潜在アウトカム差を言い当てることではなく、**共変量で条件付けた平均効果** $\tau(x)$ を柔軟に推定することにある。
 
 ::: {.callout-tip}
 ## 実証研究コーナー：Wager and Athey (2018)
@@ -391,7 +454,7 @@ RCTデータなので、実は単純な群間差の平均でもATEは不偏に�
 
 **主要な発見**：honestyを課したcausal forestは、通常のランダムフォレストに比べて個々の木の予測力はやや落ちるものの、CATE推定量として**一致性と漸近正規性**を持つことが証明された。これにより、機械学習の柔軟性と、計量経済学が重視する「推論の妥当性」を両立させる道が開かれた。
 
-**このトピックとの関係**：本講義で使った`grf::causal_forest()`は、まさにこの論文で提案された手法の実装である。honest treesという考え方が、なぜT-learnerの「差の分散が2倍効く」問題に対する処方箋になるのか、という今回の議論の理論的な裏付けを与えている論文である。
+**このトピックとの関係**：`grf::causal_forest()`はこの理論と密接に関係するgeneralized random forestの実装である。honestyは適応的バイアスを減らす材料だが、T-learnerの分散を自動的に「治す」ものではない。推論の理論保証は、honesty、subsampling、正則条件などの組合せに基づく。
 :::
 
 ## 4. ターゲティングの評価：Qini曲線とupliftカーブ
@@ -406,9 +469,9 @@ RCTデータなので、実は単純な群間差の平均でもATEは不偏に�
 2. **uplift順**：推定されたCATE $\hat\tau(x)$ が大きい順にクーポンを配る。
 3. **ランダム**：誰彼構わずランダムに配る（ベンチマーク）。
 
-これを評価する図が**Qini曲線（uplift curve）**である。横軸に「配布割合（上位何%に配ったか）」、縦軸に「累積の増分効果（incremental gain）」を取る。
+ここで作るのは**Qini型の累積uplift曲線**である。文献やソフトウェアによって「Qini curve」と「uplift/gain curve」の正規化やベースラインの引き方は異なる。本講義では、横軸を配布割合、縦軸を累積増分継続者数とする定義に固定する。
 
-**なぜこの評価がRCTデータで因果的に正当なのか**を確認しておく。上位k%に「実際に施策を打った場合」の効果を知りたいが、手元のRCTログでは、上位k%の中にも処置群と対照群がランダムに（50/50で）混ざっている。したがって、上位k%の中での「処置群の平均アウトカム」と「対照群の平均アウトカム」の差を取れば、**その上位k%の集団に対する平均処置効果**が、ランダム化のおかげでそのまま推定できる。これは第7回で学んだRCTの識別論理を、ターゲティング評価に応用したものに他ならない。
+**なぜこの評価がRCTデータで因果的に正当なのか**を確認しておく。ここで上位集団の並べ方は `train_df` で学習し、`test_df` の処置・アウトカムに触れる前に固定している。すると独立なテスト標本の上位k%の中でも処置はランダムなので、処置群と対照群の平均差がその集団の平均処置効果を推定する。同じテストアウトカムを見ながら並べ方やモデルを選べば、この論理は崩れる。
 
 具体的な計算式は、配布上位 $k$ 人について
 
@@ -431,19 +494,19 @@ qini_curve <- function(order_idx, D, Y, n, fracs = seq(0.02, 1, by = 0.02)) {
   do.call(rbind, rows)
 }
 
-n <- nrow(coupon_df)
-order_by_score <- order(-coupon_df$risk_score)
-order_by_uplift <- order(-coupon_df$tau_hat_cf)
+n_eval <- nrow(test_df)
+order_by_score <- order(-test_df$risk_score)
+order_by_uplift <- order(-test_df$tau_hat_cf)
 
-qini_score <- qini_curve(order_by_score, coupon_df$D, coupon_df$stay, n) %>%
+qini_score <- qini_curve(order_by_score, test_df$D, test_df$stay, n_eval) %>%
   mutate(policy = "churnスコア順")
-qini_uplift <- qini_curve(order_by_uplift, coupon_df$D, coupon_df$stay, n) %>%
+qini_uplift <- qini_curve(order_by_uplift, test_df$D, test_df$stay, n_eval) %>%
   mutate(policy = "uplift順（causal forest）")
 
-ate_overall <- mean(coupon_df$stay[coupon_df$D == 1]) - mean(coupon_df$stay[coupon_df$D == 0])
+ate_eval <- mean(test_df$stay[test_df$D == 1]) - mean(test_df$stay[test_df$D == 0])
 qini_random <- data.frame(
   frac = seq(0.02, 1, by = 0.02),
-  incremental = ate_overall * floor(seq(0.02, 1, by = 0.02) * n),
+  incremental = ate_eval * floor(seq(0.02, 1, by = 0.02) * n_eval),
   policy = "ランダム"
 ) %>% select(frac, incremental, policy)
 
@@ -465,12 +528,12 @@ ggplot(qini_all, aes(x = frac, y = incremental, color = policy, linetype = polic
   theme(legend.position = "bottom")
 ```
 
-この図こそが今回の講義の核心的な「見せ場」である。**churnスコア順に配るという、誰もがやりそうな方針は、多くの配布割合の範囲で、ランダムに配るよりも悪い結果になる。** これは前節で見た「解約リスクが高い層にはsleeping dogsが混ざっている」というDGPの直接の帰結である。一方、uplift順（causal forestで推定した$\hat\tau(x)$順）に配ると、はるかに効率的に増分継続者数を積み上げられる。
+このDGPでは、churnスコア順は多くの配布割合でランダムより悪くなる。これは高リスク層で負のCATEが多いというDGPの帰結であり、その集団の全員がsleeping dogsという意味ではない。一方、学習標本で作ったuplift順は、独立テスト標本でより効率的に増分継続者数を積み上げる。
 
 25%の予算（配布割合0.25）の時点で、3つの方針の増分効果を数値で比較してみよう。
 
 ```{r}
-k25 <- floor(0.25 * n)
+k25 <- floor(0.25 * n_eval)
 
 incremental_at_k <- function(order_idx, D, Y, k) {
   idx_k <- order_idx[1:k]
@@ -478,9 +541,9 @@ incremental_at_k <- function(order_idx, D, Y, k) {
   (mean(Yk[Dk == 1]) - mean(Yk[Dk == 0])) * k
 }
 
-inc_score_25 <- incremental_at_k(order_by_score, coupon_df$D, coupon_df$stay, k25)
-inc_uplift_25 <- incremental_at_k(order_by_uplift, coupon_df$D, coupon_df$stay, k25)
-inc_random_25 <- ate_overall * k25
+inc_score_25 <- incremental_at_k(order_by_score, test_df$D, test_df$stay, k25)
+inc_uplift_25 <- incremental_at_k(order_by_uplift, test_df$D, test_df$stay, k25)
+inc_random_25 <- ate_eval * k25
 
 budget_comparison <- data.frame(
   policy = c("churnスコア順", "uplift順（causal forest）", "ランダム"),
@@ -490,7 +553,7 @@ knitr::kable(budget_comparison, digits = 1,
              col.names = c("ターゲティング方針", "25%配布時点の累積増分継続者数"))
 ```
 
-churnスコア順のターゲティングは、25%予算の時点で増分効果がほぼゼロ、あるいはマイナスになる。つまり、**この施策にコストをかけて、churnスコア上位に配っても、何もしなかった場合とほとんど変わらないか、むしろ悪化する。** これがAscarza (2018) が実データで見出した現象そのものである。
+この特定の人工DGPでは、churnスコア順の25%ターゲティングがほぼゼロまたはマイナスになりうる。これはAscarza (2018)の数値の複製ではなく、同論文の「高い解約リスクは高い処置効果を保証しない」という教訓を強調した例である。
 
 ::: {.callout-tip}
 ## 実証研究コーナー：Ascarza (2018)
@@ -501,7 +564,7 @@ churnスコア順のターゲティングは、25%予算の時点で増分効果
 
 **識別戦略・モデル**：RCTによる無作為割り当てを利用し、解約リスクの水準ごとに施策の平均処置効果（CATE）を推定する。特に、解約予測モデルが出すスコアの水準と、実際の施策効果の大きさとの関係を、セグメント別に比較する。
 
-**主要な発見**：解約リスクが**最も高い**セグメントにおいて、リテンション施策の効果が**ほとんどゼロ、あるいは統計的に有意でない**ことが示された。むしろ中程度のリスクを持つ顧客セグメントの方が、施策への反応が大きかった。つまり、企業が実際に採用していた「ハイリスク層に施策を集中させる」という戦略は、費用対効果の観点から非効率だった可能性が高い。
+**主要な発見**：リスクが高いほど施策効果が大きいとは限らず、高リスク層だけを狙う方針は必ずしも費用対効果が高くない。どのリスク層で効果が大きいかは、予測スコアから演繹せず、実験データで確かめる必要がある。
 
 **このトピックとの関係**：本講義のシミュレーションは、この論文の発見を人工データで再現したものである。「解約リスクの高さ」と「施策への感応度」は別の量であるという教訓は、今回の講義全体を貫く中心的なメッセージであり、この論文がその出発点になっている。
 :::
@@ -510,7 +573,7 @@ churnスコア順のターゲティングは、25%予算の時点で増分効果
 
 ### 新しい配分ルールを、RCTログだけで評価する
 
-ここまでは「churnスコア順」「uplift順」という2つのルールをQini曲線で比較したが、これは**両方とも同じRCTログの中で完結する評価**だった。ここからさらに一歩進んで、**任意の新しい配分ルール $\pi(x)$（例えば「$\hat\tau(x) > 0.05$ の人にだけクーポンを配る」）の価値を、過去のRCTログから、新しい実験を一切行わずに評価する**方法を学ぶ。これがIPW（inverse probability weighting、逆確率重み付け）による政策評価である。
+ここでは、過去のRCTログから**あらかじめ固定された**配分ルール $\pi(x)$ の価値を評価する。ルールは別の学習標本で作り、ここでは独立な `test_df` を一度だけ評価に使う。これがIPW（inverse probability weighting、逆確率重み付け）によるoff-policy evaluationである。
 
 新しい配分ルール $\pi: X \to \{0, 1\}$ の**政策価値（policy value）**を
 
@@ -536,7 +599,7 @@ $$
 RCTでは $P(D_i=1\mid X_i) = P(D_i=0\mid X_i) = 0.5$（既知の定数）なので、この重み付けは単純に「一致した人の $Y_i$ を2倍する」という操作になる。
 
 ::: {.callout-note collapse="true"}
-## 導出：IPW推定量が不偏であることのcollapse（要点）
+## 導出：IPW推定量が不偏であること（要点）
 
 $\hat{V}(\pi)$ の期待値を計算する。$D_i \perp (Y_i(1), Y_i(0)) \mid X_i$（RCTなので割り当ては潜在アウトカムと独立）であることを使うと、
 
@@ -570,9 +633,9 @@ ipw_policy_value <- function(policy_mask, D, Y, e = 0.5) {
              ci_low = v_hat - 1.96 * se_hat, ci_high = v_hat + 1.96 * se_hat)
 }
 
-policy_treat_all <- rep(TRUE, n)
-policy_top25_score <- (1:n) %in% order_by_score[1:k25]
-policy_uplift_positive <- coupon_df$tau_hat_cf > 0
+policy_treat_all <- rep(TRUE, n_eval)
+policy_top25_score <- seq_len(n_eval) %in% order_by_score[1:k25]
+policy_uplift_positive <- test_df$tau_hat_cf > 0
 
 policy_list <- list(
   "全員に配布" = policy_treat_all,
@@ -581,7 +644,7 @@ policy_list <- list(
 )
 
 ipw_results <- do.call(rbind, lapply(names(policy_list), function(nm) {
-  res <- ipw_policy_value(policy_list[[nm]], coupon_df$D, coupon_df$stay)
+  res <- ipw_policy_value(policy_list[[nm]], test_df$D, test_df$stay)
   res$policy <- nm
   res$frac_treated <- mean(policy_list[[nm]])
   res
@@ -601,12 +664,14 @@ ggplot(ipw_results, aes(x = policy, y = v_hat)) +
        title = "3つの候補ポリシーの政策価値比較（95%CI）")
 ```
 
-「全員に配布」と「uplift推定値>0の人に配布」の政策価値がほぼ同水準で、「churnスコア上位25%」だけが明確に低い（Qini曲線で見た通り、sleeping dogsを多く含んでしまうため）ことが確認できる。「uplift推定値>0」のポリシーは、全員に配るよりもコストがかからない（配布割合が低い）にもかかわらず、同程度の政策価値を達成できている。
+結果は、学習標本で固定した各ルールを、独立テスト標本に適用したときの政策価値である。このDGPでchurnスコア上位25%が低いのは、その層で平均処置効果が低いからである。個々の政策の利益比較には、さらにクーポンコストを差し引く必要がある。
+
+`sd(contrib) / sqrt(n)` による通常の標準誤差は、テストデータから独立に固定された政策を条件とし、i.i.d.、overlap、有限分散などを仮定した近似である。評価データ上で閾値やモデルを選び、同じデータで最良値を報告すると選択バイアスが入るため、このCIはそのままでは妥当でない。ハイパーパラメータ調整まで行うなら、学習・validation・最終testの3分割、または外側foldで政策を丸ごと学習するnested cross-fittingが必要である。causal forestのOOB予測だけで、選択後の固定政策に対する通常のi.i.d. SEが保証されるわけではない。
 
 ::: {.callout-important}
 ## ここが核心
 
-**A/Bテストをもう一度やらなくても、過去のRCTログを使えば、新しいターゲティング・ルールの価値を評価できる。** これがIPWによる政策評価（off-policy evaluation）の実務的な威力である。新しいルールを思いつくたびに、それを実際にデプロイして数週間〜数ヶ月のA/Bテストを回すのはコストが高い。過去に一度だけ質の良いRCT（あるいはランダム化されたholdout）を実施しておけば、そのログを使って、事後的にいくらでも多くの候補ルールを、追加のコストなく比較検討できる。
+RCTログに、候補ルールが選ぶ各行動の正の割当確率（overlap）があり、施策・母集団・環境が将来に運搬可能であれば、導入前のスクリーニングにIPWを使える。ただし、一つのログで大量のルールを探索し続けると評価標本へ過適合する。候補選択にはvalidationを、最終報告には手を触れていないtestを使い、導入後は新しいランダムholdoutで監視する。
 :::
 
 ## 6. 予算制約と配分：top-kルールとpolicy learning
@@ -621,7 +686,7 @@ $$
 \hat\tau(x_i) \times v - c
 $$
 
-と書ける。この量が大きい順に並べ、予算が尽きるところで足切りする、というのがtop-kルールである。コスト $c$ が全顧客で一定なら、この並び替えは単に $\hat\tau(x_i)$ で並べ替えるのと同じ順序になる（定数を引いても大小関係は変わらないため）。コストが顧客によって異なる場合（例えば高額プランの顧客への値引きは金額として大きいコストになる）は、この補正が意味を持つようになる。
+と書ける。この量が大きい順に並べ、予算が尽きるところで足切りする、というのがtop-kルールである。コスト $c$ が全顧客で一定なら、この並び替えは単に $\hat\tau(x_i)$ で並べ替えるのと同じ順序になる。ただし、これが条件付きで最適なのは、CATEが識別され安定的に運搬できる、価値とコストが既知、個人間のinterferenceがない、施策の効果が配布人数によって変わらない、といった条件の下での「静的な二値の個別配分ルール」の中でである。在庫・混雑・競合反応・長期効果があると、人ごとのCATEを並べるだけではグローバルな最適化にならない。
 
 ### policy learning：empirical welfare maximization
 
@@ -629,7 +694,7 @@ $$
 
 例えば、「利用時間が$h$時間未満、かつ請求トラブルがない顧客にクーポンを配る」という単純な閾値ルールのクラスを考え、そのクラスの中で$h$を動かしながら経験的な政策価値（前節のIPW推定量に相当する量）を最大化する$h$を選ぶ、というイメージである。
 
-このアプローチの利点は、(1) ルールが単純で解釈しやすい（現場の営業担当者に説明できる）こと、(2) Kitagawa and Tetenovは、こうして学習したルールの**後悔（regret：真に最適なルールとの厚生の差）が、サンプルサイズが大きくなるにつれてどれだけ速く0に収束するか**、という理論的な保証を与えていることである。この講義では実装には立ち入らないが、「効果推定→ルール作成」という2段階を経ずに、目的（厚生の最大化）から直接ルールを学習するという発想があることを覚えておいてほしい。
+このアプローチの利点は、(1) ルールが単純で解釈しやすい（現場の営業担当者に説明できる）こと、(2) Kitagawa and Tetenovは、overlap、有界な厚生、ルールクラスの複雑さなどの条件のもとで、学習ルールの**後悔（regret：事前に定めたルールクラス内の最適ルールとの厚生の差）の有限標本上界**を与えていることである。これは無制限な全政策集合のグローバル最適性を保証する主張ではない。この講義では実装には立ち入らないが、「効果推定→ルール作成」という2段階を経ずに、目的（厚生の最大化）から直接ルールを学習するという発想があることを覚えておいてほしい。
 
 ::: {.callout-tip}
 ## 実証研究コーナー：Kitagawa and Tetenov (2018)
@@ -638,31 +703,31 @@ $$
 
 **データ・アプローチ**：理論論文であり、特定のデータセットの分析ではないが、労働訓練プログラムへの参加者選定など、政策的な処置割り当ての文脈を念頭に置いている。
 
-**識別戦略・モデル**：あらかじめ定めた「ルールのクラス」（例えば、特定の共変量に関する単純な閾値ルールの集合）の中で、経験的厚生（empirical welfare：手元のデータで推定される政策価値）を最大化するルールを選ぶという、**empirical welfare maximization（EWM）**の枠組みを提案している。母集団における真の最適ルールとの厚生の差（後悔、regret）が、サンプルサイズの増加とともにどのような速さで0に収束するかを、統計的決定理論の枠組みで厳密に評価している。
+**識別戦略・モデル**：あらかじめ定めた「ルールのクラス」（例えば、特定の共変量に関する単純な閾値ルールの集合）の中で、経験的厚生（empirical welfare：手元のデータで推定される政策価値）を最大化するルールを選ぶという、**empirical welfare maximization（EWM）**の枠組みを提案している。事前に定めたルールクラス内での母集団最適ルールとの厚生差（後悔、regret）を、統計的決定理論の枠組みで評価している。
 
-**主要な発見**：ルールのクラスの複雑さ（VC次元に相当する指標）に応じて、後悔がサンプルサイズの平方根に反比例する速さで縮小することを示した。つまり、単純で解釈可能なルールのクラスに限定して政策を学習しても、統計的に効率の良い（後悔が小さい）意思決定ルールが得られることを理論的に保証している。
+**主要な発見**：上の条件のもとで、ルールクラスの複雑さ（VC次元に相当する指標）に応じた後悔の有限標本上界を示した。この上界は代表的な設定でサンプルサイズの平方根オーダーで縮小する。保証の比較対象はクラス内の最適ルールであり、クラス外により良い政策がないとは主張しない。
 
 **このトピックとの関係**：本講義で扱ったIPWによる政策価値評価は、「候補となるルールをいくつか用意して比較する」という発想だったが、この論文はさらに一歩進んで「ルールのクラスの中から最良のものを直接探索する」という枠組みを与える。予算制約下での配分ルールを、根拠を持って設計したい場面で、この論文の枠組みが理論的な土台になる。
 :::
 
-### CATEベースのターゲティングは常に圧勝するとは限らない
+### 実データで最適ターゲティングを比べる
 
-ここまでの議論は「uplift/CATEベースのターゲティングは、churnスコアベースよりずっと良い」という結論に見えるかもしれない。しかし、Hitsch, Misra, and Zhang (2024) は、より冷静な実証結果を報告している。
+ここまでのシミュレーションだけでなく、Hitsch, Misra, and Zhang (2024) は実際のカタログ郵送キャンペーンでターゲティング手法を比較している。
 
-彼らは、実際の大規模なマーケティング施策データを用いて、CATE推定に基づく個別化ターゲティングポリシーと、単純な一律政策（blanket policy：全員に同じ施策を打つ、あるいは打たない）の経済的な価値を比較した。その結果、**CATEベースの個別化ターゲティングが、単純な一律政策に対して統計的に有意な改善をもたらさない場合がある**ことを示した。これは、CATEの推定誤差（特にサンプルサイズが実務的な規模では十分に大きくない場合）が、個別化から得られる理論的な利得を相殺してしまうことがあるためである。
+結果は明確で、**作成されたすべての最適ターゲティング政策が、全員に送る、または誰にも送らないという一律政策より高い利潤を生んだ**。さらに、処置効果を直接推定する方法が、処置別アウトカムを別々に予測する間接的方法より良い利潤を生んだ。一方で、異なる時点の2つのキャンペーンを使った検証は、効果の異質性と政策の時間的な運搬可能性を別々に確認する重要性も示す。
 
 ::: {.callout-tip}
 ## 実証研究コーナー：Hitsch, Misra, and Zhang (2024)
 
 **研究の問い**：異質処置効果（CATE）を機械学習で推定し、それに基づいて個別化したターゲティングポリシーを作ることは、実際の企業の意思決定においてどれだけの経済的価値を生むか。
 
-**データ・アプローチ**：企業のマーケティング施策（実際のRCTまたは大規模な観察データ）を用い、複数のCATE推定手法（causal forestを含む）でターゲティングポリシーを構築し、その政策価値をIPWや類似の手法で評価している。
+**データ・アプローチ**：高次元の顧客特性とランダムな郵送割当を含む、企業のカタログ郵送データを使う。約1年離れた2つのキャンペーンにより、ターゲティング利潤と時間的運搬可能性を検討する。
 
-**識別戦略・モデル**：本講義で学んだのと同じ、CATE推定＋政策価値評価（IPWに類する手法）の枠組みを用いる。個別化ポリシーの政策価値と、一律政策（全員に施策、あるいは全員になし）の政策価値を、統計的な信頼区間つきで比較する。
+**識別戦略・モデル**：ランダム割当で異質処置効果を識別し、処置別アウトカムの予測から差を取る間接法と、処置効果を直接学習する方法を比較する。各推定値から利潤最大化ポリシーを構築する。
 
-**主要な発見**：個別化ターゲティングの効果は、理論上は一律政策を下回ることがない（個別化は弱い意味で常に一律政策以上の厚生をもたらせるはずである）が、**推定誤差を考慮した統計的推論**の観点からは、個別化ポリシーの優位性が統計的に確認できない場面が少なくないことを報告している（具体的な優位性の大きさは推定手法・データセットに依存するため、ここでは「約」の精度で紹介する：個別化による改善幅が、一律政策との差の標準誤差に比して小さいケースが多い、という趣旨）。
+**主要な発見**：すべての推定最適ターゲティング政策は、全員処置・全員非処置の一律政策より大きい利潤を生んだ。特に、処置効果を直接学習する手法は、間接的なアウトカム予測法を大きく上回った。
 
-**このトピックとの関係**：本講義のシミュレーションでは、uplift順のターゲティングがchurnスコア順を圧倒する劇的な結果を見せたが、これは「効果の異質性が大きく、かつ十分なサンプルサイズがある」という好条件のシミュレーションだったからである。実務では、効果の異質性がそれほど大きくない場合や、サンプルサイズが小さい場合、個別化の理論的な優位性が統計的なノイズに埋もれてしまうことがある、という冷静な視点をこの論文は与えてくれる。
+**このトピックとの関係**：個別化の価値を「処置効果の予測精度」だけではなく、一律政策に対する利潤の差で評価する実証例である。ただし、論文で一律政策を上回ったことと、別の企業・時期でも必ず上回ることは別問題である。実装コストと独立test/holdoutでの価値差は引き続き確認する。
 :::
 
 ::: {.callout-note}
@@ -670,23 +735,29 @@ $$
 
 マーケティング部門が来年度のリテンションクーポン予算（例えば全顧客の20%分）をどう配分するか計画する場面を考えよう。実務的な意思決定プロセスは、次のようなステップを踏むことが望ましい。
 
-1. 過去に実施したRCT（あるいは一部ランダムなholdoutを含むキャンペーン）のログから、CATE $\hat\tau(x)$ を推定する。
-2. 候補となる配分ルール（churnスコア上位、uplift上位、一律配布なしなど）をいくつか作り、IPWで政策価値を比較する。
-3. 個別化ポリシーが一律政策より統計的に優れていると確認できた場合のみ、個別化を採用する。優位性が確認できない場合は、実装コストの低い一律政策（あるいはシンプルな閾値ルール）を採用する方が合理的な場合もある。
-4. 採用したルールを一部の顧客セグメントにはランダムにholdout（施策なし）を残しておき、翌年度の評価に使えるログを継続的に蓄積する。
+1. RCTログを学習・validation・最終testに分け、学習部分でCATEを推定する。
+2. 価値、コスト、予算制約を入れ、validationで候補ルールと閾値を選ぶ。
+3. 手を触れていないtestで、個別化政策と全員処置・全員非処置をIPWで比較する。価値差と実装コストを見て採用を決める。
+4. 導入後もランダムholdoutを残し、翌年度の評価と運搬可能性の監視に使う。
 :::
 
 ## 7. 観察データでCATEを推定するなら：DMLへの一言
 
-ここまでの議論はすべて**RCTデータ**を前提にしていた。RCTがあれば、CATEは「$X=x$ の近傍での群間平均差」として素直に識別できる。しかし実務では、常にRCTが使えるとは限らない（第8回で学んだ通り、A/Bテストが実施できない意思決定は多い）。観察データからCATEを推定する場合、**交絡因子の調整**が必要になる。つまり、処置の割り当て $D_i$ が $X_i$ に依存して決まっている（例えば「解約リスクが高いと判断された顧客に、営業担当者が独自の判断でクーポンを渡す」といった状況）場合、単純な群間差はCATEの推定量として機能しない。
+ここまでの議論はすべて**RCTデータ**を前提にしていた。観察データで標準的なCATEを識別するには、SUTVAに加えて、少なくとも観測済み $X$ を条件とした非交絡
 
-この問題に対する現代的な標準手法が、Chernozhukov et al. (2018) が提案した**DML（double/debiased machine learning）**である。詳細な実装はこの講義では扱わないが、考え方だけ紹介しておく。
+$$
+(Y(0),Y(1))\perp D\mid X
+$$
+
+とoverlap $\varepsilon<e(X)<1-\varepsilon$ が必要である。つまり、収集した $X$ で処置選択の違いを十分に説明でき、どの比較可能な層にも処置・非処置の両方がある、という仮定である。
+
+この識別仮定の下で局外関数を柔軟に推定する枠組みが、Chernozhukov et al. (2018) の**DML（double/debiased machine learning）**である。DMLは未観測交絡を検出・除去する手法ではなく、**識別を作るものでもない**。あくまで識別仮定が満たされた後の推定・推論を改善する。
 
 - CATE推定において、傾向スコア $e(x) = P(D=1\mid X=x)$ や、アウトカムの条件付き期待値 $E[Y\mid X=x]$ といった「局外パラメータ（nuisance parameter）」を、機械学習（ランダムフォレスト、勾配ブースティングなど）で柔軟に推定する必要が出てくる。
 - 単純に機械学習の予測値をそのまま使うと、機械学習特有の推定誤差（正則化バイアスや過学習）が、知りたい因果パラメータの推定に悪影響を及ぼすことが知られている。
-- DMLは、**直交化（orthogonalization、局外パラメータの推定誤差が主パラメータの推定に一次の影響を与えないように、スコア関数を設計する）**と、**cross-fitting（データを分割し、ある部分で学習した局外パラメータを、別の部分でのパラメータ推定に使う。これはT-learnerで議論したsample splittingの一般化である）**を組み合わせることで、機械学習の柔軟性を使いながらも、因果パラメータについて通常の$\sqrt{n}$収束・漸近正規性という「計量経済学的に行儀の良い」推論を可能にする。
+- DMLは、**直交化**と**cross-fitting**を組み合わせ、局外推定誤差の一次の影響を抑える。適切な収束率などの条件下で $\sqrt n$ 漸近正規性が得られる代表的な対象は、ATEや低次元係数・投影などの**低次元パラメータ**である。高次元の $x$ ごとのCATE曲面全体に、同じ主張をそのまま適用してはいけない。
 
-つまりDMLは、「MLで局外パラメータを柔軟に推定しても、直交化とcross-fittingという工夫によって、興味のある因果パラメータの推論の妥当性が守られる」という、機械学習と計量経済学を橋渡しする現代の標準的な考え方である。observational dataでCATEを推定する場面（第8回のDiDやIVが使えない、あるいは効果の異質性まで知りたい場面）に遭遇したら、DMLという枠組みがあることを思い出してほしい。
+つまりDMLは、「観測した交絡因子での調整が識別に十分」という出発点の上で、MLによる局外関数推定と、低次元の因果パラメータの推論を橋渡しする枠組みである。未観測交絡が疑わしいなら、より良い設計、感度分析、IVなど別の識別戦略が必要になる。
 
 ::: {.callout-tip}
 ## 実証研究コーナー：Chernozhukov et al. (2018)
@@ -697,7 +768,7 @@ $$
 
 **識別戦略・モデル**：局外パラメータの推定に機械学習を用いる際に生じる「正則化バイアス」の問題を、(1) ネイマン直交性を満たすスコア関数を用いること、(2) データをK分割し、ある分割で学習した局外パラメータを別の分割でのパラメータ推定に使う（cross-fitting）こと、の2つの工夫で解決する。
 
-**主要な発見**：直交化とcross-fittingを組み合わせることで、局外パラメータの推定に使う機械学習手法が多少粗くても（一定の収束率さえ満たせば）、主要な因果パラメータ（ATE、あるいはCATEの一部の特徴）について$\sqrt{n}$収束の漸近正規性が保たれることを証明した。
+**主要な発見**：直交化とcross-fittingを組み合わせ、局外関数が所定の収束率を満たすとき、ATEや低次元の構造パラメータについて $\sqrt n$ 収束と漸近正規性を得られる。
 
 **このトピックとの関係**：本講義で扱ったcausal forestも、木の構築において類似のsample splitting（honesty）の発想を採用しており、DMLの直交化・cross-fittingという考え方と地続きである。観察データでCATEを推定する必要が生じたときに、この論文が提示する枠組みが現代の出発点になる。
 :::
@@ -710,8 +781,8 @@ $$
 自社でCATEベースのターゲティングモデルを導入する際、経営会議で「このAIモデルは何をしているのか」と聞かれたときの説明の仕方を整理しておこう。
 
 - 「解約しそうな人を当てるモデル」ではなく「**クーポンが効きそうな人を当てるモデル**」であることを明確に区別して説明する。
-- モデルの評価は、「予測精度（AUCなど）」ではなく「**過去のランダム化されたテストで、このモデルに従って配布した場合の増分利益（Qini曲線、IPW政策価値）**」で示す。
-- モデルの推定に使ったデータが、ランダム化されたA/Bテストなのか、それとも観察データ（過去の営業判断でクーポンが配られたログ）なのかを明示する。後者であれば、DMLのような交絡調整の手続きを踏んでいるかどうかも説明できるようにしておく。
+- モデルの評価は、「予測精度（AUCなど）」ではなく「**モデル学習に使っていないランダム化testで、このルールに従って配布した場合の増分利益（Qini型曲線、IPW政策価値）**」で示す。
+- モデルの推定に使ったデータが、ランダム化されたA/Bテストなのか、それとも観察データ（過去の営業判断でクーポンが配られたログ）なのかを明示する。後者であれば、非交絡・overlapをなぜ仮定できるかを説明し、DMLなどで**観測済み**交絡をどう調整したかも示す。DMLは未観測交絡を解消しない。
 :::
 
 ## まとめ
@@ -720,12 +791,11 @@ $$
 ## まとめ
 
 - **解約リスクの高さと、施策への感応度（treatment effect）はまったく別の量である**（Ascarza 2018）。churnスコア上位を狙うターゲティングは、ランダムに配るよりも悪い結果になることがある。
-- 顧客は persuadables（説得可能）・sure things（鉄板）・lost causes（見込みなし）・sleeping dogs（寝た子を起こす）の4類型に分かれ、施策が利益を生むのはpersuadablesだけである。
-- CATE $\tau(x) = E[Y(1)-Y(0)\mid X=x]$ はRCTデータから推定できる。T-learner（処置群・対照群で別々にモデルを作り差を取る）は単純だが、差の推定は誤差が2倍効くという弱点がある。causal forest（grf）は、honest treesとsample splittingにより、効果の異質性を分割基準にしつつ統計的推論も可能にする。
-- **Qini曲線**（配布割合 vs 累積増分利益）は、RCTのランダム化のおかげで因果的に正当な評価ができる。uplift順のターゲティングは、churnスコア順を大きく上回ることがある。
-- **IPWによる政策評価** $\hat V(\pi) = \frac{1}{n}\sum \mathbb{1}\{D_i=\pi(X_i)\}Y_i / P(D_i\mid X_i)$ を使えば、新しいターゲティング・ルールを、追加のA/Bテストなしで過去のRCTログから評価できる。
-- 予算制約下では、純便益（$\hat\tau(x)\times$価値 $-$ コスト）でtop-kルールを作るのが基本だが、policy learning（Kitagawa and Tetenov 2018）のように、経験的厚生を直接最大化するルールを学習する枠組みもある。ただしCATEベースの個別化が常に一律政策に大きく勝つとは限らない（Hitsch, Misra, and Zhang 2024）。
-- 観察データでCATEを推定する場合は交絡調整が必要であり、DML（Chernozhukov et al. 2018）が、機械学習の柔軟性と計量経済学的な推論の妥当性を両立させる現代の標準的な枠組みを与える。
+- 4類型は個人のprincipal strata、CATEは条件付き平均である。負のCATEは「その人がsleeping dog」とは意味しない。
+- T-learnerの差の分散には2本の推定誤差と共分散が入り、必ず「2倍」ではない。causal forestのhonestyは適応的バイアスを減らすが、妥当な推論には他の正則条件も要る。
+- 政策は学習・validationで固定し、独立testでQini型曲線やIPW政策価値を評価する。OOB予測だけで、選択後の通常のSEが保証されるわけではない。
+- CATEと価値・コストに基づく配分は、安定性、SUTVA、既知の価値などの条件下での局所的な最適化である。Hitsch, Misra, and Zhang (2024) では、推定最適政策が全員処置・全員非処置のどちらよりも高い利潤を生んだ。
+- 観察データでは非交絡とoverlapが識別に必要である。DMLは未観測交絡を治さず、$\sqrt n$ 推論の主な対象は低次元パラメータである。
 :::
 
 ## 宿題
@@ -733,7 +803,7 @@ $$
 - ブラウザ実験室（[playground11.html](playground11.html)）で、今回のシミュレーションの数値を自分でいじって遊んでみよう。インストール不要、ブラウザだけでRが動く（初回ロードのみ30秒〜1分かかる）。
 - ChatGPT（または他の対話型AI）に「uplift modelingとpropensity modelingの違いを教えてください」と聞いてみて、今回の講義で学んだ「churnスコア vs uplift」という区別と、自分の理解がどう対応するか比べてみよう。
 - 自分の勤務先（または身近な企業）で「解約予測モデル」や「レコメンドスコア」が使われている場面を1つ思い出し、そのスコアが「予測」なのか「施策への感応度（uplift）」なのかを考えてみよう。もし予測スコアがそのまま施策の配分に使われているなら、それはpredict-then-actの罠に陥っている可能性がないか検討してみよう。
-- 今回のQini曲線のシミュレーションで、`mid_risk_bump`の中心位置やbilling_troubleの効果の大きさを変えてみて、Qini曲線の形がどう変わるか遊んでみよう。sleeping dogsの効果を消す（0にする）と、churnスコア順のターゲティングはどう改善するだろうか。
+- 今回のQini型曲線のシミュレーションで、`mid_risk_bump`の中心位置や`billing_trouble`の効果indexを変え、負のCATE層のprincipal-strata比率と曲線がどう変わるかを比べてみよう。
 - coding課題は `assignment11.qmd` を参照。動画サブスクリプションの解約引き留めクーポンRCTを題材に、T-learner・causal forest・Qini曲線・IPW政策評価を一通り自分の手で実装する。
 
 ## 次回予告
@@ -745,7 +815,7 @@ $$
 ## 参考文献
 
 - Ascarza, Eva (2018) "Retention Futility: Targeting High-Risk Customers Might Be Ineffective," *Journal of Marketing Research*, 55(1), 80-98.
-- Hitsch, Günter J., Sanjog Misra, and Walter W. Zhang (2024) "Heterogeneous Treatment Effects and Optimal Targeting Policy Evaluation," *Quantitative Marketing and Economics*, 22(2), 115-168.
+- Hitsch, Günter J., Sanjog Misra, and Walter W. Zhang (2024) "Heterogeneous Treatment Effects and Optimal Targeting Policy Evaluation," *Quantitative Marketing and Economics*, 22(2), 115-168. [https://doi.org/10.1007/s11129-023-09278-5](https://doi.org/10.1007/s11129-023-09278-5)
 - Athey, Susan and Guido W. Imbens (2019) "Machine Learning Methods That Economists Should Know About," *Annual Review of Economics*, 11, 685-725.
 - Wager, Stefan and Susan Athey (2018) "Estimation and Inference of Heterogeneous Treatment Effects Using Random Forests," *Journal of the American Statistical Association*, 113(523), 1228-1242.
 - Kitagawa, Toru and Aleksey Tetenov (2018) "Who Should Be Treated? Empirical Welfare Maximization Methods for Treatment Choice," *Econometrica*, 86(2), 591-616.

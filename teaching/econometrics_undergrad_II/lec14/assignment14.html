@@ -2356,7 +2356,7 @@ window.Quarto = {
   <li><a href="#part-2推定placebo買いだめ70点" id="toc-part-2推定placebo買いだめ70点" class="nav-link" data-scroll-target="#part-2推定placebo買いだめ70点">Part 2：推定・placebo・買いだめ（70点）</a>
   <ul class="collapse">
   <li><a href="#問315点naiveなpooled-multinomial-logitでlambda_hatの過大評価を確認する" id="toc-問315点naiveなpooled-multinomial-logitでlambda_hatの過大評価を確認する" class="nav-link" data-scroll-target="#問315点naiveなpooled-multinomial-logitでlambda_hatの過大評価を確認する">問3（15点）：naiveなpooled multinomial logitでlambda_hatの過大評価を確認する</a></li>
-  <li><a href="#問415点wooldridge-deviceでの改善を確認する" id="toc-問415点wooldridge-deviceでの改善を確認する" class="nav-link" data-scroll-target="#問415点wooldridge-deviceでの改善を確認する">問4（15点）：Wooldridge deviceでの改善を確認する</a></li>
+  <li><a href="#問415点wooldridge型creで残差異質性を積分する" id="toc-問415点wooldridge型creで残差異質性を積分する" class="nav-link" data-scroll-target="#問415点wooldridge型creで残差異質性を積分する">問4（15点）：Wooldridge型CREで残差異質性を積分する</a></li>
   <li><a href="#問520点placebo実験見せかけの状態依存を自分で作る" id="toc-問520点placebo実験見せかけの状態依存を自分で作る" class="nav-link" data-scroll-target="#問520点placebo実験見せかけの状態依存を自分で作る">問5（20点）：placebo実験——見せかけの状態依存を自分で作る</a></li>
   <li><a href="#問615点買いだめdpと反実仮想" id="toc-問615点買いだめdpと反実仮想" class="nav-link" data-scroll-target="#問615点買いだめdpと反実仮想">問6（15点）：買いだめDPと反実仮想</a></li>
   <li><a href="#問75点経営含意3行" id="toc-問75点経営含意3行" class="nav-link" data-scroll-target="#問75点経営含意3行">問7（5点）：経営含意3行</a></li>
@@ -2408,7 +2408,7 @@ window.Quarto = {
 <p>第14回でやった「state dependenceと異質性の識別」「買いだめとセールの動学」を、自分の手で最初から最後まで通す。</p>
 <ul>
 <li><strong>Part 1</strong>：ブランド選択パネルのDGPを自作する（N=1,000人×T=20週、2ブランド+outside、真のstate dependenceと個人異質性を両方含む）（30点）。</li>
-<li><strong>Part 2</strong>：naiveなpooled logitのバイアス確認、Wooldridge deviceでの改善確認、placebo実験、買いだめDPの完成と反実仮想、経営含意（70点）。</li>
+<li><strong>Part 2</strong>：naiveなpooled logitのバイアス確認、Wooldridge型CRE（残差REの積分）、placebo実験、買いだめDPの完成と反実仮想、経営含意（70点）。</li>
 </ul>
 <p>配点は合計100点。手を動かせば2〜4時間で終わる分量。穴埋めコードの骨格を惜しみなく与えるので、まず埋めることから始めよ。</p>
 </div>
@@ -2638,99 +2638,99 @@ u_{i2t} = c_2 + \beta_p\, \text{price}_{2t} + \lambda\, \mathbb{1}[y_{i,t-1}=2] 
 </div>
 </div>
 </section>
-<section id="問415点wooldridge-deviceでの改善を確認する" class="level2">
-<h2 class="anchored" data-anchor-id="問415点wooldridge-deviceでの改善を確認する">問4（15点）：Wooldridge deviceでの改善を確認する</h2>
-<p>初期選択のダミーと、個人内平均価格を説明変数に追加したWooldridge device版を推定せよ。</p>
+<section id="問415点wooldridge型creで残差異質性を積分する" class="level2">
+<h2 class="anchored" data-anchor-id="問415点wooldridge型creで残差異質性を積分する">問4（15点）：Wooldridge型CREで残差異質性を積分する</h2>
+<p>単に初期選択と個人内平均価格をpooled MNLへ加えるだけでは、残差異質性をゼロと置いている。ここでは</p>
+<p><span class="math display">\[
+\mu_{ij}=\rho_{0j}\mathbb 1[y_{i0}=j]+\rho_{pj}\bar p_{ij}+r_{ij},
+\qquad r_{ij}\stackrel{ind}{\sim}N(0,\sigma_r^2)
+\]</span></p>
+<p>と置き、個人内の各期の選択確率を掛けてから <span class="math inline">\((r_{i1},r_{i2})\)</span> を積分する。以下の5点Gauss–Hermite求積を完成させよ。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>build_wooldridge_mnl_df <span class="ot">&lt;-</span> <span class="cf">function</span>(sim) {</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  Nn <span class="ot">&lt;-</span> <span class="fu">dim</span>(sim<span class="sc">$</span>y)[<span class="dv">1</span>]; Tn <span class="ot">&lt;-</span> <span class="fu">dim</span>(sim<span class="sc">$</span>y)[<span class="dv">2</span>]</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  y0 <span class="ot">&lt;-</span> sim<span class="sc">$</span>y[, <span class="dv">1</span>]</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  y0_is1 <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(y0 <span class="sc">==</span> <span class="dv">1</span>)</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  y0_is2 <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(y0 <span class="sc">==</span> <span class="dv">2</span>)</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  price_bar1 <span class="ot">&lt;-</span> <span class="fu">rowMeans</span>(sim<span class="sc">$</span>price[, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>])</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  price_bar2 <span class="ot">&lt;-</span> <span class="fu">rowMeans</span>(sim<span class="sc">$</span>price[, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">2</span>])</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  y_lag <span class="ot">&lt;-</span> sim<span class="sc">$</span>y[, <span class="sc">-</span>Tn]; y_now <span class="ot">&lt;-</span> sim<span class="sc">$</span>y[, <span class="sc">-</span><span class="dv">1</span>]</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  price_now <span class="ot">&lt;-</span> sim<span class="sc">$</span>price[, <span class="sc">-</span><span class="dv">1</span>, ]</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  Tm1 <span class="ot">&lt;-</span> Tn <span class="sc">-</span> <span class="dv">1</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">y    =</span> <span class="fu">as.vector</span>(y_now),</span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">p1   =</span> <span class="fu">as.vector</span>(price_now[, , <span class="dv">1</span>]),</span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">p2   =</span> <span class="fu">as.vector</span>(price_now[, , <span class="dv">2</span>]),</span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">lag1 =</span> <span class="fu">as.numeric</span>(<span class="fu">as.vector</span>(y_lag <span class="sc">==</span> <span class="dv">1</span>)),</span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">lag2 =</span> <span class="fu">as.numeric</span>(<span class="fu">as.vector</span>(y_lag <span class="sc">==</span> <span class="dv">2</span>)),</span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">y0_1 =</span> <span class="fu">rep</span>(y0_is1, <span class="at">times =</span> Tm1),</span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">y0_2 =</span> <span class="fu">rep</span>(y0_is2, <span class="at">times =</span> Tm1),</span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">pbar1 =</span> <span class="fu">rep</span>(price_bar1, <span class="at">times =</span> Tm1),</span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">pbar2 =</span> <span class="fu">rep</span>(price_bar2, <span class="at">times =</span> Tm1)</span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a><span class="co"># 8パラメータ版の尤度・MLE（c1,c2,beta_p,lambda,rho_y0_1,rho_y0_2,rho_pbar1,rho_pbar2）</span></span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>mnl_loglik_wool <span class="ot">&lt;-</span> <span class="cf">function</span>(theta, d) {</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>normal_gh <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">n =</span> <span class="dv">5</span>) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  J <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, n, n)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  off <span class="ot">&lt;-</span> <span class="fu">sqrt</span>((<span class="dv">1</span><span class="sc">:</span>(n <span class="sc">-</span> <span class="dv">1</span>)) <span class="sc">/</span> <span class="dv">2</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  J[<span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span>(n <span class="sc">-</span> <span class="dv">1</span>), <span class="dv">2</span><span class="sc">:</span>n)] <span class="ot">&lt;-</span> off</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  J[<span class="fu">cbind</span>(<span class="dv">2</span><span class="sc">:</span>n, <span class="dv">1</span><span class="sc">:</span>(n <span class="sc">-</span> <span class="dv">1</span>))] <span class="ot">&lt;-</span> off</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  eg <span class="ot">&lt;-</span> <span class="fu">eigen</span>(J, <span class="at">symmetric =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  ord <span class="ot">&lt;-</span> <span class="fu">order</span>(eg<span class="sc">$</span>values)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">z =</span> <span class="fu">sqrt</span>(<span class="dv">2</span>) <span class="sc">*</span> eg<span class="sc">$</span>values[ord], <span class="at">w =</span> eg<span class="sc">$</span>vectors[<span class="dv">1</span>, ord]<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>build_cre_mnl_panel <span class="ot">&lt;-</span> <span class="cf">function</span>(sim) {</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  Tm <span class="ot">&lt;-</span> <span class="fu">dim</span>(sim<span class="sc">$</span>y)[<span class="dv">2</span>]</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> sim<span class="sc">$</span>y[, <span class="sc">-</span><span class="dv">1</span>, <span class="at">drop =</span> <span class="cn">FALSE</span>],</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">p1 =</span> sim<span class="sc">$</span>price[, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>, <span class="at">drop =</span> <span class="cn">FALSE</span>][, , <span class="dv">1</span>],</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">p2 =</span> sim<span class="sc">$</span>price[, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">2</span>, <span class="at">drop =</span> <span class="cn">FALSE</span>][, , <span class="dv">1</span>],</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">lag1 =</span> <span class="dv">1</span> <span class="sc">*</span> (sim<span class="sc">$</span>y[, <span class="sc">-</span>Tm, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">==</span> <span class="dv">1</span>),</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">lag2 =</span> <span class="dv">1</span> <span class="sc">*</span> (sim<span class="sc">$</span>y[, <span class="sc">-</span>Tm, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">==</span> <span class="dv">2</span>),</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">y0_1 =</span> <span class="dv">1</span> <span class="sc">*</span> (sim<span class="sc">$</span>y[, <span class="dv">1</span>] <span class="sc">==</span> <span class="dv">1</span>),</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">y0_2 =</span> <span class="dv">1</span> <span class="sc">*</span> (sim<span class="sc">$</span>y[, <span class="dv">1</span>] <span class="sc">==</span> <span class="dv">2</span>),</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">pbar1 =</span> <span class="fu">rowMeans</span>(sim<span class="sc">$</span>price[, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>]),</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">pbar2 =</span> <span class="fu">rowMeans</span>(sim<span class="sc">$</span>price[, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">2</span>])</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>mnl_cre_loglik <span class="ot">&lt;-</span> <span class="cf">function</span>(theta, d, gh) {</span>
 <span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>  c1 <span class="ot">&lt;-</span> theta[<span class="dv">1</span>]; c2 <span class="ot">&lt;-</span> theta[<span class="dv">2</span>]; bp <span class="ot">&lt;-</span> theta[<span class="dv">3</span>]; lam <span class="ot">&lt;-</span> theta[<span class="dv">4</span>]</span>
 <span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>  r01 <span class="ot">&lt;-</span> theta[<span class="dv">5</span>]; r02 <span class="ot">&lt;-</span> theta[<span class="dv">6</span>]; rp1 <span class="ot">&lt;-</span> theta[<span class="dv">7</span>]; rp2 <span class="ot">&lt;-</span> theta[<span class="dv">8</span>]</span>
-<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>  V1 <span class="ot">&lt;-</span> c1 <span class="sc">+</span> bp <span class="sc">*</span> d<span class="sc">$</span>p1 <span class="sc">+</span> lam <span class="sc">*</span> d<span class="sc">$</span>lag1 <span class="sc">+</span> r01 <span class="sc">*</span> d<span class="sc">$</span>y0_1 <span class="sc">+</span> rp1 <span class="sc">*</span> d<span class="sc">$</span>pbar1</span>
-<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>  V2 <span class="ot">&lt;-</span> ______                                       <span class="co"># 【穴埋め】V1と対称的にbrand2の効用を作る</span></span>
-<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>  V_full <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">0</span>, V1, V2)</span>
-<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>  V_full <span class="ot">&lt;-</span> V_full <span class="sc">-</span> <span class="fu">apply</span>(V_full, <span class="dv">1</span>, max)</span>
-<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>  eV <span class="ot">&lt;-</span> <span class="fu">exp</span>(V_full)</span>
-<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>  probs <span class="ot">&lt;-</span> eV <span class="sc">/</span> <span class="fu">rowSums</span>(eV)</span>
-<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>  n <span class="ot">&lt;-</span> <span class="fu">length</span>(d<span class="sc">$</span>y)</span>
-<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>  chosen_probs <span class="ot">&lt;-</span> probs[<span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span>n, d<span class="sc">$</span>y <span class="sc">+</span> <span class="dv">1</span>)]</span>
-<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sum</span>(<span class="fu">log</span>(<span class="fu">pmax</span>(chosen_probs, <span class="fl">1e-300</span>)))</span>
-<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>mnl_mle_wool <span class="ot">&lt;-</span> <span class="cf">function</span>(d) {</span>
-<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>  neg_ll <span class="ot">&lt;-</span> <span class="cf">function</span>(theta) <span class="sc">-</span><span class="fu">mnl_loglik_wool</span>(theta, d)</span>
-<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>  opt <span class="ot">&lt;-</span> <span class="fu">optim</span>(<span class="at">par =</span> <span class="fu">rep</span>(<span class="dv">0</span>, <span class="dv">8</span>), <span class="at">fn =</span> neg_ll, <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>)</span>
-<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>  opt<span class="sc">$</span>par</span>
-<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>df_wool <span class="ot">&lt;-</span> <span class="fu">build_wooldridge_mnl_df</span>(dgp)</span>
-<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>theta_wool <span class="ot">&lt;-</span> <span class="fu">mnl_mle_wool</span>(df_wool)</span>
-<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;naive lambda_hat:     &quot;</span>, <span class="fu">round</span>(theta_naive[<span class="dv">4</span>], <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;wooldridge lambda_hat:&quot;</span>, <span class="fu">round</span>(theta_wool[<span class="dv">4</span>], <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;true lambda:          &quot;</span>, lambda_true, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>  sigma_r <span class="ot">&lt;-</span> <span class="fu">exp</span>(theta[<span class="dv">9</span>])</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>  base1 <span class="ot">&lt;-</span> c1 <span class="sc">+</span> bp<span class="sc">*</span>d<span class="sc">$</span>p1 <span class="sc">+</span> lam<span class="sc">*</span>d<span class="sc">$</span>lag1 <span class="sc">+</span> r01<span class="sc">*</span>d<span class="sc">$</span>y0_1 <span class="sc">+</span> rp1<span class="sc">*</span>d<span class="sc">$</span>pbar1</span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>  base2 <span class="ot">&lt;-</span> c2 <span class="sc">+</span> bp<span class="sc">*</span>d<span class="sc">$</span>p2 <span class="sc">+</span> lam<span class="sc">*</span>d<span class="sc">$</span>lag2 <span class="sc">+</span> r02<span class="sc">*</span>d<span class="sc">$</span>y0_2 <span class="sc">+</span> rp2<span class="sc">*</span>d<span class="sc">$</span>pbar2</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>  log_terms <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="cn">NA_real_</span>, <span class="fu">nrow</span>(d<span class="sc">$</span>y), <span class="fu">length</span>(gh<span class="sc">$</span>z)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>  k <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (q1 <span class="cf">in</span> <span class="fu">seq_along</span>(gh<span class="sc">$</span>z)) <span class="cf">for</span> (q2 <span class="cf">in</span> <span class="fu">seq_along</span>(gh<span class="sc">$</span>z)) {</span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>    k <span class="ot">&lt;-</span> k <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>    V1 <span class="ot">&lt;-</span> base1 <span class="sc">+</span> sigma_r <span class="sc">*</span> gh<span class="sc">$</span>z[q1]</span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>    V2 <span class="ot">&lt;-</span> base2 <span class="sc">+</span> sigma_r <span class="sc">*</span> gh<span class="sc">$</span>z[q2]</span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    mx <span class="ot">&lt;-</span> <span class="fu">pmax</span>(<span class="dv">0</span>, V1, V2)</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>    logden <span class="ot">&lt;-</span> mx <span class="sc">+</span> <span class="fu">log</span>(<span class="fu">exp</span>(<span class="sc">-</span>mx) <span class="sc">+</span> <span class="fu">exp</span>(V1 <span class="sc">-</span> mx) <span class="sc">+</span> <span class="fu">exp</span>(V2 <span class="sc">-</span> mx))</span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>    chosen_v <span class="ot">&lt;-</span> ______  <span class="co"># 【穴埋め】outsideなら0、brand1ならV1、brand2ならV2</span></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>    log_terms[, k] <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(chosen_v <span class="sc">-</span> logden) <span class="sc">+</span> <span class="fu">log</span>(gh<span class="sc">$</span>w[q1]) <span class="sc">+</span> <span class="fu">log</span>(gh<span class="sc">$</span>w[q2])</span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>  m <span class="ot">&lt;-</span> <span class="fu">apply</span>(log_terms, <span class="dv">1</span>, max)</span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sum</span>(m <span class="sc">+</span> <span class="fu">log</span>(<span class="fu">rowSums</span>(<span class="fu">exp</span>(log_terms <span class="sc">-</span> m))))</span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>mnl_mle_cre <span class="ot">&lt;-</span> <span class="cf">function</span>(sim, start_lambda) {</span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>  d <span class="ot">&lt;-</span> <span class="fu">build_cre_mnl_panel</span>(sim); gh <span class="ot">&lt;-</span> <span class="fu">normal_gh</span>(<span class="dv">5</span>)</span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>  start <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.3</span>, <span class="sc">-</span><span class="fl">0.4</span>, <span class="sc">-</span><span class="dv">1</span>, start_lambda, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="fu">log</span>(<span class="dv">1</span>))</span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>  opt <span class="ot">&lt;-</span> <span class="fu">optim</span>(start, <span class="cf">function</span>(th) <span class="sc">-</span><span class="fu">mnl_cre_loglik</span>(th, d, gh),</span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>               <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>, <span class="at">control =</span> <span class="fu">list</span>(<span class="at">maxit =</span> <span class="dv">250</span>, <span class="at">reltol =</span> <span class="fl">1e-7</span>))</span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>(opt<span class="sc">$</span>convergence <span class="sc">==</span> <span class="dv">0</span>)</span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>  opt<span class="sc">$</span>par</span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>theta_cre <span class="ot">&lt;-</span> <span class="fu">mnl_mle_cre</span>(dgp, theta_naive[<span class="dv">4</span>])</span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;naive lambda_hat:&quot;</span>, <span class="fu">round</span>(theta_naive[<span class="dv">4</span>], <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;CRE lambda_hat:  &quot;</span>, <span class="fu">round</span>(theta_cre[<span class="dv">4</span>], <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;CRE sigma_r_hat:&quot;</span>, <span class="fu">round</span>(<span class="fu">exp</span>(theta_cre[<span class="dv">9</span>]), <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;true lambda:     &quot;</span>, lambda_true, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p><span class="math inline">\(\hat\lambda\)</span>のバイアスは、Wooldridge deviceでどの程度縮小したか。<strong>残っているバイアスの大きさも正直に報告せよ</strong>（講義ノートの教訓：「効くが完治しない」）。</p>
+<p><span class="math inline">\(\hat\lambda\)</span>が真値へ近づいたかを報告し、求積点を3点・7点に変えた感度も確認せよ。分布指定が近似なので、必ず真値へ完全一致するとは限らない。</p>
 </section>
 <section id="問520点placebo実験見せかけの状態依存を自分で作る" class="level2">
 <h2 class="anchored" data-anchor-id="問520点placebo実験見せかけの状態依存を自分で作る">問5（20点）：placebo実験——見せかけの状態依存を自分で作る</h2>
-<p>ここまでは真の<span class="math inline">\(\lambda=1.0\)</span>のデータで練習してきた。今度は<strong>自分でplacebo DGPを作る</strong>：真の<span class="math inline">\(\lambda=0\)</span>（状態依存は一切ない）で、個人異質性だけが強い（<span class="math inline">\(\sigma_\mu\)</span>を大きめに、例えば1.5程度）データを生成し、naiveなpooled multinomial logitで推定したら何が起きるかを確認せよ。</p>
+<p>真の<span class="math inline">\(\lambda=0\)</span>、強い個人異質性だけを持つデータを生成し、naive推定とCREを比較せよ。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># (i) placebo DGP: lambda=0, 異質性のみ</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>dgp_placebo <span class="ot">&lt;-</span> <span class="fu">simulate_panel_mnl</span>(N, Tn, BURN, <span class="at">lambda =</span> ______, <span class="at">sigma_mu =</span> ______, <span class="at">seed =</span> <span class="dv">142</span>)  <span class="co"># 【穴埋め】</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>dgp_placebo <span class="ot">&lt;-</span> <span class="fu">simulate_panel_mnl</span>(N, Tn, BURN, <span class="at">lambda =</span> ______,</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">sigma_mu =</span> ______, <span class="at">seed =</span> <span class="dv">142</span>)  <span class="co"># 【穴埋め】</span></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># (ii) naive推定</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>df_placebo <span class="ot">&lt;-</span> <span class="fu">build_pooled_mnl_df</span>(dgp_placebo)</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>theta_placebo_naive <span class="ot">&lt;-</span> <span class="fu">mnl_mle</span>(df_placebo<span class="sc">$</span>y, df_placebo<span class="sc">$</span>p1, df_placebo<span class="sc">$</span>p2,</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>                                df_placebo<span class="sc">$</span>lag1, df_placebo<span class="sc">$</span>lag2)</span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;placebo DGP (true lambda=0) でのnaive lambda_hat:&quot;</span>, <span class="fu">round</span>(theta_placebo_naive[<span class="dv">4</span>], <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co"># (iii) Wooldridge deviceでの改善も確認</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>df_placebo_wool <span class="ot">&lt;-</span> <span class="fu">build_wooldridge_mnl_df</span>(dgp_placebo)</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>theta_placebo_wool <span class="ot">&lt;-</span> <span class="fu">mnl_mle_wool</span>(df_placebo_wool)</span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;placebo DGP でのWooldridge lambda_hat:&quot;</span>, <span class="fu">round</span>(theta_placebo_wool[<span class="dv">4</span>], <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>df_placebo <span class="ot">&lt;-</span> <span class="fu">build_pooled_mnl_df</span>(dgp_placebo)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>theta_placebo_naive <span class="ot">&lt;-</span> <span class="fu">mnl_mle</span>(df_placebo<span class="sc">$</span>y, df_placebo<span class="sc">$</span>p1, df_placebo<span class="sc">$</span>p2,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>                                df_placebo<span class="sc">$</span>lag1, df_placebo<span class="sc">$</span>lag2)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>theta_placebo_cre <span class="ot">&lt;-</span> <span class="fu">mnl_mle_cre</span>(dgp_placebo, theta_placebo_naive[<span class="dv">4</span>])</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;placebo true lambda: &quot;</span>, <span class="dv">0</span>, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;placebo naive lambda:&quot;</span>, <span class="fu">round</span>(theta_placebo_naive[<span class="dv">4</span>], <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;placebo CRE lambda:  &quot;</span>, <span class="fu">round</span>(theta_placebo_cre[<span class="dv">4</span>], <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>真の<span class="math inline">\(\lambda=0\)</span>にもかかわらず、naive推定がどれだけ大きな偽の<span class="math inline">\(\hat\lambda\)</span>を検出したか、Wooldridge deviceがそれをどれだけ縮小したかを、表または図で示せ。<strong>この結果を2〜3文で解釈せよ</strong>（何が起きているか、なぜそれが実務上危険か）。</p>
-<div class="callout callout-style-default callout-warning callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">警告</span>この実験の意義
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>この問いこそが今日の課題の核心である。「異質性しかない世界で、naiveな推定が本物の状態依存を『発見』してしまう」ことを、あなた自身のシミュレーションで再現できたら、講義ノートの主張（見せかけの状態依存の危険性）を完全に理解したことになる。もし<span class="math inline">\(\hat\lambda\)</span>が0に近い値しか出なければ、DGPの<span class="math inline">\(\sigma_\mu\)</span>が小さすぎる可能性がある。<span class="math inline">\(\sigma_\mu\)</span>を大きくして（1.5〜2.0程度）再実行してみよ。</p>
-</div>
-</div>
+<p>結果を表または図で示し、(i) なぜnaive推定が偽の状態依存を生むのか、(ii) なぜ初期値を足すだけでなく個人尤度で残差REを積分するのか、(iii) CREにも分布誤指定リスクがあること、を3〜5文で説明せよ。</p>
 </section>
 <section id="問615点買いだめdpと反実仮想" class="level2">
 <h2 class="anchored" data-anchor-id="問615点買いだめdpと反実仮想">問6（15点）：買いだめDPと反実仮想</h2>
-<p>以下は、講義ノート3.2節の在庫DPを、<strong>在庫上限・購入上限が異なるパラメータ</strong>で書いた骨格である。完成させ、(a) 政策関数の確認、(b) セール頻度を2倍にする反実仮想での売上・利益変化、(c) 短期/長期弾力性を報告せよ。</p>
+<p>以下は、講義ノート3.2節の在庫DPを、<strong>在庫上限・購入上限が異なるパラメータ</strong>で書いた骨格である。完成させ、(a) 政策関数の確認、(b) セール頻度を2倍にする反実仮想での売上・利益変化、(c) 短期/長期弾力性を報告せよ。価格変化が大きいため、(c)はlog-log回帰と尺度をそろえて <span class="math inline">\(\log(Q_1/Q_0)/\log(P_1/P_0)\)</span> で定義する。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>Xmax <span class="ot">&lt;-</span> <span class="dv">6</span>; Amax <span class="ot">&lt;-</span> <span class="dv">4</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>beta_dp <span class="ot">&lt;-</span> <span class="fl">0.95</span></span>
@@ -2753,61 +2753,60 @@ u_{i2t} = c_2 + \beta_p\, \text{price}_{2t} + \lambda\, \mathbb{1}[y_{i,t-1}=2] 
 <span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    consumption <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(post <span class="sc">&gt;=</span> <span class="dv">1</span>)</span>
 <span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    end_inv <span class="ot">&lt;-</span> post <span class="sc">-</span> consumption</span>
 <span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    cost <span class="ot">&lt;-</span> p <span class="sc">*</span> a <span class="sc">+</span> c_hold <span class="sc">*</span> end_inv</span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    benefit <span class="ot">&lt;-</span> u_consume <span class="sc">*</span> consumption</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    benefit <span class="ot">&lt;-</span> <span class="cf">if</span> (post <span class="sc">&gt;=</span> <span class="dv">1</span>) u_consume <span class="cf">else</span> <span class="sc">-</span>stockout_cost</span>
 <span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    benefit <span class="sc">-</span> cost <span class="sc">+</span> beta_dp <span class="sc">*</span> V[end_inv <span class="sc">+</span> <span class="dv">1</span>]</span>
 <span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>  }</span>
 <span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>  val_noconsume <span class="ot">&lt;-</span> {</span>
 <span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>    end_inv <span class="ot">&lt;-</span> post</span>
 <span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>    cost <span class="ot">&lt;-</span> p <span class="sc">*</span> a <span class="sc">+</span> c_hold <span class="sc">*</span> end_inv</span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>    benefit <span class="ot">&lt;-</span> <span class="sc">-</span>(<span class="cf">if</span> (post <span class="sc">==</span> <span class="dv">0</span>) stockout_cost <span class="cf">else</span> <span class="dv">0</span>)</span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>    benefit <span class="sc">-</span> cost <span class="sc">+</span> beta_dp <span class="sc">*</span> V[end_inv <span class="sc">+</span> <span class="dv">1</span>]</span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>  q <span class="sc">*</span> val_consume <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> q) <span class="sc">*</span> val_noconsume</span>
-<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a><span class="co"># 【穴埋め】sale_probを引数化し、任意のセール頻度でDPを解けるようにする</span></span>
-<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>solve_inventory_dp_general <span class="ot">&lt;-</span> <span class="cf">function</span>(sale_prob_arg, <span class="at">tol =</span> <span class="fl">1e-10</span>, <span class="at">maxit =</span> <span class="dv">3000</span>) {</span>
-<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>  V <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, Xmax <span class="sc">+</span> <span class="dv">1</span>)</span>
-<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>  prices <span class="ot">&lt;-</span> <span class="fu">c</span>(p_regular, p_sale)</span>
-<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>  probs_price <span class="ot">&lt;-</span> <span class="fu">c</span>(______, ______)                  <span class="co"># 【穴埋め】(1-sale_prob_arg, sale_prob_arg)</span></span>
-<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>  policy <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>L, <span class="dv">2</span>, Xmax <span class="sc">+</span> <span class="dv">1</span>)</span>
-<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (it <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>maxit) {</span>
-<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>    pol_new <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>L, <span class="dv">2</span>, Xmax <span class="sc">+</span> <span class="dv">1</span>)</span>
-<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (pi_idx <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>) {</span>
-<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>      p <span class="ot">&lt;-</span> prices[pi_idx]</span>
-<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (xi <span class="cf">in</span> <span class="fu">seq_along</span>(states)) {</span>
-<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>        x <span class="ot">&lt;-</span> states[xi]</span>
-<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>        best_val <span class="ot">&lt;-</span> <span class="sc">-</span><span class="cn">Inf</span>; best_a <span class="ot">&lt;-</span> <span class="dv">0</span></span>
-<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> (a <span class="cf">in</span> actions) {</span>
-<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>          <span class="cf">if</span> (x <span class="sc">+</span> a <span class="sc">&gt;</span> Xmax) <span class="cf">next</span></span>
-<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>          val <span class="ot">&lt;-</span> <span class="fu">expected_flow_continuation</span>(x, a, p, V)</span>
-<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>          <span class="cf">if</span> (val <span class="sc">&gt;</span> best_val) { best_val <span class="ot">&lt;-</span> val; best_a <span class="ot">&lt;-</span> a }</span>
-<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>        }</span>
-<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>        pol_new[pi_idx, xi] <span class="ot">&lt;-</span> best_a</span>
-<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>      }</span>
-<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>    V_new <span class="ot">&lt;-</span> <span class="fu">numeric</span>(Xmax <span class="sc">+</span> <span class="dv">1</span>)</span>
-<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (xi <span class="cf">in</span> <span class="fu">seq_along</span>(states)) {</span>
-<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a>      x <span class="ot">&lt;-</span> states[xi]</span>
-<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a>      v_x <span class="ot">&lt;-</span> <span class="dv">0</span></span>
-<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (pi_idx <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>) {</span>
-<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>        a <span class="ot">&lt;-</span> pol_new[pi_idx, xi]</span>
-<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a>        v_x <span class="ot">&lt;-</span> v_x <span class="sc">+</span> probs_price[pi_idx] <span class="sc">*</span> <span class="fu">expected_flow_continuation</span>(x, a, prices[pi_idx], V)</span>
-<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>      }</span>
-<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a>      V_new[xi] <span class="ot">&lt;-</span> v_x</span>
-<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a>    err <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(V_new <span class="sc">-</span> V))</span>
-<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a>    V <span class="ot">&lt;-</span> V_new; policy <span class="ot">&lt;-</span> pol_new</span>
-<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (err <span class="sc">&lt;</span> tol) <span class="cf">break</span></span>
-<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">V =</span> V, <span class="at">policy =</span> policy, <span class="at">iters =</span> it)</span>
-<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-72"><a href="#cb7-72" aria-hidden="true" tabindex="-1"></a>dp_base   <span class="ot">&lt;-</span> <span class="fu">solve_inventory_dp_general</span>(<span class="dv">1</span><span class="sc">/</span><span class="dv">10</span>)</span>
-<span id="cb7-73"><a href="#cb7-73" aria-hidden="true" tabindex="-1"></a>dp_double <span class="ot">&lt;-</span> <span class="fu">solve_inventory_dp_general</span>(<span class="dv">1</span><span class="sc">/</span><span class="dv">5</span>)      <span class="co"># セール頻度2倍</span></span>
-<span id="cb7-74"><a href="#cb7-74" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-75"><a href="#cb7-75" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;通常頻度(1/10)での政策関数(通常価格):</span><span class="sc">\n</span><span class="st">&quot;</span>); <span class="fu">print</span>(dp_base<span class="sc">$</span>policy[<span class="dv">1</span>, ])</span>
-<span id="cb7-76"><a href="#cb7-76" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;通常頻度(1/10)での政策関数(セール価格):</span><span class="sc">\n</span><span class="st">&quot;</span>); <span class="fu">print</span>(dp_base<span class="sc">$</span>policy[<span class="dv">2</span>, ])</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>    <span class="sc">-</span>cost <span class="sc">+</span> beta_dp <span class="sc">*</span> V[end_inv <span class="sc">+</span> <span class="dv">1</span>]</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>  q <span class="sc">*</span> val_consume <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> q) <span class="sc">*</span> val_noconsume</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a><span class="co"># 【穴埋め】sale_probを引数化し、任意のセール頻度でDPを解けるようにする</span></span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>solve_inventory_dp_general <span class="ot">&lt;-</span> <span class="cf">function</span>(sale_prob_arg, <span class="at">tol =</span> <span class="fl">1e-10</span>, <span class="at">maxit =</span> <span class="dv">3000</span>) {</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>  V <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, Xmax <span class="sc">+</span> <span class="dv">1</span>)</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>  prices <span class="ot">&lt;-</span> <span class="fu">c</span>(p_regular, p_sale)</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>  probs_price <span class="ot">&lt;-</span> <span class="fu">c</span>(______, ______)                  <span class="co"># 【穴埋め】(1-sale_prob_arg, sale_prob_arg)</span></span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>  policy <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>L, <span class="dv">2</span>, Xmax <span class="sc">+</span> <span class="dv">1</span>)</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (it <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>maxit) {</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>    pol_new <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>L, <span class="dv">2</span>, Xmax <span class="sc">+</span> <span class="dv">1</span>)</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (pi_idx <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>) {</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>      p <span class="ot">&lt;-</span> prices[pi_idx]</span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (xi <span class="cf">in</span> <span class="fu">seq_along</span>(states)) {</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>        x <span class="ot">&lt;-</span> states[xi]</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>        best_val <span class="ot">&lt;-</span> <span class="sc">-</span><span class="cn">Inf</span>; best_a <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> (a <span class="cf">in</span> actions) {</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>          <span class="cf">if</span> (x <span class="sc">+</span> a <span class="sc">&gt;</span> Xmax) <span class="cf">next</span></span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>          val <span class="ot">&lt;-</span> <span class="fu">expected_flow_continuation</span>(x, a, p, V)</span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>          <span class="cf">if</span> (val <span class="sc">&gt;</span> best_val) { best_val <span class="ot">&lt;-</span> val; best_a <span class="ot">&lt;-</span> a }</span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>        pol_new[pi_idx, xi] <span class="ot">&lt;-</span> best_a</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>    V_new <span class="ot">&lt;-</span> <span class="fu">numeric</span>(Xmax <span class="sc">+</span> <span class="dv">1</span>)</span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (xi <span class="cf">in</span> <span class="fu">seq_along</span>(states)) {</span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a>      x <span class="ot">&lt;-</span> states[xi]</span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a>      v_x <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (pi_idx <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>) {</span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a>        a <span class="ot">&lt;-</span> pol_new[pi_idx, xi]</span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>        v_x <span class="ot">&lt;-</span> v_x <span class="sc">+</span> probs_price[pi_idx] <span class="sc">*</span> <span class="fu">expected_flow_continuation</span>(x, a, prices[pi_idx], V)</span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>      V_new[xi] <span class="ot">&lt;-</span> v_x</span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a>    err <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(V_new <span class="sc">-</span> V))</span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a>    V <span class="ot">&lt;-</span> V_new; policy <span class="ot">&lt;-</span> pol_new</span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (err <span class="sc">&lt;</span> tol) <span class="cf">break</span></span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">V =</span> V, <span class="at">policy =</span> policy, <span class="at">iters =</span> it)</span>
+<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a>dp_base   <span class="ot">&lt;-</span> <span class="fu">solve_inventory_dp_general</span>(<span class="dv">1</span><span class="sc">/</span><span class="dv">10</span>)</span>
+<span id="cb7-72"><a href="#cb7-72" aria-hidden="true" tabindex="-1"></a>dp_double <span class="ot">&lt;-</span> <span class="fu">solve_inventory_dp_general</span>(<span class="dv">1</span><span class="sc">/</span><span class="dv">5</span>)      <span class="co"># セール頻度2倍</span></span>
+<span id="cb7-73"><a href="#cb7-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-74"><a href="#cb7-74" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;通常頻度(1/10)での政策関数(通常価格):</span><span class="sc">\n</span><span class="st">&quot;</span>); <span class="fu">print</span>(dp_base<span class="sc">$</span>policy[<span class="dv">1</span>, ])</span>
+<span id="cb7-75"><a href="#cb7-75" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;通常頻度(1/10)での政策関数(セール価格):</span><span class="sc">\n</span><span class="st">&quot;</span>); <span class="fu">print</span>(dp_base<span class="sc">$</span>policy[<span class="dv">2</span>, ])</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># (b) セール頻度2倍の反実仮想：総販売数量・収益・利益を比較する</span></span>
@@ -2815,8 +2814,8 @@ u_{i2t} = c_2 + \beta_p\, \text{price}_{2t} + \lambda\, \mathbb{1}[y_{i,t-1}=2] 
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set.seed</span>(seed)</span>
 <span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>L, N_hh)</span>
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (t <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>burn_in) {</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    is_sale <span class="ot">&lt;-</span> <span class="fu">runif</span>(N_hh) <span class="sc">&lt;</span> sale_prob_arg</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    a <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(is_sale, policy[<span class="dv">2</span>, x <span class="sc">+</span> <span class="dv">1</span>], policy[<span class="dv">1</span>, x <span class="sc">+</span> <span class="dv">1</span>])</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    is_sale <span class="ot">&lt;-</span> <span class="fu">runif</span>(<span class="dv">1</span>) <span class="sc">&lt;</span> sale_prob_arg</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    a <span class="ot">&lt;-</span> <span class="cf">if</span> (is_sale) policy[<span class="dv">2</span>, x <span class="sc">+</span> <span class="dv">1</span>] <span class="cf">else</span> policy[<span class="dv">1</span>, x <span class="sc">+</span> <span class="dv">1</span>]</span>
 <span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    post <span class="ot">&lt;-</span> x <span class="sc">+</span> a</span>
 <span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    q <span class="ot">&lt;-</span> <span class="fu">q_of_x</span>(post)</span>
 <span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    occ <span class="ot">&lt;-</span> <span class="fu">runif</span>(N_hh) <span class="sc">&lt;</span> q</span>
@@ -2866,25 +2865,31 @@ u_{i2t} = c_2 + \beta_p\, \text{price}_{2t} + \lambda\, \mathbb{1}[y_{i,t-1}=2] 
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>                                               dp_base<span class="sc">$</span>policy, <span class="dv">1</span><span class="sc">/</span><span class="dv">10</span>, <span class="at">seed =</span> <span class="dv">42</span>)<span class="sc">$</span>units</span>
 <span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>units_no_event   <span class="ot">&lt;-</span> <span class="fu">simulate_calendar_general</span>(N_hh, <span class="dv">25</span>, <span class="fu">rep</span>(<span class="cn">FALSE</span>, <span class="dv">25</span>),</span>
 <span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>                                               dp_base<span class="sc">$</span>policy, <span class="dv">1</span><span class="sc">/</span><span class="dv">10</span>, <span class="at">seed =</span> <span class="dv">42</span>)<span class="sc">$</span>units</span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>pct_cut <span class="ot">&lt;-</span> p_sale <span class="sc">/</span> p_regular <span class="sc">-</span> <span class="dv">1</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>sr_pct_change <span class="ot">&lt;-</span> units_sale_event[<span class="dv">10</span>] <span class="sc">/</span> units_no_event[<span class="dv">10</span>] <span class="sc">-</span> <span class="dv">1</span></span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>sr_elasticity <span class="ot">&lt;-</span> sr_pct_change <span class="sc">/</span> pct_cut</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>log_price_change <span class="ot">&lt;-</span> <span class="fu">log</span>(p_sale <span class="sc">/</span> p_regular)</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>sr_log_q_change <span class="ot">&lt;-</span> <span class="fu">log</span>(units_sale_event[<span class="dv">10</span>] <span class="sc">/</span> units_no_event[<span class="dv">10</span>])</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>sr_elasticity <span class="ot">&lt;-</span> sr_log_q_change <span class="sc">/</span> log_price_change</span>
 <span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>stationary_units <span class="ot">&lt;-</span> <span class="cf">function</span>(always_sale, seed) {</span>
 <span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  Tp <span class="ot">&lt;-</span> <span class="dv">60</span></span>
 <span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  sale_bool <span class="ot">&lt;-</span> <span class="fu">rep</span>(always_sale, Tp)</span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>  policy_use <span class="ot">&lt;-</span> dp_base<span class="sc">$</span>policy</span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>  u <span class="ot">&lt;-</span> <span class="fu">simulate_calendar_general</span>(N_hh, Tp, sale_bool, policy_use, <span class="cf">if</span> (always_sale) <span class="dv">1</span> <span class="cf">else</span> <span class="dv">0</span>, <span class="at">seed =</span> seed, <span class="at">burn_in =</span> <span class="dv">150</span>)<span class="sc">$</span>units</span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mean</span>(<span class="fu">tail</span>(u, <span class="dv">15</span>))</span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>units_permanent_sale    <span class="ot">&lt;-</span> <span class="fu">stationary_units</span>(<span class="cn">TRUE</span>,  <span class="at">seed =</span> <span class="dv">99</span>)</span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>units_permanent_regular <span class="ot">&lt;-</span> <span class="fu">stationary_units</span>(<span class="cn">FALSE</span>, <span class="at">seed =</span> <span class="dv">100</span>)</span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>lr_pct_change <span class="ot">&lt;-</span> units_permanent_sale <span class="sc">/</span> units_permanent_regular <span class="sc">-</span> <span class="dv">1</span></span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>lr_elasticity <span class="ot">&lt;-</span> lr_pct_change <span class="sc">/</span> pct_cut</span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;短期弾力性:&quot;</span>, <span class="fu">round</span>(sr_elasticity, <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;長期弾力性:&quot;</span>, <span class="fu">round</span>(lr_elasticity, <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;比:&quot;</span>, <span class="fu">round</span>(sr_elasticity <span class="sc">/</span> lr_elasticity, <span class="dv">1</span>), <span class="st">&quot;倍</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>  cf_prob <span class="ot">&lt;-</span> <span class="cf">if</span> (always_sale) <span class="dv">1</span> <span class="cf">else</span> <span class="dv">0</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>  policy_use <span class="ot">&lt;-</span> <span class="fu">solve_inventory_dp_general</span>(cf_prob)<span class="sc">$</span>policy</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>  u <span class="ot">&lt;-</span> <span class="fu">simulate_calendar_general</span>(N_hh, Tp, sale_bool, policy_use,</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>                                 cf_prob, <span class="at">seed =</span> seed, <span class="at">burn_in =</span> <span class="dv">150</span>)<span class="sc">$</span>units</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mean</span>(<span class="fu">tail</span>(u, <span class="dv">15</span>))</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>units_permanent_sale    <span class="ot">&lt;-</span> <span class="fu">stationary_units</span>(<span class="cn">TRUE</span>,  <span class="at">seed =</span> <span class="dv">99</span>)</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>units_permanent_regular <span class="ot">&lt;-</span> <span class="fu">stationary_units</span>(<span class="cn">FALSE</span>, <span class="at">seed =</span> <span class="dv">99</span>)</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>lr_log_q_change <span class="ot">&lt;-</span> <span class="fu">log</span>(units_permanent_sale <span class="sc">/</span> units_permanent_regular)</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>lr_elasticity <span class="ot">&lt;-</span> lr_log_q_change <span class="sc">/</span> log_price_change</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;短期弾力性:&quot;</span>, <span class="fu">round</span>(sr_elasticity, <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;長期弾力性:&quot;</span>, <span class="fu">round</span>(lr_elasticity, <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">abs</span>(lr_elasticity) <span class="sc">&gt;</span> <span class="fl">1e-10</span>) {</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;短期/長期の比:&quot;</span>, <span class="fu">round</span>(sr_elasticity <span class="sc">/</span> lr_elasticity, <span class="dv">1</span>), <span class="st">&quot;倍</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;長期弾力性が0なので比は定義できない</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2892,17 +2897,17 @@ u_{i2t} = c_2 + \beta_p\, \text{price}_{2t} + \lambda\, \mathbb{1}[y_{i,t-1}=2] 
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ヒント</span>ヒント：<code>stationary_units</code>の<code>always_sale</code>引数について
+<span class="screen-reader-only">ヒント</span>ヒント：恒久反実仮想では政策関数も変わる
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><code>always_sale=TRUE</code>（恒久的にセール価格）の世界を作るとき、<code>simulate_calendar_general</code>の<code>sale_prob_arg</code>は本来「DPを解くときに使ったセール確率」を意味する変数だが、恒久的にセール価格の世界を作る際は単に「毎期セール」というカレンダーを渡せばよく、DPの政策関数自体は<code>dp_base$policy</code>（元のセール確率1/10で解いたもの）をそのまま使う。これは意図的な近似だ——本来なら「セールが恒久的だと知っている」消費者は、政策関数自体を解き直すはずだが（<code>sale_prob=1</code>でDPを解き直す）、ここでは「短期的にはセールが来る確率は1/10だと思っているが、たまたま今回はずっとセールが続いた」という設定に近い。両方を試して結果を比較してみるのもよい発展課題である。</p>
+<p>「今週たまたまセール」と「今後ずっとセール」は別の情報集合である。恒久セールなら<code>sale_prob_arg=1</code>、恒久通常価格なら<code>0</code>としてDPを解き直し、その政策関数の下でバーンインも同じ価格レジームにする。</p>
 </div>
 </div>
 </section>
 <section id="問75点経営含意3行" class="level2">
 <h2 class="anchored" data-anchor-id="問75点経営含意3行">問7（5点）：経営含意3行</h2>
-<p>問3〜5の<span class="math inline">\(\lambda\)</span>の推定結果を踏まえて、「新規顧客への初回割引に投資すべきか」という問いに、<strong>3行以内</strong>で答えよ。あなたのシミュレーションで回収された<span class="math inline">\(\hat\lambda\)</span>（naiveとWooldridgeの両方の値、および真値）を根拠として引用すること。</p>
+<p>問3〜5の<span class="math inline">\(\lambda\)</span>の推定結果を踏まえて、「新規顧客への初回割引に投資すべきか」という問いに、<strong>3行以内</strong>で答えよ。あなたのシミュレーションで回収された<span class="math inline">\(\hat\lambda\)</span>（naiveとCRE、および真値）を根拠として引用すること。ただし、投資判断には、値引きによる因果的な獲得増、値引き・獲得費用、将来マージン、ベースライン継続率と顧客異質性、離脱、競合反応を合わせた増分NPVが必要だと明記せよ。</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2913,7 +2918,7 @@ u_{i2t} = c_2 + \beta_p\, \text{price}_{2t} + \lambda\, \mathbb{1}[y_{i,t-1}=2] 
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>「本課題のシミュレーションでは真の<span class="math inline">\(\lambda\)</span>は◯◯、naive推定は△△、Wooldridge deviceは□□だった。このズレの大きさから、初回割引投資の正当化には（過大評価・過小評価）のリスクがあり、実務では〜〜すべきである」というような骨格で書くとよい。数値を引用すること。</p>
+<p>「本課題のシミュレーションでは真の<span class="math inline">\(\lambda\)</span>は◯◯、naive推定は△△、CREは□□だった。naive値だけで将来購買を予測すると〜〜のリスクがある。実務では推定感度に加え、獲得費用と将来マージンを使ってNPVを比較する」という骨格で書くとよい。</p>
 </div>
 </div>
 <hr>
@@ -2939,8 +2944,8 @@ u_{i2t} = c_2 + \beta_p\, \text{price}_{2t} + \lambda\, \mathbb{1}[y_{i,t-1}=2] 
 <li>問1（20）：DGP関数（softmax・逆関数法での選択生成）の完成</li>
 <li>問2（10）：記述統計（シェア・リピート率）と可視化</li>
 <li>問3（15）：naiveなpooled multinomial logitの実装とlambda_hat過大評価の確認</li>
-<li>問4（15）：Wooldridge deviceの実装と改善度合いの報告（残るバイアスも正直に）</li>
-<li>問5（20）：placebo DGPの自作、naive/Wooldridgeでの見せかけの状態依存の確認と解釈</li>
+<li>問4（15）：Wooldridge型CREの個人尤度とGauss–Hermite積分</li>
+<li>問5（20）：placebo DGPの自作、naive/CREでの見せかけの状態依存の確認と解釈</li>
 <li>問6（15）：買いだめDPの完成、セール頻度2倍の反実仮想、短期・長期弾力性の報告</li>
 <li>問7（5）：経営含意3行（数値を根拠に）</li>
 </ul>

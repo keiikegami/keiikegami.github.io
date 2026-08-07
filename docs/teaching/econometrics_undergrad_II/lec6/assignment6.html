@@ -2358,7 +2358,7 @@ window.Quarto = {
   <li><a href="#part-2推定推論60点" id="toc-part-2推定推論60点" class="nav-link" data-scroll-target="#part-2推定推論60点">Part 2：推定・推論（60点）</a>
   <ul class="collapse">
   <li><a href="#問512点i-amceをolsクラスターseで推定し真値と比較する" id="toc-問512点i-amceをolsクラスターseで推定し真値と比較する" class="nav-link" data-scroll-target="#問512点i-amceをolsクラスターseで推定し真値と比較する">問5（12点）：(i) AMCEをOLS＋クラスターSEで推定し、真値と比較する</a></li>
-  <li><a href="#問612点ii-logit-mleで効用係数を推定し月額料金のwtpをデルタ法ci付きで求める" id="toc-問612点ii-logit-mleで効用係数を推定し月額料金のwtpをデルタ法ci付きで求める" class="nav-link" data-scroll-target="#問612点ii-logit-mleで効用係数を推定し月額料金のwtpをデルタ法ci付きで求める">問6（12点）：(ii) logit MLEで効用係数を推定し、月額料金のWTPをデルタ法CI付きで求める</a></li>
+  <li><a href="#問612点ii-正しく指定されたlogitでwtpのデルタ法ciを作る" id="toc-問612点ii-正しく指定されたlogitでwtpのデルタ法ciを作る" class="nav-link" data-scroll-target="#問612点ii-正しく指定されたlogitでwtpのデルタ法ciを作る">問6（12点）：(ii) 正しく指定されたlogitでWTPのデルタ法CIを作る</a></li>
   <li><a href="#問79点iii-交互作用を1つ推定し解釈する" id="toc-問79点iii-交互作用を1つ推定し解釈する" class="nav-link" data-scroll-target="#問79点iii-交互作用を1つ推定し解釈する">問7（9点）：(iii) 交互作用を1つ推定し解釈する</a></li>
   <li><a href="#問89点iv-セグメント別amce利用頻度高低" id="toc-問89点iv-セグメント別amce利用頻度高低" class="nav-link" data-scroll-target="#問89点iv-セグメント別amce利用頻度高低">問8（9点）：(iv) セグメント別AMCE（利用頻度高低）</a></li>
   <li><a href="#問99点v-クラスターseを使わない場合とのse比較" id="toc-問99点v-クラスターseを使わない場合とのse比較" class="nav-link" data-scroll-target="#問99点v-クラスターseを使わない場合とのse比較">問9（9点）：(v) クラスターSEを使わない場合とのSE比較</a></li>
@@ -2454,14 +2454,14 @@ window.Quarto = {
 <p><span class="math display">\[
 u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{coupon},i}\cdot \text{coupon}_{jt} - \alpha_i \cdot \text{price}_{jt}/100 + \varepsilon_{ijt}
 \]</span></p>
-<p><span class="math inline">\(\text{low\_threshold}_{jt}\)</span>は「閾値1,000円以上（低い方）なら1」のダミー、<span class="math inline">\(\text{coupon}_{jt}\)</span>は「クーポン配布ありなら1」のダミー、<span class="math inline">\(\text{price}_{jt}\)</span>は月額料金（円）である。<span class="math inline">\(\varepsilon_{ijt}\)</span>はType I極値分布。個人ごとの部分効用は正規分布に従う異質性を持つ（mixed logit）。</p>
+<p><span class="math inline">\(\text{low\_threshold}_{jt}\)</span>は「閾値1,000円以上（低い方）なら1」のダミー、<span class="math inline">\(\text{coupon}_{jt}\)</span>は「クーポン配布ありなら1」のダミー、<span class="math inline">\(\text{price}_{jt}\)</span>は月額料金（円）である。<span class="math inline">\(\varepsilon_{ijt}\)</span>はType I極値分布。属性係数には正規異質性、必ず正である価格係数には対数正規異質性を持たせる（mixed logit）。</p>
 <p><span class="math display">\[
 \beta_{\text{low},i} = \beta_{\text{low}} + \sigma_{\text{low}} z_{\text{low},i}, \qquad
 \beta_{\text{coupon},i} = \beta_{\text{coupon}} + \sigma_{\text{coupon}} z_{\text{coupon},i}, \qquad
-\alpha_i = \alpha + \sigma_\alpha z_{\alpha,i}
+\alpha_i = \exp(\mu_\alpha + \sigma_{\log\alpha}z_{\alpha,i})
 \]</span></p>
-<p><span class="math inline">\(z_{\cdot,i}\sim N(0,1)\)</span>で、各回答者は8タスクすべてで同じ係数を使う（回答者内クラスター相関の源）。</p>
-<p><strong>真のパラメータ</strong>（あなたはこれを後で推定で回収する）：</p>
+<p><span class="math inline">\(z_{\cdot,i}\sim N(0,1)\)</span>で、<span class="math inline">\(\mu_\alpha=\log(\bar\alpha)-\sigma_{\log\alpha}^2/2\)</span> として <span class="math inline">\(E[\alpha_i]=\bar\alpha\)</span> に合わせる。各回答者は8タスクすべてで同じ係数を使う（回答者内クラスター相関の源）。</p>
+<p><strong>DGPのパラメータ</strong>（AMCEの大標本真値を作るために使う。問6では異質性を0にした別の基準ケースも作る）：</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 33%">
@@ -2502,9 +2502,9 @@ u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{co
 <td>0.7（利用頻度の差が大きく効くという想定）</td>
 </tr>
 <tr class="even">
-<td><span class="math inline">\(\sigma_\alpha\)</span></td>
-<td>価格係数のばらつき</td>
-<td>0.1</td>
+<td><span class="math inline">\(\sigma_{\log\alpha}\)</span></td>
+<td>log価格係数のばらつき</td>
+<td>0.3</td>
 </tr>
 </tbody>
 </table>
@@ -2525,7 +2525,7 @@ u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{co
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">alpha_mean       =</span> ______,   <span class="co"># 【穴埋め】価格係数(0.35, 百円あたり)</span></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_low    =</span> <span class="fl">0.35</span>,</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_coupon =</span> <span class="fl">0.7</span>,</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_alpha  =</span> <span class="fl">0.1</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_log_alpha =</span> <span class="fl">0.3</span></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>draw_gumbel <span class="ot">&lt;-</span> <span class="cf">function</span>(n) {</span>
@@ -2571,34 +2571,35 @@ u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{co
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  beta_low_i    <span class="ot">&lt;-</span> params<span class="sc">$</span>beta_low_mean    <span class="sc">+</span> params<span class="sc">$</span>sigma_low    <span class="sc">*</span> z_low</span>
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  beta_coupon_i <span class="ot">&lt;-</span> ______                                          <span class="co"># 【穴埋め】beta_coupon_iを作る</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  alpha_i       <span class="ot">&lt;-</span> <span class="fu">pmax</span>(params<span class="sc">$</span>alpha_mean  <span class="sc">+</span> params<span class="sc">$</span>sigma_alpha <span class="sc">*</span> z_alpha, <span class="fl">0.01</span>)</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  beta_low_n    <span class="ot">&lt;-</span> <span class="fu">rep</span>(beta_low_i,    <span class="at">each =</span> n_task)</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  beta_coupon_n <span class="ot">&lt;-</span> <span class="fu">rep</span>(beta_coupon_i, <span class="at">each =</span> n_task)</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  alpha_n       <span class="ot">&lt;-</span> <span class="fu">rep</span>(alpha_i,       <span class="at">each =</span> n_task)</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># プロファイルA・Bを独立生成（price単位に注意：alphaは「百円あたり」なので/100する）</span></span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  profA <span class="ot">&lt;-</span> <span class="fu">generate_profiles</span>(N)</span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  profB <span class="ot">&lt;-</span> <span class="fu">generate_profiles</span>(N)</span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  vA <span class="ot">&lt;-</span> beta_low_n <span class="sc">*</span> profA<span class="sc">$</span>low_threshold <span class="sc">+</span> beta_coupon_n <span class="sc">*</span> profA<span class="sc">$</span>coupon <span class="sc">-</span> alpha_n <span class="sc">*</span> (profA<span class="sc">$</span>price <span class="sc">/</span> <span class="dv">100</span>)</span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  vB <span class="ot">&lt;-</span> ______   <span class="co"># 【穴埋め】vAと同様にvBを作る</span></span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  eps <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">draw_gumbel</span>(N <span class="sc">*</span> <span class="dv">3</span>), <span class="at">nrow =</span> N, <span class="at">ncol =</span> <span class="dv">3</span>)</span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  U <span class="ot">&lt;-</span> <span class="fu">cbind</span>(eps[, <span class="dv">1</span>], vA <span class="sc">+</span> eps[, <span class="dv">2</span>], vB <span class="sc">+</span> eps[, <span class="dv">3</span>])</span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  choice3 <span class="ot">&lt;-</span> <span class="fu">apply</span>(U, <span class="dv">1</span>, which.max) <span class="sc">-</span> <span class="dv">1</span>   <span class="co"># 0=outside, 1=A, 2=B</span></span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">resp_id =</span> resp_id, <span class="at">choice3 =</span> choice3,</span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">priceA =</span> profA<span class="sc">$</span>price, <span class="at">lowA =</span> profA<span class="sc">$</span>low_threshold, <span class="at">couponA =</span> profA<span class="sc">$</span>coupon,</span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">priceB =</span> profB<span class="sc">$</span>price, <span class="at">lowB =</span> profB<span class="sc">$</span>low_threshold, <span class="at">couponB =</span> profB<span class="sc">$</span>coupon</span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>n_resp <span class="ot">&lt;-</span> <span class="dv">500</span></span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>n_task <span class="ot">&lt;-</span> <span class="dv">8</span></span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>cbc_raw <span class="ot">&lt;-</span> <span class="fu">simulate_cbc</span>(n_resp, n_task, true_params)</span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(cbc_raw)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  mu_log_alpha  <span class="ot">&lt;-</span> <span class="fu">log</span>(params<span class="sc">$</span>alpha_mean) <span class="sc">-</span> params<span class="sc">$</span>sigma_log_alpha<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  alpha_i       <span class="ot">&lt;-</span> <span class="fu">exp</span>(mu_log_alpha <span class="sc">+</span> params<span class="sc">$</span>sigma_log_alpha <span class="sc">*</span> z_alpha)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  beta_low_n    <span class="ot">&lt;-</span> <span class="fu">rep</span>(beta_low_i,    <span class="at">each =</span> n_task)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  beta_coupon_n <span class="ot">&lt;-</span> <span class="fu">rep</span>(beta_coupon_i, <span class="at">each =</span> n_task)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  alpha_n       <span class="ot">&lt;-</span> <span class="fu">rep</span>(alpha_i,       <span class="at">each =</span> n_task)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># プロファイルA・Bを独立生成（price単位に注意：alphaは「百円あたり」なので/100する）</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  profA <span class="ot">&lt;-</span> <span class="fu">generate_profiles</span>(N)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  profB <span class="ot">&lt;-</span> <span class="fu">generate_profiles</span>(N)</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  vA <span class="ot">&lt;-</span> beta_low_n <span class="sc">*</span> profA<span class="sc">$</span>low_threshold <span class="sc">+</span> beta_coupon_n <span class="sc">*</span> profA<span class="sc">$</span>coupon <span class="sc">-</span> alpha_n <span class="sc">*</span> (profA<span class="sc">$</span>price <span class="sc">/</span> <span class="dv">100</span>)</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  vB <span class="ot">&lt;-</span> ______   <span class="co"># 【穴埋め】vAと同様にvBを作る</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  eps <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">draw_gumbel</span>(N <span class="sc">*</span> <span class="dv">3</span>), <span class="at">nrow =</span> N, <span class="at">ncol =</span> <span class="dv">3</span>)</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  U <span class="ot">&lt;-</span> <span class="fu">cbind</span>(eps[, <span class="dv">1</span>], vA <span class="sc">+</span> eps[, <span class="dv">2</span>], vB <span class="sc">+</span> eps[, <span class="dv">3</span>])</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  choice3 <span class="ot">&lt;-</span> <span class="fu">apply</span>(U, <span class="dv">1</span>, which.max) <span class="sc">-</span> <span class="dv">1</span>   <span class="co"># 0=outside, 1=A, 2=B</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">resp_id =</span> resp_id, <span class="at">choice3 =</span> choice3,</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">priceA =</span> profA<span class="sc">$</span>price, <span class="at">lowA =</span> profA<span class="sc">$</span>low_threshold, <span class="at">couponA =</span> profA<span class="sc">$</span>coupon,</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">priceB =</span> profB<span class="sc">$</span>price, <span class="at">lowB =</span> profB<span class="sc">$</span>low_threshold, <span class="at">couponB =</span> profB<span class="sc">$</span>coupon</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>n_resp <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>n_task <span class="ot">&lt;-</span> <span class="dv">8</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>cbc_raw <span class="ot">&lt;-</span> <span class="fu">simulate_cbc</span>(n_resp, n_task, true_params)</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(cbc_raw)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2610,7 +2611,7 @@ u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{co
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><code>alpha_mean = 0.35</code>は「価格が百円動いたときの効用の変化」を表すよう設計している（講義ノートでは価格を千円単位で扱っていたが、今回は月額料金がもっと小さい金額なので百円単位にしてある）。<code>price / 100</code>を忘れると、価格の効用への効き方が3桁ずれてしまい、ほぼ全員が「どちらも入会しない」を選ぶ、あるいは逆にほぼ全員が価格を無視する、といった不自然なシェアになる。まず小さいNで<code>table(cbc_raw$choice3)</code>を見て、極端に偏っていないか確認する習慣をつけよ。</p>
+<p><code>alpha_mean = 0.35</code>は「価格が百円動いたときの効用の変化」を表すよう設計している（講義ノートでは価格を千円単位で扱っていたが、今回は月額料金がもっと小さい金額なので百円単位にしてある）。<code>price / 100</code>の<code>/100</code>を忘れて円のまま入れると、価格項は意図した値の<strong>100倍</strong>になり、ほぼ全員が「どちらも入会しない」を選ぶ。逆に、誤ってもう一度100で割る（<code>price / 10000</code>）と価格項は意図した値の1/100になり、価格をほぼ無視する。まず小さいNで<code>table(cbc_raw$choice3)</code>を見て、極端に偏っていないか確認する習慣をつけよ。</p>
 </div>
 </div>
 </section>
@@ -2645,33 +2646,34 @@ u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{co
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>属性間の相関がゼロに近いことを確認するのは「ランダム化が実装バグなく機能しているか」の最も基本的なチェックである。もし相関が大きく出たら、<code>generate_profiles</code>のロジックか、<code>sample</code>の引数を疑うこと。選択シェアについては、outsideが極端に大きい（例えば9割超）と、A/Bの比較に使える情報が乏しくなり、後のAMCE推定の精度が落ちる。適度にoutsideが選ばれている（2〜4割程度）のが健全な調査設計である。</p>
+<p>属性間の相関がゼロに近いことを確認するのは「ランダム化が実装バグなく機能しているか」の最も基本的なチェックである。もし相関が大きく出たら、<code>generate_profiles</code>のロジックか、<code>sample</code>の引数を疑うこと。選択シェアについては、outsideがほぼ0ならoutsideの効用水準を識別する情報が乏しく、ほぼ1ならA・Bが選ばれる情報が乏しい。唯一の「健全な比率」があるわけではなく、想定市場に照らして各選択肢に十分な変動があるかを確認する。</p>
 </div>
 </div>
 </section>
 <section id="問410点long形式への変換" class="level2">
 <h2 class="anchored" data-anchor-id="問410点long形式への変換">問4（10点）：long形式への変換</h2>
-<p>AMCE推定用に、各タスクをプランA行・プランB行に分解したlong形式のデータフレームを作る関数<code>to_long</code>を完成させよ。outside optionを選んだタスクは、A対Bの2値選択回帰からは除外すること。</p>
+<p>AMCE推定用に、各タスクをプランA行・プランB行に分解したlong形式のデータフレームを作る関数<code>to_long</code>を完成させよ。<strong>outside optionを選んだタスクも残し</strong>、そのときはA行・B行の<code>chosen</code>をともに0にすること。outsideでなかったことへの条件付けは、属性の影響を受ける結果で標本を選ぶpost-treatment selectionになる。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>to_long <span class="ot">&lt;-</span> <span class="cf">function</span>(cbc_raw) {</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  keep <span class="ot">&lt;-</span> cbc_raw<span class="sc">$</span>choice3 <span class="sc">!=</span> <span class="dv">0</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  d <span class="ot">&lt;-</span> cbc_raw[keep, ]</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  rowsA <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">resp_id =</span> d<span class="sc">$</span>resp_id, <span class="at">price =</span> d<span class="sc">$</span>priceA, <span class="at">low_threshold =</span> d<span class="sc">$</span>lowA, <span class="at">coupon =</span> d<span class="sc">$</span>couponA,</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  d <span class="ot">&lt;-</span> cbc_raw</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  rowsA <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">resp_id =</span> d<span class="sc">$</span>resp_id, <span class="at">task_id =</span> <span class="fu">seq_len</span>(<span class="fu">nrow</span>(d)),</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">profile =</span> <span class="st">&quot;A&quot;</span>, <span class="at">price =</span> d<span class="sc">$</span>priceA, <span class="at">low_threshold =</span> d<span class="sc">$</span>lowA, <span class="at">coupon =</span> d<span class="sc">$</span>couponA,</span>
 <span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">chosen =</span> <span class="fu">as.numeric</span>(______)   <span class="co"># 【穴埋め】choice3が1(=Aが選ばれた)なら1</span></span>
 <span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  rowsB <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">resp_id =</span> d<span class="sc">$</span>resp_id, <span class="at">price =</span> d<span class="sc">$</span>priceB, <span class="at">low_threshold =</span> d<span class="sc">$</span>lowB, <span class="at">coupon =</span> d<span class="sc">$</span>couponB,</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">chosen =</span> <span class="fu">as.numeric</span>(______)   <span class="co"># 【穴埋め】choice3が2(=Bが選ばれた)なら1</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rbind</span>(rowsA, rowsB)</span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>cbc_long <span class="ot">&lt;-</span> <span class="fu">to_long</span>(cbc_raw)</span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>cbc_long<span class="sc">$</span>price500 <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(cbc_long<span class="sc">$</span>price <span class="sc">==</span> <span class="dv">500</span>)</span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>cbc_long<span class="sc">$</span>price800 <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(cbc_long<span class="sc">$</span>price <span class="sc">==</span> <span class="dv">800</span>)</span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="fu">nrow</span>(cbc_long)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">resp_id =</span> d<span class="sc">$</span>resp_id, <span class="at">task_id =</span> <span class="fu">seq_len</span>(<span class="fu">nrow</span>(d)),</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">profile =</span> <span class="st">&quot;B&quot;</span>, <span class="at">price =</span> d<span class="sc">$</span>priceB, <span class="at">low_threshold =</span> d<span class="sc">$</span>lowB, <span class="at">coupon =</span> d<span class="sc">$</span>couponB,</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">chosen =</span> <span class="fu">as.numeric</span>(______)   <span class="co"># 【穴埋め】choice3が2(=Bが選ばれた)なら1</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rbind</span>(rowsA, rowsB)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>cbc_long <span class="ot">&lt;-</span> <span class="fu">to_long</span>(cbc_raw)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>cbc_long<span class="sc">$</span>price500 <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(cbc_long<span class="sc">$</span>price <span class="sc">==</span> <span class="dv">500</span>)</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>cbc_long<span class="sc">$</span>price800 <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(cbc_long<span class="sc">$</span>price <span class="sc">==</span> <span class="dv">800</span>)</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="fu">nrow</span>(cbc_long)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <hr>
 </section>
@@ -2723,9 +2725,9 @@ u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{co
 </div>
 </div>
 </section>
-<section id="問612点ii-logit-mleで効用係数を推定し月額料金のwtpをデルタ法ci付きで求める" class="level2">
-<h2 class="anchored" data-anchor-id="問612点ii-logit-mleで効用係数を推定し月額料金のwtpをデルタ法ci付きで求める">問6（12点）：(ii) logit MLEで効用係数を推定し、月額料金のWTPをデルタ法CI付きで求める</h2>
-<p>第2回・第6回の自作MLEパターンで、<code>neg_loglik_cbc</code>を書いてoptimで最大化し、Hessianから共分散行列を得よ。そのうえで、<strong>低閾値（1,000円）へのWTP</strong>をデルタ法で信頼区間付きで求めよ（月額料金の単位＝百円であることに注意）。</p>
+<section id="問612点ii-正しく指定されたlogitでwtpのデルタ法ciを作る" class="level2">
+<h2 class="anchored" data-anchor-id="問612点ii-正しく指定されたlogitでwtpのデルタ法ciを作る">問6（12点）：(ii) 正しく指定されたlogitでWTPのデルタ法CIを作る</h2>
+<p>問2の主標本はmixed logitである。同じ標本に同質logitを当てても、そのMLEは平均ランダム係数を回収せず、HessianだけのSEも誤指定に頑健ではない。そこでデルタ法の仕組みを正しく確認するため、<strong>この問だけ</strong><code>sigma_low = sigma_coupon = sigma_log_alpha = 0</code>とした同質logit DGPから新しい標本<code>cbc_raw_hom</code>を生成する。第2回・第6回の自作MLEパターンで推定し、低閾値（1,000円）へのWTPをデルタ法で信頼区間付きで求めよ（月額料金の単位＝百円）。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>neg_loglik_cbc <span class="ot">&lt;-</span> <span class="cf">function</span>(theta, d) {</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  beta_low <span class="ot">&lt;-</span> theta[<span class="dv">1</span>]; beta_coupon <span class="ot">&lt;-</span> theta[<span class="dv">2</span>]; alpha <span class="ot">&lt;-</span> theta[<span class="dv">3</span>]</span>
@@ -2742,23 +2744,29 @@ u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{co
 <span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(logprob)</span>
 <span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>}</span>
 <span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>opt_cbc <span class="ot">&lt;-</span> <span class="fu">optim</span>(<span class="at">par =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="at">fn =</span> neg_loglik_cbc, <span class="at">d =</span> cbc_raw,</span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>, <span class="at">hessian =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>theta_hat <span class="ot">&lt;-</span> opt_cbc<span class="sc">$</span>par</span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(theta_hat) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;beta_low&quot;</span>, <span class="st">&quot;beta_coupon&quot;</span>, <span class="st">&quot;alpha&quot;</span>)</span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>vcov_cbc <span class="ot">&lt;-</span> <span class="fu">solve</span>(opt_cbc<span class="sc">$</span>hessian)</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>hom_params <span class="ot">&lt;-</span> true_params</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>hom_params<span class="sc">$</span>sigma_low <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>hom_params<span class="sc">$</span>sigma_coupon <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>hom_params<span class="sc">$</span>sigma_log_alpha <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>cbc_raw_hom <span class="ot">&lt;-</span> <span class="fu">simulate_cbc</span>(n_resp, n_task, hom_params)</span>
 <span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co"># WTP(低閾値) = beta_low / alpha （百円単位）</span></span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>beta_low_hat <span class="ot">&lt;-</span> theta_hat[<span class="st">&quot;beta_low&quot;</span>]; alpha_hat <span class="ot">&lt;-</span> theta_hat[<span class="st">&quot;alpha&quot;</span>]</span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>wtp_low_hat <span class="ot">&lt;-</span> ______        <span class="co"># 【穴埋め】WTPの点推定</span></span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="co"># デルタ法SE: grad = (1/alpha, -beta_low/alpha^2)、beta_lowはtheta[1], alphaはtheta[3]</span></span>
-<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>grad_wtp <span class="ot">&lt;-</span> <span class="fu">c</span>(______, ______)     <span class="co"># 【穴埋め】勾配ベクトル</span></span>
-<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>vcov_sub <span class="ot">&lt;-</span> vcov_cbc[<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>), <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>)]</span>
-<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>se_wtp <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">as.numeric</span>(<span class="fu">t</span>(grad_wtp) <span class="sc">%*%</span> vcov_sub <span class="sc">%*%</span> grad_wtp))</span>
-<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;WTP(低閾値, 百円):&quot;</span>, <span class="fu">round</span>(wtp_low_hat, <span class="dv">3</span>),</span>
-<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot; 95%CI:[&quot;</span>, <span class="fu">round</span>(wtp_low_hat <span class="sc">-</span> <span class="fl">1.96</span><span class="sc">*</span>se_wtp, <span class="dv">3</span>), <span class="st">&quot;,&quot;</span>, <span class="fu">round</span>(wtp_low_hat <span class="sc">+</span> <span class="fl">1.96</span><span class="sc">*</span>se_wtp, <span class="dv">3</span>), <span class="st">&quot;]</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>opt_cbc <span class="ot">&lt;-</span> <span class="fu">optim</span>(<span class="at">par =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="at">fn =</span> neg_loglik_cbc, <span class="at">d =</span> cbc_raw_hom,</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>, <span class="at">hessian =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>theta_hat <span class="ot">&lt;-</span> opt_cbc<span class="sc">$</span>par</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(theta_hat) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;beta_low&quot;</span>, <span class="st">&quot;beta_coupon&quot;</span>, <span class="st">&quot;alpha&quot;</span>)</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>vcov_cbc <span class="ot">&lt;-</span> <span class="fu">solve</span>(opt_cbc<span class="sc">$</span>hessian)</span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="co"># WTP(低閾値) = beta_low / alpha （百円単位）</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>beta_low_hat <span class="ot">&lt;-</span> theta_hat[<span class="st">&quot;beta_low&quot;</span>]; alpha_hat <span class="ot">&lt;-</span> theta_hat[<span class="st">&quot;alpha&quot;</span>]</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>wtp_low_hat <span class="ot">&lt;-</span> ______        <span class="co"># 【穴埋め】WTPの点推定</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="co"># デルタ法SE: grad = (1/alpha, -beta_low/alpha^2)、beta_lowはtheta[1], alphaはtheta[3]</span></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>grad_wtp <span class="ot">&lt;-</span> <span class="fu">c</span>(______, ______)     <span class="co"># 【穴埋め】勾配ベクトル</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>vcov_sub <span class="ot">&lt;-</span> vcov_cbc[<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>), <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>)]</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>se_wtp <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">as.numeric</span>(<span class="fu">t</span>(grad_wtp) <span class="sc">%*%</span> vcov_sub <span class="sc">%*%</span> grad_wtp))</span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;WTP(低閾値, 百円):&quot;</span>, <span class="fu">round</span>(wtp_low_hat, <span class="dv">3</span>),</span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot; 95%CI:[&quot;</span>, <span class="fu">round</span>(wtp_low_hat <span class="sc">-</span> <span class="fl">1.96</span><span class="sc">*</span>se_wtp, <span class="dv">3</span>), <span class="st">&quot;,&quot;</span>, <span class="fu">round</span>(wtp_low_hat <span class="sc">+</span> <span class="fl">1.96</span><span class="sc">*</span>se_wtp, <span class="dv">3</span>), <span class="st">&quot;]</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2771,12 +2779,13 @@ u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{co
 </div>
 <div class="callout-body-container callout-body">
 <p><code>alpha</code>は「百円あたりの効用の変化」なので、WTP=<span class="math inline">\(\beta_{\text{low}}/\alpha\)</span>の単位は「百円」になる。実際の円に直すには100倍すればよい。信頼区間の上限・下限も同様に100倍してから報告すること。</p>
+<p>この同質ケースの真のWTPは <span class="math inline">\(0.6/0.35\times100\)</span> 円である。元のmixed-logit標本では、平均個人WTP <span class="math inline">\(E[\beta_{\text{low},i}/\alpha_i]\)</span> と平均係数の比 <span class="math inline">\(E[\beta_{\text{low},i}]/E[\alpha_i]\)</span> は一般に一致しない。</p>
 </div>
 </div>
 </section>
 <section id="問79点iii-交互作用を1つ推定し解釈する" class="level2">
 <h2 class="anchored" data-anchor-id="問79点iii-交互作用を1つ推定し解釈する">問7（9点）：(iii) 交互作用を1つ推定し解釈する</h2>
-<p>「低閾値」×「クーポンあり」の交互作用項を含めてAMCEを再推定し、係数とSEを報告せよ。この交互作用が統計的にゼロと区別できるかどうかを判定し、2〜3文で解釈せよ（このDGPで交互作用が実際にどう設計されているかを思い出すこと）。</p>
+<p>「低閾値」×「クーポンあり」の交互作用項を含めてAMCEを再推定し、係数とSEを報告せよ。さらに他の変数を観測値に保ったまま2属性を4通りに置き換えた平均予測確率を作り、<span class="math inline">\(P(1,1)-P(1,0)-P(0,1)+P(0,0)\)</span>を計算して2〜3文で解釈せよ。効用指数に積項がなくても、logit確率の非線形性により確率スケールの差の差はゼロとは限らない点に注意すること。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>interaction_fit <span class="ot">&lt;-</span> <span class="fu">feols</span>(chosen <span class="sc">~</span> price500 <span class="sc">+</span> price800 <span class="sc">+</span> low_threshold <span class="sc">*</span> coupon,</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>                          <span class="at">data =</span> cbc_long, <span class="at">cluster =</span> <span class="sc">~</span>resp_id)</span>
@@ -2800,7 +2809,7 @@ u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{co
 </section>
 <section id="問99点v-クラスターseを使わない場合とのse比較" class="level2">
 <h2 class="anchored" data-anchor-id="問99点v-クラスターseを使わない場合とのse比較">問9（9点）：(v) クラスターSEを使わない場合とのSE比較</h2>
-<p>問5と同じ回帰について、<code>vcov = &quot;hetero&quot;</code>（通常のロバストSE、クラスターを無視）を指定した場合のSEを計算し、クラスターSEと並べた比較表を作れ。<strong>なぜクラスターSEの方が大きくなるのか（あるいは通常のSEがなぜ縮むのか）を3〜4文で説明せよ</strong>。</p>
+<p>問5と同じ回帰について、<code>vcov = &quot;hetero&quot;</code>（通常のロバストSE、クラスターを無視）を指定した場合のSEを計算し、クラスターSEと並べた比較表を作れ。<strong>なぜ回答者クラスターが必要か、またクラスターSEが通常SEより必ず大きくなるわけではない理由</strong>を3〜4文で説明せよ。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>amce_fit_naive <span class="ot">&lt;-</span> <span class="fu">feols</span>(chosen <span class="sc">~</span> price500 <span class="sc">+</span> price800 <span class="sc">+</span> low_threshold <span class="sc">+</span> coupon,</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>                         <span class="at">data =</span> cbc_long, <span class="at">vcov =</span> <span class="st">&quot;hetero&quot;</span>)</span>
@@ -2822,7 +2831,7 @@ u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{co
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>「独立な情報の単位は何か」を考えよ。500人×8タスク=4,000行だが、独立にランダムに変動しているのは本当に4,000個の別々の情報なのか、それとも実質500人分の情報なのか。回答者内で誤差が相関する理由（同じ人は毎回似た好みで選ぶ）を、この課題のDGPの言葉（<code>beta_coupon_i</code>などが回答者ごとに固定されて8タスクで使い回されること）で説明すると良い解答になる。</p>
+<p>profile-levelデータは500人×8タスク×2プロファイル=8,000行だが、独立なクラスターは500回答者である。<code>beta_coupon_i</code>などが8タスクで共有され、同じタスクのA・B結果も依存する。無視した共分散項には正負がありうるので、SEの大小そのものより、ランダム化・回答の単位に分散推定を合わせることが重要である。</p>
 </div>
 </div>
 </section>

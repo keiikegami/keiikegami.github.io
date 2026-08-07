@@ -41,10 +41,10 @@ options(scipen = 8)
 ## この講義で押さえたいこと
 
 - ECや小売のような「非契約型」ビジネスでは、顧客が**離脱したのか休んでいるだけなのか**が直接観測できない。この「観測されない離脱」を統計モデルで推定するのが今回の核心である。
-- 購買頻度をPoisson-Gamma（NBD）、離脱を幾何-Beta（BG/NBD）としてモデル化すると、驚くべきことに**購買回数と最終購買時点（RFMのRとF）だけで尤度が書ける**——つまりRFMのRとFがこのモデルの十分統計量になる。
+- 購買頻度をPoisson-Gamma（NBD）、離脱を幾何-Beta（BG/NBD）としてモデル化すると、驚くべきことに**購買回数・最終購買時点・観測期間 $(x,t_x,T)$ だけで尤度のパラメータ依存部分が書ける**。全顧客で $T$ が共通なら、顧客間で変わる要約はRFMのRとFだけになる。
 - BG/NBDの対数尤度を自作し、`optim()`で最尤推定し、真のパラメータを回収できることを確認する。第2回のMLE作法（log変換・Hessian SE）の再演である。
-- 生存確率P(alive)を閉形式で計算し、「頻繁に買っていた人ほど、沈黙が長いと死んだと判定される」という非自明な交互作用を体感する。
-- 将来購買数の予測には積分が閉じない部分があるため、**事後パラメータからのシミュレーション**で評価する。CLVは予測であり、施策配分には別途因果効果の推定が必要であることを確認する。
+- 生存確率P(alive)を閉形式で計算し、本例のように沈黙が十分長い領域では「頻繁に買っていた人ほど死んだと判定されやすくなる」という非自明な交互作用を体感する。ただし、購買回数を増やしたときのP(alive)は一般には単調ではない。
+- 将来購買数の条件付き期待値には特殊関数を含む閉形式があるが、ここでは**事後分布からのシミュレーション**で評価する。CLVは予測であり、施策配分には別途因果効果の推定が必要であることを確認する。
 :::
 
 ## 前回とのつながり・今回のゴール
@@ -82,7 +82,7 @@ options(scipen = 8)
 - **Frequency（F）**：どれくらいの頻度・回数買っているか。
 - **Monetary（M）**：1回あたりいくら使うか。
 
-RFMは古くから実務で使われてきた素朴なセグメンテーション手法（例えば「RFMそれぞれを5段階にスコアリングして125通りのセグメントに分ける」といった使い方）だが、今回学ぶモデルを通して、次の驚くべき事実に気づくことになる。**RとF（正確には、購買回数 $x$ と最終購買時点 $t_x$）だけで、離脱を含めたモデルの尤度が完全に書ける。** つまりRFMのRとFは、このモデルにとっての十分統計量（sufficient statistic）である。Mは顧客単価の計算には必要だが、購買頻度・離脱の推定そのものには不要になる。これは後ほど具体的に確認する。
+RFMは古くから実務で使われてきた素朴なセグメンテーション手法（例えば「RFMそれぞれを5段階にスコアリングして125通りのセグメントに分ける」といった使い方）だが、今回学ぶモデルを通して、次の驚くべき事実に気づくことになる。**購買回数 $x$、最終購買時点 $t_x$、観測期間 $T$ だけで、離脱を含めたモデルの尤度が書ける。** 全員を同じ長さだけ観測する本例では $T$ は共通なので、顧客間で変わる十分な要約はRFMのRとFになる。Mは顧客単価の計算には必要だが、購買頻度・離脱の推定そのものには不要になる。これは後ほど具体的に確認する。
 
 ## モデルの積み上げ：Poisson-GammaからBG/NBDへ
 
@@ -102,12 +102,12 @@ $$
 \lambda_i \sim \text{Gamma}(r, \alpha)
 $$
 
-（$r$は形状パラメータ、$\alpha$は尺度パラメータの逆数——Rの`rgamma(shape=r, rate=alpha)`の記法に対応する。）
+（$r$は形状パラメータ、$\alpha$は**rateパラメータ**であり、scaleではない。Rの`rgamma(shape = r, rate = alpha)`に対応する。）
 
 ::: {.callout-warning}
 ## 記法の注意：この回の $\alpha$ は価格係数ではない
 
-第2〜4回では $\alpha$ を需要推定における価格係数として使ってきた（$\alpha > 0$、効用は $-\alpha p$）。**今回のBG/NBDの $\alpha$ はGamma分布の尺度パラメータであり、価格係数とは無関係である。** この回に限り、$\lambda, r, \alpha, a, b$ はCounting Your Customers系の文献の標準記法をそのまま踏襲する。文脈で混同しないように注意してほしい。
+第2〜4回では $\alpha$ を需要推定における価格係数として使ってきた（$\alpha > 0$、効用は $-\alpha p$）。**今回のBG/NBDの $\alpha$ はGamma分布のrateパラメータであり、scaleでも価格係数でもない。** この回に限り、$\lambda, r, \alpha, a, b$ はCounting Your Customers系の文献の標準記法をそのまま踏襲する。文脈で混同しないように注意してほしい。
 :::
 
 $\lambda_i$ を積分消去すると（Poisson-Gammaミクスチャ）、$x_i$ の周辺分布は負の二項分布（Negative Binomial Distribution, NBD）になることが知られている。これが「NBDモデル」の名前の由来である。この時点で、過分散の問題は自動的に解決している——個人ごとの異質性をモデルに入れたことで、集計した分布が自然に裾の重い形になるからだ。
@@ -151,7 +151,7 @@ Fader, Hardie, and Lee (2005) が提案したBG/NBDの最大の貢献は、「�
 - $t_x$：最後の購買が起きた時点（$0 \le t_x \le T$）。
 - $T$：観測期間の長さ（この顧客が何週間観測されているか）。
 
-驚くべきことに、**この $(x, t_x, T)$ という3つの数字だけで、BG/NBDモデルの尤度が完全に書ける**。個々の購買が正確にいつ起きたか（購買間隔の詳細）は不要で、「何回買ったか」と「最後にいつ買ったか」さえ分かればよい。これがRFMのR（recency、$t_x$やそこから作る「最終購買からの経過時間」に対応）とF（frequency、$x$に対応）が十分統計量になる、という先ほど予告した驚きの中身である。
+驚くべきことに、**この $(x, t_x, T)$ という3つの数字だけで、BG/NBDモデルの尤度が書ける**。個々の購買が正確にいつ起きたか（購買間隔の詳細）は不要である。全員で観測期間 $T$ が共通なら、顧客ごとに必要なのは「何回買ったか」と「最後にいつ買ったか」だけになる。これがRFMのR（recency、$t_x$やそこから作る「最終購買からの経過時間」に対応）とF（frequency、$x$に対応）が十分な要約になる、という先ほど予告した驚きの中身である。
 
 まず、顧客の購買タイムラインを実際に描いて、「見た目だけでは離脱したかどうか分からない」ことを体感しておこう。
 
@@ -201,19 +201,25 @@ ggplot(timeline_df, aes(x = event_time, y = customer)) +
 
 ### BG/NBDの対数尤度
 
-顧客の $(x, t_x, T)$ が観測されたときの尤度を導出する（導出の詳細はFader, Hardie, and Lee (2005) に譲り、ここでは結果と実装に集中する）。パラメータ $(r, \alpha, a, b)$ のもとでの尤度は
+顧客の $(x, t_x, T)$ が観測されたときの尤度を導出する（導出の詳細はFader, Hardie, and Lee (2005) に譲り、ここでは結果と実装に集中する）。推定に必要な、パラメータ $(r, \alpha, a, b)$ に依存する尤度カーネルは
 
 $$
-L(r,\alpha,a,b \mid x, t_x, T) = \frac{B(a, b+x)}{B(a,b)} \cdot \frac{\Gamma(r+x)\,\alpha^r}{\Gamma(r)} \cdot \frac{1}{(\alpha+T)^{r+x}}
+\mathcal K(r,\alpha,a,b \mid x, t_x, T) = \frac{B(a, b+x)}{B(a,b)} \cdot \frac{\Gamma(r+x)\,\alpha^r}{\Gamma(r)} \cdot \frac{1}{(\alpha+T)^{r+x}}
 \;+\; \mathbb{1}[x>0] \cdot \frac{B(a+1, b+x-1)}{B(a,b)} \cdot \frac{\Gamma(r+x)\,\alpha^r}{\Gamma(r)} \cdot \frac{1}{(\alpha+t_x)^{r+x}}
 $$
 
-ここで $B(\cdot,\cdot)$ はベータ関数である。この式は一見複雑だが、構造は次のように読める。
+である。$x>0$ のとき、要約統計 $(x,t_x,T)$ の完全な同時密度には、さらにデータだけに依存する共通因子 $t_x^{x-1}/(x-1)!$ が掛かる。この因子は $(r,\alpha,a,b)$ に依存しないためMLEでは落としてよく、後で計算する $A_0/(A_0+A_1)$ でも相殺される。ここで $B(\cdot,\cdot)$ はベータ関数である。カーネルの構造は次のように読める。
 
-- **第1項**：「観測期間の終わり $T$ まで、この顧客はまだ生きている」という経路の尤度。
-- **第2項**（$x>0$のときだけ存在）：「最後の購買 $t_x$ の直後にこの顧客は離脱していた」という経路の尤度。
+- **第1項**：「観測期間の終わり $T$ まで、この顧客はまだ生きている」という経路のカーネルへの寄与。
+- **第2項**（$x>0$のときだけ存在）：「最後の購買 $t_x$ の直後にこの顧客は離脱していた」という経路のカーネルへの寄与。
 
-つまり、この尤度は「まだ生きている」経路と「$t_x$で死んでいた」経路の**確率の和**になっている。$x=0$（一度も買っていない）の顧客には、そもそも「離脱するタイミング」自体が存在しない（購買が1回もないので、購買直後に離脱するという幾何分布の仮定が働く場面がない）ため、第2項は存在せず、第1項だけになる。
+つまり、このカーネルは「まだ生きている」経路と「$t_x$で死んでいた」経路の**2つの寄与の和**になっている。$x=0$（一度も買っていない）の顧客には、そもそも「離脱するタイミング」自体が存在しない（購買が1回もないので、購買直後に離脱するという幾何分布の仮定が働く場面がない）ため、第2項は存在せず、第1項だけになる。
+
+::: {.callout-note}
+## 尤度カーネルと履歴の密度を区別する
+
+上の $\mathcal K$ は、パラメータ推定とP(alive)の比を計算するには十分である。しかし、$t_x^{x-1}/(x-1)!$ を省いたまま、異なる $t_x$ を持つ履歴どうしの「起こりやすさ」を比較してはいけない。そうした密度比較では、省略したデータ依存因子を戻す必要がある。
+:::
 
 ::: {.callout-warning}
 ## 実装の注意：x=0の場合分けとオーバーフロー対策
@@ -224,7 +230,7 @@ $$
 2. **対数の中の和でオーバーフローする**：尤度は「2つの項の和」なので、対数尤度を計算するには $\ln(A_0 + A_1)$ の形になる。$A_0, A_1$ をそのまま計算してから対数を取ると、パラメータの値次第で $A_0$ や $A_1$ が極端に大きい・小さい数値になり、桁あふれ（overflow/underflow）を起こす。第2回でsoftmaxのオーバーフロー対策をやったのと同じ発想で、**logsumexpトリック**を使う。$\ln(e^{a} + e^{b}) = m + \ln(e^{a-m} + e^{b-m})$（$m = \max(a,b)$）という恒等式を使えば、指数の引数が0以下に収まり、数値的に安定する。
 :::
 
-Rで実装する前に、この尤度の実装ロジックを検証しておく（本講義の方針：数値計算のロジックはまずPython/numpyでプロトタイプしてから、Rに書き起こす）。対数尤度をlogsumexpで実装し、シミュレーションで生成した(x, t_x)の頻度分布と、理論尤度の大小関係が整合するかを確認したところ、想定通りの挙動が得られた。特に、**同じ購買回数 $x$ のもとで、最終購買時点 $t_x$ を大きくしていくと、対数尤度はむしろ単調に「減少」する**という、直感に反する事実も確認された。これは奇妙に思えるかもしれないが、実は正しい。なぜなら尤度は「ちょうど $t_x$ で最後の購買が起き、その後 $T-t_x$ の間何も起きない」という特定の経路の確率密度であり、$t_x$が観測期間の終わりに近いほど「短い間隔で立て続けに買った上に、残り期間ぴったり沈黙する」という特殊な経路の確率が下がるからだ。**この「尤度」と、次に説明する「生存確率P(alive)」を混同しないことが非常に重要である**——P(alive)はこの後見るように、$t_x$が大きいほど単調に「増加」する。この2つの量の違いを区別できるかどうかが、BG/NBDを正しく理解できているかの分かれ目になる。
+Rで実装する前に、この尤度カーネルの実装ロジックを検証しておく（本講義の方針：数値計算のロジックはまずPython/numpyでプロトタイプしてから、Rに書き起こす）。同じ購買回数 $x$ のもとで $t_x$ を大きくすると、表示した $\mathcal K$ は単調に減少する。これは第1項が $t_x$ に依存せず、第2項が $(\alpha+t_x)^{-(r+x)}$ に比例するという**カーネルの代数的性質**である。省略した $t_x^{x-1}/(x-1)!$ を含む完全な要約統計の密度まで単調減少する、あるいは後の履歴ほど起こりにくい、という意味ではない。一方、P(alive)は2経路の相対比なので共通因子が相殺され、$t_x$が大きいほど増加する。カーネルの値と顧客状態の事後確率を区別しよう。
 
 ### Rシミュ2：DGP→自作対数尤度→optimでの真値回収
 
@@ -308,14 +314,12 @@ bgnbd_loglik <- function(r, alpha, a, b, x, tx, T) {
     lgamma(r + x) - lgamma(r) +
     r * log(alpha) - (r + x) * log(alpha + T)
 
-  # 第2項(t_xで離脱していた経路)。x=0のときは -Inf にして無視させる
-  ln_A1 <- ifelse(
-    x > 0,
-    lbeta(a + 1, b + x - 1) - ln_Bab +
-      lgamma(r + x) - lgamma(r) +
-      r * log(alpha) - (r + x) * log(alpha + tx),
-    -Inf
-  )
+  # 第2項(t_xで離脱していた経路)。x=0の行では式自体を評価しない
+  ln_A1 <- rep(-Inf, length(x))
+  idx <- x > 0
+  ln_A1[idx] <- lbeta(a + 1, b + x[idx] - 1) - ln_Bab +
+    lgamma(r + x[idx]) - lgamma(r) +
+    r * log(alpha) - (r + x[idx]) * log(alpha + tx[idx])
 
   logsumexp2(ln_A0, ln_A1)
 }
@@ -365,7 +369,7 @@ recovery_df <- data.frame(
 kable(recovery_df, caption = "真値とMLE推定値の比較（N=2,000、calibration 52週）")
 ```
 
-推定値は真値のごく近くに戻ってきている。特に $r, \alpha$（購買頻度に関するパラメータ）は非常に精度良く回収できているのに対し、$a, b$（離脱確率に関するパラメータ）はやや誤差が大きい。これは自然なことで、離脱確率の情報は「実際に離脱が起きた（と推測される）顧客」のサブサンプルからしか得られないため、購買頻度そのものの情報よりも希少だからである。
+このseedでは推定値は真値に近い。$a,b$の誤差が$r,\alpha$よりやや大きいのは、離脱が直接観測されず、最終購買後の沈黙と購買回数の組み合わせから間接的に推定されるためである。ただし、1回のシミュレーションで常にこの順序になるわけではない。推定精度は反復シミュレーションのbias・RMSE・被覆率で評価するのが原則である。
 
 ### 推論：HessianからのSE
 
@@ -393,7 +397,7 @@ inference_df <- data.frame(
 kable(inference_df, caption = "推定値・標準誤差・95%信頼区間（真値との比較）")
 ```
 
-いずれのパラメータについても、真値は95%信頼区間の中に収まっている。第2回で学んだ「Hessianの逆行列から分散共分散行列を得て、標準誤差・信頼区間を計算する」という作法が、モデルが変わってもそのまま使えることを確認できた。
+このシミュレーションでは、いずれのパラメータについても真値が95%信頼区間に収まっている。Hessianの逆行列から得るのは、正しく特定された独立同分布の尤度を前提とする**モデルベース標準誤差**である。実データで顧客間依存やモデルの誤特定を疑う場合には、サンドイッチ分散やクラスタリングなどを別途検討する必要がある。
 
 ## P(alive)：この顧客はまだ生きているか
 
@@ -467,7 +471,7 @@ ggplot(heatmap_df, aes(x = tx, y = x, fill = palive)) +
        title = "P(alive)ヒートマップ：recencyとfrequencyの交互作用（T=52週）")
 ```
 
-このヒートマップから、**非自明な交互作用**が読み取れる。単純に「最近買っていれば生きている、買っていなければ死んでいる」という単調な関係ではない。同じ最終購買時点（$t_x$、横軸の同じ位置）でも、購買回数（$x$、縦軸）によってP(alive)の判定が大きく変わる。特に、**購買回数が多い（頻繁に買っていた）顧客ほど、同じ沈黙期間でも「死んでいる」と判定されやすい**という、実務家の直感に反する場面がある。
+このヒートマップから、**非自明な交互作用**が読み取れる。単純に「最近買っていれば生きている、買っていなければ死んでいる」という単調な関係ではない。同じ最終購買時点（$t_x$、横軸の同じ位置）でも、購買回数（$x$、縦軸）によってP(alive)の判定が大きく変わる。$x$を増やすとP(alive)は横ばい〜微増した後に低下することがあり、**本例では沈黙が十分長く、購買回数が多い領域で「死んでいる」と判定されやすくなる**。これは全範囲での単調関係ではない。
 
 ::: {.callout-tip}
 ## 「最後に買ってから8週」でも生死判定が逆転する例
@@ -489,7 +493,7 @@ kable(example_df, digits = 4,
       caption = "recency固定(最終購買から8週間沈黙)でも、frequencyでP(alive)が変わる")
 ```
 
-購買回数が少ないうちはP(alive)が横ばい〜微増するが、ある水準を超えると急激に低下していく。直感的には「たくさん買っている客は優良顧客だから、生きているに決まっている」と思いがちだが、モデルの立場はむしろ逆で——**頻繁に買う顧客は「離脱する機会」（＝購買イベント）も多いので、その全ての機会で生き延び続けてきたにもかかわらず、直近8週間急に静かになったことは、むしろ「今回は離脱した」可能性の強い証拠になる**、と読む。逆に、もともと購買頻度が低い顧客にとっては、8週間の沈黙は「いつも通りの間隔」の範囲内かもしれない。「頻度が高い顧客の急な沈黙」の方が、「頻度が低い顧客のいつも通りの沈黙」よりも、離脱のシグナルとして強く効く、ということである。
+購買回数が少ないうちはP(alive)が横ばい〜微増するが、ある水準を超えると急激に低下していく。$x$が多い履歴は「この顧客の購買率 $\lambda$ は高い」という情報と、「過去の購買直後には離脱しなかったので $p$ は低そうだ」という情報を同時に与える。固定した8週間の沈黙に対しては、やがて前者が支配的になる。**高い購買率でまだ生存しているなら8週間も購買がない事象は起こりにくいため、直近の購買後に離脱した経路の相対尤度が高くなる**のである。逆に、もともと購買頻度が低い顧客にとっては、8週間の沈黙は通常の購買間隔の範囲内かもしれない。したがってP(alive)はrecencyとfrequencyを別々の単調スコアとして足すのではなく、両者をモデル内で組み合わせて判定する。
 
 ## 将来購買の予測とholdout検証
 
@@ -499,48 +503,95 @@ BG/NBDモデルでは、「今後の $t$ 期間で何回購買するか」の条
 
 理由は2つある。第一に、この講義を通じて一貫している「モデルを条件付き分布として書ければ、シミュレーションで挙動を確認できる」という哲学に忠実だからである。第二に、この方が「何をしているか」が透明になる——複雑な特殊関数のブラックボックスに頼るより、「パラメータの事後分布から $(\lambda, p)$ を引いて、Poisson過程を素直に走らせる」という手順の方が、何を計算しているのかが直感的に分かる。
 
-具体的な手順は次の通りである。
+具体的な手順は次の通りである。ここでのGamma分布は第2引数が**rate**であり、$\alpha$と$T$はともに「週」を基準にした量でなければ足せない。
 
 1. 各顧客の $(x, t_x)$ を所与として、$P(\text{alive})$ を計算する（すでに実装済み）。
-2. **$\lambda$の事後分布は、実はGamma分布の共役性から閉形式で求まる**。事前分布 $\lambda \sim \text{Gamma}(r, \alpha)$ に対して、「$T$期間で$x$回購買が観測された」という情報を尤度として使うと、事後分布は $\lambda \mid x, T \sim \text{Gamma}(r+x, \alpha+T)$ になる（Poisson-Gammaの共役性、第9回でも扱った構造と同じ）。
-3. 各顧客について、P(alive)の確率でこの顧客が「生きている」かどうかをベルヌーイ試行で決める。生きていなければ将来購買数は0。
-4. 生きていると判定された顧客については、事後Gamma分布から $\lambda$ をシミュレーションで引き、その $\lambda$ でPoisson過程を前向きに走らせて、holdout期間の購買回数を数える。
-5. これを多数回繰り返して平均を取れば、条件付き期待購買数のモンテカルロ近似が得られる。
+2. calibration終了時点で生存しているという経路のもとでは、Poisson-Gamma共役性から
+   $$\lambda \mid x,T,\text{alive at }T \sim \text{Gamma}(r+x,\ \text{rate}=\alpha+T)$$
+   となる。
+3. 同じ生存経路では、観測された$x$回の購買直後にすべて離脱しなかったので、Beta-Bernoulli共役性から
+   $$p \mid x,\text{alive at }T \sim \text{Beta}(a,b+x)$$
+   となる。
+4. P(alive)でcalibration終了時点の生死を引く。死亡なら将来購買は0。生存なら事後分布から$(\lambda,p)$を引き、次の待ち時間を$\text{Exp}(\lambda)$から引く。
+5. 予測期間内に購買が起きたら1回を記録し、**その購買直後に確率$p$で離脱させる**。生存したときだけ次の待ち時間へ進む。
+6. これを多数回繰り返して平均を取れば、予測期間中の追加離脱まで含む条件付き期待購買数のモンテカルロ近似が得られる。
 
-($p$（離脱確率）の事後分布は$\lambda$ほど単純な共役性を持たないため、ここでは「calibration時点でのP(alive)による生死判定」のみを使い、holdout期間中にさらに離脱する確率は簡便的に無視する近似を取る。26週程度のholdoutであれば、この近似による影響は小さい。)
+ここではMLE $\hat\theta=(\hat r,\hat\alpha,\hat a,\hat b)$を固定したplug-in予測を行う。将来パスの乱数を増やせばモンテカルロ誤差は小さくなるが、パラメータ推定誤差まで消えるわけではない。予測区間やCLVの不確実性を報告する実務では、顧客単位のbootstrapやパラメータの近似分布・事後分布からも乱数を引き、両方の不確実性を伝播させる。
+
+::: {.callout-tip}
+## 1人・1回の将来パスをイベントツリーで追う
+
+```text
+calibration終了 T
+├─ 死亡（確率 1 - P(alive)）→ 将来購買 0
+└─ 生存（確率 P(alive)）
+   ├─ λ ~ Gamma(r+x, rate=α+T)
+   ├─ p ~ Beta(a, b+x)
+   └─ 待ち時間 Δ ~ Exp(λ)
+      ├─ Δ が予測期間外 → 終了
+      └─ Δ が予測期間内 → 購買を1回記録
+         ├─ 確率 p で離脱 → 終了
+         └─ 確率 1-p で生存 → 次の Δ を引く（繰り返し）
+```
+
+重要なのは、「Tで生存」と判定した後も永久に生きるわけではないことだ。BG/NBDでは**将来の各購買も新しい離脱機会**になる。
+:::
 
 ```{r}
 #| label: lec10-forecast-fn
 
-# 1顧客についてholdout期間の購買回数をシミュレーションする(S回の平均)
-simulate_holdout_purchases <- function(r_hat, alpha_hat, x, tx, T_cal, p_alive, H, S = 30) {
+# 生存している1顧客を、予測開始時点0からhorizon_weeks週だけ前向きに走らせる
+simulate_future_path <- function(lambda, p_drop, horizon_weeks) {
+  t <- 0
+  events <- numeric(0)
+  repeat {
+    t_next <- t + rexp(1, rate = lambda)
+    if (t_next > horizon_weeks) break
+    t <- t_next
+    events <- c(events, t)
+    if (runif(1) < p_drop) break  # 将来の各購買直後にも離脱判定
+  }
+  events
+}
+
+# 1顧客の予測期間合計購買数をS本の将来パスで近似する
+simulate_future_purchases <- function(r_hat, alpha_hat, a_hat, b_hat,
+                                      x, T_cal, p_alive, H, S = 30) {
   lambda_post <- rgamma(S, shape = r_hat + x, rate = alpha_hat + T_cal)
+  p_post <- rbeta(S, shape1 = a_hat, shape2 = b_hat + x)
   is_alive <- runif(S) < p_alive
-  # 生きている場合のみ、率lambda_postでH期間のPoisson到着数を発生させる
-  n_events <- rpois(S, lambda = lambda_post * H)
-  n_events[!is_alive] <- 0
+  n_events <- numeric(S)
+  for (s in seq_len(S)) {
+    if (!is_alive[s]) next
+    n_events[s] <- length(simulate_future_path(lambda_post[s], p_post[s], H))
+  }
   mean(n_events)
 }
 ```
 
 ::: {.callout-note collapse="true"}
-## なぜ「率lambdaのPoisson過程でH期間に起きるイベント数」は`rpois(lambda*H)`でよいのか
+## なぜ`rpois(lambda * H)`だけでは今回は足りないのか
 
-Poisson過程の基本的な性質として、率$\lambda$の過程が長さ$H$の区間で生成するイベント数は $\text{Poisson}(\lambda H)$ に従う。個々の到着時刻をシミュレーションしなくても、区間内の合計イベント数だけが必要なら、直接Poisson分布から1回サンプルすればよい。これは購買タイムライン図（Rシミュ1）で使った「待ち時間を`rexp`で繰り返し引いて時刻を積み上げる」方法よりずっと高速で、週次の集計だけが目的のholdout検証には十分である。ただし、週ごとの内訳（トラッキングプロットの折れ線）を作るには、この後のコードのようにH期間を週ごとに分割してシミュレーションする。
+離脱がなければ、長さ$H$の区間の購買数は$\text{Poisson}(\lambda H)$なので、`rpois(1, lambda * H)`でよい。しかしBG/NBDでは、予測期間中の1回目の購買直後に離脱すれば2回目以降は起きない。将来の各購買が次の購買の有無を変えるため、今回は到着時刻を順番に生成して、購買直後の離脱判定を挟む必要がある。
 :::
 
 ```{r}
 #| label: lec10-holdout-weekly
 
-# holdout期間(26週)を1週ずつ前向きにシミュレーションし、週次購買数を数える
-simulate_holdout_weekly <- function(r_hat, alpha_hat, x, tx, T_cal, p_alive, n_weeks, S = 20) {
+# holdout期間を連続時間（単位=週）で前向きに走らせ、(w-1,w]ごとに集計する
+simulate_holdout_weekly <- function(r_hat, alpha_hat, a_hat, b_hat,
+                                    x, T_cal, p_alive, n_weeks, S = 20) {
   lambda_post <- rgamma(S, shape = r_hat + x, rate = alpha_hat + T_cal)
+  p_post <- rbeta(S, shape1 = a_hat, shape2 = b_hat + x)
   is_alive <- runif(S) < p_alive
   weekly_counts <- matrix(0, nrow = S, ncol = n_weeks)
-  for (s in 1:S) {
+  for (s in seq_len(S)) {
     if (!is_alive[s]) next
-    counts <- rpois(n_weeks, lambda = lambda_post[s])  # 週ごとに独立にPoisson(lambda)
-    weekly_counts[s, ] <- counts
+    event_times <- simulate_future_path(lambda_post[s], p_post[s], n_weeks)
+    if (length(event_times) > 0) {
+      # ceiling(t)により、時刻tを実績と同じ区間(w-1,w]へ割り当てる
+      weekly_counts[s, ] <- tabulate(ceiling(event_times), nbins = n_weeks)
+    }
   }
   colMeans(weekly_counts)
 }
@@ -549,7 +600,8 @@ simulate_holdout_weekly <- function(r_hat, alpha_hat, x, tx, T_cal, p_alive, n_w
 pred_weekly_matrix <- matrix(0, nrow = N, ncol = T_holdout)
 for (i in 1:N) {
   pred_weekly_matrix[i, ] <- simulate_holdout_weekly(
-    theta_hat["r"], theta_hat["alpha"], x_cal[i], tx_cal[i], T_cal, palive_all[i], T_holdout, S = 20
+    theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+    x_cal[i], T_cal, palive_all[i], T_holdout, S = 20
   )
 }
 pred_weekly_total <- colSums(pred_weekly_matrix)
@@ -560,6 +612,12 @@ actual_weekly_total <- sapply(1:T_holdout, function(w) {
   sum(sapply(all_events, function(ev) sum(ev > T_cal + w - 1 & ev <= T_cal + w)))
 })
 actual_indiv_total <- sapply(all_events, function(ev) sum(ev > T_cal))
+
+tracking_summary <- data.frame(
+  series = c("実績", "BG/NBD予測"),
+  purchases_26_weeks = c(sum(actual_weekly_total), sum(pred_weekly_total))
+)
+kable(tracking_summary, digits = 1, caption = "holdout 26週の総購買数（再計算結果）")
 ```
 
 ### (i) 週次累積購買のトラッキングプロット
@@ -612,11 +670,11 @@ ggplot(decile_long, aes(x = decile, y = value, fill = type)) +
        title = "予測デシル別の実績平均：校正確認")
 ```
 
-予測が高いデシルほど実績も高くなる、単調な関係が見て取れる。これは「モデルが顧客の相対的な優劣を正しく順位付けできているか」の確認であり、CLVに基づく顧客選別（後述）の妥当性の土台になる。
+予測が高いデシルほど実績もおおむね高くなるかを確認する。有限標本やモンテカルロ誤差で局所的な逆転は起こりうるので、完全な単調性を合格条件にはしない。これは順位付けだけでなく、各デシルで予測平均と実績平均の水準が合っているかという校正の確認でもある。
 
 ## CLV（顧客生涯価値）へ
 
-購買回数の期待値が予測できれば、そこに1回あたりの粗利（マージン）と割引率を掛け合わせて、顧客生涯価値（CLV, Customer Lifetime Value）を計算できる。
+購買回数の期待値が予測できれば、そこに1回あたりの粗利（マージン）と割引率を掛け合わせて、顧客価値を計算できる。以下は無限期間の厳密な「生涯」ではなく、**2年間で打ち切った予測ホライズンCLV**である。
 
 $$
 \text{CLV}_i = \text{margin} \times \sum_{w=1}^{\text{horizon}} \frac{E[\text{購買数（$w$週目）} \mid \text{パラメータ}, x_i, t_{x,i}]}{(1+d)^w}
@@ -628,29 +686,39 @@ $d$は割引率（週次に換算したもの）である。将来のキャッ�
 #| label: lec10-clv-example
 
 margin <- 1500          # 1回の購買あたりの粗利(円)
-annual_discount <- 0.10 # 年率割引率
-weekly_discount <- annual_discount / 52
+annual_discount <- 0.10 # 実効年率
+weekly_discount <- (1 + annual_discount)^(1 / 52) - 1 # 実効週率へ変換
 horizon_weeks <- 104    # 2年先まで
 
-compute_clv <- function(r_hat, alpha_hat, x, tx, T_cal, p_alive, horizon, weekly_d, margin, S = 200) {
+compute_clv <- function(r_hat, alpha_hat, a_hat, b_hat, x, T_cal, p_alive,
+                        horizon_weeks, weekly_d, margin, S = 200) {
   lambda_post <- rgamma(S, shape = r_hat + x, rate = alpha_hat + T_cal)
+  p_post <- rbeta(S, shape1 = a_hat, shape2 = b_hat + x)
   is_alive <- runif(S) < p_alive
-  discount_factors <- 1 / (1 + weekly_d)^(1:horizon)
-  discounted_expected <- sapply(lambda_post, function(lam) sum(lam * discount_factors))
-  discounted_expected[!is_alive] <- 0
-  margin * mean(discounted_expected)
+  path_value <- numeric(S)
+  for (s in seq_len(S)) {
+    if (!is_alive[s]) next
+    event_times <- simulate_future_path(lambda_post[s], p_post[s], horizon_weeks)
+    if (length(event_times) > 0) {
+      event_weeks <- ceiling(event_times)
+      path_value[s] <- sum(margin / (1 + weekly_d)^event_weeks)
+    }
+  }
+  mean(path_value)
 }
 
 # 上位顧客の例(頻繁に買い、最近も購買がある)と平均的顧客の例を比較する
-clv_top <- compute_clv(theta_hat["r"], theta_hat["alpha"], x = 15, tx = 50,
-                        T_cal = T_cal, p_alive = palive_bgnbd(theta_hat["r"], theta_hat["alpha"],
-                                                                theta_hat["a"], theta_hat["b"], 15, 50, T_cal),
-                        horizon = horizon_weeks, weekly_d = weekly_discount, margin = margin)
+clv_top <- compute_clv(theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+                       x = 15, T_cal = T_cal,
+                       p_alive = palive_bgnbd(theta_hat["r"], theta_hat["alpha"],
+                                             theta_hat["a"], theta_hat["b"], 15, 50, T_cal),
+                       horizon_weeks = horizon_weeks, weekly_d = weekly_discount, margin = margin)
 
-clv_avg <- compute_clv(theta_hat["r"], theta_hat["alpha"], x = 3, tx = 30,
-                        T_cal = T_cal, p_alive = palive_bgnbd(theta_hat["r"], theta_hat["alpha"],
-                                                                theta_hat["a"], theta_hat["b"], 3, 30, T_cal),
-                        horizon = horizon_weeks, weekly_d = weekly_discount, margin = margin)
+clv_avg <- compute_clv(theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+                       x = 3, T_cal = T_cal,
+                       p_alive = palive_bgnbd(theta_hat["r"], theta_hat["alpha"],
+                                             theta_hat["a"], theta_hat["b"], 3, 30, T_cal),
+                       horizon_weeks = horizon_weeks, weekly_d = weekly_discount, margin = margin)
 
 cat("上位顧客例(x=15,t_x=50)のCLV:", round(clv_top), "円\n")
 cat("平均的顧客例(x=3,t_x=30)のCLV:", round(clv_avg), "円\n")
@@ -670,7 +738,7 @@ CLVが高い顧客は、放っておいても買う顧客かもしれない。�
 
 **CLVは「この顧客が今後どれだけの価値を生むかという予測」であり、「この顧客に施策を打ったらどれだけ価値が変わるかという因果効果」ではない。** 顧客への資源配分を最適化するには、CLVの予測だけでなく、施策の因果効果（第7〜8回で学んだincrementality、そして第11回で学ぶuplift modelingやCATE）を別途推定する必要がある。
 
-Venkatesan and Kumar (2004) はCLVに基づく資源配分のフレームワークを提案した代表的な研究だが、次回学ぶAscarza (2018) は、まさに「離脱リスクが高い顧客をターゲティングしても効果がない（futility）」ことを実証的に示し、CLVや離脱予測をそのまま施策配分に使うことの危うさを警告している。この対比は次回さらに掘り下げる。
+Venkatesan and Kumar (2004) はCLVに基づく資源配分のフレームワークを提案した代表的な研究である。Ascarza (2018) は2つのフィールド実験と機械学習を組み合わせ、**離脱リスクが最も高い顧客が、引き止め施策の最良の対象とは限らない**ことを示した。その研究設定では、離脱リスクではなく施策への反応の異質性に基づくターゲティングの方が有効だった。これは「高リスク顧客への施策は常に無効」という一般命題ではなく、予測リスクをそのまま因果的な施策配分ルールにしてはいけない、という警告である。
 :::
 
 ## 実証研究コーナー
@@ -754,11 +822,11 @@ CLVが計算できると、顧客獲得単価（CAC, Customer Acquisition Cost�
 ::: {.callout-important}
 ## ここが核心
 
-- 非契約型ビジネスでは離脱が直接観測されない。購買回数 $x$ と最終購買時点 $t_x$ という最小限の情報（RFMのR・F）だけから、統計モデルを使って生死・将来購買を推定できる。
+- 非契約型ビジネスでは離脱が直接観測されない。$(x,t_x,T)$ という最小限の情報から生死・将来購買を推定でき、$T$ が共通なら顧客間で変わる要約はRFMのR・Fだけになる。
 - BG/NBDは、購買頻度をGamma異質性のPoisson過程（NBD）、離脱を各購買直後のBeta異質性の幾何分布としてモデル化する。これは第9回の階層モデル（個人パラメータに分布を与えるshrinkageの発想）の再演である。
 - BG/NBDの対数尤度は初等関数（ガンマ関数・ベータ関数）だけで書け、`optim()`で自作MLEにより真値を回収できる。x=0の場合分けとlogsumexpによる数値安定化が実装の勘所である。
-- P(alive)は閉形式で計算でき、購買頻度と最終購買時点の非自明な交互作用（頻繁に買っていた顧客ほど、沈黙が長いと死亡判定されやすい）を生む。
-- 将来購買数の予測は、複雑な特殊関数を避け、事後パラメータからのシミュレーションで評価する。これによりholdout期間の週次トラッキングや個人レベルの校正確認ができる。
+- P(alive)は閉形式で計算でき、購買頻度と最終購買時点の非自明な交互作用を生む。本例ではP(alive)は購買回数とともに横ばい〜微増した後、沈黙が十分長い高頻度領域で低下する。
+- 将来購買数の予測は、$\lambda\sim\mathrm{Gamma}(r+x,\text{rate}=\alpha+T)$、$p\sim\mathrm{Beta}(a,b+x)$を引き、将来の各購買直後にも離脱判定を行う。これによりholdout期間の週次トラッキングや個人レベルの校正確認ができる。
 - CLVはマージン・割引率・予測購買数から計算できるが、**CLVは予測であり因果効果ではない**。「CLVが高い顧客に施策を打つ」ことと「施策が効く顧客に施策を打つ」ことはまったく別の問題であり、後者には次回学ぶ因果推論の技術が必要になる。
 :::
 
@@ -771,7 +839,7 @@ CLVが計算できると、顧客獲得単価（CAC, Customer Acquisition Cost�
 
 ## 次回予告
 
-次回（第11回）は、今回予測した顧客価値・購買性向を使って、「誰に何を提示するか」というターゲティングの意思決定に進む。今回の最後で強調した通り、CLVの予測だけでは「誰に施策を打つべきか」は決まらない。施策の因果効果（uplift、CATE）を顧客ごとに推定し、それを予測された価値と組み合わせて、予算制約の下でどう資源配分するかを考える。Ascarza (2018) の「離脱リスクの高い顧客をターゲティングしても効果がないことがある」という警告的な実証結果から出発し、予測（今回）と因果（次回）の違いを、具体的な意思決定の場面で決定的に区別できるようになることを目指す。
+次回（第11回）は、今回予測した顧客価値・購買性向を使って、「誰に何を提示するか」というターゲティングの意思決定に進む。今回の最後で強調した通り、CLVの予測だけでは「誰に施策を打つべきか」は決まらない。施策の因果効果（uplift、CATE）を顧客ごとに推定し、それを予測された価値と組み合わせて、予算制約の下でどう資源配分するかを考える。Ascarza (2018) の「離脱リスクが最も高い顧客が、引き止め施策の最良の対象とは限らない」という実証結果から出発し、予測（今回）と因果（次回）の違いを、具体的な意思決定の場面で決定的に区別できるようになることを目指す。
 
 ## 参考文献
 

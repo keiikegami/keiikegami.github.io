@@ -80,13 +80,11 @@ bgnbd_loglik <- function(r, alpha, a, b, x, tx, T) {
   ln_A0 <- lbeta(a, b + x) - ln_Bab +
     lgamma(r + x) - lgamma(r) +
     r * log(alpha) - (r + x) * log(alpha + T)
-  ln_A1 <- ifelse(
-    x > 0,
-    lbeta(a + 1, b + x - 1) - ln_Bab +
-      lgamma(r + x) - lgamma(r) +
-      r * log(alpha) - (r + x) * log(alpha + tx),
-    -Inf
-  )
+  ln_A1 <- rep(-Inf, length(x))
+  idx <- x > 0
+  ln_A1[idx] <- lbeta(a + 1, b + x[idx] - 1) - ln_Bab +
+    lgamma(r + x[idx]) - lgamma(r) +
+    r * log(alpha) - (r + x[idx]) * log(alpha + tx[idx])
   logsumexp2(ln_A0, ln_A1)
 }
 
@@ -114,7 +112,7 @@ $$
 x_i \mid \lambda_i \sim \text{Poisson}(\lambda_i T), \qquad \lambda_i \sim \text{Gamma}(r, \alpha), \qquad p_i \sim \text{Beta}(a, b)
 $$
 
-なお、この回の $\alpha$ はGamma分布のrateパラメータであり、第2〜4回の需要推定で使った価格係数 $\alpha$ とは無関係である。4つのツマミを回して、購買回数の分布がどう変形するかを体感しよう。
+なお、この回の $\alpha$ はGamma分布の**rateパラメータ（scaleではない）**であり、第2〜4回の需要推定で使った価格係数 $\alpha$ とは無関係である。4つのツマミを回して、購買回数の分布がどう変形するかを体感しよう。
 
 ```{webr}
 #| timelimit: 90
@@ -191,12 +189,12 @@ ggplot(curve_df, aes(tx_val, palive)) +
 
 - `tx <- 40` のまま、`x <- 2` と `x <- 20` でP(alive)を比べよう。同じ12週間の沈黙が、ライトユーザーには「いつも通り」、ヘビーユーザーには「ほぼ死亡宣告」になることを数値で確認する。「たくさん買っていた顧客ほど、沈黙が続くと死亡判定が早い」のである。
 - `x <- 20` のまま `tx <- 52`（観測終了の直前に購買）にすると、P(alive)はほぼ1に戻るか。曲線の右端の跳ね上がり方を、xを変えながら見比べよう。
-- 問い：なぜ頻繁に買う顧客ほど沈黙が致命的なシグナルになるのか。「離脱のチャンスは購買の直後にしか来ない」というモデルの仮定から説明してみよう。
+- 問い：なぜ頻繁に買う顧客ほど同じ長さの沈黙が強い離脱シグナルになりうるのか。多い購買回数が$\lambda$と$p$の事後分布をそれぞれどう更新し、「生存したまま沈黙」と「最後の購買後に離脱」の相対尤度をどう変えるか説明してみよう。
 :::
 
 ## 実験3：自作MLEの真値回収 — 観測期間はどれだけ必要か
 
-講義の核心手順の再演。自分で決めた真値から顧客ベースを生成し、自作の対数尤度を`optim()`で最大化して、真値が戻ってくるかを確かめる。尤度は「Tまで生きている経路」と「$t_x$ で死んでいた経路」の確率の和で、$(x, t_x, T)$ だけで書ける——RFMのRとFが十分統計量になる、という講義の主張をコードで確認する場面でもある。
+講義の核心手順の再演。自分で決めた真値から顧客ベースを生成し、自作の対数尤度を`optim()`で最大化して、真値が戻ってくるかを確かめる。尤度は「Tまで生きている経路」と「$t_x$ で死んでいた経路」の確率の和で、$(x, t_x, T)$ だけで書ける。ここでは$T$が全顧客で共通なので、顧客間で変わる十分な要約はRFMのRとFになる、という講義の主張をコードで確認する場面でもある。
 
 ```{webr}
 #| timelimit: 90
@@ -235,7 +233,64 @@ data.frame(
 
 - `T_cal <- 26` に半分にしてみよう。4つのパラメータのうち、SEの膨らみ方が一番激しいのはどれか。真値が信頼区間から外れる場面も出てくるはずだ。
 - `N <- 2000` に倍増するとSEはおよそ $1/\sqrt{2}$ 倍に縮むか。あわせて `set.seed(1)` などseedを変えて、推定値のブレ幅も体感しよう。
-- 問い：離脱パラメータ $a, b$ の推定が購買率パラメータ $r, \alpha$ より常に苦しいのはなぜか。「離脱の情報はどの顧客のどんな行動から来るか」を考えよう。
+- 問い：この設定で離脱パラメータ $a, b$ の推定が購買率パラメータ $r, \alpha$ より難しくなりやすいのはなぜか。離脱は直接観測されず、最終購買後の沈黙から間接的に推定していることを手がかりに考えよう。
+:::
+
+## 実験4：将来予測のevent tree — 購買のたびに離脱判定する
+
+calibration終了時点で生存している経路では、
+
+$$
+\lambda\mid x,T,\mathrm{alive}\sim\mathrm{Gamma}(r+x,\mathrm{rate}=\alpha+T),\qquad
+p\mid x,\mathrm{alive}\sim\mathrm{Beta}(a,b+x)
+$$
+
+となる。1本の将来パスは「T時点で死亡なら0、生存なら待ち時間を引く → 期間内なら購買 → 購買直後に離脱判定 → 生存なら次の待ち時間」という小さなevent treeである。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+x <- 5; tx <- 40; T_obs <- 52
+H <- 26; S <- 1000                # 予測期間Hも週
+r <- 0.8; alpha <- 6; a <- 0.7; b <- 2.5
+# -----------------------
+
+set.seed(202610)
+p_alive <- palive_bgnbd(r, alpha, a, b, x, tx, T_obs)
+lambda_post <- rgamma(S, shape = r + x, rate = alpha + T_obs)
+p_post <- rbeta(S, shape1 = a, shape2 = b + x)
+alive_at_T <- runif(S) < p_alive
+
+correct_counts <- numeric(S)
+for (s in seq_len(S)) {
+  if (!alive_at_T[s]) next
+  # 共通道具箱の関数は、各購買直後に確率p_post[s]で離脱させる
+  correct_counts[s] <- length(simulate_customer_events(lambda_post[s], p_post[s], H))
+}
+
+# 比較用の誤った近似：Tで生存ならH週ずっと生存すると仮定
+no_future_dropout <- ifelse(alive_at_T, rpois(S, lambda_post * H), 0)
+
+cat("P(alive at T) =", round(p_alive, 3), "\n")
+cat("追加離脱ありの予測平均 =", round(mean(correct_counts), 3), "回\n")
+cat("追加離脱を無視した平均 =", round(mean(no_future_dropout), 3), "回\n")
+
+plot_df <- rbind(
+  data.frame(count = correct_counts, model = "BG/NBD: future dropout included"),
+  data.frame(count = no_future_dropout, model = "incorrect: alive forever after T")
+)
+ggplot(plot_df, aes(count, fill = model)) +
+  geom_histogram(binwidth = 1, position = "identity", alpha = 0.55) +
+  coord_cartesian(xlim = c(0, quantile(plot_df$count, 0.99))) +
+  labs(x = "purchases in next 26 weeks", y = "simulation paths", fill = "")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `H <- 104`にすると、追加離脱を無視する誤差がどう広がるか確認しよう。
+- `a <- 0.2; b <- 5`のように離脱確率を下げると、2つの予測は近づくか。
+- `alpha + T_obs`で足してよいのは、$\lambda$が回/週、$T$が週だからである。日単位へ直すなら$\lambda,\alpha,T,H$を整合的に変換する必要がある。
 :::
 
 ## 次に読むもの

@@ -2425,7 +2425,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="設定ecサイトのメールクーポン実験">設定：ECサイトのメールクーポン実験</h2>
 <p>あなたはECサイトのマーケティング分析チームにいるとしよう。<span class="math inline">\(N=10,000\)</span>人の顧客を対象に、メールクーポンの配信実験を計画している。</p>
 <ul>
-<li><strong>配信<span class="math inline">\(D_i \in \{0,1\}\)</span></strong>：ランダムに50%の確率で配信する。</li>
+<li><strong>配信<span class="math inline">\(D_i \in \{0,1\}\)</span></strong>：対象のちょうど50%を無作為に選ぶ完全無作為化で配信する。</li>
 <li><strong>実験前30日購買額<span class="math inline">\(X_i\)</span>（共変量）</strong>：配信とは無関係に決まっている、実験開始前の顧客の購買傾向を表す変数。実験期間のアウトカムと相関<span class="math inline">\(\rho \approx 0.6\)</span>を持つように設計する。</li>
 <li><strong>使用<span class="math inline">\(U_i \in \{0,1\}\)</span></strong>：配信された顧客のうち、実際にクーポンを使うかどうかは顧客の「能力」（購買意欲・ネットリテラシーなど、観測されない潜在変数）に依存する自己選択。配信されなかった顧客は使いようがない（one-sided noncompliance）。</li>
 <li><strong>実験期間購買額<span class="math inline">\(Y_i\)</span>（アウトカム）</strong>：使用したことの効果（TOT）を受けて決まる。</li>
@@ -2442,7 +2442,7 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="q110点配信能力実験前購買額の生成">Q1（10点）：配信・能力・実験前購買額の生成</h3>
 <p><span class="math inline">\(N=10,000\)</span>の顧客について、次の変数を生成せよ。</p>
 <ul>
-<li>配信 <span class="math inline">\(D_i\)</span>：50%の確率でランダムに割り当てる（<code>rbinom</code>）。</li>
+<li>配信 <span class="math inline">\(D_i\)</span>：処置数を<span class="math inline">\(N/2\)</span>に固定し、対象のちょうど50%をランダムに割り当てる。</li>
 <li>能力（潜在変数）<span class="math inline">\(\text{ability}_i\)</span>：標準正規分布 <span class="math inline">\(N(0,1)\)</span>。</li>
 <li>実験前30日購買額 <span class="math inline">\(X_i\)</span>（<code>pre_period</code>）：能力と相関0.7を持つように、次の手順で生成する。
 <ol type="1">
@@ -2454,7 +2454,7 @@ window.Quarto = {
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>N <span class="ot">&lt;-</span> <span class="dv">10000</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>D <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(N, <span class="dv">1</span>, ___)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>D <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="fu">rep</span>(<span class="dv">1</span>, N <span class="sc">/</span> <span class="dv">2</span>), <span class="fu">rep</span>(<span class="dv">0</span>, N <span class="sc">/</span> <span class="dv">2</span>)))</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>ability <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, ___, ___)</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>z_pre_indep <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, <span class="dv">0</span>, <span class="dv">1</span>)</span>
@@ -2514,16 +2514,16 @@ U_i = D_i \times \text{Bernoulli}(\text{use\_prob}_i)
 \]</span></p>
 <p>（<span class="math inline">\(\text{pre\_z}_i\)</span>はQ1で作った変数を再利用する。<span class="math inline">\(z_{\text{out},i}\)</span>は新しい独立なノイズ）</p>
 <p><span class="math display">\[
-Y_i = \max(\text{outcome\_base}_i + U_i \times 800,\ 0)
+Y_i = \max(\text{outcome\_base}_i,\ 0) + U_i \times 800
 \]</span></p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>true_tot <span class="ot">&lt;-</span> <span class="dv">800</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>z_out_indep <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, <span class="dv">0</span>, <span class="dv">1</span>)</span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>out_z <span class="ot">&lt;-</span> ___ <span class="sc">*</span> pre_z <span class="sc">+</span> <span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">-</span> ___<span class="sc">^</span><span class="dv">2</span>) <span class="sc">*</span> z_out_indep</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>outcome_base <span class="ot">&lt;-</span> <span class="dv">8200</span> <span class="sc">+</span> <span class="dv">2200</span> <span class="sc">*</span> out_z</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>outcome_base <span class="ot">&lt;-</span> <span class="fu">pmax</span>(<span class="dv">8200</span> <span class="sc">+</span> <span class="dv">2200</span> <span class="sc">*</span> out_z, <span class="dv">0</span>)</span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>Y <span class="ot">&lt;-</span> <span class="fu">pmax</span>(outcome_base <span class="sc">+</span> U <span class="sc">*</span> ___, <span class="dv">0</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>Y <span class="ot">&lt;-</span> outcome_base <span class="sc">+</span> U <span class="sc">*</span> ___</span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>coupon_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">D =</span> D, <span class="at">ability =</span> ability, <span class="at">pre_period =</span> pre_period, <span class="at">U =</span> U, <span class="at">Y =</span> Y)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -2580,7 +2580,7 @@ Y_i = \max(\text{outcome\_base}_i + U_i \times 800,\ 0)
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>使用するかどうかは能力に依存する自己選択である。能力の高い顧客ほどクーポンを使い、かつ能力の高い顧客はクーポンなしでも（<code>outcome_base</code>が高いため）購買額が高い。この2つの効果が混ざって、単純比較はTOTを大幅に（2倍以上）過大評価する。倍率がだいたい2〜3倍程度になっていれば正しい実装である。</p>
+<p>使用するかどうかは能力に依存する自己選択である。能力の高い顧客ほどクーポンを使い、かつ能力の高い顧客はクーポンなしでも（<code>outcome_base</code>が高いため）購買額が高い。この2つの効果が混ざって、単純比較はTOTを大幅に過大評価する。指定したseedではおおむね2〜3倍になるが、倍率そのものを正誤判定に使わず、コードと自己選択の向きを確認すること。</p>
 </div>
 </div>
 </section>
@@ -2589,7 +2589,7 @@ Y_i = \max(\text{outcome\_base}_i + U_i \times 800,\ 0)
 <ol type="1">
 <li>ITT（配信群と非配信群の<span class="math inline">\(Y\)</span>の平均差）を計算せよ。</li>
 <li><code>t.test(Y ~ D, data = coupon_df)</code>でt検定を実行し、p値を報告せよ。</li>
-<li>処置ラベル<span class="math inline">\(D\)</span>を2,000回シャッフルし、ランダム化推論のp値を計算せよ。t検定のp値と比較せよ。</li>
+<li>「全顧客で配信効果がゼロ」というFisherのsharp nullに対して、実際の完全無作為化と同じ配信人数を保ったまま処置ラベル<span class="math inline">\(D\)</span>を2,000回シャッフルし、Monte Carlo p値を計算せよ。平均効果ゼロというweak nullを扱うWelchのt検定とは帰無仮説が違うことを明記した上で、数値を比較せよ。</li>
 </ol>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>itt_hat <span class="ot">&lt;-</span> <span class="fu">mean</span>(coupon_df<span class="sc">$</span>Y[coupon_df<span class="sc">$</span>D <span class="sc">==</span> <span class="dv">1</span>]) <span class="sc">-</span> <span class="fu">mean</span>(coupon_df<span class="sc">$</span>Y[coupon_df<span class="sc">$</span>D <span class="sc">==</span> <span class="dv">0</span>])</span>
@@ -2602,7 +2602,7 @@ Y_i = \max(\text{outcome\_base}_i + U_i \times 800,\ 0)
 <span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  D_shuffled <span class="ot">&lt;-</span> <span class="fu">sample</span>(coupon_df<span class="sc">$</span>D)</span>
 <span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  perm_diffs[b] <span class="ot">&lt;-</span> <span class="fu">mean</span>(coupon_df<span class="sc">$</span>Y[D_shuffled <span class="sc">==</span> <span class="dv">1</span>]) <span class="sc">-</span> <span class="fu">mean</span>(coupon_df<span class="sc">$</span>Y[D_shuffled <span class="sc">==</span> <span class="dv">0</span>])</span>
 <span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>p_perm <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(perm_diffs) <span class="sc">&gt;=</span> <span class="fu">abs</span>(itt_hat))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>p_perm <span class="ot">&lt;-</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">sum</span>(<span class="fu">abs</span>(perm_diffs) <span class="sc">&gt;=</span> <span class="fu">abs</span>(itt_hat))) <span class="sc">/</span> (n_perm <span class="sc">+</span> <span class="dv">1</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2614,14 +2614,14 @@ Y_i = \max(\text{outcome\_base}_i + U_i \times 800,\ 0)
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(N=10,000\)</span>で2,000回のシャッフルを行うと、この課題のPCでは数秒〜十数秒程度かかることがある。シャッフルのたびに<code>coupon_df$Y</code>全体を並べ替える必要はなく、<code>sample(coupon_df$D)</code>でラベルだけをシャッフルすれば十分に速い。もし遅すぎる場合は<code>n_perm</code>を1000に減らしても、結論（t検定とほぼ一致すること）は変わらない。</p>
+<p><span class="math inline">\(N=10,000\)</span>で2,000回のシャッフルを行うと数秒〜十数秒かかることがある。<code>sample(coupon_df$D)</code>でラベルだけをシャッフルすればよい。回数を減らすとMonte Carlo誤差は大きくなるため、p値の末尾が一致することではなく、検定対象の違いと結論が大きく矛盾しないかを確認する。</p>
 </div>
 </div>
 </section>
 <section id="q712点tot推定配信をivにした2sls" class="level3">
 <h3 class="anchored" data-anchor-id="q712点tot推定配信をivにした2sls">Q7（12点）：TOT推定：配信をIVにした2SLS</h3>
 <ol type="1">
-<li>Wald推定量（TOT = ITT ÷ 使用率）を計算せよ。</li>
+<li>ランダム割り当て・first stage・排除制約・monotonicity・one-sided noncomplianceの各仮定を確認し、Wald推定量（この設定ではTOT = ITT ÷ 使用率）を計算せよ。</li>
 <li><code>fixest::feols()</code>で、配信<span class="math inline">\(D\)</span>を操作変数として使用<span class="math inline">\(U\)</span>を内生変数にした2SLSを実行し、TOTを推定せよ。Wald推定量と一致することを確認せよ。</li>
 <li>Q5の単純比較、Q7のTOT推定値、真値800円を並べた比較表を作れ。</li>
 </ol>
@@ -2657,7 +2657,7 @@ Y_i = \max(\text{outcome\_base}_i + U_i \times 800,\ 0)
 <h3 class="anchored" data-anchor-id="q810点cuped回帰調整によるse削減率">Q8（10点）：CUPED/回帰調整によるSE削減率</h3>
 <ol type="1">
 <li><code>pre_period</code>を共変量にしたCUPED調整を行い、調整前後のATE（ITT）推定値とSEを比較せよ。</li>
-<li>分散削減率とSE削減率を計算し、<span class="math inline">\(\text{corr}(\text{pre\_period}, Y)^2\)</span>の理論値と比較せよ。</li>
+<li>分散削減率とSE削減率を計算し、母集団の最適係数を使う理論式<span class="math inline">\(\rho^2\)</span>の標本対応物<span class="math inline">\(\text{corr}(\text{pre\_period}, Y)^2\)</span>と比較せよ。有限標本で必ず一致する値ではないことにも触れよ。</li>
 <li>同じ検出力を達成するのに必要なサンプルサイズが何%減るかを報告せよ。</li>
 </ol>
 <div class="cell" data-layout-align="center">
@@ -2764,7 +2764,7 @@ Y_i = \max(\text{outcome\_base}_i + U_i \times 800,\ 0)
 <ul>
 <li>チャンクを上から順に実行して、未定義変数によるエラーが出ないか確認したか。</li>
 <li><code>itt_hat</code>、<code>naive_diff</code>（Q5）、<code>wald_tot</code>・2SLS推定値（Q7）を明確に区別して報告しているか。</li>
-<li>Q9のpeekingシミュレーションで、覗く回数が増えるほどType I errorが単調に増加していることを確認したか。</li>
+<li>Q9のpeekingシミュレーションで、覗く機会を増やすほどType I errorが全体として上昇することを確認したか（Monte Carlo誤差で隣り合う推定値が逆転することはある）。</li>
 <li>Q10のMDEが、真のITT（<code>true_tot * usage_rate</code>とだいたい一致するはず）と比べてどちらが大きいか（この実験でITTを検出できる規模だったか）にコメントしているか。</li>
 </ul>
 </div>

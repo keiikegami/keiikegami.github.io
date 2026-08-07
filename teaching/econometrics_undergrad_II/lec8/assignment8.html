@@ -2359,8 +2359,8 @@ window.Quarto = {
   <ul class="collapse">
   <li><a href="#設問2-110点前後比較単純比較" id="toc-設問2-110点前後比較単純比較" class="nav-link" data-scroll-target="#設問2-110点前後比較単純比較">設問2-1（10点）：前後比較・単純比較</a></li>
   <li><a href="#設問2-212点静的twfe推定" id="toc-設問2-212点静的twfe推定" class="nav-link" data-scroll-target="#設問2-212点静的twfe推定">設問2-2（12点）：静的TWFE推定</a></li>
-  <li><a href="#設問2-312点sunabによるevent-studyの復元" id="toc-設問2-312点sunabによるevent-studyの復元" class="nav-link" data-scroll-target="#設問2-312点sunabによるevent-studyの復元">設問2-3（12点）：sunabによるevent studyの復元</a></li>
-  <li><a href="#設問2-48点pre-trendの確認" id="toc-設問2-48点pre-trendの確認" class="nav-link" data-scroll-target="#設問2-48点pre-trendの確認">設問2-4（8点）：pre-trendの確認</a></li>
+  <li><a href="#設問2-312点sunabによるevent-studyの推定" id="toc-設問2-312点sunabによるevent-studyの推定" class="nav-link" data-scroll-target="#設問2-312点sunabによるevent-studyの推定">設問2-3（12点）：sunabによるevent studyの推定</a></li>
+  <li><a href="#設問2-48点pre-trendの記述と同時検定" id="toc-設問2-48点pre-trendの記述と同時検定" class="nav-link" data-scroll-target="#設問2-48点pre-trendの記述と同時検定">設問2-4（8点）：pre-trendの記述と同時検定</a></li>
   <li><a href="#設問2-5別課題13点会員ランクrdd" id="toc-設問2-5別課題13点会員ランクrdd" class="nav-link" data-scroll-target="#設問2-5別課題13点会員ランクrdd">設問2-5（別課題・13点）：会員ランクRDD</a></li>
   <li><a href="#設問2-6経営含意5点経営政策への含意を3行で書け" id="toc-設問2-6経営含意5点経営政策への含意を3行で書け" class="nav-link" data-scroll-target="#設問2-6経営含意5点経営政策への含意を3行で書け">設問2-6（経営含意・5点）：経営・政策への含意を3行で書け</a></li>
   </ul></li>
@@ -2400,8 +2400,8 @@ window.Quarto = {
 
 <section id="この課題について" class="level2">
 <h2 class="anchored" data-anchor-id="この課題について">この課題について</h2>
-<p>第8回の講義では、staggered adoption（施策の導入時期が単位ごとにバラバラ）のもとで、素朴な静的TWFE（two-way fixed effects）推定がどれほど深刻に歪みうるか、そして<code>fixest::sunab</code>を使えばその歪みを補正できることをシミュレーションで確認した。また、会員ランクのような閾値を利用したRDDの基本も学んだ。</p>
-<p>この課題では、講義ノートと<strong>同じ構造・異なる設定</strong>のDGPを自分の手で構築し、静的TWFEの歪みとsunabによる補正を再現した上で、会員ランクRDDの推定を独立に行う。</p>
+<p>第8回の講義では、staggered adoption（施策の導入時期が単位ごとにバラバラ）のもとで、素朴な静的TWFE（two-way fixed effects）推定がどれほど深刻に歪みうるか、そして<code>fixest::sunab</code>でSun-Abraham型のevent studyを推定する方法をシミュレーションで確認した。また、会員ランクのような閾値を利用したRDDの基本も学んだ。</p>
+<p>この課題では、講義ノートと<strong>同じ構造・異なる設定</strong>のDGPを自分の手で構築し、静的TWFEとSun-Abraham型推定を比較した上で、会員ランクRDDの推定を独立に行う。</p>
 <ul>
 <li><strong>Part 1</strong>：小売チェーンの<strong>店舗</strong>（都道府県ではなく個別店舗）における新レジシステムの時差導入DGPを自作する（配点40点）。</li>
 <li><strong>Part 2</strong>：(i) 前後比較・単純比較、(ii) 静的TWFE、(iii) sunabによるevent study、(iv) pre-trend確認、(v) 会員ランクRDD、(vi) 経営含意3行、を行う（配点60点）。</li>
@@ -2421,7 +2421,7 @@ window.Quarto = {
 <li>staggered adoption・動的異質効果というDGPを自分の手で書けるようになる。</li>
 <li>静的TWFEが真の効果の符号やスケールをどう見誤るかを、自分のシミュレーションで確認する。</li>
 <li><code>fixest::sunab</code>を使ったevent studyの実装と、その出力の読み方（係数名の対応、<code>ref.p</code>の意味）を身につける。</li>
-<li><code>rdrobust</code>を使った基本的なRDD推定と、走行変数のヒストグラムによるbunching確認の作法を身につける。</li>
+<li><code>rdrobust</code>を使った基本的なRDD推定と、走行変数のヒストグラムをbunchingの診断材料として読む作法を身につける。</li>
 </ul>
 </div>
 </div>
@@ -2438,7 +2438,7 @@ window.Quarto = {
 <li>効果は動的：導入後の経過月数 <span class="math inline">\(e = t - \text{adopt}_i\)</span> に対して線形に成長する。ただし成長の傾き <span class="math inline">\(\theta_i\)</span> は店舗ごとに異なり、<strong>早期導入店舗ほど効果の伸びが大きく</strong>（<span class="math inline">\(\theta_{\text{early}} = 0.18\)</span>）、<strong>後期導入店舗ほど効果の伸びが小さい</strong>（<span class="math inline">\(\theta_{\text{late}} = -0.10\)</span>、講義ノートの値から少し変えてある）。傾きは導入時点に応じて線形補間で決まる：</li>
 </ul>
 <p><span class="math display">\[
-\theta_i = \theta_{\text{early}} + \frac{\text{adopt}_i - \text{adopt}_{\text{lo}}}{\text{adopt}_{\text{hi}} - 1 - \text{adopt}_{\text{lo}}} \left(\theta_{\text{late}} - \theta_{\text{early}}\right)
+\theta_i = \theta_{\text{early}} + \frac{\text{adopt}_i - \text{adopt}_{\text{lo}}}{\text{adopt}_{\text{hi}} - \text{adopt}_{\text{lo}}} \left(\theta_{\text{late}} - \theta_{\text{early}}\right)
 \]</span></p>
 <ul>
 <li>店舗固定効果 <span class="math inline">\(\mu_i \sim N(0, 1)\)</span>、月固定効果 <span class="math inline">\(\lambda_t \sim N(0, 0.4^2)\)</span>、共通トレンド <span class="math inline">\(0.012 \times t\)</span>、誤差項は標準偏差0.25の正規分布。</li>
@@ -2560,7 +2560,7 @@ y_{it} = \mu_i + \lambda_t + 0.012 t + \theta_i \cdot e_{it} \cdot D_{it} + \var
 <h2 class="anchored" data-anchor-id="part-2推定推論配点60点">Part 2：推定・推論（配点60点）</h2>
 <section id="設問2-110点前後比較単純比較" class="level3">
 <h3 class="anchored" data-anchor-id="設問2-110点前後比較単純比較">設問2-1（10点）：前後比較・単純比較</h3>
-<p>処置群店舗について、導入前（<code>treated == 0</code>の期間）と導入後（<code>treated == 1</code>の期間）の<code>y</code>の平均を単純に比較せよ。また、同じ期間について、処置群店舗と対照群（never-treated）店舗の平均<code>y</code>をそのまま比較せよ（時間の違いを無視した単純な群間比較）。</p>
+<p>処置群店舗について、導入前（<code>treated == 0</code>の期間）と導入後（<code>treated == 1</code>の期間）の<code>y</code>の平均を単純に比較せよ。また、<strong>最終月</strong>における処置群店舗と対照群（never-treated）店舗の平均<code>y</code>をそのまま比較せよ。</p>
 <p>これら2つの「素朴な」比較の値を、Part 1で確認した真のATT（<code>true_effect</code>の平均）と並べて表にまとめ、どちらの比較がより真値に近いか、あるいはどちらも大きくずれているかをコメントせよ。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2572,14 +2572,15 @@ y_{it} = \mu_i + \lambda_t + 0.012 t + \theta_i \cdot e_{it} \cdot D_{it} + \var
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>前後比較は、店舗固定効果は相殺できても、共通トレンド（<code>0.012 * month</code>）や月固定効果の影響を受ける。処置群vs対照群の単純な群間比較は、店舗固定効果の違い（もともとの店舗の水準差）を無視してしまう。どちらも、次の設問で見る固定効果込みの回帰に劣ることを確認するのが狙いである。</p>
+<p>前後比較は、共通トレンド（<code>0.012 * month</code>）や月固定効果を処置効果に混ぜる。最終月の群間比較は店舗の水準差を混ぜるうえ、最終月の効果と「全処置セルの平均ATT」という異なる対象を比べている。数値が偶然真値に近いかどうかではなく、各比較が何を混ぜ、どの対象を測っているかを説明するのが狙いである。次の静的TWFEも万能な正解ではなく、動学的・コホート別異質性のため別の歪みを持つ。</p>
 </div>
 </div>
 </section>
 <section id="設問2-212点静的twfe推定" class="level3">
 <h3 class="anchored" data-anchor-id="設問2-212点静的twfe推定">設問2-2（12点）：静的TWFE推定</h3>
 <p>Part 1で作ったデータを使い、次の静的TWFE回帰を実行せよ。</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>static_fit_a <span class="ot">&lt;-</span> <span class="fu">feols</span>(y <span class="sc">~</span> treated <span class="sc">|</span> store <span class="sc">+</span> month, <span class="at">data =</span> rollout_df)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>static_fit_a <span class="ot">&lt;-</span> <span class="fu">feols</span>(y <span class="sc">~</span> treated <span class="sc">|</span> store <span class="sc">+</span> month,</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>                      <span class="at">data =</span> rollout_df, <span class="at">vcov =</span> <span class="sc">~</span>store)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <p>推定された係数を、Part 1で確認した真のATT（<code>true_effect</code>の平均）と比較し、<strong>符号が一致しているか、大きさはどの程度ズレているか</strong>を明示的にコメントせよ。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2595,10 +2596,11 @@ y_{it} = \mu_i + \lambda_t + 0.012 t + \theta_i \cdot e_{it} \cdot D_{it} + \var
 </div>
 </div>
 </section>
-<section id="設問2-312点sunabによるevent-studyの復元" class="level3">
-<h3 class="anchored" data-anchor-id="設問2-312点sunabによるevent-studyの復元">設問2-3（12点）：sunabによるevent studyの復元</h3>
-<p><code>fixest::sunab()</code>を使って、動的効果を正しく復元するevent studyを推定せよ。</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>sunab_fit_a <span class="ot">&lt;-</span> <span class="fu">feols</span>(y <span class="sc">~</span> <span class="fu">sunab</span>(adopt_t, month) <span class="sc">|</span> store <span class="sc">+</span> month, <span class="at">data =</span> rollout_df)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="設問2-312点sunabによるevent-studyの推定" class="level3">
+<h3 class="anchored" data-anchor-id="設問2-312点sunabによるevent-studyの推定">設問2-3（12点）：sunabによるevent studyの推定</h3>
+<p><code>fixest::sunab()</code>を使って、コホート×相対期間の異質性に頑健なSun-Abraham型event studyを推定せよ。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>sunab_fit_a <span class="ot">&lt;-</span> <span class="fu">feols</span>(y <span class="sc">~</span> <span class="fu">sunab</span>(adopt_t, month) <span class="sc">|</span> store <span class="sc">+</span> month,</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>                     <span class="at">data =</span> rollout_df, <span class="at">vcov =</span> <span class="sc">~</span>store)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <p>以下を行え。</p>
 <ol type="a">
 <li><code>iplot(sunab_fit_a)</code>でevent studyの図を描く。</li>
@@ -2618,9 +2620,14 @@ y_{it} = \mu_i + \lambda_t + 0.012 t + \theta_i \cdot e_{it} \cdot D_{it} + \var
 </div>
 </div>
 </section>
-<section id="設問2-48点pre-trendの確認" class="level3">
-<h3 class="anchored" data-anchor-id="設問2-48点pre-trendの確認">設問2-4（8点）：pre-trendの確認</h3>
-<p>sunabの推定結果から、処置前（<code>month::</code>のマイナス値に対応する）係数だけを取り出し、その平均絶対値を計算せよ。この値がゼロに近いかどうかをコメントし、「並行トレンドの補助的な支持証拠」として解釈できるかを論じよ。</p>
+<section id="設問2-48点pre-trendの記述と同時検定" class="level3">
+<h3 class="anchored" data-anchor-id="設問2-48点pre-trendの記述と同時検定">設問2-4（8点）：pre-trendの記述と同時検定</h3>
+<p>sunabの推定結果について、次の2つを行え。</p>
+<ol type="1">
+<li>直近4期の処置前係数（<span class="math inline">\(e=-5,-4,-3,-2\)</span>）を取り出し、平均絶対値を計算する。</li>
+<li>セットアップチャンクで用意した<code>sunab_pretrend_wald()</code>を使い、この4係数が同時にゼロかを、店舗クラスタ頑健なWald検定で確かめる。</li>
+</ol>
+<p>図、平均絶対値、Wald検定のp値をまとめて解釈せよ。「棄却できないことは並行トレンドの証明ではない」ことと、pre-trend検定は小さな違反に対して検出力が低いことも明記すること。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2632,17 +2639,18 @@ y_{it} = \mu_i + \lambda_t + 0.012 t + \theta_i \cdot e_{it} \cdot D_{it} + \var
 </div>
 <div class="callout-body-container callout-body">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>coefs_a <span class="ot">&lt;-</span> <span class="fu">coef</span>(sunab_fit_a)</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>names_a <span class="ot">&lt;-</span> <span class="fu">names</span>(coefs_a)</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>pre_idx_a <span class="ot">&lt;-</span> <span class="fu">grepl</span>(<span class="st">&quot;^month::-&quot;</span>, names_a)</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>pre_coefs_a <span class="ot">&lt;-</span> coefs_a[pre_idx_a]</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(<span class="fu">abs</span>(pre_coefs_a), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>pre_periods_a <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">5</span><span class="sc">:-</span><span class="dv">2</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>period_table_a <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(sunab_fit_a, <span class="st">&quot;period&quot;</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>pre_names_a <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;month::&quot;</span>, pre_periods_a)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>pre_coefs_a <span class="ot">&lt;-</span> period_table_a[pre_names_a, <span class="st">&quot;Estimate&quot;</span>]</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(<span class="fu">abs</span>(pre_coefs_a), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="fu">sunab_pretrend_wald</span>(sunab_fit_a, pre_periods_a, <span class="at">n_clusters =</span> G_a)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </div>
 </section>
 <section id="設問2-5別課題13点会員ランクrdd" class="level3">
 <h3 class="anchored" data-anchor-id="設問2-5別課題13点会員ランクrdd">設問2-5（別課題・13点）：会員ランクRDD</h3>
-<p>ここからは別のデータセットを使う独立した設問である。ある小売チェーンの会員制度で、<strong>年間購入額が5万円を超えるとゴールド会員になり、翌年の購買額が変化する</strong>という状況を考える。次のDGPでデータを生成せよ（このDGPには走行変数の操作＝bunchingは含めない）。</p>
+<p>ここからは別のデータセットを使う独立した設問である。ある小売チェーンの会員制度で、<strong>年間購入額が5万円以上になるとゴールド会員になり、翌年の購買額が変化する</strong>という状況を考える。次のDGPでデータを生成せよ（このDGPには走行変数の操作＝bunchingは含めない）。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>n_rdd_a <span class="ot">&lt;-</span> <span class="dv">3000</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>cutoff_a <span class="ot">&lt;-</span> <span class="fl">5.0</span></span>
@@ -2667,9 +2675,10 @@ y_{it} = \mu_i + \lambda_t + 0.012 t + \theta_i \cdot e_{it} \cdot D_{it} + \var
 </div>
 <p>以下を行え。</p>
 <ol type="a">
-<li><code>rdrobust::rdrobust(y, x, c = cutoff)</code>でジャンプの大きさを推定し、真値1.2万円と比較せよ。</li>
+<li><code>rdrobust::rdrobust(y, x, c = cutoff)</code>でジャンプを推定し、<code>Conventional</code>の点推定値と<code>Robust</code>の95%信頼区間を報告して、真値1.2万円と比較せよ。</li>
 <li><code>rdrobust::rdplot(y, x, c = cutoff)</code>でビン分割散布図を描け。</li>
-<li>走行変数<code>annual_purchase</code>のヒストグラムを、カットオフ付近に注目して描き、カットオフ直下・直上のカウントを数えて比を計算せよ。この比がほぼ1（滑らか）であることを確認し、bunching（閾値ゲーミング）が起きていないことを述べよ。</li>
+<li>走行変数<code>annual_purchase</code>のヒストグラムを、カットオフ付近に注目して描き、カットオフ直下・直上のカウント比を計算せよ。この標本で目立つbunchingが見えないかを診断し、単純な比が1に近くても「操作なし」やRDDの妥当性の証明にはならないことを述べよ。</li>
+<li>この推定値を因果効果として読むために必要な仮定を二つ挙げ、推定対象がカットオフ近傍の局所効果であることを説明せよ。</li>
 </ol>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2685,7 +2694,7 @@ y_{it} = \mu_i + \lambda_t + 0.012 t + \theta_i \cdot e_{it} \cdot D_{it} + \var
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>count_below <span class="ot">&lt;-</span> <span class="fu">sum</span>(rdd_df_a<span class="sc">$</span>annual_purchase <span class="sc">&gt;=</span> cutoff_a <span class="sc">-</span> <span class="fl">0.5</span> <span class="sc">&amp;</span> rdd_df_a<span class="sc">$</span>annual_purchase <span class="sc">&lt;</span> cutoff_a)</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>count_above <span class="ot">&lt;-</span> <span class="fu">sum</span>(rdd_df_a<span class="sc">$</span>annual_purchase <span class="sc">&gt;=</span> cutoff_a <span class="sc">&amp;</span> rdd_df_a<span class="sc">$</span>annual_purchase <span class="sc">&lt;</span> cutoff_a <span class="sc">+</span> <span class="fl">0.5</span>)</span>
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>count_above <span class="sc">/</span> count_below</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
-<p>操作なしのDGPなので、この比はおおむね1に近い値になるはずである。もし3倍・4倍のように大きくずれていたら、DGPの実装を見直すこと。</p>
+<p>操作なしのDGPなので、この比はおおむね1に近い値になるはずである。もし3倍・4倍のように大きくずれていたら、DGPの実装を見直すこと。ただし、これはビン幅に左右される粗い診断であり、McCrary型の密度検定そのものではない。</p>
 </div>
 </div>
 </section>

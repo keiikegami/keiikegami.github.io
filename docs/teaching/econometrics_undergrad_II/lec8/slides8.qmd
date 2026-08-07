@@ -54,7 +54,7 @@ options(scipen = 8)
 | 12分 | DiDのマーケ応用とevent study |
 | 20分 | staggered adoption：現代DiDの核心 |
 | 7分 | IV再訪：広告出稿の操作変数 |
-| 13分 | RDD：閾値の宝庫と閾値ゲーミング |
+| 13分 | マーケティングの閾値とRDD・閾値ゲーミング |
 | 8分 | 識別の失敗例ギャラリー |
 | 2分 | まとめ・宿題・次回予告 |
 
@@ -87,9 +87,9 @@ options(scipen = 8)
 
 ## 前回とのつながり
 
-- 第7回：ランダム化すれば、単純な平均差がそのまま因果効果になる——実験は「金本位制」
-- しかし実務では実験ができない場面のほうが多い：全国一斉値上げ、テレビCM、法律や社内政治の制約
-- 頼れるのは**観察データ（observational data）**だけ
+- 第7回：選択的欠測・群間干渉がなく割当どおりに分析すれば、ランダム化された群の平均差がITTを推定——実験は因果推論の**ゴールドスタンダード（最も信頼できる基準）**
+- しかし実務では実験が難しい場面も多い：全国一斉値上げ、テレビCM、法律や社内政治の制約
+- 観察データから、仮定を明示した比較を組み立てる必要がある
 
 ::: {.keybox .fragment}
 今日のゴール：実験をベンチマークにしながら、観察データの中の変動を使って**反実仮想を近似する識別戦略**（DiD・IV・RDD）をマーケティング施策に応用できるようになる。
@@ -104,7 +104,7 @@ options(scipen = 8)
 
 1. 「広告接触者は非接触者より購買率が高い」という単純比較を歪める **activity bias** の構造が分かる
 2. DiD・IV・RDDを、キャンペーン・広告・会員ランクという**マーケの現場**に当てはめられる
-3. **staggered adoption** の下で静的TWFEが**符号すら間違える**ことをシミュレーションで確認できる
+3. **staggered adoption＋動学的・コホート別異質性**の下で、静的TWFEが**符号すら間違えうる**ことを確認できる
 4. `fixest::sunab` による現代的な **event study** を実装できる
 5. 閾値ゲーミング（**bunching**）というRDD特有の落とし穴を知っている
 
@@ -147,20 +147,20 @@ options(scipen = 8)
 
 ## シミュレーションの設計
 
-顧客5,000人。活動量には2種類あるとする：
+顧客10,000人。活動量には2種類あるとする：
 
 - `obs_activity`：**観測できる**活動量（ログイン頻度など、社内データにある）
 - `unobs_activity`：**観測できない**活動量（外出頻度・可処分時間など）
 
 両方が「広告接触確率」と「購買確率」の**両方**を押し上げるDGPを組む。
 
-- 真の広告効果は購買率 **+5%ポイント** に較正してある
+- 真の広告効果は平均購買確率 **+5%ポイント** に数値的に較正する
 - 問い：単純比較と、観測活動量だけ調整した回帰は、この真値にどれだけ迫れるか
 
 ```{r}
 #| label: dgp-activity-bias
 #| include: false
-n_cust <- 5000
+n_cust <- 10000
 
 obs_activity   <- rnorm(n_cust, mean = 0, sd = 1)
 unobs_activity <- rnorm(n_cust, mean = 0, sd = 1)
@@ -169,11 +169,15 @@ logit_exposure <- -0.3 + 0.9 * obs_activity + 0.9 * unobs_activity
 prob_exposure  <- 1 / (1 + exp(-logit_exposure))
 exposed <- rbinom(n_cust, size = 1, prob = prob_exposure)
 
-true_ad_effect <- 0.05
+target_ad_ate <- 0.05
+logit_purchase_0 <- -2.2 + 0.5 * obs_activity + 0.5 * unobs_activity
+ad_logit_shift <- uniroot(
+  function(delta) mean(plogis(logit_purchase_0 + delta) - plogis(logit_purchase_0)) - target_ad_ate,
+  interval = c(0, 5)
+)$root
 
-logit_purchase <- -2.2 + true_ad_effect * 4 * exposed +
-  0.5 * obs_activity + 0.5 * unobs_activity
-prob_purchase <- 1 / (1 + exp(-logit_purchase))
+logit_purchase <- logit_purchase_0 + ad_logit_shift * exposed
+prob_purchase <- plogis(logit_purchase)
 purchased <- rbinom(n_cust, size = 1, prob = prob_purchase)
 
 cust_df <- data.frame(
@@ -184,18 +188,26 @@ cust_df <- data.frame(
   purchased = purchased
 )
 
-logit_purchase_1 <- -2.2 + true_ad_effect * 4 * 1 + 0.5 * obs_activity + 0.5 * unobs_activity
-logit_purchase_0 <- -2.2 + true_ad_effect * 4 * 0 + 0.5 * obs_activity + 0.5 * unobs_activity
-true_effect_check <- mean(1 / (1 + exp(-logit_purchase_1))) - mean(1 / (1 + exp(-logit_purchase_0)))
+logit_purchase_1 <- logit_purchase_0 + ad_logit_shift
+true_effect_check <- mean(plogis(logit_purchase_1) - plogis(logit_purchase_0))
 
 naive_diff <- mean(cust_df$purchased[cust_df$exposed == 1]) -
   mean(cust_df$purchased[cust_df$exposed == 0])
 
-fit_adjusted <- lm(purchased ~ exposed + obs_activity, data = cust_df)
-adjusted_effect <- coef(fit_adjusted)["exposed"]
+standardized_risk_diff <- function(fit, data) {
+  data1 <- data; data1$exposed <- 1
+  data0 <- data; data0$exposed <- 0
+  mean(predict(fit, newdata = data1, type = "response") -
+         predict(fit, newdata = data0, type = "response"))
+}
 
-fit_full <- lm(purchased ~ exposed + obs_activity + unobs_activity, data = cust_df)
-full_adjusted_effect <- coef(fit_full)["exposed"]
+fit_adjusted <- glm(purchased ~ exposed + obs_activity,
+                    family = binomial(), data = cust_df)
+adjusted_effect <- standardized_risk_diff(fit_adjusted, cust_df)
+
+fit_full <- glm(purchased ~ exposed + obs_activity + unobs_activity,
+                family = binomial(), data = cust_df)
+full_adjusted_effect <- standardized_risk_diff(fit_full, cust_df)
 
 comparison_df <- data.frame(
   method = c("単純比較", "調整（観測活動量のみ）", "参考：未観測まで調整", "真の効果"),
@@ -204,7 +216,7 @@ comparison_df <- data.frame(
 ```
 
 ::: {.notes}
-- DGPの詳細（ロジスティックモデルの係数）はノート参照。真値0.05は潜在アウトカムのシミュレーションで確認してある。
+- logit係数0.05を5%ポイントと誤読せず、潜在確率差の平均が0.05になるshiftを`uniroot()`で求めている。
 - 「未観測活動量」は、企業のデータには絶対に入らない変数の代表として置いている。
 :::
 
@@ -218,7 +230,7 @@ ggplot(comparison_df, aes(x = method, y = estimate, fill = method)) +
   geom_col(width = 0.6, show.legend = FALSE) +
   geom_hline(yintercept = true_effect_check, linetype = "dashed", color = "firebrick") +
   labs(x = NULL, y = "推定された広告効果（購買率ポイント）",
-       title = "単純比較は真値の2倍超、観測共変量の調整だけでは消えない") +
+       title = "単純比較のactivity bias：観測共変量だけでは消えない") +
   scale_y_continuous(labels = scales::percent) +
   theme(axis.text.x = element_text(angle = 20, hjust = 1))
 ```
@@ -228,7 +240,7 @@ ggplot(comparison_df, aes(x = method, y = estimate, fill = method)) +
 
 ::: {.notes}
 - 破線が真値（約5%ポイント）。
-- 「未観測まで調整」の棒が真値に重なるのは、シミュレーションだからできる答え合わせ。実データでは不可能。
+- 調整値はlogitの予測確率を全員接触／非接触に標準化した平均リスク差。未観測まで入る棒はシミュレーションだけの答え合わせ。
 :::
 
 ## 観測変数の調整では足りない
@@ -294,8 +306,23 @@ $$
 
 ::: {.notes}
 - 「処置前に並行だったから処置後も並行のはず」は論理的には保証されない。
-- それでもpre-trendがきれいなら並行トレンドの信頼性は上がる、という「状況証拠」としての位置づけ。
+- pre-trend検定は検出力が低いことがあり、棄却できないことは「並行」の証明ではない。
 - DiDの本質＝観測できない処置群の変化分を、対照群の実際の変化で代用すること。
+:::
+
+## 2×2 DiDをまず手計算
+
+| | 処置前 | 処置後 | 群内の変化 |
+|---|---:|---:|---:|
+| 処置群 | 10 | 16 | $16-10=6$ |
+| 対照群 | 8 | 11 | $11-8=3$ |
+
+$$
+\widehat{\tau}_{\mathrm{DiD}}=(16-10)-(11-8)=6-3=\boxed{3}
+$$
+
+::: {.notes}
+- 「後-前」を各群で作り、その差をもう1回取る。この小さな一段が回帰係数とつながる。
 :::
 
 ## 処置群と対照群の平均推移
@@ -339,7 +366,7 @@ ggplot(trend_df, aes(x = time, y = y_mean, color = group_label)) +
   geom_line(linewidth = 1) +
   geom_vline(xintercept = treat_time_simple - 0.5, linetype = "dashed", color = "gray40") +
   labs(x = "期", y = "平均売上（指数）", color = NULL,
-       title = "全県が同時（第12期）に処置される単純なケース") +
+       title = "処置県は同時（第12期）に導入する単純なケース") +
   theme(legend.position = "bottom")
 ```
 
@@ -347,7 +374,7 @@ ggplot(trend_df, aes(x = time, y = y_mean, color = group_label)) +
 - 処置前は並行に動き、処置時点（破線）以降に差が開く
 
 ::: {.notes}
-- まずは「教科書通りに振る舞う」ケース。全員が同時に処置される。
+- まずは「教科書通りに振る舞う」ケース。処置群は同時に処置され、対照群は未処置のまま。
 - staggered問題が起きる前の姿を見ておくことで、後の対比が効く。
 :::
 
@@ -357,7 +384,8 @@ ggplot(trend_df, aes(x = time, y = y_mean, color = group_label)) +
 #| label: static-did-simple
 #| echo: true
 #| output-location: fragment
-static_did_fit <- feols(y ~ treated_now | unit + time, data = simple_df)
+static_did_fit <- feols(y ~ treated_now | unit + time,
+                        data = simple_df, vcov = ~unit)
 coef(static_did_fit)["treated_now"]
 ```
 
@@ -377,7 +405,8 @@ coef(static_did_fit)["treated_now"]
 - 処置後（ラグ）：効果の時間的推移が見える
 
 ```r
-feols(y ~ i(time_to_treat, ref = -1) | unit + time, data = df)
+feols(y ~ i(time_to_treat, ref = -1) | unit + time,
+      data = df, vcov = ~unit)
 ```
 
 - `time_to_treat`：処置時点からの相対期間（処置1期前 = -1、当期 = 0）
@@ -393,7 +422,8 @@ feols(y ~ i(time_to_treat, ref = -1) | unit + time, data = df)
 ```{r}
 #| label: event-study-simple
 #| include: false
-es_fit <- feols(y ~ i(time_to_treat, ref = -1) | unit + time, data = simple_df)
+es_fit <- feols(y ~ i(time_to_treat, ref = -1) | unit + time,
+                data = simple_df, vcov = ~unit)
 ```
 
 ```{r}
@@ -404,6 +434,7 @@ iplot(es_fit, main = "単一処置時点のevent study", xlab = "処置からの
 
 - リード（処置前）はゼロ近辺 → 並行トレンドの補助的な支持証拠
 - ラグ（処置後）は真の効果 0.4 付近で安定
+- 標準誤差は処置割当単位の県（`unit`）でクラスタリング
 
 ::: {.notes}
 - リード係数がゼロに集まっていること自体が簡易プラセボ検定を兼ねている。
@@ -421,14 +452,14 @@ DiDレポートの最低限のマナー：**pre-trendの図（event study）を�
 :::
 
 ::: {.notes}
-- ここまでが「単純な」DiD。次の節から、実務で圧倒的に多い時差導入の世界に入る。
+- ここまでが「単純な」DiD。次の節から、実務でよくある時差導入の世界に入る。
 :::
 
 # staggered adoption：現代DiDの核心 {background-color="#1f3552"}
 
 ::: {.notes}
 - この節は20分。今日の見せ場。時間をかけてよい。
-- 流れ：時差導入はふつう → DGP設計 → 静的TWFEの符号反転 → 禁じられた比較の直感 → sunabで復元。
+- 流れ：時差導入はふつう → DGP設計 → 静的TWFEの符号反転 → 禁じられた比較の直感 → Sun-Abraham型推定と比較。
 :::
 
 ## 実務の施策は「時差導入」だらけ
@@ -438,7 +469,7 @@ DiDレポートの最低限のマナー：**pre-trendの図（event study）を�
 - この「時差」があるだけで、素朴な静的TWFE（two-way fixed effects）が深刻に歪みうる
 
 ::: {.warnbox .fragment}
-「固定効果さえ入れておけばDiDは安全」は、staggered adoptionの下では**神話**。この10年の計量経済学（Goodman-Bacon 2021, Callaway and Sant'Anna 2021, Sun and Abraham 2021）が明らかにした。
+staggered adoptionに動学的・コホート別異質性が重なると、「固定効果さえ入れれば安全」ではない。効果が全セルで一定なら静的TWFEは回収できるので、**時差だけ**が問題なのではない。
 :::
 
 ::: {.notes}
@@ -482,7 +513,7 @@ theta_late  <- -0.08
 theta_g <- ifelse(
   adoption_time > Tt,
   0,
-  theta_early + ((adoption_time - adopt_lo) / (adopt_hi - 1 - adopt_lo)) * (theta_late - theta_early)
+  theta_early + ((adoption_time - adopt_lo) / (adopt_hi - adopt_lo)) * (theta_late - theta_early)
 )
 
 unit_fe <- rnorm(G, mean = 0, sd = 1)
@@ -538,7 +569,8 @@ ggplot(rollout_df, aes(x = time, y = reorder(factor(unit), -adopt_t), fill = sta
 #| label: static-twfe-staggered
 #| echo: true
 #| output-location: fragment
-static_twfe_fit <- feols(y ~ treated | unit + time, data = staggered_df)
+static_twfe_fit <- feols(y ~ treated | unit + time,
+                         data = staggered_df, vcov = ~unit)
 coef(static_twfe_fit)["treated"]
 ```
 
@@ -565,64 +597,63 @@ knitr::kable(twfe_comparison, digits = 3, col.names = c("手法", "推定値"))
 - 静的TWFEは「施策には**負**の効果がある」という**正反対の結論**を出した
 
 ::: {.keybox .fragment}
-これは「バイアスが少しある」というレベルではない。**符号そのものを取り違えている**。しかも極端なパラメータを選んだ特殊事例ではなく、「効果が動的に成長し、成長ペースがコホートで異なる」という実務でごく自然な状況で繰り返し起こる。
+これは「バイアスが少しある」というレベルではない。**符号そのものを取り違えている**。ただし、このDGPは仕組みを見やすくするため、動学的・コホート別の異質性を意図的に強くしている。符号反転は必然ではないが、静的TWFEがATTを狙わず、符号まで逆転しうることを示す例である。
 :::
 
 ::: {.notes}
-- 複数の乱数シードで同様の符号反転が確認できる（ノート・課題で確認させる）。
+- この一つのDGPから「staggered adoptionなら必ず逆転する」と一般化しない。必要条件は効果の動学・コホート異質性と、汚染比較の組合せ。
 - 「なぜこんなことが起きるのか」が次の2枚。
 :::
 
-## 犯人は「禁じられた比較」
+## 問題の源：forbidden comparison
 
-Goodman-Bacon (2021) の分解：静的TWFEは「あらゆる2群・2時点のDiD比較」の**加重平均**として書ける。
+Goodman-Bacon (2021)：静的TWFEは2群・2時点DiDの加重平均。
 
-その中に、こういう比較が紛れ込む：
+| 比較 | 対照にする群 | 評価 |
+|---|---|---|
+| 処置 vs never | never-treated | 比較的クリーン |
+| 早期 vs 後期 | まだ未処置の後期群 | 比較的クリーン |
+| 後期 vs 早期 | **すでに処置済みの早期群** | 動学効果で汚染 |
 
-- **すでに処置済みの早期導入県**を「対照群」として、後期導入県の前後変化と比べる比較
-- 早期導入県は「動かない基準」ではなく、**処置効果が伸び続けている真っ最中**
-
-. . .
-
-これが「禁じられた比較（forbidden comparison）」。
+最後が文献でforbidden comparison（「禁じられた比較」）と呼ばれるもの。
 
 ::: {.notes}
-- 2×2 DiDの部品に分解すると、(a) 処置 vs never-treated、(b) 早期 vs 後期（後期がまだ未処置の期間）、(c) 後期 vs 早期（早期がすでに処置済みの期間）が混ざる。(c)が問題。
-- 「対照群の役割を期待した群が、自分自身も大きく動いている」という汚染。
+- 表の上から順に読み、なぜ3行目だけが危険かを言葉で確認する。
 :::
 
 ## なぜ符号まで狂うのか
 
 - 早期導入県を対照に使うと、その県自身の**動学的な効果の伸び**が、知りたい効果から**差し引かれて**しまう
 - 本シミュレーションでは早期導入県ほど伸びが大きい（$\theta$ = 0.15）→ 差し引かれる量が大きい
-- この汚染が**負のウェイト**として加重平均に混入し、合計をマイナスまで引きずり下ろす
+- 汚染された2×2 DiD成分自体が負になり、その成分に**正のウェイト**が付く
 
 ::: {.warnbox .fragment}
 「うちの施策はロールアウトが時差だったし、効果は導入後じわじわ効くタイプだった」——思い当たるなら、静的TWFEの結果を鵜呑みにしてはいけない。
 :::
 
 ::: {.notes}
-- 時差導入・動的効果・コホート間の異質性、の3条件が重なると危険、という整理。
-- 逆に、効果が全コホートで一定なら静的TWFEでも大丈夫（宿題で確認させる）。
+- Goodman-Baconの2×2成分に付くウェイトは非負。別の「セル別効果への重み」表現では負のウェイトが現れる。
+- コホート間の傾きを同じにしても、効果が経過期間で変われば歪みは残りうる。
 :::
 
-## 処方箋：sunabで正しく集計する
+## 処方箋：Sun-Abraham型event study
 
 ```{r}
 #| label: sunab-fit
 #| echo: true
 #| output-location: fragment
 sunab_fit <- feols(y ~ sunab(adopt_t, time) | unit + time,
-                   data = staggered_df)
+                   data = staggered_df, vcov = ~unit)
 ```
 
-- `sunab(cohort, period)`：Sun and Abraham (2021) 型の推定量
+- `sunab(cohort, period)`：Sun and Abraham (2021) のinteraction-weighted推定量
 - `cohort` = 各県の導入時点（never-treated県には観測期間を超える大きな値）
-- コホート×相対期間ごとの効果を**個別に**推定してから集計 → 禁じられた比較を避ける
+- コホート×相対期間のinteractionを推定してから集計
+- 標準誤差は処置割当単位の`unit`でクラスタリング
 
 ::: {.notes}
 - adopt_t列がcohort役。never-treated県はTt + 1000という値にしてある。
-- 考え方はCallaway and Sant'Anna (2021)と共通：「すでに処置された群を対照に使わない」。
+- Callaway-Sant'Anna法と目的は共通するが、同じ推定量ではない。
 :::
 
 ## sunabのevent study
@@ -633,12 +664,27 @@ sunab_fit <- feols(y ~ sunab(adopt_t, time) | unit + time,
 iplot(sunab_fit, main = "Sun-Abraham event study（sunab）", xlab = "処置からの相対期間")
 ```
 
-- 処置前はほぼゼロ（並行トレンドの支持）
-- 処置後は**徐々に立ち上がる動的効果**——DGPに組み込んだ形状を正しく復元
+- 処置前はおおむねゼロ近辺（並行トレンドの補助証拠）
+- 処置後は**徐々に立ち上がる動的効果**——DGPの方向を捉える
 
 ::: {.notes}
-- 静的TWFEでは符号すら怪しかったのに、sunabは動的効果の形まで正しく描けている。
-- リード係数の平均絶対値もゼロ近辺（ノートで数値確認済み）。
+- 図だけでなく、講義ノートでは直近4リードを同時検定する。
+:::
+
+## pre-trend：1本ずつではなく同時検定
+
+- 図：リード係数の大きさと信頼区間を見る
+- 検定：直近4期 $e=-5,-4,-3,-2$ が**同時にゼロ**かをWald検定
+- 推論：処置割当単位の`unit`でクラスタリング
+
+```r
+# 講義ノートで定義した、集計リード用のhelper
+sunab_pretrend_wald(sunab_fit, periods = -5:-2,
+                    n_clusters = G)
+```
+
+::: {.warnbox .fragment}
+棄却できない $≠$ 並行トレンドの証明。小さな違反を見逃す低検出力に注意。
 :::
 
 ## 静的TWFE vs sunab
@@ -674,28 +720,29 @@ ggplot(final_comparison, aes(x = method, y = estimate, fill = method)) +
 
 ## Callaway and Sant'Anna (2021) の考え方
 
-- コホート $g$ × 時点 $t$ ごとの効果 $\mathrm{ATT}(g,t)$ を、**never-treated群（または未処置群）を対照に**個別に推定
-- それをコホートサイズ等でウェイト付けして集計（経過期間別・コホート別・全体）
-- 核心の設計思想：**すでに処置された群を対照に使わない**
+| | `sunab`（Sun-Abraham） | Callaway-Sant'Anna |
+|---|---|---|
+| 基本単位 | cohort × relative time | $\mathrm{ATT}(g,t)$ |
+| 対照 | 基準cohort・基準期 | never / not-yet treatedを選択 |
+| 集計 | interaction-weighted | 動学別・群別・全体 |
 
 ::: {.keybox .fragment}
-sunab（Sun-Abraham）とCallaway-Sant'Annaは細部は違うが、この核心思想は共通。現代のstaggered DiDの実務標準は「群×時点のATTを丁寧に集計する」という発想に収束している。
+共通点：コホート別に推定してから集計。相違点：識別仮定、対照群、重み、推論。**`sunab()`はC&S推定量の実装ではない。**
 :::
 
 ::: {.notes}
-- Journal of Econometrics 2021の同じ号にGoodman-Bacon、Callaway-Sant'Anna、Sun-Abrahamが並んでいる。この10年の総決算。
-- 講義ではdidパッケージは使わずsunabで代表させる（whitelistの都合＋十分実用的）。
+- C&S法そのものはRパッケージ`did`などで別に実装する。
 :::
 
 ## ビジネスの現場で：導入順序をランダム化する
 
 - どうせ段階的にロールアウトするなら、**導入順序をあらかじめランダムに決めておく**
-- 導入順序が店舗の特性（地力・規模・担当者の意欲）と無相関になり、後のsunab型分析が格段にクリーンになる
-- 実験（A/Bテスト）と観察的ロールアウトの「良いとこ取り」
+- 導入順序が店舗の特性（地力・規模・担当者の意欲）と系統的に結びつかず、識別根拠が明確になる
+- 単に時差を作るのではなく、**導入順序をランダム化**する実験デザイン
 
 ::: {.notes}
 - 「システムの都合で自然にstaggeredになった」と「ランダムにstaggeredにした」は分析価値が全く違う。
-- 第7回の実験設計の発想を、実験できない大規模展開に持ち込むという提案。
+- 第7回の実験設計の発想を、大規模な段階導入へ持ち込む提案。分析・推論も割当手続きと割当単位に合わせる。
 :::
 
 # IV再訪：広告出稿の操作変数 {background-color="#1f3552"}
@@ -725,19 +772,20 @@ sunab（Sun-Abraham）とCallaway-Sant'Annaは細部は違うが、この核心�
 - 勝負所：「なぜこの変数がアウトカムに直接効かないと言えるのか」を制度・データ構造で具体的に説明できるか
 
 ::: {.warnbox .fragment}
-統計的に強いが理論的に怪しいIVは危険。統計的に弱くても理論的にもっともらしいIVのほうが信頼されることもある。
+IVには、first stageの**関連性**と、外生性・**除外制約**の両方が必要。一方が他方を補うことはない。
 :::
 
 ::: {.notes}
 - 「IVは技術ではなくストーリー」という言い方をしてもよい。
-- F統計量が大きい＝良いIV、ではない。除外制約は統計では検証できない。
+- F統計量が大きい＝妥当なIV、ではない。除外制約は統計だけでは検証できない。
+- 逆に、制度的にもっともらしくても弱いIVでは有限標本バイアスと通常の近似推論の不安定さが問題になる。
 :::
 
 ## 実証研究：Blake, Nosko and Tadelis (2015)
 
 - **問い**：ブランド検索連動広告は本当に売上を増やしているのか
-- **アプローチ**：eBayが自社ブランド検索広告を**実際に停止**する大規模準実験（Econometrica）
-- **発見**：広告を止めても、クリックの大半は**自然検索経由で戻ってきた**。真のincrementalityは相関分析の示唆よりはるかに小さい
+- **アプローチ**：ブランド語広告の停止という準実験的な契機＋地域単位のランダム化停止実験を含む一連の大規模フィールド実験（*Econometrica*）
+- **発見**：ブランド語広告の短期便益はほぼゼロ。非ブランド語の効果は新規・低頻度顧客に集中し、全顧客平均の収益は負
 
 ::: {.keybox .fragment}
 「広告接触者の多くは、広告がなくても行動していた客だった」——今日のactivity biasの議論と直結する象徴的な事例。
@@ -748,25 +796,37 @@ sunab（Sun-Abraham）とCallaway-Sant'Annaは細部は違うが、この核心�
 - 「たまたま広告が止まった」（システム障害・予算削減・法務の差し止め）は準実験の宝。見逃すな、という実務メッセージ。
 :::
 
-# RDD：閾値の宝庫 {background-color="#1f3552"}
+# マーケティングの閾値とRDD {background-color="#1f3552"}
 
 ::: {.notes}
 - この節は13分。前半でRDDのマーケ応用、後半でbunchingという落とし穴。
 :::
 
-## マーケティングは閾値の宝庫
+## RDDを応用できる閾値
 
-「ある変数が閾値を超えると処置が不連続に切り替わる」状況＝RDDの舞台。マーケの現場は閾値だらけ：
+「ある変数が閾値を超えると処置が不連続に切り替わる」状況＝RDDの舞台。マーケの現場にも候補は多い：
 
 - **会員ランク**：年間購入額5万円以上でゴールド会員
 - **送料無料閾値**：カート合計が一定額以上で送料無料
 - **クーポン配布閾値**：累計購入額が基準を超えると自動配布
 
-閾値のすぐ下とすぐ上の顧客は**本質的にほぼ同じ**なのに、片方だけが特典を受ける。
+連続性仮定が妥当なら、閾値のすぐ下とすぐ上の顧客を比べ、アウトカムのジャンプを局所的な因果効果として読める。
 
 ::: {.notes}
 - 「ほぼ同じ人が処置の有無だけで分かれる」＝閾値近傍での局所ランダム化、という直感。
 - 計量IでのRDD復習は最小限に。今日はマーケの応用と落とし穴が主役。
+:::
+
+## RDDを読む5段階チェック
+
+1. 閾値で**処置確率**が不連続に変わる
+2. 潜在アウトカムは閾値をまたいで**連続**
+3. 別の制度・施策が同じ閾値で切り替わらない
+4. 走行変数の**精密な操作**がないと考えられる
+5. 推定対象は原則として**カットオフ近傍の局所効果**
+
+::: {.warnbox .fragment}
+「直下と直上はほぼ同じ」は自動的に成立する事実ではない。制度、図、補助検定で2〜4を吟味して初めて使える比較である。
 :::
 
 ## 会員ランクRDD：カットオフのジャンプ
@@ -832,7 +892,7 @@ summary(rdd_fit)
 #| label: rdd-fit-run
 #| include: false
 rdd_fit <- rdrobust(y = rdd_df$next_year_purchase, x = rdd_df$annual_purchase, c = cutoff_rdd)
-rdd_est <- tryCatch(as.numeric(rdd_fit$coef["Robust", 1]), error = function(e) NA_real_)
+rdd_est <- tryCatch(as.numeric(rdd_fit$coef["Conventional", 1]), error = function(e) NA_real_)
 rdd_ci_lo <- tryCatch(as.numeric(rdd_fit$ci["Robust", 1]), error = function(e) NA_real_)
 rdd_ci_hi <- tryCatch(as.numeric(rdd_fit$ci["Robust", 2]), error = function(e) NA_real_)
 ```
@@ -841,18 +901,18 @@ rdd_ci_hi <- tryCatch(as.numeric(rdd_fit$ci["Robust", 2]), error = function(e) N
 ```{r}
 #| label: tbl-rdd-result
 rdd_tbl <- data.frame(
-  item = c("真のジャンプ（万円）", "Robust推定値", "95%CI下限", "95%CI上限"),
+  item = c("真のジャンプ（万円）", "局所線形点推定値", "RBC 95%CI下限", "RBC 95%CI上限"),
   value = round(c(true_jump, rdd_est, rdd_ci_lo, rdd_ci_hi), 3)
 )
 knitr::kable(rdd_tbl, col.names = c("項目", "値"))
 ```
 :::
 
-- 実務ではバイアス補正＋頑健SEの **Robust** 行を最終結論に使う
+- `Conventional`の点推定値と、`Robust`の**バイアス補正済みp値・信頼区間**を併記する
 
 ::: {.notes}
 - rdrobustはバンド幅選択・局所多項式・バイアス補正を全部自動でやってくれる。
-- バンド幅を絞るほど真値に近づき、広げすぎるとカーブの線形近似バイアスが乗る、という教科書的性質もノートで確認。
+- 狭いバンド幅はバイアスを減らしやすいが分散を増やす。一つの標本で「狭いほど必ず真値に近い」とは限らない。
 :::
 
 ## rdplotで確認
@@ -877,11 +937,11 @@ RDDの鍵の仮定：**走行変数を、処置の有無を狙って精密に操
 
 - しかし会員ランクは**顧客に閾値が見えている**制度
 - 年末、「あと少しでゴールド」の顧客が閾値超えのためだけに**駆け込み購入**
-- 走行変数の分布がカットオフ付近で不自然に歪む → 識別仮定の崩壊
+- 走行変数の分布がカットオフ付近で不自然に歪む → 精密操作を疑う警告
 
 . . .
 
-検出の古典：**McCrary検定**＝走行変数のヒストグラムがカットオフで不連続かを見る
+検出の古典：**McCrary検定**＝カットオフ左右の走行変数の密度を推定し、対数密度差を検定
 
 ::: {.notes}
 - 「閾値のすぐ下とすぐ上はほぼ同じ人」という前提が、駆け込みで壊れる。閾値直上に「意図的に超えてきた人」が集まるから。
@@ -927,22 +987,22 @@ ggplot(bunch_compare_df, aes(x = annual_purchase, fill = scenario)) +
 - 操作ありでは、カットオフ直下が激減し直上が急増（直上/直下比 = 約 `r round(ratio_manip, 1)`）
 
 ::: {.notes}
-- 操作なしなら直上/直下比はほぼ1（滑らか）。3を大きく超えたら危険信号。
-- 今日のRDD推定は「操作なし版」のDGPで行ったので識別仮定は満たされていた、という整理。
+- 直上/直下比はヒストグラムに基づく粗い診断であり、McCrary検定そのものではない。
+- 比が1に近くても妥当性の証明にはならず、不連続があっても制度的な理由と合わせて解釈する。
 :::
 
 ## 反転の視点：bunchingは情報でもある
 
 - RDDにとっては識別の**脅威**
 - しかしマーケの意思決定にとっては「顧客がどれだけ閾値を意識して行動を変えるか」を測る**貴重な情報**
-- bunchingの大きさは、送料無料閾値や会員ランク閾値の**最適設計**に直結する
+- 行動・反実仮想・特典コストのモデルと組み合わせれば、bunchingは閾値設計の**入力**になる
 
 ::: {.keybox .fragment}
 「操作されると分析が困る」という後ろ向きの見方と、「操作の大きさ自体が価値ある情報」という前向きの見方——両方持っておくのがプロ。
 :::
 
 ::: {.notes}
-- 閾値をどこに置けば駆け込み購入による追加売上を最大化できるか、という設計問題。
+- bunchingの大きさだけで最適閾値は決まらない。追加購買の反実仮想や特典コストまで必要。
 - 公共経済学のbunching推定（税制のキンク点）と同じ発想がマーケに輸入されている。
 :::
 
@@ -971,7 +1031,7 @@ ggplot(bunch_compare_df, aes(x = annual_purchase, fill = scenario)) +
 
 ## 失敗例3・4：選ばれ方の歪み
 
-**cream skimming**
+**都合のよい対象だけを選ぶ（cream skimming）**
 
 - 「休眠顧客の掘り起こし」のはずが、対象条件の設定で**もともと戻りやすい優良顧客**ばかり選ばれる
 - 施策後の購買率上昇は、施策の効果ではなく選抜の反映
@@ -979,7 +1039,7 @@ ggplot(bunch_compare_df, aes(x = annual_purchase, fill = scenario)) +
 **「効果が出た地域だけ報告」**
 
 - 多地域で試して良い数字の地域だけ社内報告 → 出版バイアスの社内版
-- 真の効果ゼロでも「たまたま良い数字」の地域は必ず出る（第7回の**多重検定**そのもの）
+- 真の効果ゼロでも「たまたま良い数字」の地域が高確率で出る（第7回の**多重検定**そのもの）
 
 ::: {.notes}
 - cream skimmingは「誰が選ばれているか」の失敗。第9〜11回のターゲティングの話と表裏一体。
@@ -1004,9 +1064,10 @@ ggplot(bunch_compare_df, aes(x = annual_purchase, fill = scenario)) +
 ::: {.keybox .fragment}
 - 単純比較は **activity bias** で歪む。観測変数の調整だけでは未観測の交絡が残る
 - DiDの並行トレンドは**検証不能**。pre-trend（event study）は補助証拠として必ず添える
-- **staggered adoption** ＋ 動的・異質な効果の下で、静的TWFEは**符号すら逆転**しうる（禁じられた比較・負のウェイト）
-- 処方箋は `fixest::sunab`：コホート×時点の効果を個別推定して集計（Callaway-Sant'Annaと同じ思想）
-- RDDはマーケの**閾値の宝庫**で使えるが、**bunching**（閾値ゲーミング）で識別仮定が崩れる
+- **staggered adoption** ＋ 動的・異質な効果の下で、静的TWFEは**符号すら逆転**しうる（すでに処置された群を対照にする汚染比較）
+- `fixest::sunab`はSun-Abraham型event study。Callaway-Sant'Anna法と目的は共通するが別の推定量
+- パネルの標準誤差は単位でクラスタリングし、pre-trendは図と同時検定で報告
+- RDDを使える閾値はマーケに多いが、**bunching**や精密操作が疑われると比較可能性の再検討が必要
 - 「比較対象は誰か・いつと比べているか・誰が選ばれているか」の3点チェック
 :::
 
@@ -1024,7 +1085,7 @@ ggplot(bunch_compare_df, aes(x = annual_purchase, fill = scenario)) +
 
 ::: {.nonincremental}
 
-- Rシミュ2の `theta_early` と `theta_late` を両方同じ正の値にして（コホート間の異質性を消して）、静的TWFEの歪みが消えることを確認する
+- Rシミュ2を2段階で変更：(1) `theta_early = theta_late > 0`とし、共通の動学効果でTWFEの歪みが残るか確認、(2) `true_effect = tau_const * treated`とし、効果が真に一定な場合と比較
 - 生成AIに「Goodman-Bacon分解とは何か、なぜstaggered DiDで問題になるのか」と聞いて、今日の説明と比べる
 - 身近な施策で「staggered rolloutの導入順序はランダムだったか、意図的だったか」を1つ考えてみる
 - **coding課題は `assignment8.qmd`**：店舗・エリアの文脈でstaggered DGPを再現し、静的TWFEとsunabの違いを自分の手で確認
@@ -1032,7 +1093,7 @@ ggplot(bunch_compare_df, aes(x = annual_purchase, fill = scenario)) +
 
 
 ::: {.notes}
-- 1つ目の宿題が一番大事。「異質性がなければ静的TWFEも大丈夫」を体感すると、問題の構造が腑に落ちる。
+- 「コホート間の異質性を消す」のと「効果を時間的にも一定にする」のは別操作だと強調する。
 :::
 
 ## 次回予告：「誰に効いたか」へ

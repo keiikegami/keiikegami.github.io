@@ -40,7 +40,7 @@ options(scipen = 8)
 ::: {.callout-important}
 ## この課題のねらい
 
-第9回でやった **partial pooling / shrinkage** を、自分の手で最初から最後まで通す。60店舗のクーポン施策を題材に、(1) データを自作し、(2) 経験ベイズのモーメント法で縮小推定を作り、(3) MSE で no pooling に勝つことを確かめ、(4) Gibbs サンプラーを手実装してフルベイズの事後分布を出し、(5) 点推定ランキングでなく事後確率でターゲティングする、という流れだ。
+第9回でやった **partial pooling / shrinkage** を、自分の手で最初から最後まで通す。60店舗のクーポン施策を題材に、(1) データを自作し、(2) 経験ベイズのモーメント法で縮小推定を作り、(3) MSE を no pooling と比較し、(4) Gibbs サンプラーを複数 chain で実装・診断してフルベイズの事後分布を出し、(5) 点推定ランキングでなく事後確率でターゲティングする、という流れだ。
 
 - **Part 1**：60店舗のクーポン施策 DGP を自作（40点）。
 - **Part 2**：経験ベイズ・MSE比較・Gibbs実装・確率ベースのターゲティング（60点）。
@@ -191,15 +191,18 @@ ggplot(df_arrow) +
 
 ## 問5（10点）：MSE 比較表（complete / no pooling / EB）
 
-3つの推定量の MSE $= \frac1N\sum_i(\hat\theta_i - \theta_i)^2$ を計算し、表にせよ。経験ベイズが最小になることを確認する。さらに、データ生成を1000回繰り返して**平均的にも**経験ベイズが勝つことをモンテカルロで示せ。
+3つの推定量の MSE $= \frac1N\sum_i(\hat\theta_i - \theta_i)^2$ を計算し、表にせよ。1つの実現データでは経験ベイズが最小とは限らない点にも注意する。さらに、データ生成を1000回繰り返し、この DGP での**期待 MSE**をモンテカルロ近似して比較せよ。「平均的に勝つ」と「毎データセットで勝つ」の違いも1文で説明すること。
+
+complete pooling は $\theta_i=\theta$ を仮定するので、共通効果は測定精度 $n_i/\sigma^2$ で重みづけた `weighted.mean(ybar, n_i)` で推定する。これは店舗を等重みにした経験ベイズの単純モーメント推定 `mu_hat = mean(ybar)` とは区別する。
 
 ```{r}
 #| eval: false
 # ---- ここを埋める ----
 mse <- function(est) mean((est - theta_true)^2)
+pooled_est <- weighted.mean(ybar, w = n_i) # complete pooling の共通効果MLE
 data.frame(
   method = c("complete pooling", "no pooling", "empirical Bayes"),
-  MSE    = round(c(mse(mu_hat), mse(ybar), mse(eb_est)), 4)   # complete は全店 mu_hat
+  MSE    = round(c(mse(pooled_est), mse(ybar), mse(eb_est)), 4)
 ) |> kable(caption = "3つの推定量の MSE")
 
 # モンテカルロ：1000 データセットで平均 MSE を比較
@@ -209,10 +212,11 @@ one_rep <- function() {
   th  <- rnorm(N, mu_true, sqrt(tau2_true))
   y   <- rnorm(N, th, sqrt(s2))
   muh <- mean(y)
+  pool <- weighted.mean(y, w = n)
   t2h <- max(var(y) - mean(s2), 1e-6)
   B   <- s2 / (s2 + t2h)
   eb  <- B * muh + (1 - B) * y
-  c(complete = mean((muh - th)^2), nopool = mean((y - th)^2), eb = mean((eb - th)^2))
+  c(complete = mean((pool - th)^2), nopool = mean((y - th)^2), eb = mean((eb - th)^2))
 }
 set.seed(20269)
 sim <- replicate(1000, one_rep())
@@ -222,7 +226,15 @@ cat("EB が no pooling に勝った割合:", round(mean(sim["eb", ] < sim["nopoo
 
 ## 問6（20点）：Gibbs サンプラーを手実装する
 
-正規階層モデルの Gibbs サンプラーを完成させよ。**完全条件付き分布は下に与える**（講義 §6.1 の導出結果）。$\bar\theta$ には広い正規 prior、$\tau^2$ には逆ガンマ prior を置く。
+正規階層モデルの Gibbs サンプラーを完成させよ。**完全条件付き分布は下に与える**（講義 §6.1 の導出結果）。$\bar\theta$ にはこのデータの尺度では広い正規 prior、$\tau^2$ には共役計算を学ぶための逆ガンマ prior を置く。異なる初期値から4本の chain を走らせ、traceplot、split-$\widehat R$、ESS、MCSE を確認する。
+
+ここで $\mathrm{Inv\text{-}Gamma}(\alpha_0,\beta_0)$ は
+
+$$
+p(\tau^2)\propto(\tau^2)^{-\alpha_0-1}\exp(-\beta_0/\tau^2)
+$$
+
+と定義する。$\beta_0$ は逆ガンマ側の **scale**、同値な $1/\tau^2$ のガンマ分布では **rate** である。
 
 **完全条件付き分布（これを使え）**：
 
@@ -237,7 +249,7 @@ $$
 $$
 
 $$
-\tau^2 \mid \cdots \sim \text{Inv-Gamma}\!\left(a_0 + \frac{N}{2},\ b_0 + \frac12\sum_i(\theta_i - \bar\theta)^2\right)
+\tau^2 \mid \cdots \sim \text{Inv-Gamma}\!\left(\alpha_0 + \frac{N}{2},\ \beta_0 + \frac12\sum_i(\theta_i - \bar\theta)^2\right)
 \quad\Longrightarrow\quad
 \tau^2 = \frac{1}{\texttt{rgamma}(1, \text{shape}, \text{rate})}.
 $$
@@ -246,11 +258,14 @@ $$
 #| eval: false
 # ---- この関数を完成させる ----
 gibbs_hier <- function(ybar, n_i, sigma2, n_draws = 2000, burn = 500,
-                       mu0 = 0, kappa2 = 1e6, a0 = 0.01, b0 = 0.01) {
+                       mu0 = 0, kappa2 = 1e6,
+                       alpha0 = 0.01, beta0 = 0.01,
+                       seed = NULL, init_mu = NULL, init_tau2 = NULL) {
+  if (!is.null(seed)) set.seed(seed)
   N     <- length(ybar)
   theta <- ybar                            # 初期値
-  mu    <- mean(ybar)
-  tau2  <- max(var(ybar), 0.1)
+  mu    <- if (is.null(init_mu)) mean(ybar) else init_mu
+  tau2  <- if (is.null(init_tau2)) max(var(ybar), 0.1) else init_tau2
   keep_theta <- matrix(0, n_draws, N)
   keep_mu    <- numeric(n_draws)
   keep_tau2  <- numeric(n_draws)
@@ -264,9 +279,9 @@ gibbs_hier <- function(ybar, n_i, sigma2, n_draws = 2000, burn = 500,
     mean_ <- (sum(theta) / tau2 + mu0 / kappa2) / prec
     mu    <- ______     # rnorm(1, mean_, 標準偏差)。標準偏差 = sqrt(1/prec)
     # (3) tau2 を引く（逆ガンマ = 1/ガンマ）。shape, rate は用意済み
-    shape <- a0 + N / 2
-    rate  <- b0 + 0.5 * sum((theta - mu)^2)
-    tau2  <- ______     # 逆ガンマ = 1 / rgamma(1, shape = shape, rate = rate)
+    shape          <- alpha0 + N / 2
+    precision_rate <- beta0 + 0.5 * sum((theta - mu)^2)
+    tau2  <- ______     # 1 / rgamma(1, shape = shape, rate = precision_rate)
     if (it > burn) {
       k <- it - burn
       keep_theta[k, ] <- theta
@@ -277,35 +292,79 @@ gibbs_hier <- function(ybar, n_i, sigma2, n_draws = 2000, burn = 500,
   list(theta = keep_theta, mu = keep_mu, tau2 = keep_tau2)
 }
 
-set.seed(23)
-fit <- gibbs_hier(ybar, n_i, sigma2, n_draws = 2000, burn = 500)
+fits <- lapply(1:4, function(ch) gibbs_hier(
+  ybar, n_i, sigma2, n_draws = 2000, burn = 500,
+  seed = 2300 + ch,
+  init_mu = mean(ybar) + c(-1, -0.3, 0.3, 1)[ch],
+  init_tau2 = c(0.2, 0.6, 1.5, 3)[ch]
+))
+
+fit <- list(
+  theta = do.call(rbind, lapply(fits, `[[`, "theta")),
+  mu = unlist(lapply(fits, `[[`, "mu")),
+  tau2 = unlist(lapply(fits, `[[`, "tau2"))
+)
 ```
 
-続いて、(a) $\bar\theta, \tau^2$ の traceplot、(b) 店舗別事後平均が経験ベイズ closed form と一致すること、を示せ。
+続いて、(a) 4本の $\bar\theta,\tau^2$ の traceplot、(b) 下の簡易関数による split-$\widehat R$・ESS・MCSE、(c) 店舗別事後平均と経験ベイズ plug-in 推定の比較、(d) $\mathrm{IG}(0.01,0.01)$ と $\mathrm{IG}(3,2)$ の prior 感度分析、を示せ。$\mathrm{IG}(0.01,0.01)$ は「弱情報」ではなく、あくまで共役計算のデモ設定である。
 
 ```{r}
 #| eval: false
-# (a) traceplot
-df_trace <- data.frame(iter = seq_along(fit$mu), mu = fit$mu, tau2 = fit$tau2) |>
-  pivot_longer(c(mu, tau2), names_to = "param", values_to = "value")
-ggplot(df_trace, aes(iter, value)) +
-  geom_line(color = "#1f77b4", linewidth = 0.3) +
+# (a) 4 chains の traceplot
+df_trace <- bind_rows(lapply(1:4, function(ch) {
+  data.frame(iter = seq_along(fits[[ch]]$mu), chain = factor(ch),
+             mu = fits[[ch]]$mu, tau2 = fits[[ch]]$tau2)
+})) |> pivot_longer(c(mu, tau2), names_to = "param", values_to = "value")
+ggplot(df_trace, aes(iter, value, color = chain)) +
+  geom_line(linewidth = 0.25, alpha = 0.8) +
   facet_wrap(~param, scales = "free_y") +
   labs(title = "Gibbs の traceplot", x = "反復", y = NULL)
 
-# (b) Gibbs 事後平均 vs 経験ベイズ
+# (b) 簡易診断関数（実務では rank-normalized Rhat と bulk/tail ESS を使う）
+basic_mcmc_diag <- function(x) {
+  x <- as.matrix(x); n <- nrow(x); m <- ncol(x); n2 <- floor(n / 2)
+  sx <- do.call(cbind, lapply(1:m, function(j)
+    cbind(x[1:n2, j], x[(n - n2 + 1):n, j])))
+  W <- mean(apply(sx, 2, var)); B <- n2 * var(colMeans(sx))
+  rhat <- sqrt(((n2 - 1) / n2 * W + B / n2) / W)
+  ac <- sapply(1:m, function(j)
+    as.numeric(acf(x[, j], lag.max = min(500, n - 1), plot = FALSE)$acf)[-1])
+  rho <- rowMeans(ac); le <- 2 * floor(length(rho) / 2)
+  ps <- rho[seq(1, le, 2)] + rho[seq(2, le, 2)]
+  stop_at <- which(ps <= 0)[1]
+  keep <- if (is.na(stop_at)) seq_along(ps) else seq_len(stop_at - 1)
+  ess <- min(n * m, n * m / max(1, 1 + 2 * sum(ps[keep])))
+  c(split_Rhat = rhat, ESS = ess,
+    MCSE_mean = sd(as.vector(x)) / sqrt(ess))
+}
+rbind(mu = basic_mcmc_diag(sapply(fits, `[[`, "mu")),
+      tau2 = basic_mcmc_diag(sapply(fits, `[[`, "tau2"))) |> round(4)
+
+# (c) Gibbs 事後平均 vs 経験ベイズ
 post_theta_mean <- colMeans(fit$theta)
 ggplot(data.frame(eb = eb_est, gibbs = post_theta_mean), aes(eb, gibbs)) +
   geom_abline(slope = 1, intercept = 0, color = "grey60") +
   geom_point(color = "#1f77b4", size = 2, alpha = 0.8) +
-  labs(title = "Gibbs 事後平均 = 経験ベイズ", x = "経験ベイズ", y = "Gibbs 事後平均")
+  labs(title = "Gibbs 事後平均と経験ベイズの比較", x = "経験ベイズ", y = "Gibbs 事後平均")
 cat("Gibbs事後平均 と EB の相関:", round(cor(post_theta_mean, eb_est), 5), "\n")
+
+# (d) prior 感度：IG(3,2) でも4 chainsを走らせ、tau2の平均・95%区間を比較する
+fits_alt <- lapply(1:4, function(ch) gibbs_hier(
+  ybar, n_i, sigma2, alpha0 = 3, beta0 = 2,
+  seed = 2400 + ch, init_tau2 = c(0.2, 0.6, 1.5, 3)[ch]
+))
+tau_default <- unlist(lapply(fits, `[[`, "tau2"))
+tau_alt <- unlist(lapply(fits_alt, `[[`, "tau2"))
+rbind(
+  `IG(0.01,0.01)` = c(mean = mean(tau_default), quantile(tau_default, c(.025, .975))),
+  `IG(3,2)` = c(mean = mean(tau_alt), quantile(tau_alt, c(.025, .975)))
+) |> round(3)
 ```
 
 ::: {.callout-warning}
 ## よくあるバグ：rgamma の rate と scale の取り違え
 
-R の `rgamma` は `rate`（尺度の逆数）と `scale` のどちらでも指定できるが、**両方を混同すると全く違う分布になる**。ここでは `rate = b0 + 0.5*sum((theta-mu)^2)` を使う。逆ガンマは「ガンマの逆数」なので `1 / rgamma(...)` で作る。もし $\tau^2$ の traceplot が異常に大きい／小さい値で暴れたら、まず rate/scale と逆数の取り方を疑え。また `v_i` の計算で `n_i / sigma2` を `n_i * sigma2` と書き間違えるミスも多い（精度＝分散の逆数、を思い出せ）。
+R の `rgamma` は `rate` と `scale` のどちらでも指定できるが、**混同すると全く違う分布になる**。ここで `beta0` は逆ガンマ分布の scale だが、$G=1/\tau^2$ を引く `rgamma` には `rate = beta0 + 0.5*sum((theta-mu)^2)` と渡す。逆数 `1/rgamma(...)` も忘れない。また `v_i` の計算で `n_i / sigma2` を `n_i * sigma2` と書き間違えるミスも多い。
 :::
 
 ## 問7（10点）：点推定でなく事後確率でターゲティング
@@ -339,7 +398,7 @@ if (length(dropped) > 0) {
 ::: {.callout-tip}
 ## ヒント：何が起きているか
 
-閾値 $c=3.0$ は全店平均 $\bar\theta=2.0$ より**上**にある。だから「効果が3.0を超えると確信できる」ためには、点推定が高いだけでなく、**不確実性が小さい（＝ $n_i$ が大きい）**必要がある。$n_i$ が小さい店は、$\bar y_i$ がたまたま高くても事後分布が横に広く、$P(\theta_i > 3.0)$ が0.8に届かない。真値 `truth` を見ると、落ちた店の中に「実は3.0を超えていない」店が混じっているはずだ。確率ルールは、そういう**上振れした小さい店への無駄打ち**を自動で避けている。
+閾値 $c=3.0$ は全店平均 $\bar\theta=2.0$ より**上**にある。だから「効果が3.0を超えると確信できる」ためには、点推定が高いだけでなく、**不確実性が小さい（＝ $n_i$ が大きい）**必要がある。$n_i$ が小さい店は、$\bar y_i$ がたまたま高くても事後分布が横に広く、$P(\theta_i > 3.0)$ が0.8に届かない。真値 `truth` を見ると、落ちた店の中に「実は3.0を超えていない」店が混じることがある。確率ルールは、そうした**上振れした小さい店への無駄打ちリスク**を下げうる。
 :::
 
 ## 問8（8点）：経営含意を3行で
@@ -377,7 +436,7 @@ data.frame(
 - 問3（10）：測定分散と観測数の関係の可視化
 - 問4（12）：経験ベイズのモーメント法・縮小推定・矢印プロット
 - 問5（10）：MSE比較表とモンテカルロでの平均的優位
-- 問6（20）：Gibbs サンプラーの実装・traceplot・EBとの一致確認
+- 問6（20）：Gibbs の実装・4 chains・$\widehat R$/ESS/MCSE・EB比較・prior 感度
 - 問7（10）：事後確率ベースのターゲティングと点推定との比較
 - 問8（8）：経営含意（3行）
 :::

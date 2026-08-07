@@ -42,9 +42,9 @@ options(scipen = 8)
 
 - stated preference（実験的に作った選択データ）と revealed preference（実際の購買データ）の長所・短所を整理する。
 - choice-based conjoint（CBC）の設計手順を、ワイヤレスイヤホンの通し例で手を動かして理解する。
-- CBCデータは「第2回のlogitモデルそのもの」でありながら、属性がランダム化されているおかげで**内生性の問題が設計によって消える**ことを体感する。
+- CBCデータは「第2回のlogitモデルそのもの」でありながら、価格・属性をランダム化することで、**それらと未観測な回答要因との相関を設計によって断てる**ことを体感する。
 - 同じデータを「離散選択モデルの推定対象」として見る読み方と、「多属性のランダム化実験」として見る読み方の**2つが交差する**ことを理解し、AMCE（average marginal component effect）を回答者クラスター標準誤差つきのOLSで推定できるようになる。
-- WTP（支払意思額）＝属性の係数／価格係数、をデルタ法で信頼区間つきで求める。比の推定が持つ危うさも知る。
+- 個人WTP、平均個人WTP、平均係数の比、working-model WTPを区別し、正しく指定された基準モデルでデルタ法の信頼区間を求める。比の推定が持つ危うさも知る。
 - 属性間の交互作用と消費者セグメントによる異質性を通じて、「平均で設計を決め、異質性でターゲティングを考える」という後続回への橋渡しを作る。
 :::
 
@@ -90,7 +90,7 @@ options(scipen = 8)
 ## 実務の作法：CBC設計で気をつけること
 
 - **水準数のバランス**：属性ごとの水準数が偏りすぎると（例えば価格だけ5水準、他は2水準）、統計的な効率が落ちる。可能な限り各属性の水準数を近づけるのが望ましい。
-- **非現実的な組合せの除外**：全属性を完全にランダムに組み合わせると、「新興ブランドで16,000円、バッテリー6時間」のような、現実の商品ラインナップではまずあり得ない組み合わせが出てくることがある。これ自体は統計的には問題ない（むしろ属性間の交互作用を識別するには必要）が、回答者が混乱して真剣に回答しなくなる恐れがある。実務では、明らかに非現実的な組合せだけを除外する「制約付きランダム化」がよく使われる。
+- **非現実的な組合せの除外**：全属性を独立に組み合わせると、「新興ブランドで16,000円、バッテリー6時間」のような、現実の商品ラインナップではまずあり得ない組み合わせが出てくることがある。広い組合せのsupportは主効果や交互作用の識別に役立つ一方、回答者が混乱して真剣に回答しなくなる恐れもある。実務では、必要な比較可能性を保ちながら、明らかに非現実的な組合せを除く「制約付きランダム化」がよく使われる。
 - **attention check（注意確認）**：「この設問では『A』を選んでください」のような、指示に従っているかを確認する設問を混ぜ、いい加減に回答している被験者を検出・除外する。
 - **タスク数の上限**：1人に何十タスクも解かせると疲労で回答の質が落ちる（fatigue effect）。8〜12タスク程度に抑えるのが一般的である。
 :::
@@ -123,7 +123,7 @@ profiles_demo
 
 ### プロファイルのランダム化チェック
 
-CBCの心臓部は「属性同士が互いに無相関になるようにランダム化する」ことである。これが後で説明する「内生性が設計によって消える」ことの土台になる。実際にランダム生成したプロファイルで、属性間の相関を確認しておこう。
+CBCの心臓部は、既知の割付機構に従って属性をランダム化し、提示属性と潜在的な回答要因との独立性を作ることである。属性同士が常に無相関である必要はなく、制約付きデザインでは既知の相関が生じうる。ここでは属性を独立に割り付けたので、実装チェックとして属性間の相関を確認しておこう。
 
 ```{r}
 #| label: lec6-randomization-check
@@ -154,7 +154,7 @@ $x_{jt}$ はプロファイル $j$（$A$ か $B$）の属性ベクトル（バ�
 
 ここで、第3回で私たちを苦しめた記号を思い出そう。第3回のモデルには $\xi_{jt}$——観測されない需要ショック——が入っていた。この $\xi_{jt}$ が価格と相関するせいで、OLSでは価格反応を過小評価するのだった。
 
-**CBCのデータには、この $\xi_{jt}$ が存在しない。** より正確に言えば、$\xi_{jt}$ に相当するものがあるとしても、実験計画者がプロファイルの属性を完全にランダムに割り付けているので、$\xi_{jt}$ と価格・属性との相関はゼロになるように設計されている。市場で観測された商品なら、「価格が高い商品は、何か観測されていない理由（ブランド力、口コミの評判）があって高い」という懸念が常につきまとうが、コンジョイントの世界ではプロファイルはコンピュータが乱数で作った架空の組み合わせにすぎない。$\xi_{jt}$ に相当する「観測されない魅力」が仮にあったとしても、それは属性とは無関係にランダムに割り振られているので、価格や属性の係数を歪めない。
+この講義の人工DGPでは、商品別の $\xi_{jt}$ はそもそも入れていない。実際のCBC回答には、注意、提示順序、理解度など分析者に見えない要因が当然ありうる。それでも割付が正しく実装され、回答者が割付を迂回していないなら、提示価格・属性はそれらの要因と期待値で独立になる。したがって市場データで問題になった「人気を見越して企業が高値をつける」という価格内生性は、ランダム化した属性のAMCEについては設計で断てる。ただし、仮想回答バイアス、carryover、モデル誤特定、実市場への外挿まで消えるわけではない。
 
 ### (B) 因果推論の読み方
 
@@ -162,12 +162,12 @@ $x_{jt}$ はプロファイル $j$（$A$ か $B$）の属性ベクトル（バ�
 
 AMCEの定義を言葉で書くとこうなる。「ある属性（例えばノイキャン）の水準を『なし』から『あり』に変えたとき、他のすべての属性（価格、バッテリー、ブランド）がその実験計画の周辺分布に従ってランダムに変動するもとで、平均してどれだけ選択確率が変わるか」。この定義の中に**平均**という言葉が入っていることに注意してほしい。AMCEは「他の属性の分布で平均した」効果であり、ちょうど第4回で「異質性を平均すると何が起きるか」を考えたのと同じ発想である。
 
-属性がランダム化されているおかげで、AMCEは**単純な差の平均、つまりOLSで推定できる**。これは計量Iで学んだ「ランダム化されていれば、平均処置効果は単純な比較で推定できる」という命題そのものである。ただし、同じ回答者が複数タスクに登場するので、標準誤差は**回答者単位のクラスター標準誤差**にする必要がある（これは後で詳しく検証する）。
+既知のランダム割付が正しく実装され、回答者間interferenceや前タスクからのcarryoverを排除する標準的な実験仮定を置けば、AMCEは**単純な差の平均、つまりOLSで推定できる**。これは計量Iで学んだランダム化実験の命題そのものである。ただし、同じ回答者が複数タスクに登場するので、標準誤差は**回答者単位のクラスター標準誤差**にする必要がある（これは後で詳しく検証する）。
 
 ::: {.callout-important}
 ## ここが核心
 
-CBCのデータは、離散選択モデルの目で見れば「属性がランダム化されたおかげで内生性が消えたlogitモデル」であり、因果推論の目で見れば「多次元の処置をランダム化した実験」である。**この2つは同じデータの2つの読み方にすぎない。** 第3回で内生性に苦労した記憶があるなら、ここで感じるべきなのは一種の爽快感である——実験計画者が属性を完全にコントロールできる状況では、需要推定における最大の悩みの種だった内生性が、設計そのものによって消えてなくなる。
+CBCのデータは、離散選択モデルの目で見れば「価格・属性と未観測な回答要因との相関をランダム化で断った選択データ」であり、因果推論の目で見れば「多次元の処置をランダム化した実験」である。**この2つは同じデータの2つの読み方にすぎない。** 第3回の市場データで苦労した価格内生性を、提示属性のAMCEについては設計段階で避けられる。ただし、効用モデルの係数を構造パラメータとして読むにはモデル仮定が、実市場へ運ぶには外的妥当性の仮定が別途要る。
 :::
 
 ## 3. Rシミュ1（メイン）：mixed logit的なDGPからAMCEを回収する
@@ -180,15 +180,19 @@ CBCのデータは、離散選択モデルの目で見れば「属性がラン�
 
 ### DGP（データ生成過程）
 
-$N=500$ 人の回答者が、それぞれ8タスクに回答する。各タスクで2つのプロファイル（A・B）＋「どちらも買わない」の中から1つを選ぶ。回答者ごとの部分効用は、平均のまわりに正規分布でばらついているとする（mixed logit、第4回の発想そのもの）。
+$N=500$ 人の回答者が、それぞれ8タスクに回答する。各タスクで2つのプロファイル（A・B）＋「どちらも買わない」の中から1つを選ぶ。属性係数は平均のまわりに正規分布でばらつき、価格係数は必ず正になるよう対数正規分布でばらつくとする（mixed logit、第4回の発想そのもの）。
 
 $$
 u_{ijt} = \beta_{\text{batt},i}\cdot \text{battery12}_{jt} + \beta_{\text{nc},i}\cdot \text{noise\_cancel}_{jt} + \beta_{\text{brand},i}\cdot \text{major\_brand}_{jt} - \alpha_i \cdot \text{price}_{jt}/1000 + \varepsilon_{ijt}
 $$
 
 $$
-\beta_{x,i} = \beta_x + \sigma_x z_{x,i}, \qquad z_{x,i}\sim N(0,1)
+\beta_{x,i} = \beta_x + \sigma_x z_{x,i}, \qquad
+\alpha_i=\exp(\mu_\alpha+\sigma_{\log\alpha}z_{\alpha,i}),
+\qquad z_{x,i},z_{\alpha,i}\sim N(0,1),
 $$
+
+ここで $\mu_\alpha=\log(\bar\alpha)-\sigma_{\log\alpha}^2/2$ と置き、$E[\alpha_i]=\bar\alpha$ になるようにする。正規乱数を0付近で切り詰める簡便法と違い、価格係数の分布に人工的な点質量を作らない。
 
 各回答者は8タスクすべてで**同じ** $(\beta_{\text{batt},i}, \beta_{\text{nc},i}, \beta_{\text{brand},i}, \alpha_i)$ を使う。これが「同じ人は毎回似た好みで選ぶ」という自然な設定であり、同時に回答者内でタスクをまたいで誤差が相関する原因（クラスター構造の源）にもなる。
 
@@ -199,11 +203,11 @@ true_params <- list(
   beta_batt_mean  = 0.5,   # バッテリー12h vs 6h の平均選好
   beta_nc_mean    = 0.8,   # ノイキャンあり vs なし の平均選好
   beta_brand_mean = 0.3,   # 大手 vs 新興 の平均選好
-  alpha_mean      = 0.12,  # 価格係数（千円あたり）
+  alpha_mean      = 0.12,  # 正の価格係数の算術平均（千円あたり）
   sigma_batt  = 0.3,
   sigma_nc    = 0.6,       # ノイキャンへの好みは人によってかなり違う、という設定
   sigma_brand = 0.4,
-  sigma_alpha = 0.05
+  sigma_log_alpha = 0.35   # log(alpha_i) の標準偏差
 )
 
 price_levels <- c(8, 12, 16)   # 千円単位で扱う（後で /1000 の手間を省く）
@@ -211,6 +215,17 @@ price_levels <- c(8, 12, 16)   # 千円単位で扱う（後で /1000 の手間�
 draw_gumbel <- function(n) {
   u <- runif(n)
   -log(-log(u))
+}
+
+draw_coefficients <- function(n_resp, params) {
+  # lognormal の位置を調整して E[alpha_i] = alpha_mean とする。
+  mu_log_alpha <- log(params$alpha_mean) - params$sigma_log_alpha^2 / 2
+  data.frame(
+    beta_batt  = params$beta_batt_mean  + params$sigma_batt  * rnorm(n_resp),
+    beta_nc    = params$beta_nc_mean    + params$sigma_nc    * rnorm(n_resp),
+    beta_brand = params$beta_brand_mean + params$sigma_brand * rnorm(n_resp),
+    alpha      = exp(mu_log_alpha + params$sigma_log_alpha * rnorm(n_resp))
+  )
 }
 ```
 
@@ -224,21 +239,13 @@ simulate_cbc <- function(n_resp, n_task, params) {
   N <- n_resp * n_task
 
   # 回答者ごとのランダム係数（8タスクで固定して使う）
-  z_batt  <- rnorm(n_resp)
-  z_nc    <- rnorm(n_resp)
-  z_brand <- rnorm(n_resp)
-  z_alpha <- rnorm(n_resp)
-
-  beta_batt_i  <- params$beta_batt_mean  + params$sigma_batt  * z_batt
-  beta_nc_i    <- params$beta_nc_mean    + params$sigma_nc    * z_nc
-  beta_brand_i <- params$beta_brand_mean + params$sigma_brand * z_brand
-  alpha_i      <- pmax(params$alpha_mean + params$sigma_alpha * z_alpha, 0.01)  # 価格係数は正に保つ
+  coefs <- draw_coefficients(n_resp, params)
 
   # 各タスクに引き伸ばす
-  beta_batt_n  <- rep(beta_batt_i,  each = n_task)
-  beta_nc_n    <- rep(beta_nc_i,    each = n_task)
-  beta_brand_n <- rep(beta_brand_i, each = n_task)
-  alpha_n      <- rep(alpha_i,      each = n_task)
+  beta_batt_n  <- rep(coefs$beta_batt,  each = n_task)
+  beta_nc_n    <- rep(coefs$beta_nc,    each = n_task)
+  beta_brand_n <- rep(coefs$beta_brand, each = n_task)
+  alpha_n      <- rep(coefs$alpha,      each = n_task)
 
   # プロファイルA・Bを独立にランダム生成
   priceA <- sample(price_levels, N, replace = TRUE)
@@ -286,26 +293,27 @@ ggplot(choice_share, aes(x = choice_label, y = share, fill = choice_label)) +
   labs(x = NULL, y = "選択割合", title = "CBC回答の選択分布（4,000タスク）")
 ```
 
-outside optionはおよそ2〜3割程度選ばれており、A・Bはおおむね拮抗している（A・Bはランダムに生成されているので理論上は対称）。妥当な分布になっている。
+outside optionも相当数選ばれ、A・Bはおおむね拮抗している（A・Bはランダムに生成されているので理論上は対称）。どれか1つの選択肢へほぼ全観測が集中していないことを確認できる。
 
-### long形式への変換
+### long形式への変換：outsideを選んだタスクも残す
 
-AMCEをOLSで推定するには、「タスクごとに提示された2プロファイルそれぞれを1行」とするlong形式に変換する。outside optionを選んだタスクは、標準的なconjoint分析の作法に従い、A対Bの2値選択の回帰からは除外する（この点は後の注意calloutで補足する）。
+AMCEをOLSで推定するには、「タスクごとに提示された2プロファイルそれぞれを1行」とするlong形式に変換する。被説明変数は**そのプロファイルが選ばれたか**である。Aが選ばれたタスクは $(Y_A,Y_B)=(1,0)$、Bなら $(0,1)$、outside optionなら $(0,0)$ とする。outsideを選んだタスクも提示属性のランダム化から生じた正当な観測であり、ここで落としてはいけない。outsideの選択は属性の影響を受けるため、outsideでなかったことへの条件付けはpost-treatment selectionになる。
 
 ```{r}
 #| label: lec6-to-long
 
 to_long <- function(cbc_raw) {
-  keep <- cbc_raw$choice3 != 0
-  d <- cbc_raw[keep, ]
+  d <- cbc_raw
 
   rowsA <- data.frame(
-    resp_id = d$resp_id, price = d$priceA, battery12 = d$battA,
+    resp_id = d$resp_id, task_id = seq_len(nrow(d)),
+    profile = "A", price = d$priceA, battery12 = d$battA,
     noise_cancel = d$ncA, major_brand = d$brandA,
     chosen = as.numeric(d$choice3 == 1)
   )
   rowsB <- data.frame(
-    resp_id = d$resp_id, price = d$priceB, battery12 = d$battB,
+    resp_id = d$resp_id, task_id = seq_len(nrow(d)),
+    profile = "B", price = d$priceB, battery12 = d$battB,
     noise_cancel = d$ncB, major_brand = d$brandB,
     chosen = as.numeric(d$choice3 == 2)
   )
@@ -319,6 +327,16 @@ cbc_long$price16 <- as.numeric(cbc_long$price == 16)
 nrow(cbc_long)
 head(cbc_long)
 ```
+
+各タスクが必ず2行に展開され、outsideを選んだタスクでは2行とも`chosen = 0`になる。ここで区別したい推定対象を表にしておく。
+
+| 推定対象 | 調査・分析で使う結果変数 | 解釈 |
+|---|---|---|
+| **opt-out-inclusive profile AMCE（この講義の主対象）** | 全タスクを残し、選ばれたプロファイルだけ1。outsideならA・Bとも0 | 属性を変えたとき、そのプロファイルがoutsideも含む選択集合から選ばれる確率の平均変化 |
+| forced-choice AMCE | 最初からoutsideを提示せず、AかBを必ず選ばせる | 「どちらかを選ぶなら」の相対選好。別の実験デザインが必要 |
+| inside-conditional A対B比較 | outsideでなかったタスクだけを事後的に残す | 購入タスク内の記述的比較。処置後の選択で標本を選ぶため、一般にはランダム化AMCEではない |
+
+この3つは似た回帰式でも同じ量ではない。「outsideを調査で用意したのに、分析時に黙って落とす」と、1つ目から3つ目へ推定対象を変えてしまう。
 
 ### (i) AMCEを「水準ダミーのOLS＋回答者クラスターSE」で推定する
 
@@ -398,7 +416,7 @@ ggplot(plot_df, aes(x = attribute_label, y = amce_hat)) +
 
 ### クラスターSEはなぜ必要か：Rシミュ検証
 
-先ほど「回答者単位のクラスターSEが必要」とさらっと書いたが、これがどれほど重要かを数値で確認しておこう。同じ回答者が8タスク登場するので、その回答者のランダム係数（好みの強さ）に由来する誤差は、8つの行にわたって共通に相関する。これを無視した通常のロバストSE（各行が独立だと仮定）は、標準誤差を過小評価する。
+先ほど「回答者単位のクラスターSEが必要」と書いた理由を数値で確認しよう。同じ回答者が8タスク登場し、回答者固有のランダム係数を共有する。さらに同じタスクのA・B行は、片方が選ばれればもう片方は選ばれない。この依存を無視した通常のロバストSEは正しい標本変動を一般に推定しない。過小になることが多いが、共分散の符号と回帰量によっては大きくなることもあり、**クラスターSEが必ず大きいという定理はない**。
 
 ```{r}
 #| label: lec6-cluster-vs-naive
@@ -414,17 +432,23 @@ se_compare_df <- data.frame(
 kable(se_compare_df, row.names = FALSE, caption = "回答者クラスターSE vs 通常のロバストSE（行ごとに独立と仮定）")
 ```
 
-見ての通り、通常のロバストSE（`vcov="hetero"`、行ごとの分散不均一だけを補正し、行間の相関は無視）は、クラスターSEよりもはっきり小さい。同じ人が繰り返し似た選択をすることで生まれる「実質的な情報の重複」を無視しているので、標本サイズが実際より大きいかのように標準誤差を計算してしまうのである。次回（第7回）以降でも、パネル的な構造を持つデータを扱うたびにこの問題が繰り返し出てくるので、ここでしっかり押さえておこう。
+この実現標本では、係数によってクラスターSEの方が少し大きいものも小さいものもある。重要なのは大小の向きではなく、`vcov="hetero"`が8,000本のprofile行を独立とみなすのに対し、`cluster = ~resp_id`は500人の回答者間の独立性だけを使う点である。標本を繰り返したときのcoverageで、どちらが設計に対応しているかを判断する。
 
 ::: {.callout-warning}
 ## この分析、どこがまずい？
 
-「N=500人×8タスク＝4,000弱の観測がある」という理由で、通常の（行ごとに独立という）標準誤差を使ってしまうのが、コンジョイント分析で最もよくある誤りである。実際に独立な情報の単位は「タスク数」ではなく「**回答者数**」に近い。500人分の独立な情報を、あたかも4,000個の独立な情報であるかのように扱うと、信頼区間は不当に狭くなり、本来なら有意でない効果を有意だと誤認するリスクが高まる。`cluster = ~resp_id`を指定するひと手間を惜しんではいけない。
+「500人×8タスク×2プロファイル＝8,000行ある」という理由で、各行を独立とする標準誤差を使うのが誤りである。ランダム化・繰り返し回答・A/Bペアの依存を含むクラスターの単位は**回答者**である。通常SEがたまたま大きく見える係数があっても、独立性の仮定が正しくなったことにはならない。`cluster = ~resp_id`を設計に合わせて指定する。
 :::
 
-### (ii) logit MLE：効用スケールの係数とAMCEの関係
+### (ii) 同質logitをworking modelとして使う
 
-もう1つの読み方——離散選択モデルとしての読み方——も実行してみよう。第2回で自作したMLEの手順を、そのままCBCデータに適用できる。
+もう1つの読み方——離散選択モデルとしての読み方——も実行してみよう。ただし、ここには大事な段差がある。真のDGPでは係数が回答者ごとに異なるmixed logitなのに、以下で当てはめるモデルは全員が同じ係数を持つ同質logitである。一般に
+
+$$
+E_\beta[\operatorname{logit}(x'\beta)] \neq \operatorname{logit}(x'E[\beta]),
+$$
+
+なので、同質logitのMLEを「ランダム係数の平均」と解釈してはいけない。以下の係数は、混合された選択確率を1本のlogit曲線で近似する**working-model parameter（擬似真値の推定量）**である。個人別・分布別の効用係数を構造的に解釈したいなら、第4回と同様にpanel mixed logitを推定する必要がある。
 
 ```{r}
 #| label: lec6-mle-loglik
@@ -455,49 +479,105 @@ theta_hat_cbc
 ```{r}
 #| label: lec6-mle-se
 
-vcov_cbc <- solve(opt_cbc$hessian)
-se_cbc <- sqrt(diag(vcov_cbc))
+# Hessianだけの分散は同質logitが正しく指定されているときのmodel-based分散。
+vcov_cbc_model <- solve(opt_cbc$hessian)
+
+# working modelの誤指定と、同じ回答者の8タスクの依存を許すcluster sandwich。
+cluster_scores_cbc <- function(theta, d) {
+  XA <- cbind(d$battA, d$ncA, d$brandA, -d$priceA)
+  XB <- cbind(d$battB, d$ncB, d$brandB, -d$priceB)
+  vA <- drop(XA %*% theta)
+  vB <- drop(XB %*% theta)
+  m <- pmax(0, vA, vB)
+  denom <- exp(-m) + exp(vA - m) + exp(vB - m)
+  pA <- exp(vA - m) / denom
+  pB <- exp(vB - m) / denom
+  x_chosen <- XA * as.numeric(d$choice3 == 1) + XB * as.numeric(d$choice3 == 2)
+  score_task <- x_chosen - XA * pA - XB * pB
+  rowsum(score_task, d$resp_id)
+}
+
+score_by_resp <- cluster_scores_cbc(theta_hat_cbc, cbc_raw)
+bread <- solve(opt_cbc$hessian)
+meat <- crossprod(score_by_resp)
+G <- nrow(score_by_resp)
+vcov_cbc_cluster <- (G / (G - 1)) * bread %*% meat %*% bread
 
 mle_true <- c(true_params$beta_batt_mean, true_params$beta_nc_mean,
               true_params$beta_brand_mean, true_params$alpha_mean)
 
-mle_recovery_df <- data.frame(
+mle_summary_df <- data.frame(
   parameter = names(theta_hat_cbc),
-  true_value = round(mle_true, 4),
+  dgp_population_mean = round(mle_true, 4),
   estimate = round(theta_hat_cbc, 4),
-  se = round(se_cbc, 4),
-  ci_lower = round(theta_hat_cbc - 1.96 * se_cbc, 4),
-  ci_upper = round(theta_hat_cbc + 1.96 * se_cbc, 4)
+  se_model_based = round(sqrt(diag(vcov_cbc_model)), 4),
+  se_cluster_robust = round(sqrt(diag(vcov_cbc_cluster)), 4)
 )
-kable(mle_recovery_df, row.names = FALSE, caption = "logit MLEによる効用パラメータの推定（真値は集団平均）")
+kable(mle_summary_df, row.names = FALSE,
+      caption = "同質logit working model：DGPの係数平均は比較用であり、MLEの真値ではない")
 ```
 
-MLEは平均的なランダム係数（`beta_nc_mean`など）を、きちんと信頼区間の中に捉えて回収している。
+`dgp_population_mean`列は係数の符号や桁を確認するための比較材料にすぎず、working-model MLEが一致推定する対象ではない。また、Hessianの逆行列だけで作る`se_model_based`は同質logitが正しく指定されている場合のSEである。今回はmixed-logit DGPなので、回答者単位のscoreを束ねたsandwichで作る`se_cluster_robust`を推論に使う。
 
 さて、ここで整理しておきたいのが、**「効用スケールの係数」と「選択確率スケールのAMCE」の関係と使い分け**である。
 
-- **効用スケールの係数**（$\beta_{\text{nc}}$など）は、logit MLEで推定される。単位は「効用」という、それ自体には解釈しづらいスケールを持つ。ただし、**価格係数で割ればWTP（円）になる**という強力な性質がある（次節で扱う）。また、モデルの構造（$\varepsilon_{ijt}$がGumbel分布に従うという仮定）に強く依存する。
-- **AMCE**（選択確率スケール）は、OLSで推定される。単位は「選択確率の変化」（0〜1の間の数字）であり、そのまま「ノイキャンをつけると選ばれる確率が何ポイント上がるか」と直接解釈できる。しかもAMCEの推定自体は、logitという関数形を一切仮定していない——**ランダム化さえされていれば、真の選択メカニズムがlogitだろうがprobitだろうが、AMCEはOLSで一致推定できる**（Hainmueller, Hopkins, and Yamamoto 2014の主要な貢献の1つ）。
+- **効用スケールの係数**（$\beta_{\text{nc}}$など）は、選択モデルを指定して推定する。単位は「効用」であり、価格係数との比からWTPを作れる。ただし、個人異質性・誤差分布・価格の関数形など、モデルの指定に依存する。同質logitをmixed-logitデータへ当てた比は、あくまでworking model上の要約である。
+- **AMCE**（選択確率スケール）は、OLSで推定される。単位は「選択確率の変化」（0〜1の間の数字）であり、そのまま「ノイキャンをつけると選ばれる確率が何ポイント上がるか」と直接解釈できる。AMCEの推定自体はlogitという関数形を仮定しない。**既知のランダム割付と標準的な実験仮定のもとでは、真の選択メカニズムがlogitでもprobitでも、OLSでdesign-averaged AMCEを一致推定できる**（Hainmueller, Hopkins, and Yamamoto 2014）。
 
-実務的な使い分けはこうなる。「この機能をつけると何%ポイント選ばれやすくなるか」を知りたいだけならAMCE（OLS）で十分であり、しかもモデルの関数形の誤指定に対して頑健である。一方、「WTPを円で出したい」「価格を変えたときの選択確率をなめらかに予測したい」「属性の水準を実験に無い値まで外挿したい」という場合は、効用スケールのモデル（logit MLE）が必要になる。今回のシミュレーションで両方が同じ真のDGPから同じ方向の結論——ノイキャンが好まれ、価格が嫌われる——を出していることを確認できたのは、モデルの整合性チェックとしても意味がある。
+実務的な使い分けはこうなる。「この機能をつけると何%ポイント選ばれやすくなるか」を実験で提示した水準と割付分布の範囲で知りたいならAMCEが中心になる。一方、WTPや実験外の価格への外挿には効用モデルが必要だが、構造仮定が増える。外挿は「logitを使えば自動的に正しい」のではなく、価格関数形と異質性分布が実験外でも妥当だという追加仮定の上に成り立つ。
 
 ## 4. WTP（支払意思額）とデルタ法
 
 ### WTPの定義
 
-効用スケールの係数が手に入ったので、これを使って「ノイキャンにいくら払う気があるか」という、経営判断に直結する数字を作れる。効用は
+効用係数と価格係数から「ノイキャンにいくら払う気があるか」という数字を作れる。まず、係数が人によって異なる場合には「WTP」という語だけでは推定対象が一意に決まらないことを押さえよう。個人 $i$ の効用は
 
 $$
 u_{ij} = \cdots + \beta_{\text{attr}}\cdot \text{attr}_j - \alpha \cdot \text{price}_j + \cdots
 $$
 
-という形をしていた。ある属性を「なし」から「あり」に変えたときの効用の変化は $\beta_{\text{attr}}$ である。一方、価格を1円上げたときの効用の変化は $-\alpha$（千円単位なら $-\alpha/1000$）である。「その属性がもたらす効用の変化と、ちょうど同じだけ効用を下げる価格の変化はいくらか」を計算すれば、それがその属性に対する支払意思額になる。
+という形をしていた。ある属性を「なし」から「あり」に変えたときの効用の変化は $\beta_{\text{attr},i}$ である。一方、価格を1単位上げたときの効用の変化は $-\alpha_i$ である。「その属性がもたらす効用の変化と、ちょうど同じだけ効用を下げる価格の変化」が個人 $i$ の支払意思額になる。
 
 $$
-\text{WTP}_{\text{attr}} = \frac{\beta_{\text{attr}}}{\alpha}
+\text{WTP}_{\text{attr},i} = \frac{\beta_{\text{attr},i}}{\alpha_i}
 $$
 
-これは「効用1単位あたりの価格」という、いわば効用を金額に変換する為替レートの役割を $\alpha$ が果たしていると考えれば納得しやすい。
+これは「効用1単位を打ち消す価格」という、いわば効用を金額に変換する為替レートの役割を $\alpha_i$ が果たしていると考えれば納得しやすい。ただし、比の平均と平均の比は一般に一致しない。
+
+$$
+E\!\left[\frac{\beta_i}{\alpha_i}\right]
+\neq \frac{E[\beta_i]}{E[\alpha_i]}.
+$$
+
+さらに、mixed-logitデータに同質logitを当てた $\beta^*/\alpha^*$ は、そのどちらでもないworking-model上の比である。今回のDGPで数値を並べてみよう。
+
+```{r}
+#| label: lec6-wtp-estimands
+
+set.seed(2026061)
+coef_population <- draw_coefficients(200000, true_params)
+individual_wtp_nc <- coef_population$beta_nc / coef_population$alpha
+
+wtp_estimand_df <- data.frame(
+  quantity = c(
+    "平均個人WTP: E[beta_i/alpha_i]",
+    "個人WTPの中央値",
+    "平均係数の比: E[beta_i]/E[alpha_i]",
+    "同質logit working model: beta*/alpha*"
+  ),
+  value_thousand_yen = c(
+    mean(individual_wtp_nc),
+    median(individual_wtp_nc),
+    mean(coef_population$beta_nc) / mean(coef_population$alpha),
+    theta_hat_cbc["beta_nc"] / theta_hat_cbc["alpha"]
+  )
+)
+kable(transform(wtp_estimand_df,
+                value_thousand_yen = round(value_thousand_yen, 3)),
+      row.names = FALSE, caption = "『ノイキャンのWTP』と呼ばれうる異なる量")
+```
+
+どの量が意思決定に必要かを先に決める必要がある。例えば消費者ごとの価値の平均を知りたいなら $E[\beta_i/\alpha_i]$、単純な代表係数を金額換算したいなら比の定義を明記する。個人WTPの分布を構造的に推定するには、同質logitではなくmixed logitが必要である。
 
 ### デルタ法によるSE
 
@@ -543,19 +623,33 @@ $$
 
 ## 5. Rシミュ2：ノイキャンのWTPを点推定＋CIで求める
 
-先ほどのMLE推定結果を使って、ノイキャンのWTPを計算しよう。
+デルタ法の仕組みを、推定モデルが正しく指定された基準ケースで確認しよう。この節だけは係数の分散を0にした同質logit DGPから新しい標本を作る。こうすればHessianの逆行列を使う通常のMLE推論と、「真のWTP=$\beta/\alpha$」という比較がともに正当になる。mixed-logit DGPに同質logitを当てた先ほどの`theta_hat_cbc`とは、別の演習である。
 
 ```{r}
 #| label: lec6-wtp-point
 
-beta_nc_hat <- theta_hat_cbc["beta_nc"]
-alpha_hat   <- theta_hat_cbc["alpha"]
+hom_params <- true_params
+hom_params$sigma_batt <- 0
+hom_params$sigma_nc <- 0
+hom_params$sigma_brand <- 0
+hom_params$sigma_log_alpha <- 0
+
+set.seed(2026062)
+cbc_raw_hom <- simulate_cbc(n_resp, n_task, hom_params)
+opt_cbc_hom <- optim(par = c(0.1, 0.1, 0.1, 0.1), fn = neg_loglik_cbc,
+                     d = cbc_raw_hom, method = "BFGS", hessian = TRUE)
+theta_hat_hom <- opt_cbc_hom$par
+names(theta_hat_hom) <- c("beta_batt", "beta_nc", "beta_brand", "alpha")
+vcov_cbc_hom <- solve(opt_cbc_hom$hessian)
+
+beta_nc_hat <- theta_hat_hom["beta_nc"]
+alpha_hat   <- theta_hat_hom["alpha"]
 
 wtp_nc_hat <- beta_nc_hat / alpha_hat
 cat("ノイキャンのWTP点推定値:", round(wtp_nc_hat, 3), "（千円）\n")
 ```
 
-デルタ法でSEを計算する。共分散行列 `vcov_cbc` の中から、`beta_nc`と`alpha`に対応する2x2部分を取り出して使う。
+デルタ法でSEを計算する。共分散行列 `vcov_cbc_hom` の中から、`beta_nc`と`alpha`に対応する2x2部分を取り出して使う。
 
 ```{r}
 #| label: lec6-wtp-delta-se
@@ -564,7 +658,7 @@ cat("ノイキャンのWTP点推定値:", round(wtp_nc_hat, 3), "（千円）\n"
 idx_nc <- 2; idx_alpha <- 4
 
 grad_wtp <- c(1 / alpha_hat, -beta_nc_hat / alpha_hat^2)
-vcov_sub <- vcov_cbc[c(idx_nc, idx_alpha), c(idx_nc, idx_alpha)]
+vcov_sub <- vcov_cbc_hom[c(idx_nc, idx_alpha), c(idx_nc, idx_alpha)]
 
 var_wtp <- as.numeric(t(grad_wtp) %*% vcov_sub %*% grad_wtp)
 se_wtp <- sqrt(var_wtp)
@@ -572,7 +666,7 @@ se_wtp <- sqrt(var_wtp)
 wtp_ci_lower <- wtp_nc_hat - 1.96 * se_wtp
 wtp_ci_upper <- wtp_nc_hat + 1.96 * se_wtp
 
-true_wtp_nc <- true_params$beta_nc_mean / true_params$alpha_mean
+true_wtp_nc <- hom_params$beta_nc_mean / hom_params$alpha_mean
 
 wtp_df <- data.frame(
   quantity = "WTP（ノイキャン、千円）",
@@ -585,7 +679,7 @@ wtp_df <- data.frame(
 kable(wtp_df, row.names = FALSE, caption = "ノイキャンのWTP：デルタ法による95%信頼区間")
 ```
 
-真値（集団平均パラメータの比）が95%信頼区間に収まっている。ノイキャン機能には、おおよそ7,000円前後の支払意思額があると推定された。この数字が新製品会議で「ノイキャンを追加コスト○○円で搭載できるなら採算が取れるか」という判断の材料になる。
+この正しく指定された同質ケースでは、真値が95%信頼区間に収まっている。ここで得た約7,000円という値は、この基準ケースの代表的消費者についてのWTPである。元のmixed-logit DGPや実データに戻れば、平均個人WTP・中央値・セグメント別分布のどれを報告するかを決め、対応するモデルを推定しなければならない。
 
 ```{r}
 #| label: fig-lec6-wtp-ci
@@ -606,10 +700,15 @@ WTPは比なので、分母の $\alpha$（価格係数）が小さいときに�
 ```{r}
 #| label: lec6-wtp-small-alpha
 
-simulate_wtp_stability <- function(alpha_true_val, n_resp = 400, n_task = 8) {
+simulate_wtp_stability <- function(alpha_true_val, n_resp = 400, n_task = 8,
+                                   wtp_target = 6) {
   params_try <- true_params
   params_try$alpha_mean <- alpha_true_val
-  params_try$sigma_alpha <- alpha_true_val * 0.3  # 相対的なばらつきは一定に保つ
+  params_try$beta_nc_mean <- wtp_target * alpha_true_val
+  params_try$sigma_batt <- 0
+  params_try$sigma_nc <- 0
+  params_try$sigma_brand <- 0
+  params_try$sigma_log_alpha <- 0
 
   d <- simulate_cbc(n_resp, n_task, params_try)
   opt_try <- optim(par = c(0.1, 0.1, 0.1, max(alpha_true_val, 0.02)),
@@ -626,7 +725,7 @@ simulate_wtp_stability <- function(alpha_true_val, n_resp = 400, n_task = 8) {
     if (var_try > 0) se_try <- sqrt(var_try)
   }
   c(alpha_true = alpha_true_val, wtp_hat = wtp_try, se_delta = se_try,
-    wtp_true = params_try$beta_nc_mean / alpha_true_val)
+    wtp_true = wtp_target)
 }
 
 alpha_grid <- c(0.15, 0.05, 0.02, 0.005)
@@ -649,7 +748,7 @@ ggplot(wtp_stability_df, aes(x = alpha_true, y = cv)) +
        title = "alphaが小さいほどWTP推定が不安定になる")
 ```
 
-$\alpha$が小さくなるほど（価格に鈍感な集団になるほど）、WTPのデルタ法SEが桁違いに膨れ上がっていくのがわかる。変動係数（SE/|WTP|）を対数目盛で見ると、$\alpha$が0.15から0.005まで下がるにつれて2桁近く悪化する様子が一目でわかる。$\alpha$が真にゼロに近い状況では、分母がゼロに近い比を計算していることになり、推定値自体もSEも信頼できない領域に入る。
+ここでは真のWTPをすべて6千円に固定し、$\alpha$と$\beta_{\mathrm{nc}}$を同じ割合で小さくしている。それでも$\alpha$が小さくなるほど、WTPのデルタ法SEが膨らむ。分子・分母がともに弱く識別され、分母がゼロ近傍をまたぎうる比になれば、点推定も正規近似の信頼区間も不安定になる。
 
 ::: {.callout-warning}
 ## WTPの比が暴れる：実務での対処法
@@ -658,16 +757,22 @@ $\alpha$が小さくなるほど（価格に鈍感な集団になるほど）、
 
 実務でこの問題に遭遇したときの対処法はいくつかある。
 
-1. **まず $\alpha$ 自体の統計的有意性を確認する**。$\alpha$ がゼロと有意に異ならないなら、その調査回答者集団は価格情報をまともに使っていない可能性が高く、WTPという指標そのものが意味を持たない。
-2. **ブートストラップでWTPの標本分布を直接見る**。デルタ法は1階のテイラー近似なので、非線形性が強い場面（$\alpha$が小さい場面はまさにこれ）では近似の精度が落ちる。標本を復元抽出して何度も推定し直し、経験分布からパーセンタイル信頼区間を作る方が頑健なことが多い。
-3. **価格帯を広げて調査を設計し直す**。そもそも価格の水準間の差が小さすぎると、$\alpha$ の識別自体が弱くなる（第3回で学んだ「弱操作変数」と似た問題——変動が乏しいと係数の識別が弱い）。
+1. **まず $\alpha$ の推定値・信頼区間と価格割付を確認する**。ゼロを含むことは「回答者が価格を見ていない」と直ちに証明せず、価格変動不足・標本不足・ノイズ・モデル誤特定でも起こる。ただし分母が弱く識別されている以上、通常のWTP点推定を安定した金額として報告してはいけない。
+2. **回答者単位のブートストラップで比の標本分布を直接見る**。これは歪み・裾・符号反転を可視化できるが、分母がゼロ近傍なら単純なパーセンタイル区間も万能ではない。必要ならFieller区間のような比に適した方法を使い、区間が非有界になりうること自体を弱識別の情報として報告する。
+3. **価格帯と割付頻度を見直して調査を設計し直す**。価格水準間の差や各水準の提示数が足りなければ、$\alpha$ の識別が弱くなる。現実性を壊さない範囲でsupportを広げ、事前の検出力・精度シミュレーションで確認する。
 :::
 
 ## 6. 相互作用と異質性
 
 ### バッテリー×ノイキャンの交互作用
 
-ここまでは各属性が独立に選択確率へ効くAMCEだけを見てきたが、属性同士が組み合わさって初めて効く**交互作用**もありうる。例えば「バッテリーが長いこと」と「ノイキャンがあること」は、単独では大した価値がなくても、「長時間の移動でノイキャンを使い倒せる」という文脈で組み合わさると相乗効果を持つかもしれない。これは Egami and Imai (2019) が体系的に整理した、コンジョイント実験における**因果的交互作用（causal interaction）**の考え方である。
+ここまでは1属性ずつのAMCEを見てきたが、属性同士が組み合わさった効果もありうる。2つの二値属性を $B$（バッテリー12時間）と $N$（ノイキャン）と書くと、選択確率スケールの平均交互作用は
+
+$$
+I_{BN}=E\{Y(1,1)-Y(1,0)-Y(0,1)+Y(0,0)\}
+$$
+
+という「差の差」で定義できる。期待値は他の属性、相手プロファイル、回答者の分布について取る。属性が独立にランダム化され、outsideを含む全タスクを残しているので、焦点となる2属性について飽和したLPMの積項は、この確率スケールのdesign-averaged interactionを推定する。Egami and Imai (2019) は、多水準・多属性へ拡張したAMIEを体系化している。
 
 ```{r}
 #| label: lec6-interaction
@@ -688,9 +793,35 @@ interaction_coef_df <- data.frame(
 kable(interaction_coef_df, row.names = FALSE, caption = "バッテリー×ノイキャンの交互作用項")
 ```
 
+係数だけでなく、4つの反実仮想セルの平均予測確率を並べると「差の差」が見やすい。他の属性は各観測の値に保ったまま、$B,N$だけを4通りに置き換えて平均する。
+
+```{r}
+#| label: lec6-interaction-cells
+
+interaction_cells <- expand.grid(battery12 = 0:1, noise_cancel = 0:1)
+interaction_cells$predicted_probability <- mapply(function(b, n) {
+  d_cf <- cbc_long
+  d_cf$battery12 <- b
+  d_cf$noise_cancel <- n
+  mean(predict(interaction_fit, newdata = d_cf))
+}, interaction_cells$battery12, interaction_cells$noise_cancel)
+
+interaction_did <- with(interaction_cells,
+  predicted_probability[battery12 == 1 & noise_cancel == 1] -
+  predicted_probability[battery12 == 1 & noise_cancel == 0] -
+  predicted_probability[battery12 == 0 & noise_cancel == 1] +
+  predicted_probability[battery12 == 0 & noise_cancel == 0]
+)
+
+kable(transform(interaction_cells,
+                predicted_probability = round(predicted_probability, 4)),
+      row.names = FALSE, caption = "4セルの平均予測確率")
+cat("確率スケールの差の差:", round(interaction_did, 4), "\n")
+```
+
 ```{r}
 #| label: fig-lec6-interaction-coef
-#| fig-cap: "交互作用モデルの係数プロット（95%CI）。battery12:noise_cancelがゼロを跨いでいれば交互作用は検出されない。"
+#| fig-cap: "選択確率スケールの交互作用モデル（95%CI、回答者クラスターSE）"
 
 interaction_coef_df %>%
   filter(term != "(Intercept)") %>%
@@ -702,12 +833,18 @@ interaction_coef_df %>%
   labs(x = NULL, y = "係数（95%CI）", title = "交互作用モデルの係数プロット")
 ```
 
-交互作用項の係数と、そのSEを確認しよう。この係数が統計的にゼロと区別できるかどうかで、「2つの機能を同時に売りにする」ことに追加の価値があるかどうかが判断できる。
+交互作用項の係数とSEを確認しよう。これは「両方を付けたときの選択確率が、それぞれの確率効果の単純和をどれだけ上回るか（下回るか）」である。ただし、仮想的な支持確率の相乗効果だけで、追加コストや実市場の利益まで判断できるわけではない。
 
 ::: {.callout-note collapse="true"}
-## なぜこのDGPでは交互作用が弱いはずか
+## 効用が加法的でも、確率スケールの交互作用はゼロとは限らない
 
-今回のDGPでは、`beta_batt_i`と`beta_nc_i`は独立に引かれたランダム係数であり、効用は両者の**線形和**（$\beta_{\text{batt},i}\text{batt}_j + \beta_{\text{nc},i}\text{nc}_j$）として構成されている。つまりモデル上、真の交互作用はゼロに設計してある。したがって上の交互作用項の推定値は、統計的にゼロに近い値になるはずである（有意になったとしても、それは標本のブレによるものであり、系統的な交互作用ではない）。実務のコンジョイント分析では、意図的に交互作用のあるDGPを想定した設計（Egami and Imai 2019のような枠組み）を組むことで、この検定に意味を持たせることができる。宿題で、交互作用を明示的に持つDGPに書き換えて確認する練習を用意している。
+今回の効用指数は $\beta_{B,i}B+\beta_{N,i}N$ という線形和で、効用指数そのものには積 $BN$ がない。しかし選択確率は指数関数と分母を通る非線形な関数である。したがって、効用スケールで積項がゼロでも
+
+$$
+P(1,1)-P(1,0)-P(0,1)+P(0,0)
+$$
+
+は一般にゼロではない。係数同士を独立に引いたことも、この確率スケールの非加法性を消さない。上で推定したのは「明示的な効用積項」ではなく、選択確率スケールの平均交互作用である。どのスケールで相乗効果を定義しているかを必ず明記しよう。
 :::
 
 ### セグメント別AMCE：ヘビーユーザー vs ライトユーザー
@@ -767,7 +904,7 @@ ggplot(seg_compare_df, aes(x = segment, y = amce_nc)) +
 ::: {.callout-important}
 ## ここが核心：平均で設計を決め、異質性でターゲティングを考える
 
-AMCEは「この機能を全体に載せるべきか」という**設計判断**に向いている統計量である。一方、セグメント別・個人別の異質性は「誰にその機能を強く訴求するか」という**ターゲティング判断**に向いている。今回はセグメントを恣意的に2分割しただけの素朴な比較だったが、第9回では階層ベイズモデル（hierarchical Bayes、HB conjoint）によって、個人レベルの部分効用を統計的に安定した形で推定する方法を学ぶ。第11回では、この異質性を使って「誰に何を売るか」を最適化するuplift・policy learningの枠組みに進む。今回学んだAMCEとセグメント別AMCEは、その両方への入り口である。
+AMCEは「この機能が平均的に選択確率をどれだけ動かすか」という、**設計判断への入力**になる。一方、セグメント別・個人別の異質性は「誰にその機能を強く訴求するか」という**ターゲティング判断への入力**になる。ただしAMCEだけで搭載可否は決まらず、追加費用、価格、カニバリゼーション、属性間相互作用を含む利益比較が必要である。今回はセグメントを恣意的に2分割しただけの素朴な比較だったが、第9回では階層ベイズモデル（hierarchical Bayes、HB conjoint）によって、個人レベルの部分効用を統計的に安定した形で推定する方法を学ぶ。第11回では、この異質性を使って「誰に何を売るか」を最適化するuplift・policy learningの枠組みに進む。今回学んだAMCEとセグメント別AMCEは、その両方への入り口である。
 :::
 
 Goplerud, Imai, and Pashley (2025) は、属性の数が非常に多い（高次元の）コンジョイント実験において、この異質処置効果をどう推定するかを最前線で扱った研究である。属性が数個程度ならセグメント別の単純比較でも十分だが、属性が数十個に及ぶような複雑な製品設計（例えば自動車のフルオプション設計）では、属性の組合せ爆発によって、素朴なセグメント分割は機能しなくなる。この文献は、そうした高次元の処置空間でも異質性を安定的に推定するための統計的手法を提供しており、この講義シリーズが第9回・第11回で本格展開する話題の最前線に位置づけられる。
@@ -779,7 +916,7 @@ Goplerud, Imai, and Pashley (2025) は、属性の数が非常に多い（高次
 
 **研究の問い**：スマートフォンの特許侵害訴訟において、侵害されたとされる機能（例えばタッチスクリーンの特定の操作性）が、消費者にとってどれだけの金銭的価値を持つのか。これは損害賠償額の算定に直結する、実務的にきわめて重い問いである。
 
-**データ・識別戦略**：Apple対Samsungの特許訴訟（2010年代に米国で争われた一連の訴訟）では、経済コンサルタント・研究者がコンジョイント分析を用いて、特定の機能（デザイン特許やユーティリティ特許に関わる機能）に対する消費者のWTPを推定し、それを法廷での損害賠償額算定の根拠として提出した。基本的な手法は今回学んだ「機能を属性として組み込んだCBC調査＋WTPのlogit推定」の枠組みそのものである。
+**データ・識別戦略**：Apple対Samsungの特許訴訟では、Apple側の専門家John Hauserがコンジョイント調査を用いて、特許機能に対するSamsung顧客の価格プレミアムを推定した。連邦地裁は、この調査がmarket share予測ではなくWTP分析に使われたことを明記して証拠能力を検討し、連邦巡回控訴裁判所も調査が示した機能別プレミアムを判決文で要約している（[N.D. Cal., Document 1157](https://law.justia.com/cases/federal/district-courts/california/candce/5%3A2011cv01846/239768/1157/)、[Federal Circuit, No. 13-1129](https://law.justia.com/cases/federal/appellate-courts/cafc/13-1129/13-1129-2013-11-18.html)）。基本的な発想は、機能を属性としてランダム化し価格とのトレードオフからWTPを推定する、今回のCBCと同じである。
 
 **主要な発見**：具体的な損害賠償額や個々のWTP推定値は係争の中で激しく争われ、双方の専門家証人が異なる調査設計・異なる推定値を提示し合った（このため個別の数値をここで断定的に紹介することは避ける）。重要なのは、**コンジョイント分析が「機能の金銭的価値」を定量化する実務ツールとして、法廷という極めて厳格な検証の場で実際に使われた**という事実そのものである。
 
@@ -831,7 +968,7 @@ Goplerud, Imai, and Pashley (2025) は、属性の数が非常に多い（高次
 ::: {.callout-note}
 ## ビジネスの現場で：新製品会議「この機能、いくらの価値？」への答え方
 
-新製品開発の会議で、エンジニアリング側から「この新機能を搭載するのに追加コストが○○円かかります」という報告が来たとき、マーケティング側・経営側が最も知りたいのは「その機能に、消費者は追加コストを上回る価値を感じてくれるか」である。今回学んだWTP（$\beta_{\text{attr}}/\alpha$）は、まさにこの問いに直接答える数字である。「ノイキャンのWTPは約7,000円と推定されました。追加コストが3,000円なら、利益率を保ったまま搭載する価値があります」という形で、コンジョイント分析の結果を経営判断の言葉に翻訳できる。ただし今回学んだように、この数字には推定誤差（デルタ法のSE）が伴うことを忘れず、「約7,000円、ただし95%信頼区間は5,000〜9,000円」という幅を持たせて報告するのが誠実な伝え方である。
+新製品開発の会議で、エンジニアリング側から「この新機能を搭載するのに追加コストが○○円かかります」という報告が来たとき、マーケティング側・経営側が最も知りたいのは「その機能に、消費者は追加コストを上回る価値を感じてくれるか」である。WTPはこの問いを経営判断の言葉へ翻訳する。ただし、まず平均個人WTP・中央値・セグメント別WTPなど、どの量を報告するかを明記し、個人異質性に対応したモデルを使う必要がある。さらにWTPだけで「採算が取れる」とは決まらない。需要量、カニバリゼーション、搭載率、限界費用も合わせて利益を比較する。点推定だけでなく、信頼区間やブートストラップ分布も併記するのが誠実な伝え方である。
 :::
 
 ::: {.callout-note}
@@ -854,9 +991,9 @@ Goplerud, Imai, and Pashley (2025) は、属性の数が非常に多い（高次
 ## この回のポイント
 
 - Stated preference（コンジョイント）は、属性を実験的にランダム化することで、revealed preferenceでは扱えない「まだ存在しない商品」の需要を測れる。ただし仮想回答バイアスという代償がある。
-- CBCのデータは、**属性がランダム化されているおかげで内生性が消えたlogitモデル**（離散選択の読み方）であると同時に、**多属性のランダム化実験**（因果推論の読み方）でもある。この2つの読み方が交差するのが今回の核心である。
-- AMCE（属性水準の因果効果）は、水準ダミーのOLS＋**回答者クラスターSE**で推定できる。クラスターを無視すると標準誤差を過小評価する。
-- WTP＝$\beta_{\text{attr}}/\alpha$はデルタ法でSEを計算できるが、$\alpha$が小さいとき（価格に鈍感な集団）は比の推定が不安定になる。
+- CBCのデータは、**属性がランダム化されて価格・属性と観測されない魅力の相関が断たれた選択データ**であると同時に、**多属性のランダム化実験**でもある。ただしmixed-logitデータに同質logitを当てた係数は、平均係数の真値ではなくworking-modelの擬似真値である。
+- opt-out-inclusive profile AMCEは、outsideを含む全タスクを残した水準ダミーのOLS＋**回答者クラスターSE**で推定できる。outsideでなかったことへの条件付けは推定対象を変える。
+- 個人WTPは$\beta_{i,\text{attr}}/\alpha_i$。平均個人WTP、平均係数の比、working-modelの比を区別する。正しく指定されたモデルではデルタ法でSEを計算できるが、$\alpha$が小さいと比は不安定になる。
 - 属性間の交互作用（Egami-Imai）とセグメント別AMCEを通じて、「平均で設計を決め、異質性でターゲティングを考える」という発想が、第9回（階層モデル）・第11回（CATE）につながる。
 :::
 
@@ -876,8 +1013,8 @@ Goplerud, Imai, and Pashley (2025) は、属性の数が非常に多い（高次
 
 - Green, Paul E. and V. Srinivasan (1990) "Conjoint Analysis in Marketing: New Developments With Implications for Research and Practice," *Journal of Marketing*, 54(4), 3-19.
 - Train, Kenneth E. (2009) *Discrete Choice Methods with Simulation*, 2nd ed., Cambridge University Press, Chapter 2.
-- Hainmueller, Jens, Daniel J. Hopkins, and Teppei Yamamoto (2014) "Causal Inference in Conjoint Analysis: Understanding Multidimensional Choice-Based Survey Experiments," *Political Analysis*, 22(1), 1-30.
+- Hainmueller, Jens, Daniel J. Hopkins, and Teppei Yamamoto (2014) "Causal Inference in Conjoint Analysis: Understanding Multidimensional Choices via Stated Preference Experiments," *Political Analysis*, 22(1), 1-30. https://doi.org/10.1093/pan/mpt024
 - Egami, Naoki and Kosuke Imai (2019) "Causal Interaction in Factorial Experiments: Application to Conjoint Analysis," *Journal of the American Statistical Association*, 114(526), 529-540.
-- Goplerud, Max, Kosuke Imai, and Nicole E. Pashley (2025) "Estimating Heterogeneous Causal Effects of High-Dimensional Treatments: Application to Conjoint Analysis," *Annals of Applied Statistics*, 19(2).
+- Goplerud, Max, Kosuke Imai, and Nicole E. Pashley (2025) "Estimating Heterogeneous Causal Effects of High-Dimensional Treatments: Application to Conjoint Analysis," *Annals of Applied Statistics*, 19(2), 866-888. https://doi.org/10.1214/24-AOAS1994
 - Hainmueller, Jens, Dominik Hangartner, and Teppei Yamamoto (2015) "Validating Vignette and Conjoint Survey Experiments Against Real-World Behavior," *Proceedings of the National Academy of Sciences*, 112(8), 2395-2400.
 - 上武康亮・遠山祐太・若森直樹・渡辺安虎『実証ビジネス・エコノミクス』日本評論社、2025年。

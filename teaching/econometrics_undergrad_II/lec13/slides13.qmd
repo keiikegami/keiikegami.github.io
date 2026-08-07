@@ -210,7 +210,7 @@ flow_utils <- function(theta1, RC) {
 - バス公社の地味な台帳が、動学的離散選択という分野まるごとの出発点になった
 
 ::: {.notes}
-- 対象は100台強のバス、判断記録は数千件のオーダー。
+- 原標本は162台、15,406 bus-month observations。
 - 注意：以降のスライドの数値（交換費・維持費・状態数など）は説明用に我々が設定したシミュレーション値であって、Rustの推定値そのものではない、と口頭で断る。
 :::
 
@@ -218,6 +218,21 @@ flow_utils <- function(theta1, RC) {
 
 ::: {.notes}
 - この節は8分。部品を一つずつ並べる。
+:::
+
+## 1期間の順序を先に固定する
+
+| 順序 | 時点 $t$ で起きること |
+|---:|---|
+| 1 | 状態 $x_t$（走行距離）を観測 |
+| 2 | $a_t\in\{維持,交換\}$ を選択 |
+| 3 | 当期効用 $u(x_t,a_t)+\varepsilon_t(a_t)$ |
+| 4 | $x_{t+1}\sim P(\cdot\mid x_t,a_t)$ |
+| 5 | $\beta V(x_{t+1})$ を見越して次期へ |
+
+::: {.notes}
+- Bellman方程式で添字が迷子になったら、この順序へ戻る。
+- 今日の行動は今日の効用と明日の状態の両方に効く。
 :::
 
 ## 状態と行動
@@ -558,7 +573,7 @@ ggplot(df_freq, aes(x)) +
 
 ::: {.notes}
 - x=0 は観測が多いが交換はほぼ起きない（頻度ほぼ0）→ log を取ると発散する、という後半の伏線。
-- 高走行距離の薄さも後半のLaplace平滑化・WLSの伏線。
+- 高走行距離の薄さも後半のadd-half平滑化・WLSの伏線。
 :::
 
 # 推定1：NFXP（Rust の方法） {background-color="#1f3552"}
@@ -802,10 +817,15 @@ kable(check_tbl, col.names = c("検算項目", "値"), row.names = FALSE)
 #| output-location: fragment
 n_x  <- sapply(0:(K - 1), function(xv) sum(X == xv))     # 状態ごとの観測数
 n1_x <- sapply(0:(K - 1), function(xv) sum(A[X == xv]))  # 状態ごとの交換数
-Psm  <- (n1_x + 0.5) / (n_x + 1.0)          # Laplace 平滑化した頻度 CCP
+Psm  <- (n1_x + 0.5) / (n_x + 1.0)          # Jeffreys/add-half 平滑化
 logP1h <- log(Psm); logP0h <- log(1 - Psm)
-logP1h_full <- logP1h                        # 未観測の状態は隣の値で代用
-for (xv in 2:K) if (n_x[xv] == 0) logP1h_full[xv] <- logP1h_full[xv - 1]
+logP1h_full <- logP1h
+observed_idx <- which(n_x > 0)
+if (length(observed_idx) == 0) stop("CCPを計算できる観測状態がない")
+for (idx in which(n_x == 0)) {
+  nearest <- observed_idx[which.min(abs(observed_idx - idx))]
+  logP1h_full[idx] <- logP1h[nearest]
+}
 y_hat <- logP1h - logP0h + beta * as.vector(diffP %*% logP1h_full)
 good  <- n_x >= 30                           # データの厚い状態だけ使う
 fit_ccp <- lm(y_hat ~ xs, weights = n_x, subset = good)   # ただの回帰（WLS）
@@ -815,7 +835,8 @@ round(c(theta1 = theta1_ccp, RC = RC_ccp), 4)
 ```
 
 ::: {.notes}
-- x=0では交換頻度がほぼ0で log が発散しかける → Laplace平滑化。高走行距離は観測が薄い → n>=30に絞り観測数で重み付け。
+- x=0では交換頻度がほぼ0なのでadd-half平滑化。これはJeffreysであり、Laplace/add-oneは$(n_1+1)/(n+2)$。
+- 未観測状態は境界を含め最も近い観測状態で補完し、n>=30の状態をWLSに使う。
 - 乱数の引かれ方で真値から±0.5程度は揺れる。それがCCPのノイズ（次の比較で正直に扱う）。
 :::
 
@@ -856,10 +877,10 @@ CCP は NFXP のおよそ `r format(round(speed_ratio), big.mark = ",")` 分の1
 ## ここが核心：速さと精度のトレードオフ
 
 ::: {.keybox .fragment}
-- **NFXP**：外側の最適化 × 内側の価値関数反復。効率的（MLE）だが、状態空間が大きいと重い
+- **NFXP**：外側の最適化 × 内側の価値関数反復。正しく指定されたfull-solution MLEだが、状態空間が大きいと重い
 - **CCP**：頻度 CCP → finite dependence で将来項を消す → 回帰1本。**DP を一度も解かない**。桁違いに速い
-- 代償は**効率**：頻度推定のノイズが乗り、観測の薄い状態で不安定。CCP は「一致だが非効率」
-- 実務の使い分け：まず CCP で当たりをつけ、必要なら NFXP（や CCP を初期値にした改良法）で精緻化
+- Hotz–Millerは条件下で一致性・漸近正規性。NFXPと同じ推定量・同じ漸近分散という意味ではない
+- 単純2段階は第一段階ノイズを受ける。NPLなどの反復で改善できる
 :::
 
 ::: {.notes}
@@ -932,7 +953,7 @@ kable(cf_tbl, col.names = c("政策", "長期交換率", "平均走行距離"), 
 - 交換率は約 `r round((sub_cf$rep_rate / base_cf$rep_rate - 1) * 100, 1)`%、平均走行距離は約 `r round((sub_cf$mean_mi / base_cf$mean_mi - 1) * 100, 1)`% 変化
 
 ::: {.notes}
-- 第1回の約束「構造推定は反実仮想のため」をここで回収。深層パラメータは政策で変わらないから、RCだけ動かした世界を正しくシミュレートできる。
+- 第1回の約束「構造推定は反実仮想のため」をここで回収。ただし、補助がRCだけを変え、他の選好・遷移を変えないという政策不変性が妥当な範囲での反実仮想である。
 - 定常分布は「方針込みの遷移行列のマルコフ連鎖」の長期分布。d = dM を解くだけ。
 :::
 
@@ -1074,7 +1095,7 @@ kable(cf_compare,
 - 動学的離散選択の部品：状態 $x$・行動 $a$・遷移 $P(x' \mid x, a)$・$v(x, a)$・$V(x)$・Bellman 方程式
 - T1EV なら動学でも **Emax = logsum、選択確率 = logit**。静学の $\delta$ の座に $v(x, a)$ が座るだけ
 - 価値関数反復は $\beta$ を縮小係数とする**縮小写像**（BLP contraction と同じ数学）
-- **NFXP**：外側最適化 × 内側 VFI。効率的だが重い。**CCP**：Hotz-Miller の反転 + renewal action の finite dependence で**回帰1本**。速いがノイズあり
+- **NFXP**：外側最適化 × 内側 VFIのfull-solution MLE。**CCP**：Hotz–Millerの反転 + renewal actionのfinite dependenceで回帰1本。条件下で一致・漸近正規だが、単純2段階には第一段階ノイズ
 - 反実仮想：交換費20%補助 → 交換率 約+18%。**myopic で推定すると $\theta_1$ が3倍歪み、効果を約2倍に過大評価**
 :::
 

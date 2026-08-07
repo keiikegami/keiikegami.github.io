@@ -49,17 +49,17 @@ params6 <- list(
   beta_batt_mean  = 0.5,  sigma_batt  = 0.5,
   beta_nc_mean    = 0.8,  sigma_nc    = 1.5,
   beta_brand_mean = 0.3,  sigma_brand = 0.5,
-  alpha_mean      = 0.12, sigma_alpha = 0.05
+  alpha_mean      = 0.12, sigma_log_alpha = 0.35
 )
 
 # 回答者ごとのランダム係数を引く（全タスクで固定して使う）
 draw_coefs6 <- function(n_resp, params) {
+  mu_log_alpha <- log(params$alpha_mean) - params$sigma_log_alpha^2 / 2
   data.frame(
     b_batt  = params$beta_batt_mean  + params$sigma_batt  * rnorm(n_resp),
     b_nc    = params$beta_nc_mean    + params$sigma_nc    * rnorm(n_resp),
     b_brand = params$beta_brand_mean + params$sigma_brand * rnorm(n_resp),
-    a       = pmax(params$alpha_mean + params$sigma_alpha * rnorm(n_resp),
-                   0.1 * params$alpha_mean)   # 価格係数は正に保つ
+    a       = exp(mu_log_alpha + params$sigma_log_alpha * rnorm(n_resp))
   )
 }
 
@@ -185,7 +185,7 @@ $$
 u_{ijt} = \beta_{1i}\,\mathrm{battery}_{jt} + \beta_{2i}\,\mathrm{nc}_{jt} + \beta_{3i}\,\mathrm{brand}_{jt} - \alpha_i\,\mathrm{price}_{jt} + \varepsilon_{ijt}
 $$
 
-同じ人は全タスクで同じ係数 $(\beta_{1i}, \beta_{2i}, \beta_{3i}, \alpha_i)$ を使う。これが回答者内の相関（クラスター構造）の源になる。下のセルは (1) 1回分の調査からAMCEを`lm()`で推定して真のAMCE（`TRUE_AMCE6`、道具箱で数値積分して用意済み）と比べ、(2) 同じ設計の調査を`n_mc`回やり直して、`noise_cancel`のAMCE推定値の**本当のばらつき**を測る。なお講義ノートと違い、ここでは「どちらも買わない」のタスクも落とさず、「そのプロファイルが選ばれたか」を0/1の結果変数にしている（これもAMCEの標準的な流儀の1つで、真値の計算が楽になる）。
+同じ人は全タスクで同じ係数 $(\beta_{1i}, \beta_{2i}, \beta_{3i}, \alpha_i)$ を使う。これが回答者内の相関（クラスター構造）の源になる。下のセルは (1) 1回分の調査からAMCEを`lm()`で推定して真のAMCE（`TRUE_AMCE6`、道具箱で数値積分して用意済み）と比べ、(2) 同じ設計の調査を`n_mc`回やり直して、`noise_cancel`のAMCE推定値の**本当のばらつき**を測る。講義ノートと同じく「どちらも買わない」のタスクも落とさず、outsideならA・B両方の結果を0として残す。
 
 ```{webr}
 #| timelimit: 60
@@ -231,7 +231,7 @@ data.frame(design        = paste0(n_resp, " resp x ", n_tasks, " tasks"),
 ## やってみよう
 
 - `n_resp <- 200; n_tasks <- 8` と `n_resp <- 800; n_tasks <- 2` を試そう。総観測数は同じ1,600タスクだが、`empirical_sd`はどちらが小さいか（`n_mc <- 200`にすると差が安定して見える）。
-- `n_tasks <- 1` にしてみよう。1人1タスクなら行の独立が本当になるので、`mean_se_ols`は`empirical_sd`とほぼ一致し、`coverage_95ci`は0.95に近づくはずだ。
+- `n_tasks <- 1` にしてみよう。回答者をまたぐ繰り返し依存は消えるが、同じタスクのA・Bという2行はなお相互依存する。したがって通常SEが完全に正しくなるとは限らない点も確認しよう。
 - 問い：通常SE（`mean_se_ols`）は設計を入れ替えてもほとんど動かないのに、本当のばらつき（`empirical_sd`）は動く。独立な情報の単位は「タスク」か、それとも「回答者」か。
 :::
 
@@ -299,7 +299,7 @@ $$
 \mathrm{WTP}_{\mathrm{nc}} = \frac{\beta_{\mathrm{nc}}}{\alpha}
 $$
 
-分母の価格係数 $\alpha$ がゼロに近いと、これは分母が壊れかけの割り算になる。下のセルでは、真のWTPを6（千円）に**固定したまま**（分子 $\beta_{\mathrm{nc}}$ も比例して縮めて）、$\alpha$ の真値だけを0に近づけた5つの世界で、調査の生成、logit MLE、delta法によるCIの計算を繰り返す。真実はどの世界でも「6,000円」なのに、価格係数の識別が弱くなるだけで点推定とCIが壊れていく。表の`t_alpha`は価格係数のt値である。図の枠を突き抜けるCIは「報告不能」と読んでよい。
+分母の価格係数 $\alpha$ がゼロに近いと、これは分母が壊れかけの割り算になる。下のセルでは、この実験だけ係数異質性を0にして同質logitを正しく指定し、真のWTPを6（千円）に**固定したまま**（分子 $\beta_{\mathrm{nc}}$ も比例して縮めて）、$\alpha$ の真値だけを0に近づける。したがって、どの世界でも真実は「6,000円」で、Hessianとdelta法を使う基準ケースとして解釈できる。表の`t_alpha`は価格係数のt値である。
 
 ```{webr}
 #| timelimit: 60
@@ -313,9 +313,11 @@ set.seed(20266)
 one_run <- function(a) {
   p <- params6
   p$alpha_mean   <- a
-  p$sigma_alpha  <- 0.3 * a
   p$beta_nc_mean <- wtp_true * a      # 比（WTP）は固定したまま分母だけ小さくする
-  p$sigma_nc     <- 0.4 * p$beta_nc_mean
+  p$sigma_batt <- 0
+  p$sigma_nc <- 0
+  p$sigma_brand <- 0
+  p$sigma_log_alpha <- 0
   f  <- fit_mle_cbc6(simulate_cbc6(n_resp, 8, p))
   b  <- f$theta[2]
   al <- f$theta[4]

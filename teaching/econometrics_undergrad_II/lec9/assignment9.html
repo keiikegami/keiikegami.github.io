@@ -2406,7 +2406,7 @@ window.Quarto = {
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>第9回でやった <strong>partial pooling / shrinkage</strong> を、自分の手で最初から最後まで通す。60店舗のクーポン施策を題材に、(1) データを自作し、(2) 経験ベイズのモーメント法で縮小推定を作り、(3) MSE で no pooling に勝つことを確かめ、(4) Gibbs サンプラーを手実装してフルベイズの事後分布を出し、(5) 点推定ランキングでなく事後確率でターゲティングする、という流れだ。</p>
+<p>第9回でやった <strong>partial pooling / shrinkage</strong> を、自分の手で最初から最後まで通す。60店舗のクーポン施策を題材に、(1) データを自作し、(2) 経験ベイズのモーメント法で縮小推定を作り、(3) MSE を no pooling と比較し、(4) Gibbs サンプラーを複数 chain で実装・診断してフルベイズの事後分布を出し、(5) 点推定ランキングでなく事後確率でターゲティングする、という流れだ。</p>
 <ul>
 <li><strong>Part 1</strong>：60店舗のクーポン施策 DGP を自作（40点）。</li>
 <li><strong>Part 2</strong>：経験ベイズ・MSE比較・Gibbs実装・確率ベースのターゲティング（60点）。</li>
@@ -2584,36 +2584,44 @@ y_{ij} \mid \theta_i \sim N(\theta_i,\ \sigma^2).
 </section>
 <section id="問510点mse-比較表complete-no-pooling-eb" class="level2">
 <h2 class="anchored" data-anchor-id="問510点mse-比較表complete-no-pooling-eb">問5（10点）：MSE 比較表（complete / no pooling / EB）</h2>
-<p>3つの推定量の MSE <span class="math inline">\(= \frac1N\sum_i(\hat\theta_i - \theta_i)^2\)</span> を計算し、表にせよ。経験ベイズが最小になることを確認する。さらに、データ生成を1000回繰り返して<strong>平均的にも</strong>経験ベイズが勝つことをモンテカルロで示せ。</p>
+<p>3つの推定量の MSE <span class="math inline">\(= \frac1N\sum_i(\hat\theta_i - \theta_i)^2\)</span> を計算し、表にせよ。1つの実現データでは経験ベイズが最小とは限らない点にも注意する。さらに、データ生成を1000回繰り返し、この DGP での<strong>期待 MSE</strong>をモンテカルロ近似して比較せよ。「平均的に勝つ」と「毎データセットで勝つ」の違いも1文で説明すること。</p>
+<p>complete pooling は <span class="math inline">\(\theta_i=\theta\)</span> を仮定するので、共通効果は測定精度 <span class="math inline">\(n_i/\sigma^2\)</span> で重みづけた <code>weighted.mean(ybar, n_i)</code> で推定する。これは店舗を等重みにした経験ベイズの単純モーメント推定 <code>mu_hat = mean(ybar)</code> とは区別する。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- ここを埋める ----</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>mse <span class="ot">&lt;-</span> <span class="cf">function</span>(est) <span class="fu">mean</span>((est <span class="sc">-</span> theta_true)<span class="sc">^</span><span class="dv">2</span>)</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;complete pooling&quot;</span>, <span class="st">&quot;no pooling&quot;</span>, <span class="st">&quot;empirical Bayes&quot;</span>),</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">MSE    =</span> <span class="fu">round</span>(<span class="fu">c</span>(<span class="fu">mse</span>(mu_hat), <span class="fu">mse</span>(ybar), <span class="fu">mse</span>(eb_est)), <span class="dv">4</span>)   <span class="co"># complete は全店 mu_hat</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span> <span class="fu">kable</span>(<span class="at">caption =</span> <span class="st">&quot;3つの推定量の MSE&quot;</span>)</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co"># モンテカルロ：1000 データセットで平均 MSE を比較</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>one_rep <span class="ot">&lt;-</span> <span class="cf">function</span>() {</span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  n   <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">5</span><span class="sc">:</span><span class="dv">100</span>, N, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  s2  <span class="ot">&lt;-</span> sigma2 <span class="sc">/</span> n</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  th  <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, mu_true, <span class="fu">sqrt</span>(tau2_true))</span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  y   <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, th, <span class="fu">sqrt</span>(s2))</span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  muh <span class="ot">&lt;-</span> <span class="fu">mean</span>(y)</span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  t2h <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">var</span>(y) <span class="sc">-</span> <span class="fu">mean</span>(s2), <span class="fl">1e-6</span>)</span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  B   <span class="ot">&lt;-</span> s2 <span class="sc">/</span> (s2 <span class="sc">+</span> t2h)</span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  eb  <span class="ot">&lt;-</span> B <span class="sc">*</span> muh <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> B) <span class="sc">*</span> y</span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="at">complete =</span> <span class="fu">mean</span>((muh <span class="sc">-</span> th)<span class="sc">^</span><span class="dv">2</span>), <span class="at">nopool =</span> <span class="fu">mean</span>((y <span class="sc">-</span> th)<span class="sc">^</span><span class="dv">2</span>), <span class="at">eb =</span> <span class="fu">mean</span>((eb <span class="sc">-</span> th)<span class="sc">^</span><span class="dv">2</span>))</span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">20269</span>)</span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>sim <span class="ot">&lt;-</span> <span class="fu">replicate</span>(<span class="dv">1000</span>, <span class="fu">one_rep</span>())</span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">rowMeans</span>(sim), <span class="dv">4</span>)</span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;EB が no pooling に勝った割合:&quot;</span>, <span class="fu">round</span>(<span class="fu">mean</span>(sim[<span class="st">&quot;eb&quot;</span>, ] <span class="sc">&lt;</span> sim[<span class="st">&quot;nopool&quot;</span>, ]), <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>pooled_est <span class="ot">&lt;-</span> <span class="fu">weighted.mean</span>(ybar, <span class="at">w =</span> n_i) <span class="co"># complete pooling の共通効果MLE</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;complete pooling&quot;</span>, <span class="st">&quot;no pooling&quot;</span>, <span class="st">&quot;empirical Bayes&quot;</span>),</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">MSE    =</span> <span class="fu">round</span>(<span class="fu">c</span>(<span class="fu">mse</span>(pooled_est), <span class="fu">mse</span>(ybar), <span class="fu">mse</span>(eb_est)), <span class="dv">4</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span> <span class="fu">kable</span>(<span class="at">caption =</span> <span class="st">&quot;3つの推定量の MSE&quot;</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co"># モンテカルロ：1000 データセットで平均 MSE を比較</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>one_rep <span class="ot">&lt;-</span> <span class="cf">function</span>() {</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  n   <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">5</span><span class="sc">:</span><span class="dv">100</span>, N, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  s2  <span class="ot">&lt;-</span> sigma2 <span class="sc">/</span> n</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  th  <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, mu_true, <span class="fu">sqrt</span>(tau2_true))</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  y   <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, th, <span class="fu">sqrt</span>(s2))</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  muh <span class="ot">&lt;-</span> <span class="fu">mean</span>(y)</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  pool <span class="ot">&lt;-</span> <span class="fu">weighted.mean</span>(y, <span class="at">w =</span> n)</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  t2h <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">var</span>(y) <span class="sc">-</span> <span class="fu">mean</span>(s2), <span class="fl">1e-6</span>)</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>  B   <span class="ot">&lt;-</span> s2 <span class="sc">/</span> (s2 <span class="sc">+</span> t2h)</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  eb  <span class="ot">&lt;-</span> B <span class="sc">*</span> muh <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> B) <span class="sc">*</span> y</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="at">complete =</span> <span class="fu">mean</span>((pool <span class="sc">-</span> th)<span class="sc">^</span><span class="dv">2</span>), <span class="at">nopool =</span> <span class="fu">mean</span>((y <span class="sc">-</span> th)<span class="sc">^</span><span class="dv">2</span>), <span class="at">eb =</span> <span class="fu">mean</span>((eb <span class="sc">-</span> th)<span class="sc">^</span><span class="dv">2</span>))</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">20269</span>)</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>sim <span class="ot">&lt;-</span> <span class="fu">replicate</span>(<span class="dv">1000</span>, <span class="fu">one_rep</span>())</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">rowMeans</span>(sim), <span class="dv">4</span>)</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;EB が no pooling に勝った割合:&quot;</span>, <span class="fu">round</span>(<span class="fu">mean</span>(sim[<span class="st">&quot;eb&quot;</span>, ] <span class="sc">&lt;</span> sim[<span class="st">&quot;nopool&quot;</span>, ]), <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="問620点gibbs-サンプラーを手実装する" class="level2">
 <h2 class="anchored" data-anchor-id="問620点gibbs-サンプラーを手実装する">問6（20点）：Gibbs サンプラーを手実装する</h2>
-<p>正規階層モデルの Gibbs サンプラーを完成させよ。<strong>完全条件付き分布は下に与える</strong>（講義 §6.1 の導出結果）。<span class="math inline">\(\bar\theta\)</span> には広い正規 prior、<span class="math inline">\(\tau^2\)</span> には逆ガンマ prior を置く。</p>
+<p>正規階層モデルの Gibbs サンプラーを完成させよ。<strong>完全条件付き分布は下に与える</strong>（講義 §6.1 の導出結果）。<span class="math inline">\(\bar\theta\)</span> にはこのデータの尺度では広い正規 prior、<span class="math inline">\(\tau^2\)</span> には共役計算を学ぶための逆ガンマ prior を置く。異なる初期値から4本の chain を走らせ、traceplot、split-<span class="math inline">\(\widehat R\)</span>、ESS、MCSE を確認する。</p>
+<p>ここで <span class="math inline">\(\mathrm{Inv\text{-}Gamma}(\alpha_0,\beta_0)\)</span> は</p>
+<p><span class="math display">\[
+p(\tau^2)\propto(\tau^2)^{-\alpha_0-1}\exp(-\beta_0/\tau^2)
+\]</span></p>
+<p>と定義する。<span class="math inline">\(\beta_0\)</span> は逆ガンマ側の <strong>scale</strong>、同値な <span class="math inline">\(1/\tau^2\)</span> のガンマ分布では <strong>rate</strong> である。</p>
 <p><strong>完全条件付き分布（これを使え）</strong>：</p>
 <p><span class="math display">\[
 \theta_i \mid \cdots \sim N(m_i, v_i),\quad
@@ -2624,64 +2632,111 @@ m_i = v_i\left(\frac{n_i \bar y_i}{\sigma^2} + \frac{\bar\theta}{\tau^2}\right).
 \bar\theta \mid \cdots \sim N\!\left(\frac{\sum_i \theta_i/\tau^2 + \mu_0/\kappa^2}{N/\tau^2 + 1/\kappa^2},\ \left(\frac{N}{\tau^2} + \frac{1}{\kappa^2}\right)^{-1}\right).
 \]</span></p>
 <p><span class="math display">\[
-\tau^2 \mid \cdots \sim \text{Inv-Gamma}\!\left(a_0 + \frac{N}{2},\ b_0 + \frac12\sum_i(\theta_i - \bar\theta)^2\right)
+\tau^2 \mid \cdots \sim \text{Inv-Gamma}\!\left(\alpha_0 + \frac{N}{2},\ \beta_0 + \frac12\sum_i(\theta_i - \bar\theta)^2\right)
 \quad\Longrightarrow\quad
 \tau^2 = \frac{1}{\texttt{rgamma}(1, \text{shape}, \text{rate})}.
 \]</span></p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- この関数を完成させる ----</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>gibbs_hier <span class="ot">&lt;-</span> <span class="cf">function</span>(ybar, n_i, sigma2, <span class="at">n_draws =</span> <span class="dv">2000</span>, <span class="at">burn =</span> <span class="dv">500</span>,</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>                       <span class="at">mu0 =</span> <span class="dv">0</span>, <span class="at">kappa2 =</span> <span class="fl">1e6</span>, <span class="at">a0 =</span> <span class="fl">0.01</span>, <span class="at">b0 =</span> <span class="fl">0.01</span>) {</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  N     <span class="ot">&lt;-</span> <span class="fu">length</span>(ybar)</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  theta <span class="ot">&lt;-</span> ybar                            <span class="co"># 初期値</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  mu    <span class="ot">&lt;-</span> <span class="fu">mean</span>(ybar)</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  tau2  <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">var</span>(ybar), <span class="fl">0.1</span>)</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  keep_theta <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, n_draws, N)</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  keep_mu    <span class="ot">&lt;-</span> <span class="fu">numeric</span>(n_draws)</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  keep_tau2  <span class="ot">&lt;-</span> <span class="fu">numeric</span>(n_draws)</span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (it <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>(n_draws <span class="sc">+</span> burn)) {</span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (1) theta_i を引く（ベクトル化）。上の theta_i の完全条件付き分布の v_i, m_i を実装</span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    v_i   <span class="ot">&lt;-</span> ______     <span class="co"># 事後分散：精度 (n_i/sigma2 + 1/tau2) の逆数。分散でなく精度を足す</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    m_i   <span class="ot">&lt;-</span> ______     <span class="co"># 事後平均：v_i * (データ精度*ybar + prior精度*mu)</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    theta <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, m_i, <span class="fu">sqrt</span>(v_i))       <span class="co"># rnorm の第3引数は標準偏差 = sqrt(v_i)</span></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (2) mu を引く（mean_ と prec は用意済み）</span></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    prec  <span class="ot">&lt;-</span> N <span class="sc">/</span> tau2 <span class="sc">+</span> <span class="dv">1</span> <span class="sc">/</span> kappa2</span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    mean_ <span class="ot">&lt;-</span> (<span class="fu">sum</span>(theta) <span class="sc">/</span> tau2 <span class="sc">+</span> mu0 <span class="sc">/</span> kappa2) <span class="sc">/</span> prec</span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    mu    <span class="ot">&lt;-</span> ______     <span class="co"># rnorm(1, mean_, 標準偏差)。標準偏差 = sqrt(1/prec)</span></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (3) tau2 を引く（逆ガンマ = 1/ガンマ）。shape, rate は用意済み</span></span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    shape <span class="ot">&lt;-</span> a0 <span class="sc">+</span> N <span class="sc">/</span> <span class="dv">2</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    rate  <span class="ot">&lt;-</span> b0 <span class="sc">+</span> <span class="fl">0.5</span> <span class="sc">*</span> <span class="fu">sum</span>((theta <span class="sc">-</span> mu)<span class="sc">^</span><span class="dv">2</span>)</span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    tau2  <span class="ot">&lt;-</span> ______     <span class="co"># 逆ガンマ = 1 / rgamma(1, shape = shape, rate = rate)</span></span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (it <span class="sc">&gt;</span> burn) {</span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>      k <span class="ot">&lt;-</span> it <span class="sc">-</span> burn</span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>      keep_theta[k, ] <span class="ot">&lt;-</span> theta</span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>      keep_mu[k]      <span class="ot">&lt;-</span> mu</span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>      keep_tau2[k]    <span class="ot">&lt;-</span> tau2</span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">theta =</span> keep_theta, <span class="at">mu =</span> keep_mu, <span class="at">tau2 =</span> keep_tau2)</span>
-<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">23</span>)</span>
-<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">gibbs_hier</span>(ybar, n_i, sigma2, <span class="at">n_draws =</span> <span class="dv">2000</span>, <span class="at">burn =</span> <span class="dv">500</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>                       <span class="at">mu0 =</span> <span class="dv">0</span>, <span class="at">kappa2 =</span> <span class="fl">1e6</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>                       <span class="at">alpha0 =</span> <span class="fl">0.01</span>, <span class="at">beta0 =</span> <span class="fl">0.01</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>                       <span class="at">seed =</span> <span class="cn">NULL</span>, <span class="at">init_mu =</span> <span class="cn">NULL</span>, <span class="at">init_tau2 =</span> <span class="cn">NULL</span>) {</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span><span class="fu">is.null</span>(seed)) <span class="fu">set.seed</span>(seed)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  N     <span class="ot">&lt;-</span> <span class="fu">length</span>(ybar)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  theta <span class="ot">&lt;-</span> ybar                            <span class="co"># 初期値</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  mu    <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(init_mu)) <span class="fu">mean</span>(ybar) <span class="cf">else</span> init_mu</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  tau2  <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.null</span>(init_tau2)) <span class="fu">max</span>(<span class="fu">var</span>(ybar), <span class="fl">0.1</span>) <span class="cf">else</span> init_tau2</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  keep_theta <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, n_draws, N)</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  keep_mu    <span class="ot">&lt;-</span> <span class="fu">numeric</span>(n_draws)</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  keep_tau2  <span class="ot">&lt;-</span> <span class="fu">numeric</span>(n_draws)</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (it <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>(n_draws <span class="sc">+</span> burn)) {</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (1) theta_i を引く（ベクトル化）。上の theta_i の完全条件付き分布の v_i, m_i を実装</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    v_i   <span class="ot">&lt;-</span> ______     <span class="co"># 事後分散：精度 (n_i/sigma2 + 1/tau2) の逆数。分散でなく精度を足す</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    m_i   <span class="ot">&lt;-</span> ______     <span class="co"># 事後平均：v_i * (データ精度*ybar + prior精度*mu)</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    theta <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, m_i, <span class="fu">sqrt</span>(v_i))       <span class="co"># rnorm の第3引数は標準偏差 = sqrt(v_i)</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (2) mu を引く（mean_ と prec は用意済み）</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    prec  <span class="ot">&lt;-</span> N <span class="sc">/</span> tau2 <span class="sc">+</span> <span class="dv">1</span> <span class="sc">/</span> kappa2</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    mean_ <span class="ot">&lt;-</span> (<span class="fu">sum</span>(theta) <span class="sc">/</span> tau2 <span class="sc">+</span> mu0 <span class="sc">/</span> kappa2) <span class="sc">/</span> prec</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    mu    <span class="ot">&lt;-</span> ______     <span class="co"># rnorm(1, mean_, 標準偏差)。標準偏差 = sqrt(1/prec)</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># (3) tau2 を引く（逆ガンマ = 1/ガンマ）。shape, rate は用意済み</span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    shape          <span class="ot">&lt;-</span> alpha0 <span class="sc">+</span> N <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>    precision_rate <span class="ot">&lt;-</span> beta0 <span class="sc">+</span> <span class="fl">0.5</span> <span class="sc">*</span> <span class="fu">sum</span>((theta <span class="sc">-</span> mu)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>    tau2  <span class="ot">&lt;-</span> ______     <span class="co"># 1 / rgamma(1, shape = shape, rate = precision_rate)</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (it <span class="sc">&gt;</span> burn) {</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>      k <span class="ot">&lt;-</span> it <span class="sc">-</span> burn</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>      keep_theta[k, ] <span class="ot">&lt;-</span> theta</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>      keep_mu[k]      <span class="ot">&lt;-</span> mu</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>      keep_tau2[k]    <span class="ot">&lt;-</span> tau2</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">theta =</span> keep_theta, <span class="at">mu =</span> keep_mu, <span class="at">tau2 =</span> keep_tau2)</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>fits <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>, <span class="cf">function</span>(ch) <span class="fu">gibbs_hier</span>(</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>  ybar, n_i, sigma2, <span class="at">n_draws =</span> <span class="dv">2000</span>, <span class="at">burn =</span> <span class="dv">500</span>,</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">2300</span> <span class="sc">+</span> ch,</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">init_mu =</span> <span class="fu">mean</span>(ybar) <span class="sc">+</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="fl">0.3</span>, <span class="fl">0.3</span>, <span class="dv">1</span>)[ch],</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">init_tau2 =</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">0.6</span>, <span class="fl">1.5</span>, <span class="dv">3</span>)[ch]</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>))</span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>  <span class="at">theta =</span> <span class="fu">do.call</span>(rbind, <span class="fu">lapply</span>(fits, <span class="st">`</span><span class="at">[[</span><span class="st">`</span>, <span class="st">&quot;theta&quot;</span>)),</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">mu =</span> <span class="fu">unlist</span>(<span class="fu">lapply</span>(fits, <span class="st">`</span><span class="at">[[</span><span class="st">`</span>, <span class="st">&quot;mu&quot;</span>)),</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau2 =</span> <span class="fu">unlist</span>(<span class="fu">lapply</span>(fits, <span class="st">`</span><span class="at">[[</span><span class="st">`</span>, <span class="st">&quot;tau2&quot;</span>))</span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>続いて、(a) <span class="math inline">\(\bar\theta, \tau^2\)</span> の traceplot、(b) 店舗別事後平均が経験ベイズ closed form と一致すること、を示せ。</p>
+<p>続いて、(a) 4本の <span class="math inline">\(\bar\theta,\tau^2\)</span> の traceplot、(b) 下の簡易関数による split-<span class="math inline">\(\widehat R\)</span>・ESS・MCSE、(c) 店舗別事後平均と経験ベイズ plug-in 推定の比較、(d) <span class="math inline">\(\mathrm{IG}(0.01,0.01)\)</span> と <span class="math inline">\(\mathrm{IG}(3,2)\)</span> の prior 感度分析、を示せ。<span class="math inline">\(\mathrm{IG}(0.01,0.01)\)</span> は「弱情報」ではなく、あくまで共役計算のデモ設定である。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># (a) traceplot</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>df_trace <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">iter =</span> <span class="fu">seq_along</span>(fit<span class="sc">$</span>mu), <span class="at">mu =</span> fit<span class="sc">$</span>mu, <span class="at">tau2 =</span> fit<span class="sc">$</span>tau2) <span class="sc">|&gt;</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="fu">c</span>(mu, tau2), <span class="at">names_to =</span> <span class="st">&quot;param&quot;</span>, <span class="at">values_to =</span> <span class="st">&quot;value&quot;</span>)</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_trace, <span class="fu">aes</span>(iter, value)) <span class="sc">+</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">&quot;#1f77b4&quot;</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>param, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>) <span class="sc">+</span></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Gibbs の traceplot&quot;</span>, <span class="at">x =</span> <span class="st">&quot;反復&quot;</span>, <span class="at">y =</span> <span class="cn">NULL</span>)</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co"># (b) Gibbs 事後平均 vs 経験ベイズ</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>post_theta_mean <span class="ot">&lt;-</span> <span class="fu">colMeans</span>(fit<span class="sc">$</span>theta)</span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="fu">data.frame</span>(<span class="at">eb =</span> eb_est, <span class="at">gibbs =</span> post_theta_mean), <span class="fu">aes</span>(eb, gibbs)) <span class="sc">+</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">slope =</span> <span class="dv">1</span>, <span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">&quot;grey60&quot;</span>) <span class="sc">+</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">color =</span> <span class="st">&quot;#1f77b4&quot;</span>, <span class="at">size =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Gibbs 事後平均 = 経験ベイズ&quot;</span>, <span class="at">x =</span> <span class="st">&quot;経験ベイズ&quot;</span>, <span class="at">y =</span> <span class="st">&quot;Gibbs 事後平均&quot;</span>)</span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Gibbs事後平均 と EB の相関:&quot;</span>, <span class="fu">round</span>(<span class="fu">cor</span>(post_theta_mean, eb_est), <span class="dv">5</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># (a) 4 chains の traceplot</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>df_trace <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(<span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>, <span class="cf">function</span>(ch) {</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">iter =</span> <span class="fu">seq_along</span>(fits[[ch]]<span class="sc">$</span>mu), <span class="at">chain =</span> <span class="fu">factor</span>(ch),</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">mu =</span> fits[[ch]]<span class="sc">$</span>mu, <span class="at">tau2 =</span> fits[[ch]]<span class="sc">$</span>tau2)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>})) <span class="sc">|&gt;</span> <span class="fu">pivot_longer</span>(<span class="fu">c</span>(mu, tau2), <span class="at">names_to =</span> <span class="st">&quot;param&quot;</span>, <span class="at">values_to =</span> <span class="st">&quot;value&quot;</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_trace, <span class="fu">aes</span>(iter, value, <span class="at">color =</span> chain)) <span class="sc">+</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.25</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>param, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>) <span class="sc">+</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Gibbs の traceplot&quot;</span>, <span class="at">x =</span> <span class="st">&quot;反復&quot;</span>, <span class="at">y =</span> <span class="cn">NULL</span>)</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co"># (b) 簡易診断関数（実務では rank-normalized Rhat と bulk/tail ESS を使う）</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>basic_mcmc_diag <span class="ot">&lt;-</span> <span class="cf">function</span>(x) {</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(x); n <span class="ot">&lt;-</span> <span class="fu">nrow</span>(x); m <span class="ot">&lt;-</span> <span class="fu">ncol</span>(x); n2 <span class="ot">&lt;-</span> <span class="fu">floor</span>(n <span class="sc">/</span> <span class="dv">2</span>)</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  sx <span class="ot">&lt;-</span> <span class="fu">do.call</span>(cbind, <span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span>m, <span class="cf">function</span>(j)</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">cbind</span>(x[<span class="dv">1</span><span class="sc">:</span>n2, j], x[(n <span class="sc">-</span> n2 <span class="sc">+</span> <span class="dv">1</span>)<span class="sc">:</span>n, j])))</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>  W <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">apply</span>(sx, <span class="dv">2</span>, var)); B <span class="ot">&lt;-</span> n2 <span class="sc">*</span> <span class="fu">var</span>(<span class="fu">colMeans</span>(sx))</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  rhat <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(((n2 <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">/</span> n2 <span class="sc">*</span> W <span class="sc">+</span> B <span class="sc">/</span> n2) <span class="sc">/</span> W)</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>  ac <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span>m, <span class="cf">function</span>(j)</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">as.numeric</span>(<span class="fu">acf</span>(x[, j], <span class="at">lag.max =</span> <span class="fu">min</span>(<span class="dv">500</span>, n <span class="sc">-</span> <span class="dv">1</span>), <span class="at">plot =</span> <span class="cn">FALSE</span>)<span class="sc">$</span>acf)[<span class="sc">-</span><span class="dv">1</span>])</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>  rho <span class="ot">&lt;-</span> <span class="fu">rowMeans</span>(ac); le <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">*</span> <span class="fu">floor</span>(<span class="fu">length</span>(rho) <span class="sc">/</span> <span class="dv">2</span>)</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>  ps <span class="ot">&lt;-</span> rho[<span class="fu">seq</span>(<span class="dv">1</span>, le, <span class="dv">2</span>)] <span class="sc">+</span> rho[<span class="fu">seq</span>(<span class="dv">2</span>, le, <span class="dv">2</span>)]</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>  stop_at <span class="ot">&lt;-</span> <span class="fu">which</span>(ps <span class="sc">&lt;=</span> <span class="dv">0</span>)[<span class="dv">1</span>]</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>  keep <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">is.na</span>(stop_at)) <span class="fu">seq_along</span>(ps) <span class="cf">else</span> <span class="fu">seq_len</span>(stop_at <span class="sc">-</span> <span class="dv">1</span>)</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>  ess <span class="ot">&lt;-</span> <span class="fu">min</span>(n <span class="sc">*</span> m, n <span class="sc">*</span> m <span class="sc">/</span> <span class="fu">max</span>(<span class="dv">1</span>, <span class="dv">1</span> <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> <span class="fu">sum</span>(ps[keep])))</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="at">split_Rhat =</span> rhat, <span class="at">ESS =</span> ess,</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">MCSE_mean =</span> <span class="fu">sd</span>(<span class="fu">as.vector</span>(x)) <span class="sc">/</span> <span class="fu">sqrt</span>(ess))</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a><span class="fu">rbind</span>(<span class="at">mu =</span> <span class="fu">basic_mcmc_diag</span>(<span class="fu">sapply</span>(fits, <span class="st">`</span><span class="at">[[</span><span class="st">`</span>, <span class="st">&quot;mu&quot;</span>)),</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>      <span class="at">tau2 =</span> <span class="fu">basic_mcmc_diag</span>(<span class="fu">sapply</span>(fits, <span class="st">`</span><span class="at">[[</span><span class="st">`</span>, <span class="st">&quot;tau2&quot;</span>))) <span class="sc">|&gt;</span> <span class="fu">round</span>(<span class="dv">4</span>)</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a><span class="co"># (c) Gibbs 事後平均 vs 経験ベイズ</span></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>post_theta_mean <span class="ot">&lt;-</span> <span class="fu">colMeans</span>(fit<span class="sc">$</span>theta)</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="fu">data.frame</span>(<span class="at">eb =</span> eb_est, <span class="at">gibbs =</span> post_theta_mean), <span class="fu">aes</span>(eb, gibbs)) <span class="sc">+</span></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">slope =</span> <span class="dv">1</span>, <span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">&quot;grey60&quot;</span>) <span class="sc">+</span></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">color =</span> <span class="st">&quot;#1f77b4&quot;</span>, <span class="at">size =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Gibbs 事後平均と経験ベイズの比較&quot;</span>, <span class="at">x =</span> <span class="st">&quot;経験ベイズ&quot;</span>, <span class="at">y =</span> <span class="st">&quot;Gibbs 事後平均&quot;</span>)</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Gibbs事後平均 と EB の相関:&quot;</span>, <span class="fu">round</span>(<span class="fu">cor</span>(post_theta_mean, eb_est), <span class="dv">5</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a><span class="co"># (d) prior 感度：IG(3,2) でも4 chainsを走らせ、tau2の平均・95%区間を比較する</span></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>fits_alt <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>, <span class="cf">function</span>(ch) <span class="fu">gibbs_hier</span>(</span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>  ybar, n_i, sigma2, <span class="at">alpha0 =</span> <span class="dv">3</span>, <span class="at">beta0 =</span> <span class="dv">2</span>,</span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">2400</span> <span class="sc">+</span> ch, <span class="at">init_tau2 =</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">0.6</span>, <span class="fl">1.5</span>, <span class="dv">3</span>)[ch]</span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>))</span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>tau_default <span class="ot">&lt;-</span> <span class="fu">unlist</span>(<span class="fu">lapply</span>(fits, <span class="st">`</span><span class="at">[[</span><span class="st">`</span>, <span class="st">&quot;tau2&quot;</span>))</span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>tau_alt <span class="ot">&lt;-</span> <span class="fu">unlist</span>(<span class="fu">lapply</span>(fits_alt, <span class="st">`</span><span class="at">[[</span><span class="st">`</span>, <span class="st">&quot;tau2&quot;</span>))</span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a><span class="fu">rbind</span>(</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">IG(0.01,0.01)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="at">mean =</span> <span class="fu">mean</span>(tau_default), <span class="fu">quantile</span>(tau_default, <span class="fu">c</span>(.<span class="dv">025</span>, .<span class="dv">975</span>))),</span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">IG(3,2)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="at">mean =</span> <span class="fu">mean</span>(tau_alt), <span class="fu">quantile</span>(tau_alt, <span class="fu">c</span>(.<span class="dv">025</span>, .<span class="dv">975</span>)))</span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span> <span class="fu">round</span>(<span class="dv">3</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-warning callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2693,7 +2748,7 @@ m_i = v_i\left(\frac{n_i \bar y_i}{\sigma^2} + \frac{\bar\theta}{\tau^2}\right).
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>R の <code>rgamma</code> は <code>rate</code>（尺度の逆数）と <code>scale</code> のどちらでも指定できるが、<strong>両方を混同すると全く違う分布になる</strong>。ここでは <code>rate = b0 + 0.5*sum((theta-mu)^2)</code> を使う。逆ガンマは「ガンマの逆数」なので <code>1 / rgamma(...)</code> で作る。もし <span class="math inline">\(\tau^2\)</span> の traceplot が異常に大きい／小さい値で暴れたら、まず rate/scale と逆数の取り方を疑え。また <code>v_i</code> の計算で <code>n_i / sigma2</code> を <code>n_i * sigma2</code> と書き間違えるミスも多い（精度＝分散の逆数、を思い出せ）。</p>
+<p>R の <code>rgamma</code> は <code>rate</code> と <code>scale</code> のどちらでも指定できるが、<strong>混同すると全く違う分布になる</strong>。ここで <code>beta0</code> は逆ガンマ分布の scale だが、<span class="math inline">\(G=1/\tau^2\)</span> を引く <code>rgamma</code> には <code>rate = beta0 + 0.5*sum((theta-mu)^2)</code> と渡す。逆数 <code>1/rgamma(...)</code> も忘れない。また <code>v_i</code> の計算で <code>n_i / sigma2</code> を <code>n_i * sigma2</code> と書き間違えるミスも多い。</p>
 </div>
 </div>
 </section>
@@ -2732,7 +2787,7 @@ m_i = v_i\left(\frac{n_i \bar y_i}{\sigma^2} + \frac{\bar\theta}{\tau^2}\right).
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>閾値 <span class="math inline">\(c=3.0\)</span> は全店平均 <span class="math inline">\(\bar\theta=2.0\)</span> より<strong>上</strong>にある。だから「効果が3.0を超えると確信できる」ためには、点推定が高いだけでなく、<strong>不確実性が小さい（＝ <span class="math inline">\(n_i\)</span> が大きい）</strong>必要がある。<span class="math inline">\(n_i\)</span> が小さい店は、<span class="math inline">\(\bar y_i\)</span> がたまたま高くても事後分布が横に広く、<span class="math inline">\(P(\theta_i &gt; 3.0)\)</span> が0.8に届かない。真値 <code>truth</code> を見ると、落ちた店の中に「実は3.0を超えていない」店が混じっているはずだ。確率ルールは、そういう<strong>上振れした小さい店への無駄打ち</strong>を自動で避けている。</p>
+<p>閾値 <span class="math inline">\(c=3.0\)</span> は全店平均 <span class="math inline">\(\bar\theta=2.0\)</span> より<strong>上</strong>にある。だから「効果が3.0を超えると確信できる」ためには、点推定が高いだけでなく、<strong>不確実性が小さい（＝ <span class="math inline">\(n_i\)</span> が大きい）</strong>必要がある。<span class="math inline">\(n_i\)</span> が小さい店は、<span class="math inline">\(\bar y_i\)</span> がたまたま高くても事後分布が横に広く、<span class="math inline">\(P(\theta_i &gt; 3.0)\)</span> が0.8に届かない。真値 <code>truth</code> を見ると、落ちた店の中に「実は3.0を超えていない」店が混じることがある。確率ルールは、そうした<strong>上振れした小さい店への無駄打ちリスク</strong>を下げうる。</p>
 </div>
 </div>
 </section>
@@ -2784,7 +2839,7 @@ m_i = v_i\left(\frac{n_i \bar y_i}{\sigma^2} + \frac{\bar\theta}{\tau^2}\right).
 <li>問3（10）：測定分散と観測数の関係の可視化</li>
 <li>問4（12）：経験ベイズのモーメント法・縮小推定・矢印プロット</li>
 <li>問5（10）：MSE比較表とモンテカルロでの平均的優位</li>
-<li>問6（20）：Gibbs サンプラーの実装・traceplot・EBとの一致確認</li>
+<li>問6（20）：Gibbs の実装・4 chains・<span class="math inline">\(\widehat R\)</span>/ESS/MCSE・EB比較・prior 感度</li>
 <li>問7（10）：事後確率ベースのターゲティングと点推定との比較</li>
 <li>問8（8）：経営含意（3行）</li>
 </ul>

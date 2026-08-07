@@ -2445,7 +2445,7 @@ window.Quarto = {
 <p>クーポンの真の効果（CATE）<span class="math inline">\(\tau(x)\)</span> は、解約確率を引き下げる量として定義し、次のような<strong>非単調</strong>な構造を持たせる。</p>
 <ul>
 <li>解約リスクが中位の層で効果が最大になる（山型のボーナス項）。</li>
-<li>過去に請求トラブルがあった層では効果が<strong>負</strong>になる（sleeping dogs）。</li>
+<li>過去に請求トラブルがあった層では平均効果が<strong>負</strong>になりやすい。これは層の全員がsleeping dogsであることを意味しない。</li>
 <li>解約リスクが非常に高い層では効果がほぼ消える。</li>
 </ul>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -2462,9 +2462,10 @@ window.Quarto = {
 <li>5つの共変量を生成する（<code>runif</code>, <code>rgamma</code>, <code>rbinom</code>, <code>rnorm</code>, <code>sample</code>などを使い分ける）。</li>
 <li><code>billing_trouble</code>は、他の共変量（例えば<code>satisfaction_score</code>）とゆるく相関する形で生成すると、後の分析で「解約リスクとuplift」の非単調性が見えやすくなる。</li>
 <li>クーポンなしの解約確率 <code>p_churn0</code> をロジスティックモデルで計算する。</li>
-<li>真のCATE <code>tau_true</code> を、「中位リスクで山、<code>billing_trouble</code>で負、高リスクでほぼゼロ」という3つの項の和として作る。山の項は <code>exp(-0.5 * ((p_churn0 - center) / width)^2)</code> のような正規分布の密度に似た形が扱いやすい。</li>
-<li>潜在アウトカム（クーポンありの解約確率 <code>p_churn0 - tau_true</code>、クーポンなしの解約確率 <code>p_churn0</code>）をそれぞれ <code>pmin(pmax(..., 0.001), 0.999)</code> でクリップしてから、<code>rbinom()</code>で実現値を作る。</li>
-<li>ランダムな処置割り当て<code>D</code>（50%）に応じて、観測される解約<code>churn_obs</code>を<code>ifelse()</code>で作る。</li>
+<li>まず効果index <code>tau_index</code> を、「中位リスクで山、<code>billing_trouble</code>で負、高リスクでペナルティ」という3項の和として作る。</li>
+<li><code>p_churn0_clipped</code> と <code>p_churn1 = clip(p_churn0_clipped - tau_index)</code> を作り、<strong>クリップ後の実際のCATE</strong>を <code>tau_true = p_churn0_clipped - p_churn1</code> と定義する。</li>
+<li>両潜在アウトカムを<code>rbinom()</code>で作り、<code>principal_stratum</code>を4類型に分ける。その後でランダム処置<code>D</code>に応じた観測値を作る。</li>
+<li>観測を60%の<code>train_df</code>と40%の<code>test_df</code>にランダム分割する。後者はモデル学習やルール選択に使わない。</li>
 </ol>
 </div>
 </div>
@@ -2481,7 +2482,7 @@ window.Quarto = {
 <li><code>device_count</code>の係数：<span class="math inline">\(+0.05\)</span>（<code>device_count</code>は1〜5の整数、<code>sample(1:5, ..., replace=TRUE)</code>）</li>
 <li><code>billing_trouble</code>の生成：<code>satisfaction_score</code>が低いほど、<code>usage_hours</code>が短いほど発生しやすいロジスティックモデル（切片<span class="math inline">\(-1.5\)</span>、<code>satisfaction_score</code>の係数<span class="math inline">\(+0.3\)</span>、<code>usage_hours</code>の係数<span class="math inline">\(-0.02\)</span>）で確率を作り、<code>pmin(pmax(p, 0.02), 0.7)</code>でクリップしてから<code>rbinom()</code></li>
 <li>真のCATEの山の中心：解約確率0.22、幅0.08、山の高さ0.14</li>
-<li><code>billing_trouble</code>によるsleeping dogs効果の大きさ：<span class="math inline">\(-0.20\)</span></li>
+<li><code>billing_trouble</code>による効果indexのシフト：<span class="math inline">\(-0.20\)</span></li>
 <li>高リスク層（<code>p_churn0 &gt; 0.45</code>）でのペナルティ：<span class="math inline">\(-0.04\)</span></li>
 </ul>
 <div class="cell" data-layout-align="center">
@@ -2505,26 +2506,44 @@ window.Quarto = {
 <span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co"># クーポンのランダム割り当て</span></span>
 <span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>D <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(n, <span class="dv">1</span>, <span class="fl">0.5</span>)</span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="co"># 真のCATE</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="co"># CATEを作る効果index</span></span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>mid_risk_bump <span class="ot">&lt;-</span> ____________________</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>tau_true <span class="ot">&lt;-</span> ____________________</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>tau_index <span class="ot">&lt;-</span> ____________________</span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="co"># 潜在アウトカムと観測値の生成</span></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>p_churn1 <span class="ot">&lt;-</span> <span class="fu">pmin</span>(<span class="fu">pmax</span>(p_churn0 <span class="sc">-</span> tau_true, <span class="fl">0.001</span>), <span class="fl">0.999</span>)</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>p_churn0_clipped <span class="ot">&lt;-</span> <span class="fu">pmin</span>(<span class="fu">pmax</span>(p_churn0, <span class="fl">0.001</span>), <span class="fl">0.999</span>)</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>churn_potential_0 <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(n, <span class="dv">1</span>, p_churn0_clipped)</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>churn_potential_1 <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(n, <span class="dv">1</span>, p_churn1)</span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>churn_obs <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(D <span class="sc">==</span> <span class="dv">1</span>, churn_potential_1, churn_potential_0)</span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>stay_obs <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> churn_obs</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>sub_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">usage_hours =</span> usage_hours, <span class="at">tenure_months =</span> tenure_months,</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">billing_trouble =</span> billing_trouble, <span class="at">satisfaction_score =</span> satisfaction_score,</span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">device_count =</span> device_count, <span class="at">risk_score =</span> risk_score,</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">D =</span> D, <span class="at">churn =</span> churn_obs, <span class="at">stay =</span> stay_obs, <span class="at">tau_true =</span> tau_true, <span class="at">p_churn0 =</span> p_churn0</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>p_churn0_clipped <span class="ot">&lt;-</span> <span class="fu">pmin</span>(<span class="fu">pmax</span>(p_churn0, <span class="fl">0.001</span>), <span class="fl">0.999</span>)</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>p_churn1 <span class="ot">&lt;-</span> <span class="fu">pmin</span>(<span class="fu">pmax</span>(p_churn0_clipped <span class="sc">-</span> tau_index, <span class="fl">0.001</span>), <span class="fl">0.999</span>)</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>tau_true <span class="ot">&lt;-</span> ____________________</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>churn_potential_0 <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(n, <span class="dv">1</span>, p_churn0_clipped)</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>churn_potential_1 <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(n, <span class="dv">1</span>, p_churn1)</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>stay_potential_0 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> churn_potential_0</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>stay_potential_1 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> churn_potential_1</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>principal_stratum <span class="ot">&lt;-</span> <span class="fu">case_when</span>(</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  stay_potential_0 <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> stay_potential_1 <span class="sc">==</span> <span class="dv">1</span> <span class="sc">~</span> <span class="st">&quot;persuadable&quot;</span>,</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  stay_potential_0 <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> stay_potential_1 <span class="sc">==</span> <span class="dv">1</span> <span class="sc">~</span> <span class="st">&quot;sure thing&quot;</span>,</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  stay_potential_0 <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> stay_potential_1 <span class="sc">==</span> <span class="dv">0</span> <span class="sc">~</span> <span class="st">&quot;lost cause&quot;</span>,</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  stay_potential_0 <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> stay_potential_1 <span class="sc">==</span> <span class="dv">0</span> <span class="sc">~</span> <span class="st">&quot;sleeping dog&quot;</span></span>
 <span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(sub_df)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>churn_obs <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(D <span class="sc">==</span> <span class="dv">1</span>, churn_potential_1, churn_potential_0)</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>stay_obs <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> churn_obs</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">202611</span>)</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>train_idx <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">seq_len</span>(n), <span class="fu">floor</span>(<span class="fl">0.60</span> <span class="sc">*</span> n))</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>sample_role <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">seq_len</span>(n) <span class="sc">%in%</span> train_idx, <span class="st">&quot;train&quot;</span>, <span class="st">&quot;test&quot;</span>)</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>sub_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>  <span class="at">usage_hours =</span> usage_hours, <span class="at">tenure_months =</span> tenure_months,</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>  <span class="at">billing_trouble =</span> billing_trouble, <span class="at">satisfaction_score =</span> satisfaction_score,</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>  <span class="at">device_count =</span> device_count, <span class="at">risk_score =</span> risk_score,</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>  <span class="at">D =</span> D, <span class="at">churn =</span> churn_obs, <span class="at">stay =</span> stay_obs,</span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>  <span class="at">stay_potential_0 =</span> stay_potential_0, <span class="at">stay_potential_1 =</span> stay_potential_1,</span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">principal_stratum =</span> principal_stratum, <span class="at">tau_true =</span> tau_true,</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>  <span class="at">p_churn0 =</span> p_churn0_clipped, <span class="at">sample_role =</span> sample_role</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>train_df <span class="ot">&lt;-</span> sub_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(sample_role <span class="sc">==</span> <span class="st">&quot;train&quot;</span>)</span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>test_df <span class="ot">&lt;-</span> sub_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(sample_role <span class="sc">==</span> <span class="st">&quot;test&quot;</span>)</span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(sub_df)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="設問1-210点非単調性の可視化" class="level3">
@@ -2550,7 +2569,8 @@ window.Quarto = {
 <ul>
 <li>5つの共変量それぞれの平均・標準偏差。</li>
 <li>処置群・対照群それぞれの解約率（<code>churn</code>の平均）。</li>
-<li><code>billing_trouble</code>が1の人と0の人それぞれの、平均<code>tau_true</code>（sleeping dogsの存在を数値で確認する）。</li>
+<li><code>billing_trouble</code>が1の人と0の人それぞれの、平均<code>tau_true</code>。</li>
+<li><code>tau_true &lt; 0</code>と<code>tau_true &gt;= 0</code>の各層で<code>principal_stratum</code>の構成比を計算し、「負のCATE」と「sleeping dogという個人類型」がなぜ別物かを1〜2行で説明せよ。</li>
 </ul>
 </section>
 </section>
@@ -2558,7 +2578,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="part-2推定推論配点65点">Part 2：推定・推論（配点65点）</h2>
 <section id="設問2-110点ateの推定" class="level3">
 <h3 class="anchored" data-anchor-id="設問2-110点ateの推定">設問2-1（10点）：ATEの推定</h3>
-<p>RCTデータなので、単純な群間差でATEが不偏に推定できる。<code>stay</code>（継続したかどうか）を使い、処置群と対照群の平均の差を計算し、その標準誤差・95%信頼区間も求めよ（<code>t.test()</code>を使ってよい）。真の値（<code>mean(tau_true)</code>）と比較せよ。</p>
+<p>RCTデータなので、単純な群間差でATEが不偏に推定できる。ここでは後のcausal forestと対象標本をそろえるため、<code>train_df</code>だけを使う。<code>stay</code>（継続したかどうか）について処置群と対照群の平均の差を計算し、その標準誤差・95%信頼区間も求めよ（<code>t.test()</code>を使ってよい）。<code>mean(train_df$tau_true)</code>と比較せよ。<code>test_df</code>はターゲティング方針の最終評価まで触らない。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2569,13 +2589,13 @@ window.Quarto = {
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><code>t.test(stay ~ D, data = sub_df)</code>で群間差の検定と信頼区間が一度に得られる。ただし符号（処置群−対照群）に注意すること。</p>
+<p><code>t.test(stay ~ D, data = train_df)</code>で群間差の検定と信頼区間が一度に得られる。ただし符号（処置群−対照群）に注意すること。</p>
 </div>
 </div>
 </section>
 <section id="設問2-210点t-learnerによるcate推定" class="level3">
 <h3 class="anchored" data-anchor-id="設問2-210点t-learnerによるcate推定">設問2-2（10点）：T-learnerによるCATE推定</h3>
-<p><code>feols()</code>を使い、処置群・対照群それぞれで<code>stay ~ usage_hours + tenure_months + billing_trouble + satisfaction_score + device_count</code>を推定し、その予測値の差からCATE推定値 <code>tau_hat_tlearner</code> を作れ。<code>cor(tau_hat_tlearner, tau_true)</code>を計算し、講義ノートの数値（corr ≈ 0.9前後）と比較せよ。</p>
+<p><code>train_df</code>だけを使い、処置群・対照群それぞれで<code>stay ~ usage_hours + tenure_months + billing_trouble + satisfaction_score + device_count</code>を<code>feols()</code>で推定せよ。その2つのモデルを<code>test_df</code>に適用し、CATE推定値 <code>tau_hat_tlearner</code> を作れ。<code>test_df</code>で<code>cor(tau_hat_tlearner, tau_true)</code>を計算せよ。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2587,28 +2607,30 @@ window.Quarto = {
 </div>
 <div class="callout-body-container callout-body">
 <ol type="1">
-<li><code>mu1_fit &lt;- feols(stay ~ ..., data = sub_df %&gt;% filter(D == 1))</code></li>
-<li><code>mu0_fit &lt;- feols(stay ~ ..., data = sub_df %&gt;% filter(D == 0))</code></li>
-<li><code>predict(mu1_fit, newdata = sub_df)</code>と<code>predict(mu0_fit, newdata = sub_df)</code>を<strong>全データ</strong>に対して計算し、その差を取る（学習に使った標本だけでなく、全員に対して両方のモデルで予測値を計算する点に注意）。</li>
+<li><code>mu1_fit &lt;- feols(stay ~ ..., data = train_df %&gt;% filter(D == 1))</code></li>
+<li><code>mu0_fit &lt;- feols(stay ~ ..., data = train_df %&gt;% filter(D == 0))</code></li>
+<li><code>predict(mu1_fit, newdata = test_df)</code>と<code>predict(mu0_fit, newdata = test_df)</code>の差を取る。最終評価標本は学習に使わない。</li>
 </ol>
 </div>
 </div>
 </section>
 <section id="設問2-315点causal-forestによるcate推定と比較" class="level3">
 <h3 class="anchored" data-anchor-id="設問2-315点causal-forestによるcate推定と比較">設問2-3（15点）：causal forestによるCATE推定と比較</h3>
-<p><code>grf::causal_forest(X, Y, W)</code>を使ってCATEを推定せよ。共変量行列<code>X</code>は5つの変数を<code>as.matrix()</code>でまとめたもの、<code>Y</code>は<code>stay</code>、<code>W</code>は<code>D</code>とする。<code>predict(cf)$predictions</code>で個人ごとのCATE推定値を取り出し、<code>tau_hat_cf</code>とせよ。</p>
+<p><code>train_df</code>で<code>grf::causal_forest(X, Y, W)</code>を推定し、<code>predict(cf, X_test)$predictions</code>で<code>test_df</code>のCATE推定値を作れ。RCTの既知の割当確率0.5を<code>W.hat</code> に渡すこと。</p>
 <ol type="a">
 <li><code>cor(tau_hat_cf, tau_true)</code>を計算し、T-learnerの相関係数と比較する表を作れ。</li>
 <li><code>tau_true</code>（横軸）と<code>tau_hat_tlearner</code>・<code>tau_hat_cf</code>（縦軸、facetで2パネル）の散布図を、45度線付きで描け。</li>
-<li><code>average_treatment_effect(cf)</code>でATEを推定し、設問2-1の単純な群間差、真の値（<code>mean(tau_true)</code>）と並べた比較表を作れ。</li>
+<li><code>average_treatment_effect(cf)</code>でATEを推定し、設問2-1で求めた<code>train_df</code>内の単純な群間差、<code>mean(train_df$tau_true)</code>と並べた比較表を作れ。3行がすべて同じtrain標本を対象にしていることを表のラベルにも明記せよ。</li>
 </ol>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>X_mat <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(sub_df <span class="sc">%&gt;%</span> <span class="fu">select</span>(____________________))</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Y_vec <span class="ot">&lt;-</span> ____________________</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>W_vec <span class="ot">&lt;-</span> ____________________</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>cf <span class="ot">&lt;-</span> <span class="fu">causal_forest</span>(X_mat, Y_vec, W_vec)</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>sub_df<span class="sc">$</span>tau_hat_cf <span class="ot">&lt;-</span> <span class="fu">predict</span>(cf)<span class="sc">$</span>predictions</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>X_train <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(train_df <span class="sc">%&gt;%</span> <span class="fu">select</span>(____________________))</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>X_test <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(test_df <span class="sc">%&gt;%</span> <span class="fu">select</span>(____________________))</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>Y_train <span class="ot">&lt;-</span> ____________________</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>W_train <span class="ot">&lt;-</span> ____________________</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>cf <span class="ot">&lt;-</span> <span class="fu">causal_forest</span>(X_train, Y_train, W_train,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>                    <span class="at">W.hat =</span> <span class="fu">rep</span>(<span class="fl">0.5</span>, <span class="fu">nrow</span>(train_df)))</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>test_df<span class="sc">$</span>tau_hat_cf <span class="ot">&lt;-</span> <span class="fu">predict</span>(cf, X_test)<span class="sc">$</span>predictions</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2628,7 +2650,7 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="設問2-415点qini曲線と予算25時点の比較">設問2-4（15点）：Qini曲線と予算25%時点の比較</h3>
 <p>講義ノートと同じ考え方で、以下を実装せよ。</p>
 <ol type="a">
-<li><code>risk_score</code>順、<code>tau_hat_cf</code>順、ランダムの3つのターゲティング方針について、配布割合を横軸、累積増分継続者数（<span class="math inline">\((\overline{Y}_{D=1,\text{top-}k} - \overline{Y}_{D=0,\text{top-}k}) \times k\)</span>）を縦軸としたQini曲線を1枚の図に重ねて描け。</li>
+<li><code>test_df</code>に限定し、<code>risk_score</code>順、<code>tau_hat_cf</code>順、ランダムの3方針について、配布割合を横軸、累積増分継続者数（<span class="math inline">\((\overline{Y}_{D=1,\text{top-}k} - \overline{Y}_{D=0,\text{top-}k}) \times k\)</span>）を縦軸としたQini型の累積uplift曲線を1枚に重ねて描け。</li>
 <li>配布割合25%の時点における3方針の累積増分継続者数を表にまとめよ。</li>
 <li>churnスコア順のターゲティングが、25%時点でランダムと比べてどうなっているか（上回るか、下回るか、ほぼ同じか）を1〜2行でコメントせよ。</li>
 </ol>
@@ -2642,13 +2664,13 @@ window.Quarto = {
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>講義ノートの<code>qini_curve()</code>関数をそのまま流用してよい。ランダムのベンチマークは、全体のATE（設問2-1で求めた値）に配布人数<code>k</code>を掛けた直線になる。</p>
+<p>講義ノートの<code>qini_curve()</code>関数を流用してよい。ランダムのベンチマークにも<code>test_df</code>の群間差を使う。文献によってQini/uplift curveの正規化は異なるが、ここでは上記の定義に固定する。</p>
 </div>
 </div>
 </section>
 <section id="設問2-510点3つの候補ポリシーのipw評価" class="level3">
 <h3 class="anchored" data-anchor-id="設問2-510点3つの候補ポリシーのipw評価">設問2-5（10点）：3つの候補ポリシーのIPW評価</h3>
-<p>次の3つの候補ポリシーについて、IPW政策価値とその95%信頼区間を計算し、1つの図（点推定＋エラーバー）で比較せよ。</p>
+<p>次の3つの候補ポリシーを<code>test_df</code>に適用し、IPW政策価値と95%信頼区間を計算し、1つの図で比較せよ。</p>
 <ol type="1">
 <li>全員にクーポンを配布する。</li>
 <li><code>risk_score</code>上位25%にクーポンを配布する。</li>
@@ -2677,6 +2699,7 @@ window.Quarto = {
 </div>
 <div class="callout-body-container callout-body">
 <p><code>matched</code>は「実際の割り当て<code>D_i</code>が、評価したいポリシー<code>policy_mask[i]</code>と一致しているかどうか」を表す論理値ベクトルである。<code>policy_mask</code>は<code>TRUE</code>/<code>FALSE</code>（あるいは<code>1</code>/<code>0</code>）で「そのポリシーがこの人にクーポンを配るかどうか」を表しているので、<code>(D == 1) == policy_mask</code>のように書けばよい。</p>
+<p>ここの通常のSEは、ルールが<code>test_df</code>から独立に固定されていることを条件とする。閾値やモデルをtestで選び直すと選択バイアスが入る。その場合は学習・validation・最終testの3分割、またはnested cross-fittingが必要である。OOB予測だけで通常のSEが保証されるわけではない。</p>
 </div>
 </div>
 </section>
@@ -2694,7 +2717,7 @@ window.Quarto = {
 </div>
 <div class="callout-body-container callout-body">
 <ol type="1">
-<li>リスクスコアと施策効果（uplift）が別物であり、今回のデータではむしろ逆相関していたこと、(2) 実際に使うべきはuplift（causal forestの推定値）に基づくターゲティングであること、(3) 今後の運用では一部をランダムなholdoutとして残し、政策評価を継続できるようにすべきこと、の3点を意識するとよい。</li>
+<li>リスクスコアと施策効果が別物であること、(2) 価値・コスト・予算から候補ルールを作り、独立testで一律政策も含めて比較すること、(3) 運用時にランダムholdoutを残すこと、の3点を意識するとよい。</li>
 </ol>
 </div>
 </div>

@@ -48,7 +48,7 @@ options(scipen = 8)
 | 12分 | 計量経済学Iの復習：3ステップとシミュレーション |
 | 8分 | 分野の整理：実証IO / quantitative marketing と4つの問い |
 | 20分 | Rシミュレーション1：広告費と売上の罠 |
-| 20分 | Rシミュレーション2：値上げすると売上が増える？ |
+| 20分 | Rシミュレーション2：値上げすると販売数量が増える？ |
 | 15分 | 反実仮想とは何か |
 | 5分 | まとめ・宿題・次回予告 |
 
@@ -87,7 +87,7 @@ options(scipen = 8)
 4. **(d) 最適に配分・価格付けする**：誰にクーポンを配る？ いつ・いくらで値付けする？
 
 ::: {.notes}
-- この4分類がコース全体の背骨。14回の講義はすべてこのどれかに対応する。
+- この4分類がコース全体の背骨。ゲスト2回を除く13回の講義はすべてこのどれかに対応する。
 - 「自分の仕事の悩みはどれに当たるか」を考えながら聞いてもらう。
 - 目安2分。
 :::
@@ -164,10 +164,9 @@ options(scipen = 8)
 
 ## 計量Iで揃えた道具
 
-- OLS（単回帰・重回帰）、ロバスト標準誤差、t検定・信頼区間
-- ダミー変数、固定効果、DiD、操作変数法（2SLS）、RDD
-- 潜在アウトカムによる因果推論の枠組み
-- すべて「**観察データから因果効果を測る**」ための道具だった
+- **一般の推定・推論の道具**：OLS（単回帰・重回帰）、ロバスト標準誤差、$t$検定・信頼区間。これらだけで係数が因果効果になるわけではない
+- **因果効果の識別戦略**：ランダム化、固定効果、DiD、操作変数法（2SLS）、RDD。それぞれの識別仮定が成り立つときに因果的に解釈できる
+- **因果効果の定義**：潜在アウトカムの枠組み
 
 計量IIはこの続き。ただし「測る」だけでなく、**モデルで「もしこうしていたら」を計算する**ところまで踏み込む。
 
@@ -177,11 +176,12 @@ options(scipen = 8)
 - 目安2分。
 :::
 
-## モデル＝条件付き分布の束
+## まずは：統計モデル＝条件付き分布の束
 
-- 計量Iの中心的な考え方：**モデルとは、観測変数の条件付き分布の束である**
-- 例：「価格が上がったら需要はどう変わるか」のモデルとは、価格 $p$ を条件としたときの需要 $q$ の条件付き分布 $P(q \mid p, \ldots)$ を指定すること
+- 予測の出発点：**統計モデルとは、観測変数の条件付き分布の束である**
+- 例：価格 $p$ などを条件とした需要 $q$ の分布 $P(q \mid p, \ldots)$ を指定する
 - 「束」＝条件の値ごとに分布が1つずつ定まっている
+- 介入・均衡を扱う構造モデルでは、さらに**何を外から動かすか**と**政策変更後も保つ行動・均衡条件**を置く
 
 ::: {.keybox .fragment}
 条件付き分布として書き下せれば、**コンピュータの中でそのモデルに従うデータを生成できる**。
@@ -232,7 +232,7 @@ options(scipen = 8)
   - もし広告予算を倍にしたら？
 
 ::: {.keybox .fragment}
-これが**構造推定（structural estimation）**の核心：反実仮想シミュレーションのためにモデルのパラメータを推定する。このコース14回を貫くテーマ。
+これが**構造推定（structural estimation）**の核心：反実仮想シミュレーションのためにモデルのパラメータを推定する。このコース全15回（ゲスト2回を含む）を貫くテーマ。
 :::
 
 ::: {.notes}
@@ -450,6 +450,22 @@ knitr::kable(comparison_df, digits = 5,
 - 目安2分。
 :::
 
+## 図の前に、バイアスの向きを予想する
+
+qualityを落とした単回帰では：
+
+$$
+\operatorname{plim}\hat\beta_{\mathrm{short}}
+=\beta_{\mathrm{ad}}+\beta_q
+\frac{\operatorname{Cov}(\mathrm{ad},\mathrm{quality})}
+{\operatorname{Var}(\mathrm{ad})}
+$$
+
+- このDGPでは $\beta_q>0$
+- 本部は地力の強い店ほど広告を多く配るので $\operatorname{Cov}(\mathrm{ad},\mathrm{quality})>0$
+
+→ 欠落変数バイアスは**上向き**。推定結果はこの予想の答え合わせ。
+
 ## この分析、どこがまずい？
 
 ::: {.warnbox .fragment}
@@ -557,13 +573,13 @@ ols_effect  <- beta_short   * (new_ad_spend - store_df$ad_spend)  # 素朴なOLS
 effect_summary <- data.frame(
   method = c("真の効果", "素朴なOLSによる予測"),
   mean_log_change = c(mean(true_effect), mean(ols_effect)),
-  approx_pct_change = c(
-    (exp(mean(true_effect)) - 1) * 100,
-    (exp(mean(ols_effect)) - 1) * 100
+  mean_pct_change = c(
+    mean(exp(true_effect) - 1) * 100,
+    mean(exp(ols_effect) - 1) * 100
   )
 )
 knitr::kable(effect_summary, digits = 3,
-             col.names = c("手法", "log売上の平均変化", "売上変化（%、近似）"))
+             col.names = c("手法", "log売上の平均変化", "店舗別の売上変化率の平均（%）"))
 ```
 
 :::
@@ -580,21 +596,22 @@ knitr::kable(effect_summary, digits = 3,
 ```{r}
 #| label: fig-pred-vs-intervention
 #| fig-height: 4.0
-compare_plot_df <- data.frame(
-  task = c("予測タスク\n(holdout R^2)", "介入予測\n(広告2倍の効果, %)"),
-  naive_model = c(r2_holdout, (exp(mean(ols_effect)) - 1) * 100),
-  benchmark   = c(r2_base, (exp(mean(true_effect)) - 1) * 100)
+true_mean_pct <- mean(exp(true_effect) - 1) * 100
+ols_mean_pct <- mean(exp(ols_effect) - 1) * 100
+
+compare_long <- bind_rows(
+  data.frame(metric = "ホールドアウト", unit = "R²",
+             series = c("素朴なモデル", "平均だけのベースライン"),
+             value = c(r2_holdout, r2_base)),
+  data.frame(metric = "広告費2倍", unit = "売上変化率（%）",
+             series = c("素朴なモデル", "真の効果"),
+             value = c(ols_mean_pct, true_mean_pct))
 )
 
-compare_long <- compare_plot_df %>%
-  pivot_longer(cols = c(naive_model, benchmark), names_to = "series", values_to = "value") %>%
-  mutate(series = recode(series,
-                         naive_model = "素朴なモデルの値",
-                         benchmark = "ベンチマーク（真の効果 / 何もしない予測）"))
-
-ggplot(compare_long, aes(x = task, y = value, fill = series)) +
+ggplot(compare_long, aes(x = metric, y = value, fill = series)) +
   geom_col(position = "dodge") +
-  labs(x = NULL, y = "値", fill = NULL,
+  facet_wrap(~unit, scales = "free_y") +
+  labs(x = NULL, y = NULL, fill = NULL,
        title = "予測タスクではよく当たるが、介入予測では大外しする") +
   theme(legend.position = "bottom")
 ```
@@ -622,7 +639,7 @@ ggplot(compare_long, aes(x = task, y = value, fill = series)) +
 - 目安2分。ここまででシミュレーション1が終了、20分。
 :::
 
-# Rシミュレーション2：値上げすると売上が増える？ {background-color="#1f3552"}
+# Rシミュレーション2：値上げすると販売数量が増える？ {background-color="#1f3552"}
 
 ::: {.notes}
 - この節は20分。今日の山場その2。価格の内生性。第3回以降への最重要の伏線。
@@ -633,7 +650,7 @@ ggplot(compare_long, aes(x = task, y = value, fill = series)) +
 - ある店舗の**週次の価格と販売数量**のデータ
 - log-log回帰（弾力性推定の定番）をかけると、価格の係数が**プラス**に出た
 
-> 「値上げすると売上（数量）が増える」——そんなことがあるか？
+> 「値上げすると販売数量が増える」——そんなことがあるか？
 
 . . .
 
@@ -651,7 +668,7 @@ ggplot(compare_long, aes(x = task, y = value, fill = series)) +
 **需要が盛り上がっている時期には、店も強気の価格を付ける**という世界：
 
 $$
-\log q_t = \log(500) - 1.2 \cdot \log p_t + 0.8 \cdot d_t + u_t
+\log q_t = \log(500) - 1.2 \{\log p_t-\log(1000)\} + 0.8 d_t + u_t
 $$
 
 需要ショック $d_t$ は価格にも入り込む：$\log p_t = \log(1000) + 0.3 \cdot d_t + e_t$
@@ -679,8 +696,9 @@ phi_demand      <- 0.8    # 需要ショックが数量に与える直接効果
 #| label: dgp2-frame
 #| include: false
 log_price <- log(1000) + gamma_price * demand_shock + rnorm(n_weeks, mean = 0, sd = 0.05)
-log_q <- log(500) + true_elasticity * log_price + phi_demand * demand_shock +
-  rnorm(n_weeks, mean = 0, sd = 0.1)
+demand_noise <- rnorm(n_weeks, mean = 0, sd = 0.1)
+log_q <- log(500) + true_elasticity * (log_price - log(1000)) +
+  phi_demand * demand_shock + demand_noise
 
 price_df <- data.frame(
   week = 1:n_weeks,
@@ -749,7 +767,8 @@ knitr::kable(price_ols_df, digits = 3,
 price_grid <- seq(min(price_df$price), max(price_df$price), length.out = 50)
 log_price_grid <- log(price_grid)
 
-true_log_q_grid <- log(500) + true_elasticity * log_price_grid + phi_demand * 0
+true_log_q_grid <- log(500) + true_elasticity * (log_price_grid - log(1000)) +
+  phi_demand * 0
 true_curve_df <- data.frame(price = price_grid, log_q = true_log_q_grid,
                             curve = "真の需要曲線（需要ショック固定）")
 
@@ -777,12 +796,12 @@ ggplot() +
 
 ## ビジネスの現場で：繁忙期の値上げの錯覚
 
-- 「繁忙期に値上げしたのに売上（個数）が伸びた。**値上げが売上を伸ばした**のでは？」
+- 「繁忙期に値上げしたのに販売数量が伸びた。**値上げが数量を伸ばした**のでは？」
 - 実際には**繁忙期の需要の強さ**が価格と数量の両方を押し上げているだけ
 - 同じ繁忙期に値上げしなければ、数量は**もっと**伸びていたかもしれない
 
 ::: {.warnbox .fragment}
-「値上げしても売れる」と「値上げが売上を増やした」は別物。この錯覚は価格改定の現場で頻繁に起きる。
+「値上げしても売れる」と「値上げが数量を増やした」は別物。この錯覚は価格改定の現場で頻繁に起きる。
 :::
 
 ::: {.notes}
@@ -801,7 +820,8 @@ ggplot() +
 new_price <- price_df$price * 1.10
 new_log_price <- log(new_price)
 
-true_new_log_q <- log(500) + true_elasticity * new_log_price + phi_demand * demand_shock
+true_new_log_q <- log(500) + true_elasticity * (new_log_price - log(1000)) +
+  phi_demand * demand_shock + demand_noise
 true_pct_change_q <- (exp(true_new_log_q) - price_df$q) / price_df$q * 100
 
 ols_intercept <- coef(fit_price_ols)["(Intercept)"]
@@ -907,7 +927,7 @@ ggplot(cf_plot_df, aes(x = metric, y = value, fill = method)) +
 ## 計量Iの道具が答えられる範囲
 
 - DiD・IV・RDDも、広い意味では反実仮想を扱っていた（「処置がなかったら」の推定）
-- ただし答えられるのは基本的に「**実際に観測された変動の範囲内**」の問い
+- 研究デザインが最も説得力を持つのは「**観測された処置・共変量の支持範囲に近い**」問い
   - 5%値上げした店舗のデータがあれば、DiDで「5%値上げの効果」は測れる
   - しかし「**50%値上げしたら？**」「**まったく新しい価格帯なら？**」には答えに窮する
 
@@ -919,13 +939,13 @@ ggplot(cf_plot_df, aes(x = metric, y = value, fill = method)) +
 
 ## 構造モデルなら、データの外側も計算できる
 
-- 需要関数・効用関数といった**構造モデル**を推定しておけば、パラメータさえ手に入れば、データに存在しない価格・商品構成でも、**モデルの数式に従って**結果を計算できる
+- 需要関数・効用関数といった**構造モデル**を推定すれば、データに存在しない価格・商品構成でも、**モデルの数式に従って**結果を計算できる
 
 ::: {.keybox .fragment}
 **構造推定（structural estimation）とは、反実仮想シミュレーションをするためにモデルのパラメータを推定する作業である。**
 :::
 
-- 今日のシミュレーション2で言えば：弾力性 -1.2 を正しく推定できてさえいれば、+10%でも+50%でも計算できた
+- ただし遠い外挿ほど、**関数形・政策不変性・均衡仮定**への依存が強い。計算可能＝信頼できる、ではない
 
 ::: {.notes}
 - この1文の定義が今日の一番の持ち帰り。第2回以降、「このモデルのパラメータが手に入ると、どんな反実仮想が計算できるか」を毎回意識する。
@@ -948,7 +968,7 @@ ggplot(cf_plot_df, aes(x = metric, y = value, fill = method)) +
 
 ## 整理：予測・因果・反実仮想
 
-- **予測**：既存の相関構造で未観測の値（多くは将来）を当てる。**相関で十分**。機械学習の多くはここ
+- **予測**：既存の相関構造で未観測の値を当てる。因果関係は不要だが、予測先でも相関構造が安定している必要
 - **因果効果**：ある1つの施策について「した場合としなかった場合の差」を測る。処置は**データの中で実際に起きたもの**に限られがち
 - **反実仮想／構造推定**：モデルを推定し、**データに存在しない状況**の結果を計算する
 
@@ -957,6 +977,17 @@ ggplot(cf_plot_df, aes(x = metric, y = value, fill = method)) +
 ::: {.keybox .fragment}
 このコースは「予測」から「因果」を経て「反実仮想」へと視野を広げていく旅である。
 :::
+
+## 問いを一段ずつ仕分ける
+
+| タスク | 追加で必要になるもの |
+|---|---|
+| 予測 | ホールドアウト精度＋分布の安定性 |
+| 支持範囲内の因果効果 | 反実仮想を作る識別戦略 |
+| 構造的反実仮想 | 行動パラメータ＋不変性・均衡仮定 |
+| 最適化 | 反実仮想モデル＋目的関数・制約 |
+
+「価格を下げたら？」だけではタスクは決まらない。**何の意思決定に使う数字か**まで聞く。
 
 ::: {.notes}
 - 縦に並べると要求が重くなっていく：相関だけ → 識別の仮定 → モデル（構造）の仮定。
@@ -1028,7 +1059,7 @@ ggplot(cf_plot_df, aes(x = metric, y = value, fill = method)) +
 - 計量Iで扱わなかった**最尤法（MLE）**を初めて学び、自作コードで推定する
 - 価格弾力性・交差弾力性を計算し、プライシングの問いに答える
 
-**Reading**：上武ほか『実証ビジネス・エコノミクス』第1〜2章、Train (2009) Chapters 2-3
+**Reading**：上武ほか (2025)『実証ビジネス・エコノミクス』第1〜2章、Train (2009) Chapters 2-3
 
 ::: {.notes}
 - 今日の「値上げしたらどうなる？」に本格的に答える道具作りが次回から始まる、という接続で締める。

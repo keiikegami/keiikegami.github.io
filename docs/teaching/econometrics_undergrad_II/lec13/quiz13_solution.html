@@ -2365,15 +2365,15 @@ window.Quarto = {
 </section>
 <section id="設問2-正解c" class="level2">
 <h2 class="anchored" data-anchor-id="設問2-正解c">設問2　正解：c</h2>
-<p>ログの中で「<span class="math inline">\(\pi\)</span> の指示と実際の割り当てが一致した顧客」だけを取り出し、割り当て確率の逆数で重み付けして平均すれば（IPW）、新しい実験なしに <span class="math inline">\(\pi\)</span> の政策価値を不偏に推定できる。</p>
+<p>別の学習・validationデータで固定され、評価用ログから独立な <span class="math inline">\(\pi\)</span> について、「<span class="math inline">\(\pi\)</span> の指示と実際の割り当てが一致した顧客」のアウトカムを割り当て確率の逆数で重み付けすれば（IPW）、overlapのもとで <span class="math inline">\(\pi\)</span> の政策価値を不偏に推定できる。</p>
 <ul>
 <li>IPW推定量：<span class="math inline">\(\hat{V}(\pi) = \frac{1}{n} \sum_{i} \mathrm{1}\{D_i = \pi(X_i)\} Y_i / P(D_i \mid X_i)\)</span>。</li>
 <li>直感：<span class="math inline">\(\pi\)</span> と同じ割り当てを「たまたま」受けた人は、<span class="math inline">\(\pi\)</span> が実行された世界からのサンプルとみなせる。観測されにくい人ほど大きな重みで代表させることで、母集団全体を復元する。</li>
-<li>これが off-policy evaluation。<strong>一度質の良いRCTログを取っておけば、新しい候補ルールを再実験なしにいくつでも比較できる</strong>——第11回の「実務のキラー技術」。</li>
+<li>これが off-policy evaluation。固定済みの候補なら、新しい実験を必ずしも毎回行わずに評価できる。ただし、同じ評価ログで多数のルールを探索し、最良だけを報告すれば選択バイアスが入る。学習・validation・独立testを分けるか、nested cross-fittingが必要である。</li>
 </ul>
 <p>各選択肢について：</p>
 <ul>
-<li>a：再実験は不要。ランダム化ログがあれば、IPWで事後的に評価できる（それがこの技術の価値そのもの）。</li>
+<li>a：固定済みのルールとoverlapのあるランダム化ログなら、IPWでオフライン評価できる。ただし、これは実運用中の分布変化や干渉まで保証するものではない。</li>
 <li>b：ATEは「全員に配った場合」の平均効果であって、「<span class="math inline">\(\pi\)</span> に従って選択的に配った場合」の価値ではない。誰に配るかで価値は変わる。</li>
 <li>d：予測モデルによるシミュレーションは、予測と因果の混同をそのまま持ち込む。またランダム化がないログでは、割り当てが共変量や潜在アウトカムと相関し、重み付けの不偏性の根拠が崩れる。</li>
 </ul>

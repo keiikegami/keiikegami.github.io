@@ -2429,7 +2429,7 @@ window.Quarto = {
 </div>
 <section id="前回とのつながり今回のゴール" class="level2">
 <h2 class="anchored" data-anchor-id="前回とのつながり今回のゴール">前回とのつながり・今回のゴール</h2>
-<p>第1回では、実証IOとquantitative marketingが企業や政策の意思決定にどう結びつくかを概観し、予測・因果効果・反実仮想という3つの問いの違いを確認した。そのなかで、「価格を上げたら需要はどう動くか」という反実仮想の問いに答えるには、単純な回帰では役不足だという話をした（覚えていなくても大丈夫、これから何度も出てくる）。</p>
+<p>第1回では、実証IOとquantitative marketingが企業や政策の意思決定にどう結びつくかを概観し、予測・因果効果・反実仮想という3つの問いの違いを確認した。そのなかで、「価格を上げたら需要はどう動くか」という反実仮想の問いに答えるには、単純な回帰だけでは力不足だという話をした（覚えていなくても大丈夫、これから何度も出てくる）。</p>
 <p>今回からしばらくは、この「反実仮想に答えるための道具」として離散選択モデル（discrete choice model）を学ぶ。第2回である今回は、その最も基本的な形である multinomial logit（MNL、多項ロジット）を扱う。ゴールは3つ。</p>
 <ol type="1">
 <li>消費者の選択を確率的なモデルとして書けるようになる（RUM）。</li>
@@ -2445,7 +2445,7 @@ window.Quarto = {
 <blockquote class="blockquote">
 <p>ブランドAを10円値上げしたら、Aの売上は何%減るか。そして、その減った分の客は、Bに流れるのか、Cに流れるのか、それとも「買わない」を選ぶのか。</p>
 </blockquote>
-<p>これは通常のOLS回帰では答えられない。「Aの売上」を「Aの価格」に回帰しても、価格弾力性らしき数字は出てくるが、その客が<strong>どこへ流れたか</strong>という情報は、A単体の回帰式には入っていない。B、C、outside optionのシェアが同時にどう動くかを記述する枠組みが必要になる。これが離散選択モデルの出番である。</p>
+<p>「Aの売上」を「Aの価格」に回帰する<strong>単品の1本の式</strong>だけでは、この問いには答えられない。価格弾力性らしき数字は出ても、その客が<strong>どこへ流れたか</strong>は式に入っておらず、各選択肢の確率が非負で合計1になることも保証されない。複数のシェアを連立して記述する別の統計モデルも作れるが、ここでは効用最大化から、A・B・C・outsideのシェアが同時にどう動くかを導く。これが離散選択モデルの出番である。</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2477,14 +2477,14 @@ u_{ij} = v_{ij} + \varepsilon_{ij}
 i \text{ が財 } j \text{ を選ぶ} \iff u_{ij} \geq u_{ik} \ \text{for all } k = 0,1,\ldots,J
 \]</span></p>
 <p>これがrandom utility model（RUM）である。「モデル＝条件付き分布の束」という言葉に戻ると、離散選択モデルとは、<strong>商品属性を条件として、消費者がどれを選ぶかという選択の条件付き分布を書くこと</strong>に他ならない。<span class="math inline">\(\varepsilon_{ij}\)</span> にどんな分布を仮定するかによって、この条件付き分布の形（＝選択確率の式）が変わる。今回はその分布として、Gumbel分布を選ぶ。</p>
-<p><span class="math inline">\(\varepsilon_{ij}\)</span> は「分析者に見えない要因」と言ったが、具体的に何を指しているのかは気になるところだろう。Manski (1977) は、離散選択モデルにおけるランダム性の源泉を大きく4つに整理している。</p>
+<p><span class="math inline">\(\varepsilon_{ij}\)</span> は「分析者に見えない要因」と言ったが、具体的に何を指すのだろうか。Manski (1977) に沿った古典的な整理では、ランダム性の源泉として次の4つが挙げられる。</p>
 <ol type="1">
-<li><strong>分析者から見た属性の欠落</strong>（unobserved product attributes）：分析者が観測していない商品属性への好み（例えば、パッケージのデザインが気に入った、など）。</li>
-<li><strong>分析者から見た個人属性の欠落</strong>（unobserved individual attributes）：消費者の観測されない特性（その日の気分、体調など）。</li>
-<li><strong>関数形の誤指定</strong>（measurement error / functional form misspecification）：真の効用関数の形が、分析者が仮定した <span class="math inline">\(v_{ij}\)</span> の形（線形など）とズレていること。</li>
-<li><strong>消費者本人の選好の不安定性</strong>（instrumental variables representing choice）：消費者自身も完全に一貫した選好を持たない可能性（同じ状況でも日によって違う選択をする）。</li>
+<li><strong>観測されない選択肢属性</strong>（unobserved alternative attributes）：パッケージ、香り、混雑など、効用には入るが分析者のデータにない属性。</li>
+<li><strong>観測されない選好の違い</strong>（unobserved taste variation）：同じ属性でも評価が人や機会によって違うこと。その日の気分や体調もここに含められる。</li>
+<li><strong>測定誤差・不完全な情報</strong>（measurement error / imperfect information）：属性や認知を正確に測れないこと。</li>
+<li><strong>代理変数による近似</strong>（proxy or instrumental variables）：本当に効用に入る概念を直接測れず、不完全な代理変数で表すこと。ここでいう古い文献の “instrumental” は、因果推論の除外操作変数というより<strong>代理指標</strong>の意味である。</li>
 </ol>
-<p><span class="math inline">\(\varepsilon_{ij}\)</span> はこれら全てをひとまとめにした「その他いろいろ」の受け皿だと思えばよい。この解釈は、後で最尤法の話をするときにも効いてくる。</p>
+<p>したがって <span class="math inline">\(\varepsilon_{ij}\)</span> は、必ずしも「同じ人が理由なくランダムに選ぶ」という行動仮定ではない。分析者に見えない異質性・属性・測定のずれをまとめた項である。どの源泉を想定するかによって、独立性や分散の仮定が妥当かも変わる。</p>
 </section>
 <section id="gumbel分布とlogit公式" class="level2">
 <h2 class="anchored" data-anchor-id="gumbel分布とlogit公式">Gumbel分布とlogit公式</h2>
@@ -2647,7 +2647,30 @@ s_{ij} = \int_{-\infty}^{\infty} \exp(-\varepsilon)\exp\left(-\exp(-\varepsilon)
 <section id="outside-option" class="level2">
 <h2 class="anchored" data-anchor-id="outside-option">Outside option</h2>
 <p>先ほどから当たり前のように使っている <span class="math inline">\(j=0\)</span>（outside option）について、少し立ち止まって整理する。</p>
-<p>離散選択モデルでは、効用のレベルには意味がなく、<strong>差</strong>にしか意味がない（<span class="math inline">\(u_{ij} - u_{ik}\)</span> だけが選択確率に効く）。そのため、どれか1つの選択肢を基準にして、その決定的効用を0に正規化する必要がある。慣習として、outside option（<span class="math inline">\(j=0\)</span>）の決定的効用を <span class="math inline">\(v_{i0} = 0\)</span> とするのが標準的である。</p>
+<p>離散選択モデルでは、効用のレベルには意味がなく、<strong>差</strong>にしか意味がない（<span class="math inline">\(u_{ij} - u_{ik}\)</span> だけが選択確率に効く）。全選択肢の効用に同じ定数を足しても選択は変わらないので、慣習としてoutside option（<span class="math inline">\(j=0\)</span>）の決定的効用を <span class="math inline">\(v_{i0}=0\)</span> と置く。これが<strong>位置（location）の正規化</strong>である。</p>
+<p>もう1つ、効用全体を正の定数倍しても最大の選択肢は変わらない。誤差項を一般のスケール <span class="math inline">\(\sigma_\varepsilon\)</span> のGumbel分布とすると、logit確率に現れるのは <span class="math inline">\(v_{ij}/\sigma_\varepsilon\)</span> であり、データから識別されるのは係数そのものではなく「誤差のスケールに対する係数」である。そこで標準logitは <span class="math inline">\(\sigma_\varepsilon=1\)</span> と置く。これが<strong>尺度（scale）の正規化</strong>である。</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>不変性</th>
+<th>何を変えても選択が同じか</th>
+<th>この講義の正規化</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>位置</td>
+<td>全効用に同じ定数を足す</td>
+<td><span class="math inline">\(v_{i0}=0\)</span></td>
+</tr>
+<tr class="even">
+<td>尺度</td>
+<td>全効用を同じ正の定数倍する</td>
+<td>Gumbel誤差のスケールを1</td>
+</tr>
+</tbody>
+</table>
+<p>したがって、異なるデータやモデル間で効用係数の絶対値を比べるときは、誤差スケールも違い得ることに注意が必要である。</p>
 <p>ただし、実務上はここに悩ましい判断が入る。「買わない」という選択肢に、具体的に誰を含めるかという問題である。缶コーヒー棚の例で言えば、</p>
 <ul>
 <li>その棚の前を通った人のうち、何も買わずに通り過ぎた人（母数＝来店客数、あるいは棚の前を通った人数）</li>
@@ -2710,7 +2733,12 @@ L(p) = \binom{n}{x} p^x (1-p)^{n-x}
 \ell(\theta) = \sum_{i=1}^{N} \sum_{j=0}^{J} y_{ij} \ln s_{ij}(\theta)
 \]</span></p>
 <p>となる。これは「各消費者について、実際に選んだ財の選択確率の対数を足し合わせたもの」である。直感的には、実際に観測された選択パターンに、モデルが高い確率を割り当てるほど、<span class="math inline">\(\ell(\theta)\)</span> は大きくなる。この <span class="math inline">\(\ell(\theta)\)</span> を最大にする <span class="math inline">\(\hat\theta\)</span> を、最尤推定量として採用する。</p>
-<p>logitモデルの対数尤度は、大域的に凹（globally concave）であることが知られている。つまり、山が1つしかなく、どこから探索を始めても同じ頂上（大域的最適解）にたどり着けることが保証されている。これは実務上とても嬉しい性質で、初期値の選び方に神経質にならなくて済む理由になっている。</p>
+<p>コイン投げとの橋を、2択の1人だけで確認しよう。財1を選ぶ確率を <span class="math inline">\(s_i(\theta)\)</span>、実際の選択を <span class="math inline">\(y_i\in\{0,1\}\)</span> とすると、その人の尤度は</p>
+<p><span class="math display">\[
+L_i(\theta)=s_i(\theta)^{y_i}\{1-s_i(\theta)\}^{1-y_i}.
+\]</span></p>
+<p><span class="math inline">\(y_i=1\)</span> なら対数尤度への寄与は <span class="math inline">\(\log s_i\)</span>、<span class="math inline">\(y_i=0\)</span> なら <span class="math inline">\(\log(1-s_i)\)</span> である。多項選択の <span class="math inline">\(\sum_j y_{ij}\log s_{ij}\)</span> は、この「実際に選んだ確率のlogだけを拾う」を <span class="math inline">\(J+1\)</span>択に拡張したものにすぎない。</p>
+<p>線形指数のlogitモデルでは、対数尤度はパラメータについて大域的に凹（globally concave）である。したがって、見つかった局所最大は大域最大でもある。ただし、凹であることだけから「どの数値アルゴリズムも、どの初期値からでも必ず収束する」とは言えない。有限で一意な最大値には、説明変数行列の十分なランクと完全分離がないことが必要であり、平坦な方向・極端な初期値・数値誤差があれば最適化は失敗し得る。</p>
 </section>
 </section>
 <section id="rシミュ2自作mleでlogitモデルを推定する" class="level2">
@@ -2718,7 +2746,7 @@ L(p) = \binom{n}{x} p^x (1-p)^{n-x}
 <p>いよいよ、缶コーヒー棚の例に戻って、実際にデータをシミュレートし、自作の対数尤度を最大化してパラメータを推定してみる。</p>
 <section id="dgpデータ生成過程" class="level3">
 <h3 class="anchored" data-anchor-id="dgpデータ生成過程">DGP（データ生成過程）</h3>
-<p>N=3,000人の消費者が、3つのブランド（A, B, C）+ outside optionから1つを選ぶ状況を考える。各ブランドには、価格（price）と甘さ（sweetness）という2つの属性があり、消費者は次の効用を持つとする（ブランドCを基準にとり、A, Bにはブランド固有の切片を置く）。</p>
+<p>N=3,000人の消費者が、3つのブランド（A, B, C）+ outside optionから1つを選ぶ状況を考える。各ブランドには、価格（price）と甘さ（sweetness）という2つの属性があり、消費者は次の効用を持つとする。outsideを0に置く位置正規化に加え、ここでは<strong>Cのブランド固有切片を0とする追加の識別制約</strong>を置き、AとBだけに切片を置く。</p>
 <p><span class="math display">\[
 v_{ij} =
 \begin{cases}
@@ -2728,6 +2756,20 @@ v_{ij} =
 0 &amp; j = 0 \ (\text{outside})
 \end{cases}
 \]</span></p>
+<p>sweetnessはブランドごとに固定なので、A・B・Cすべての切片を入れると</p>
+<p><span class="math display">\[
+\text{sweetness}=3D_A+6D_B+5D_C
+\]</span></p>
+<p>となり完全共線になる。現在の非価格部分のデザインは、行をoutside/A/B/C、列を <span class="math inline">\((\text{const}_A,\text{const}_B,\text{sweet})\)</span> とすると</p>
+<p><span class="math display">\[
+\begin{pmatrix}
+0&amp;0&amp;0\\
+1&amp;0&amp;3\\
+0&amp;1&amp;6\\
+0&amp;0&amp;5
+\end{pmatrix}
+\]</span></p>
+<p>で、列ランクは3である。Cの切片を0とするのはoutsideの位置正規化と同じではなく、「Cに残る観測不能なブランド魅力は0」という実質的な制約である。市場や商品をまたいでsweetnessが変化するデータがあれば、全ブランド切片と属性係数を同時に識別できる場合もある。</p>
 <p>真のパラメータ値は次のように設定する。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>N <span class="ot">&lt;-</span> <span class="dv">3000</span></span>
@@ -2921,7 +2963,7 @@ outside       A       B       C
 </div>
 <div id="callout-4" class="callout-4-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>logitの対数尤度は、<span class="math inline">\(\theta\)</span> について大域的に凹であることが知られている（ヘッセ行列が至る所で半負定値）。これは、<code>optim()</code>の初期値をどこに置いても（極端な値でない限り）同じ最適解にたどり着くことを意味する。上のコードで初期値を全て0にしたのはこの安心感があってのことで、他の非線形モデル（後の回で出てくる動的離散選択モデルなど）では、こうはいかないことも多い。</p>
+<p>logitの対数尤度は、<span class="math inline">\(\theta\)</span> について大域的に凹である（ヘッセ行列が至る所で半負定値）。そのため、数値計算が収束して一階条件を満たした点は大域最大である。ただし、厳密な一意性にはデザイン行列の十分なランクと完全分離がないことが必要で、凹性は<code>optim()</code>の収束自体を保証しない。上のコードで0を初期値にしたのは自然で安定しやすい選択だからであり、<code>opt_result$convergence</code>、勾配、別の初期値でも確認するのが実装上の作法である。</p>
 </div>
 </div>
 </div>
@@ -2929,7 +2971,7 @@ outside       A       B       C
 <section id="推論hessianからのseと信頼区間" class="level3">
 <h3 class="anchored" data-anchor-id="推論hessianからのseと信頼区間">推論：HessianからのSEと信頼区間</h3>
 <p>推定値が得られただけでは、「本当にこの値なのか、それとも標本のブレでたまたまこの数字なのか」は分からない。計量経済学Iでは、OLS推定量の標準誤差（SE）から信頼区間や検定を作った。最尤推定量にも同じ発想が使える。</p>
-<p>最尤推定量の漸近的な性質として、<span class="math inline">\(\hat\theta\)</span> はサンプルサイズが大きいときに正規分布に近づき、その分散共分散行列は対数尤度のHessian（2階微分行列）の逆行列（の符号を変えたもの）で近似できることが知られている。<code>optim()</code>に <code>hessian = TRUE</code> を指定すると、最適化の最後に数値的なHessianを計算してくれる。ここでのHessianは負の対数尤度のHessianなので、そのまま逆行列を取れば分散共分散行列の推定値になる。</p>
+<p>正しく特定された独立な選択の尤度のもとでは、<span class="math inline">\(\hat\theta\)</span> は大標本で正規分布に近づき、分散共分散行列を負の対数尤度のHessian（観測情報行列）の逆行列で推定できる。<code>optim()</code>に <code>hessian = TRUE</code> を指定すると、最適化の最後に数値的なHessianを計算してくれる。ここでは負の対数尤度を最小化しているので、そのHessianをそのまま逆行列にする。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>vcov_hat <span class="ot">&lt;-</span> <span class="fu">solve</span>(opt_result<span class="sc">$</span>hessian)</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>se_hat <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">diag</span>(vcov_hat))</span>
@@ -3010,7 +3052,7 @@ outside       A       B       C
 </table>
 </div>
 </div>
-<p>真値は、いずれのパラメータについても95%信頼区間の中に収まっている。これは計量経済学Iで学んだロバスト標準誤差の話と同じ発想である——<strong>推定値だけでなく、その不確実性の大きさまで含めて報告する</strong>、という推論のステップは、推定方法が変わっても変わらない。</p>
+<p>真値は、いずれのパラメータについても95%信頼区間の中に収まっている。<strong>推定値だけでなく、その不確実性の大きさまで含めて報告する</strong>という推論の作法は、計量経済学Iから変わらない。ただし、ここで計算した逆HessianはモデルベースのSEであり、ロバストSEそのものではない。尤度が誤特定されている場合はsandwich推定、同じ消費者の反復選択なら消費者単位のcluster-robust推定などが必要になる。このシミュレーションは正しいiid尤度から生成しているので、逆Hessianが適切である。</p>
 </section>
 <section id="mlogitパッケージでの検算" class="level3">
 <h3 class="anchored" data-anchor-id="mlogitパッケージでの検算"><code>mlogit</code>パッケージでの検算</h3>
@@ -3022,19 +3064,22 @@ outside       A       B       C
 <span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>mlogit_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
 <span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">id =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span>N, <span class="at">each =</span> <span class="dv">4</span>),</span>
 <span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">alt =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;outside&quot;</span>, <span class="st">&quot;A&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;C&quot;</span>), <span class="at">times =</span> N),</span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">chosen =</span> <span class="fu">as.vector</span>(<span class="fu">t</span>(<span class="fu">sapply</span>(choice_vec, <span class="cf">function</span>(c) <span class="fu">as.numeric</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">3</span> <span class="sc">==</span> c)))),</span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">price =</span> <span class="fu">as.vector</span>(<span class="fu">t</span>(<span class="fu">cbind</span>(<span class="dv">0</span>, price_mat))),</span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">sweet =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="dv">0</span>, sweetness), <span class="at">times =</span> N)</span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>mlogit_data <span class="ot">&lt;-</span> <span class="fu">mlogit.data</span>(mlogit_df, <span class="at">choice =</span> <span class="st">&quot;chosen&quot;</span>, <span class="at">shape =</span> <span class="st">&quot;long&quot;</span>,</span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>                            <span class="at">alt.var =</span> <span class="st">&quot;alt&quot;</span>, <span class="at">id.var =</span> <span class="st">&quot;id&quot;</span>)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># sapplyの各列が1人分(outside,A,B,C)。転置せず列方向に並べる</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">chosen =</span> <span class="fu">as.vector</span>(<span class="fu">sapply</span>(choice_vec, <span class="cf">function</span>(c) <span class="fu">as.numeric</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">3</span> <span class="sc">==</span> c))),</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">price =</span> <span class="fu">as.vector</span>(<span class="fu">t</span>(<span class="fu">cbind</span>(<span class="dv">0</span>, price_mat))),</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">sweet =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="dv">0</span>, sweetness), <span class="at">times =</span> N),</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">asc_A =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>), <span class="at">times =</span> N),</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">asc_B =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span>), <span class="at">times =</span> N)</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>mlogit_fit <span class="ot">&lt;-</span> <span class="fu">mlogit</span>(chosen <span class="sc">~</span> price <span class="sc">+</span> sweet <span class="sc">|</span> <span class="dv">1</span>, <span class="at">data =</span> mlogit_data,</span>
-<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>                      <span class="at">reflevel =</span> <span class="st">&quot;outside&quot;</span>)</span>
-<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(mlogit_fit)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>mlogit_data <span class="ot">&lt;-</span> <span class="fu">mlogit.data</span>(mlogit_df, <span class="at">choice =</span> <span class="st">&quot;chosen&quot;</span>, <span class="at">shape =</span> <span class="st">&quot;long&quot;</span>,</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>                            <span class="at">alt.var =</span> <span class="st">&quot;alt&quot;</span>, <span class="at">chid.var =</span> <span class="st">&quot;id&quot;</span>)</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>mlogit_fit <span class="ot">&lt;-</span> <span class="fu">mlogit</span>(chosen <span class="sc">~</span> asc_A <span class="sc">+</span> asc_B <span class="sc">+</span> sweet <span class="sc">+</span> price <span class="sc">|</span> <span class="dv">0</span>, <span class="at">data =</span> mlogit_data,</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>                      <span class="at">reflevel =</span> <span class="st">&quot;outside&quot;</span>)</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(mlogit_fit)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p><code>mlogit</code>の変数の与え方（<code>price + sweet | 1</code>のように、選択肢間で係数が共通の変数と、選択肢固有の切片を分ける記法）は独特で癖があるので、最初は戸惑うかもしれない。ここでは「自作の推定値と近い数字が出てくることを確認する」というのが目的であり、<code>mlogit</code>の記法自体を覚える必要はない。実務で本格的にlogitモデルを使うときには、この種のパッケージに頼る場面も出てくるが、その前提として自作で仕組みを理解しておくことには意味がある——ブラックボックスの中身を知っているかどうかで、モデルが変な結果を返したときの対応力が変わってくる。</p>
+<p><code>chid.var=&quot;id&quot;</code>は「この4行が同じ人の1つの選択集合」を指定する。<code>chosen</code>は各人について4行のうちちょうど1つがTRUEになっていることを必ず確認する。<code>asc_A</code>と<code>asc_B</code>を明示的に作り、<code>| 0</code>でパッケージ既定の選択肢固有切片を抑えているので、自作モデルと同じく「A・B切片あり、C切片なし」になる。<code>price</code>をそのまま入れた係数は、自作コードの正の<code>alpha_price</code>と符号が逆（<span class="math inline">\(-\hat\alpha\)</span>）になる。もし<code>chosen ~ price + sweet | 1</code>とすると、A・B・Cの切片が自動で入り、ブランド固定のsweetnessと完全共線になるため、同じモデルの検算にはならない。ここでは記法の暗記より、<strong>2つの実装で同じデザイン行列を比較しているか</strong>を確認することが目的である。</p>
 </section>
 </section>
 <section id="rシミュ3標本分布とモンテカルロ" class="level2">
@@ -3199,7 +3244,34 @@ outside       A       B       C
 </table>
 </div>
 </div>
-<p>この表を見ると、興味深い性質に気づく。<strong>Bの価格を動かしたときの交差弾力性（AとCへの影響）を見ると、<span class="math inline">\(\eta_{A,B}\)</span> と <span class="math inline">\(\eta_{C,B}\)</span> が同じ値になっている</strong>。つまり、logitモデルでは「Bの価格が上がったとき、AとCが受ける影響の大きさが、A・Cそれぞれの市場シェアだけで決まり、AとCが『どれだけBに似ているか』は一切考慮されない」という性質がある。缶コーヒーの世界で言えば、Aが「Bとよく似た甘さの缶コーヒー」でも、Cが「Bとは全然違う無糖ブラック」でも、Bの値上げから受ける恩恵（流入するシェア）は変わらない、ということになる。これは直感に反する場合が多く、IIA（Independence of Irrelevant Alternatives）と呼ばれるlogitモデル特有の制約である。次回、この制約を緩和するnested logitモデルに進む。今は「へえ、そうなんだ」くらいの理解で十分である。</p>
+<p>この表を見ると、<strong>Bの価格を動かしたときの交差弾力性は <span class="math inline">\(\eta_{A,B}=\eta_{C,B}\)</span></strong> になっている。ここでは「率」と「量」を分けることが大切である。<span class="math inline">\(j\neq k\)</span>について、</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>見る量</th>
+<th>logitでの式</th>
+<th>値上げ先<span class="math inline">\(k\)</span>を固定したとき</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>相対変化（交差弾力性）</td>
+<td><span class="math inline">\(\partial\log s_j/\partial\log p_k=\alpha p_k s_k\)</span></td>
+<td>流入先<span class="math inline">\(j\)</span>によらず同じ</td>
+</tr>
+<tr class="even">
+<td>絶対変化（シェアポイント）</td>
+<td><span class="math inline">\(\partial s_j/\partial p_k=\alpha s_j s_k\)</span></td>
+<td>元の<span class="math inline">\(s_j\)</span>が大きい先ほど大きい</td>
+</tr>
+</tbody>
+</table>
+<p>したがって、AとCの<strong>増加率</strong>は同じだが、流入するシェアポイントまで同じとは限らない。絶対的な流出は各行き先の元のシェアに比例配分される。AがBに似ていても、その「近さ」による上乗せはなく、Cとの違いは元の人気度だけである。これがIIA（Independence of Irrelevant Alternatives）が課す代替パターンの制約である。</p>
 <p>最後に、価格を動かしたときのシェアと収入の変化を可視化する。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>price_grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">80</span>, <span class="dv">200</span>, <span class="at">by =</span> <span class="dv">2</span>)</span>
@@ -3250,11 +3322,11 @@ outside       A       B       C
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ヒント</span>実証研究コーナー：McFadden とBARTの伝説
+<span class="screen-reader-only">ヒント</span>実証研究コーナー：McFaddenによるBART需要予測の事後検証
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Daniel McFadden は、multinomial logitモデルの理論的基礎を築いた研究者であり、2000年にノーベル経済学賞を受賞している。彼のキャリアの中でも特に有名なエピソードが、サンフランシスコ・ベイエリアの新しい鉄道網 BART（Bay Area Rapid Transit）の需要予測である。McFaddenは、BARTが開業する前に、離散選択モデル（logitモデル）を使って、自動車通勤者のうちどれくらいがBARTに乗り換えるかを事前に予測した。実際の開業前予測では新規路線の利用シェアを約6%程度と見積もり、これは開業後の実績とほぼ近い値であったとされている。当時は「モデルに基づく需要予測」自体が目新しく、この的中は離散選択モデルの実務的な価値を示す象徴的な事例として語り継がれている。McFadden (1986) の “The Choice Theory Approach to Market Research” は、この種の需要予測がマーケティングリサーチにどう応用できるかを論じた論文で、本講義の設計思想（理論モデル→データ→予測・反実仮想）そのものである。</p>
+<p>Daniel McFadden はmultinomial logitモデルの理論的基礎を築き、2000年にノーベル経済学賞を受賞した。McFadden (2001) の回顧によれば、研究チームはBART開業前の1972年に通勤行動を調査してMNLを推定し、開業後の1975年に再調査できた631人について、実現した各交通手段の属性を使って予測を評価した。BARTの予測シェアは6.3%、実績は6.2%だった（予測の標準誤差は2.5パーセントポイント）。一方で、徒歩アクセスを過大評価するなど系統的な誤差もあり、McFadden自身も精密な一致には幸運があったと注意している。したがってこれは「常に小数点まで当たる魔法」ではなく、個票RUMが当時の集計型公式予測（BARTシェア15%）より政策に敏感な予測を作れた、という検証事例として読むのが正確である。</p>
 </div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -3267,7 +3339,7 @@ outside       A       B       C
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Guadagni and Little (1983) “A Logit Model of Brand Choice Calibrated on Scanner Data” は、マーケティングサイエンスの歴史において最も引用される論文の1つである。この論文が画期的だったのは、それまで実験室的なアンケートデータ（stated preference）で推定されることが多かったブランド選択モデルを、スーパーマーケットの実際のスキャナーデータ（POSデータの原型）を使って推定した点にある。彼らはコーヒーのブランド選択を対象に、価格・特売（feature）・陳列（display）といった観測可能な変数に加えて、<strong>ブランドロイヤルティ</strong>という消費者ごとの購買履歴に基づく変数（過去の購買での加重平均のようなもの）をモデルに組み込んだ。この「ロイヤルティ変数」の発想は、後の顧客パネル分析・state dependenceの研究（本講義の第14回で扱う）にまで連なる系譜の起点であり、需要推定とマーケティングの実務データを結びつけた最初期の、かつ最も影響力のある研究の1つである。</p>
+<p>Guadagni and Little (1983) “A Logit Model of Brand Choice Calibrated on Scanner Data” は、マーケティングサイエンスにおけるブランド選択モデルの古典的研究である。この論文が画期的だったのは、スーパーマーケットの実際のスキャナーデータを使ってコーヒーのブランド選択を推定し、価格・特売（feature）・陳列（display）に加えて、過去の購買を指数加重した<strong>ブランドロイヤルティ</strong>変数を組み込んだ点にある。この変数は予測には強力だが、その係数を「過去に買ったから今も買う」という真のstate dependenceの因果効果と直ちに解釈してはいけない。もともと特定ブランドを好む持続的な未観測異質性も購買履歴に現れるため、両者が混ざり得る。この区別は第14回で改めて扱う。</p>
 </div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -3276,7 +3348,7 @@ outside       A       B       C
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ヒント</span>実証研究コーナー：Train (2009) — シミュレーションの聖典
+<span class="screen-reader-only">ヒント</span>実証研究コーナー：Train (2009) — 離散選択の標準教科書
 </div>
 </div>
 <div class="callout-body-container callout-body">
@@ -3364,8 +3436,9 @@ outside       A       B       C
 <li>上武康亮・遠山祐太・若森直樹・渡辺安虎『実証ビジネス・エコノミクス』日本評論社、2025年、第2章。</li>
 <li>Train, Kenneth E. (2009) <em>Discrete Choice Methods with Simulation</em>, 2nd ed., Cambridge University Press, Chapters 2-3.</li>
 <li>McFadden, Daniel (1986) “The Choice Theory Approach to Market Research,” <em>Marketing Science</em>, 5(4), 275-297.</li>
+<li>McFadden, Daniel (2001) “Economic Choices,” <em>American Economic Review</em>, 91(3), 351-378.</li>
 <li>Guadagni, Peter M. and John D. C. Little (1983) “A Logit Model of Brand Choice Calibrated on Scanner Data,” <em>Marketing Science</em>, 2(3), 203-238.</li>
-<li>Manski, Charles F. (1977) “The Structure of Random Utility Models,” <em>Theory and Decision</em>, 8(3), 229-254.</li>
+<li>Manski, Charles F. (1977) “The Structure of Random Utility Models,” <em>Theory and Decision</em>, 8(3), 229-254. https://doi.org/10.1007/BF00133443</li>
 </ul>
 </section>
 

@@ -2684,11 +2684,11 @@ window.Quarto = {
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">警告</span>よくあるバグ：<span class="math inline">\(\beta\)</span> を推定しようとして地獄を見る
+<span class="screen-reader-only">警告</span>識別上の注意：<span class="math inline">\(\beta\)</span> を選択データだけで推定する難しさ
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong><span class="math inline">\(\beta\)</span> を推定対象に加えてはいけない。</strong> 割引因子は選択データだけからは識別が難しく（<span class="math inline">\(\beta\)</span> と flow utility がもつれる）、<code>optim</code> の探索が発散したり、無意味な値（<span class="math inline">\(\beta &gt; 1\)</span> や負）に飛んだりする。<span class="math inline">\(\beta = 0.95\)</span> は<strong>固定</strong>し、推定するのは <span class="math inline">\((\theta_1, RC)\)</span> の2つだけ。これは実務の標準的な慣習でもある。</p>
+<p>この課題では <strong><span class="math inline">\(\beta\)</span> を推定対象に加えない</strong>。選択データだけでは割引因子とflow utilityを一般に分離できず、追加の除外制約・外部情報・正規化が要る。ここの尤度へ無制約に<span class="math inline">\(\beta\)</span>を足すと目的関数が平坦・不安定になり、探索が<span class="math inline">\(\beta&gt;1\)</span>や負の値へ飛ぶこともある。<span class="math inline">\(\beta=0.95\)</span>を固定して<span class="math inline">\((\theta_1,RC)\)</span>だけを推定し、必要なら別の固定値で感度分析する。</p>
 </div>
 </div>
 </section>
@@ -2699,7 +2699,7 @@ window.Quarto = {
 \underbrace{\log \hat P(1\mid x) - \log \hat P(0\mid x) + \beta \sum_{x&#39;}\big[P_1 - P_0\big](x&#39;\mid x)\,\log \hat P(1\mid x&#39;)}_{=:\ y(x)}
 \;=\; \theta_1\, x - RC.
 \]</span></p>
-<p><span class="math inline">\(y(x)\)</span> を経験 CCP から計算し、<span class="math inline">\(x\)</span> に回帰する（傾き=<span class="math inline">\(\theta_1\)</span>、切片=<span class="math inline">\(-RC\)</span>）。<span class="math inline">\(\hat P = 0\)</span> 対策に Laplace 平滑化、薄い状態対策に観測数 <span class="math inline">\(\geq 30\)</span> の状態だけ重み付き回帰。</p>
+<p><span class="math inline">\(y(x)\)</span> を経験 CCP から計算し、<span class="math inline">\(x\)</span> に回帰する（傾き=<span class="math inline">\(\theta_1\)</span>、切片=<span class="math inline">\(-RC\)</span>）。<span class="math inline">\(\hat P=0\)</span>対策にはJeffreys/add-half平滑化 <span class="math inline">\((n_1+0.5)/(n+1)\)</span> を使う（Laplace/add-oneは <span class="math inline">\((n_1+1)/(n+2)\)</span>）。薄い状態対策として観測数 <span class="math inline">\(\geq30\)</span> の状態をWLSに使う。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>diffP <span class="ot">&lt;-</span> P1 <span class="sc">-</span> P0</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -2707,23 +2707,28 @@ window.Quarto = {
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>n_x  <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">0</span><span class="sc">:</span>(K <span class="sc">-</span> <span class="dv">1</span>), <span class="cf">function</span>(xv) <span class="fu">sum</span>(X <span class="sc">==</span> xv))</span>
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>n1_x <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">0</span><span class="sc">:</span>(K <span class="sc">-</span> <span class="dv">1</span>), <span class="cf">function</span>(xv) <span class="fu">sum</span>(A[X <span class="sc">==</span> xv]))</span>
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Laplace 平滑化した CCP</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Jeffreys/add-half 平滑化した CCP</span></span>
 <span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>Psm    <span class="ot">&lt;-</span> (n1_x <span class="sc">+</span> <span class="fl">0.5</span>) <span class="sc">/</span> (n_x <span class="sc">+</span> <span class="fl">1.0</span>)</span>
 <span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>logP1h <span class="ot">&lt;-</span> <span class="fu">log</span>(Psm); logP0h <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">1</span> <span class="sc">-</span> Psm)</span>
 <span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 将来項の logP1（未観測状態は隣で代用）</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 将来項の logP1（未観測状態は最も近い観測状態で代用。境界も安全に処理）</span></span>
 <span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>logP1h_full <span class="ot">&lt;-</span> logP1h</span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (xv <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>K) <span class="cf">if</span> (n_x[xv] <span class="sc">==</span> <span class="dv">0</span>) logP1h_full[xv] <span class="ot">&lt;-</span> logP1h_full[xv <span class="sc">-</span> <span class="dv">1</span>]</span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="co"># y(x) を計算 → 観測数&gt;=30 の状態で重み付き回帰</span></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>y_hat <span class="ot">&lt;-</span> ______                                 <span class="co"># 【穴埋め】logP1h - logP0h + beta * (P1-P0) 行 x logP1h_full</span></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>good  <span class="ot">&lt;-</span> n_x <span class="sc">&gt;=</span> <span class="dv">30</span></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>fit_ccp <span class="ot">&lt;-</span> <span class="fu">lm</span>(y_hat <span class="sc">~</span> xs, <span class="at">weights =</span> n_x, <span class="at">subset =</span> good)</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>observed_idx <span class="ot">&lt;-</span> <span class="fu">which</span>(n_x <span class="sc">&gt;</span> <span class="dv">0</span>)</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(observed_idx) <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">stop</span>(<span class="st">&quot;CCPを計算できる観測状態がない&quot;</span>)</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (idx <span class="cf">in</span> <span class="fu">which</span>(n_x <span class="sc">==</span> <span class="dv">0</span>)) {</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  nearest <span class="ot">&lt;-</span> observed_idx[<span class="fu">which.min</span>(<span class="fu">abs</span>(observed_idx <span class="sc">-</span> idx))]</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  logP1h_full[idx] <span class="ot">&lt;-</span> logP1h[nearest]</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>}</span>
 <span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>theta1_ccp <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_ccp)[<span class="dv">2</span>]</span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>RC_ccp     <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fu">coef</span>(fit_ccp)[<span class="dv">1</span>]                 <span class="co"># 切片が -RC</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;CCP：theta1 =&quot;</span>, <span class="fu">round</span>(theta1_ccp, <span class="dv">4</span>), <span class="st">&quot; RC =&quot;</span>, <span class="fu">round</span>(RC_ccp, <span class="dv">4</span>),</span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;  （使った状態数:&quot;</span>, <span class="fu">sum</span>(good), <span class="st">&quot;）</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co"># y(x) を計算 → 観測数&gt;=30 の状態で重み付き回帰</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>y_hat <span class="ot">&lt;-</span> ______                                 <span class="co"># 【穴埋め】logP1h - logP0h + beta * (P1-P0) 行 x logP1h_full</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>good  <span class="ot">&lt;-</span> n_x <span class="sc">&gt;=</span> <span class="dv">30</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>fit_ccp <span class="ot">&lt;-</span> <span class="fu">lm</span>(y_hat <span class="sc">~</span> xs, <span class="at">weights =</span> n_x, <span class="at">subset =</span> good)</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>theta1_ccp <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_ccp)[<span class="dv">2</span>]</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>RC_ccp     <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fu">coef</span>(fit_ccp)[<span class="dv">1</span>]                 <span class="co"># 切片が -RC</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;CCP：theta1 =&quot;</span>, <span class="fu">round</span>(theta1_ccp, <span class="dv">4</span>), <span class="st">&quot; RC =&quot;</span>, <span class="fu">round</span>(RC_ccp, <span class="dv">4</span>),</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;  （使った状態数:&quot;</span>, <span class="fu">sum</span>(good), <span class="st">&quot;）</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># NFXP と CCP を並べる</span></span>

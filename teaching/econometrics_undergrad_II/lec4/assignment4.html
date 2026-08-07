@@ -2449,7 +2449,7 @@ u_{ijt} = \beta_0 + \beta_x\, x_{jt} - \alpha_i\, p_{jt} + \xi_{jt} + \varepsilo
 </tr>
 <tr class="odd">
 <td><span class="math inline">\(\bar\alpha\)</span></td>
-<td>log 価格係数の中心</td>
+<td>log価格係数の平均</td>
 <td>0.5</td>
 </tr>
 <tr class="even">
@@ -2459,6 +2459,7 @@ u_{ijt} = \beta_0 + \beta_x\, x_{jt} - \alpha_i\, p_{jt} + \xi_{jt} + \varepsilo
 </tr>
 </tbody>
 </table>
+<p>対数正規分布では、<span class="math inline">\(e^{\bar\alpha}\)</span>は中央値であり、平均は<span class="math inline">\(E[\alpha_i]=e^{\bar\alpha+\sigma^2/2}\)</span>である。この区別を以降の平均効用分解で使う。</p>
 <p>価格は外生ではない。限界費用にマークアップを乗せて決まり、そのマークアップは需要ショック <span class="math inline">\(\xi\)</span> に反応する（需要が強い市場では強気の価格）。これで <span class="math inline">\(p\)</span> と <span class="math inline">\(\xi\)</span> が相関し、内生性が生じる。限界費用は</p>
 <p><span class="math display">\[
 mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
@@ -2477,7 +2478,7 @@ mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>beta_x_true <span class="ot">&lt;-</span> <span class="fl">1.5</span></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>abar_true   <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>sigma_true  <span class="ot">&lt;-</span> <span class="fl">0.8</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>alpha_bar_true <span class="ot">&lt;-</span> <span class="fu">exp</span>(abar_true)   <span class="co"># 平均価格係数</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>alpha_bar_true <span class="ot">&lt;-</span> <span class="fu">exp</span>(abar_true <span class="sc">+</span> sigma_true<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> <span class="dv">2</span>)   <span class="co"># 水準での平均 E[alpha_i]</span></span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- ここを埋める ----</span></span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># 属性 x: T x J、標準正規</span></span>
@@ -2508,21 +2509,21 @@ mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><code>price</code> の式に <code>xi</code> が入っているのがミソだ。需要ショック <span class="math inline">\(\xi_{jt}\)</span> が大きい（その財が売れやすい）市場では、企業が強気の価格をつける。だから <span class="math inline">\(p\)</span> と <span class="math inline">\(\xi\)</span> が正に相関する。この相関があるせいで、<span class="math inline">\(\delta = \cdots - \alpha_{\text{bar}} p + \xi\)</span> を素朴にOLSすると <span class="math inline">\(p\)</span> の係数（価格感応度）が過小推定される。第3回でやった内生性の話そのままだ。</p>
+<p><code>price</code> の式に <code>xi</code> が入っているのがミソだ。需要ショック <span class="math inline">\(\xi_{jt}\)</span> が大きい（その財が売れやすい）市場では、企業が強気の価格をつける。だから <span class="math inline">\(p\)</span> と <span class="math inline">\(\xi\)</span> が正に相関する。この相関があるせいで、<span class="math inline">\(\delta = \cdots - \alpha_0 p + \xi\)</span> を素朴にOLSすると <span class="math inline">\(p\)</span> の係数（価格感応度）が過小推定される。第3回でやった内生性の話そのままだ。</p>
 </div>
 </div>
 </section>
 <section id="問215点モンテカルロ積分でシェアを計算し観測シェアを生成する" class="level2">
 <h2 class="anchored" data-anchor-id="問215点モンテカルロ積分でシェアを計算し観測シェアを生成する">問2（15点）：モンテカルロ積分でシェアを計算し、観測シェアを生成する</h2>
-<p>平均効用 <span class="math inline">\(\delta_{jt} = \beta_0 + \beta_x x_{jt} - \bar\alpha^{\text{lvl}} p_{jt} + \xi_{jt}\)</span> を作り、シミュレーション個人でシェアを計算せよ。まず「<span class="math inline">\(\delta\)</span> を与えるとシェアを返す」関数を完成させる。個人偏差は <span class="math inline">\(\mu_{ij} = -(\alpha_i - \bar\alpha^{\text{lvl}}) p_j\)</span>。</p>
+<p>平均価格係数を <span class="math inline">\(\alpha_0=E[\alpha_i]=e^{\bar\alpha+\sigma^2/2}\)</span> と置き、平均効用 <span class="math inline">\(\delta_{jt} = \beta_0 + \beta_x x_{jt} - \alpha_0 p_{jt} + \xi_{jt}\)</span> を作る。個人偏差は <span class="math inline">\(\mu_{ij}=-(\alpha_i-\alpha_0)p_j\)</span> なので、<span class="math inline">\(\delta+\mu\)</span>の価格項が<span class="math inline">\(-\alpha_i p_j\)</span>に戻ることをまず手で検算せよ。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># delta_t: (J) 平均効用</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 戻り値: 集計インサイドシェア (J)</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>shares_from_delta <span class="ot">&lt;-</span> <span class="cf">function</span>(delta_t, p_t, abar, sigma, nu_p) {</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  alpha_i  <span class="ot">&lt;-</span> <span class="fu">exp</span>(abar <span class="sc">+</span> sigma <span class="sc">*</span> nu_p)          <span class="co"># (ns) 個人の価格係数</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  abar_lvl <span class="ot">&lt;-</span> <span class="fu">exp</span>(abar)</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># mu[i,j] = -(alpha_i - abar_lvl) * p_j   -&gt;  outer() で (ns x J)</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fu">outer</span>(alpha_i <span class="sc">-</span> abar_lvl, p_t)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  alpha_mean <span class="ot">&lt;-</span> <span class="fu">exp</span>(abar <span class="sc">+</span> sigma<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> <span class="dv">2</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># mu[i,j] = -(alpha_i - E[alpha_i]) * p_j   -&gt;  outer() で (ns x J)</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fu">outer</span>(alpha_i <span class="sc">-</span> alpha_mean, p_t)</span>
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  V  <span class="ot">&lt;-</span> <span class="fu">sweep</span>(mu, <span class="dv">2</span>, delta_t, <span class="st">&quot;+&quot;</span>)               <span class="co"># delta_t を各列に足す</span></span>
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  eV <span class="ot">&lt;-</span> <span class="fu">exp</span>(V)</span>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  denom <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> <span class="fu">rowSums</span>(eV)                        <span class="co"># outside の効用は 0</span></span>
@@ -2536,6 +2537,19 @@ mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
 <span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  S_obs[t, ] <span class="ot">&lt;-</span> <span class="fu">shares_from_delta</span>(delta_true[t, ], price[t, ], abar_true, sigma_true, nu_p)</span>
 <span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>}</span>
 <span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>S0_obs <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">rowSums</span>(S_obs)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>推定中の分布族について
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>真値では<span class="math inline">\(\alpha_0=E[\alpha_i]\)</span>なので価格係数は純粋な対数正規になる。問5では候補<span class="math inline">\(\sigma\)</span>ごとに<span class="math inline">\(\alpha_0\)</span>を線形IVで自由に推定するため、探索中は「推定中心値＋中心化した対数正規偏差」というshifted familyである。これは<span class="math inline">\(\alpha_0\)</span>をprofile outする教育用簡略化。純粋な対数正規を常に保つ推定では、<span class="math inline">\(\bar\alpha\)</span>と<span class="math inline">\(\sigma\)</span>をともに外側で非線形推定する。</p>
+</div>
 </div>
 </section>
 <section id="問310点データの記述統計と内生性の確認" class="level2">
@@ -2652,7 +2666,7 @@ mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
 </section>
 <section id="問515点gmm-目的関数を-sigma-のグリッドで評価する" class="level2">
 <h2 class="anchored" data-anchor-id="問515点gmm-目的関数を-sigma-のグリッドで評価する">問5（15点）：GMM 目的関数を <span class="math inline">\(\sigma\)</span> のグリッドで評価する</h2>
-<p>操作変数 <span class="math inline">\(Z\)</span>（定数・<span class="math inline">\(x\)</span>・コストシフター <span class="math inline">\(w\)</span>・ライバルの <span class="math inline">\(x\)</span> 和・ライバルの <span class="math inline">\(w\)</span> 和）を作り、<span class="math inline">\(\hat\delta(\sigma)\)</span> を IV回帰して残差 <span class="math inline">\(\hat\xi\)</span> を得て、GMM目的関数 <span class="math inline">\(Q(\sigma) = \hat\xi&#39;ZWZ&#39;\hat\xi\)</span>（<span class="math inline">\(W = (Z&#39;Z)^{-1}\)</span>）を計算する <code>gmm_step</code> を完成させよ。<span class="math inline">\(\sigma \in \{0, 0.4, 0.8, 1.2\}\)</span> のグリッドで <span class="math inline">\(Q\)</span> を評価し、argmin が真値 0.8 の近傍にあることを図で示せ。</p>
+<p>操作変数 <span class="math inline">\(Z\)</span>（定数・<span class="math inline">\(x\)</span>・コストシフター <span class="math inline">\(w\)</span>・他製品の <span class="math inline">\(x\)</span> 和・<span class="math inline">\(w\)</span> 和）を作り、<span class="math inline">\(\hat\delta(\sigma)\)</span> をIV回帰して残差<span class="math inline">\(\hat\xi\)</span>を得て、GMM目的関数を計算する。これは企業IDを省いた教育用の簡略IVである。標準的なBLP IVは、同一企業の他製品と他企業の製品の属性和を分ける。どちらにも、自財の<span class="math inline">\(\xi\)</span>と無相関という除外制約が必要である。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 操作変数 Z（各行 = 製品×市場、市場 t を固定して財 j を回す順）</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>build_Z <span class="ot">&lt;-</span> <span class="cf">function</span>(x, w) {</span>
@@ -2688,14 +2702,15 @@ mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>sigma_grid <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.0</span>, <span class="fl">0.4</span>, <span class="fl">0.8</span>, <span class="fl">1.2</span>)</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>Q_vals <span class="ot">&lt;-</span> <span class="fu">sapply</span>(sigma_grid, <span class="cf">function</span>(s) <span class="fu">gmm_step</span>(s, abar_true)<span class="sc">$</span>Q)</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>df_Q <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">sigma =</span> sigma_grid, <span class="at">Q =</span> Q_vals)</span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(df_Q, <span class="at">digits =</span> <span class="dv">4</span>)</span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;argmin:&quot;</span>, sigma_grid[<span class="fu">which.min</span>(Q_vals)], <span class="st">&quot;（真値 0.8）</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_Q, <span class="fu">aes</span>(sigma, Q)) <span class="sc">+</span></span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">&quot;#1f77b4&quot;</span>) <span class="sc">+</span> <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fl">0.8</span>, <span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>) <span class="sc">+</span></span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;GMM目的関数&quot;</span>, <span class="at">x =</span> <span class="fu">expression</span>(sigma), <span class="at">y =</span> <span class="st">&quot;Q&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>best_sigma <span class="ot">&lt;-</span> sigma_grid[<span class="fu">which.min</span>(Q_vals)]</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>df_Q <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">sigma =</span> sigma_grid, <span class="at">Q =</span> Q_vals)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(df_Q, <span class="at">digits =</span> <span class="dv">4</span>)</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;argmin:&quot;</span>, best_sigma, <span class="st">&quot;（真値 0.8）</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_Q, <span class="fu">aes</span>(sigma, Q)) <span class="sc">+</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">&quot;#1f77b4&quot;</span>) <span class="sc">+</span> <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fl">0.8</span>, <span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>) <span class="sc">+</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;GMM目的関数&quot;</span>, <span class="at">x =</span> <span class="fu">expression</span>(sigma), <span class="at">y =</span> <span class="st">&quot;Q&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-warning callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2716,11 +2731,11 @@ mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
 <p>異質性を無視するとどんな間違いを犯すか。<span class="math inline">\(\sigma = 0\)</span>（plain logit）と <span class="math inline">\(\hat\sigma\)</span>（グリッドの argmin）のそれぞれで、<strong>自己価格弾力性</strong>の分布を計算して比較せよ。ヒストグラムを重ねて描き、「異質性を無視すると何を取り違えるか」を2〜3文で述べよ。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 推定した sigma のもとで、各製品の自己価格弾力性を計算する。</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 【重要】価格を動かすと delta も動く（delta に -alpha_bar*p が入るから）。</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 【重要】価格を動かすと delta も動く（delta に -alpha0*p が入るから）。</span></span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="co">#         だから delta を「価格の関数」として作り直してから微小変化させる。</span></span>
 <span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>self_elasticities <span class="ot">&lt;-</span> <span class="cf">function</span>(sigma, abar) {</span>
 <span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  fit <span class="ot">&lt;-</span> <span class="fu">gmm_step</span>(sigma, abar)</span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  th  <span class="ot">&lt;-</span> fit<span class="sc">$</span>theta1                 <span class="co"># c(const, beta_x, coef_price)   coef_price = -alpha_bar_lvl</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  th  <span class="ot">&lt;-</span> fit<span class="sc">$</span>theta1                 <span class="co"># c(const, beta_x, coef_price)   coef_price = -alpha0</span></span>
 <span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  xih <span class="ot">&lt;-</span> <span class="fu">matrix</span>(fit<span class="sc">$</span>xi_hat, T, J, <span class="at">byrow =</span> <span class="cn">TRUE</span>)   <span class="co"># 【t()並びなので byrow=TRUE】</span></span>
 <span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  const <span class="ot">&lt;-</span> th[<span class="dv">1</span>]; bx <span class="ot">&lt;-</span> th[<span class="dv">2</span>]; cprice <span class="ot">&lt;-</span> th[<span class="dv">3</span>]</span>
 <span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  eps <span class="ot">&lt;-</span> <span class="fl">1e-6</span></span>
@@ -2739,18 +2754,19 @@ mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
 <span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>}</span>
 <span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>e_plain <span class="ot">&lt;-</span> <span class="fu">self_elasticities</span>(<span class="fl">0.0</span>, abar_true)</span>
-<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>e_hat   <span class="ot">&lt;-</span> <span class="fu">self_elasticities</span>(<span class="fl">0.8</span>, abar_true)</span>
-<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>df_e <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">elasticity =</span> <span class="fu">c</span>(e_plain, e_hat),</span>
-<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">model =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;plain logit (sigma=0)&quot;</span>, <span class="st">&quot;RC (sigma_hat)&quot;</span>), <span class="fu">c</span>(<span class="fu">length</span>(e_plain), <span class="fu">length</span>(e_hat)))</span>
-<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_e, <span class="fu">aes</span>(elasticity, <span class="at">fill =</span> model)) <span class="sc">+</span></span>
-<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>, <span class="at">position =</span> <span class="st">&quot;identity&quot;</span>, <span class="at">bins =</span> <span class="dv">30</span>) <span class="sc">+</span></span>
-<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;自己価格弾力性の分布&quot;</span>, <span class="at">x =</span> <span class="st">&quot;自己価格弾力性&quot;</span>, <span class="at">fill =</span> <span class="cn">NULL</span>)</span>
-<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;plain: mean&quot;</span>, <span class="fu">round</span>(<span class="fu">mean</span>(e_plain), <span class="dv">3</span>), <span class="st">&quot; sd&quot;</span>, <span class="fu">round</span>(<span class="fu">sd</span>(e_plain), <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;RC   : mean&quot;</span>, <span class="fu">round</span>(<span class="fu">mean</span>(e_hat), <span class="dv">3</span>),   <span class="st">&quot; sd&quot;</span>, <span class="fu">round</span>(<span class="fu">sd</span>(e_hat), <span class="dv">3</span>),   <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>e_hat   <span class="ot">&lt;-</span> <span class="fu">self_elasticities</span>(best_sigma, abar_true)</span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>rc_label <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;RC (sigma_hat=%.1f)&quot;</span>, best_sigma)</span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>df_e <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">elasticity =</span> <span class="fu">c</span>(e_plain, e_hat),</span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">model =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;plain logit (sigma=0)&quot;</span>, rc_label), <span class="fu">c</span>(<span class="fu">length</span>(e_plain), <span class="fu">length</span>(e_hat)))</span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_e, <span class="fu">aes</span>(elasticity, <span class="at">fill =</span> model)) <span class="sc">+</span></span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>, <span class="at">position =</span> <span class="st">&quot;identity&quot;</span>, <span class="at">bins =</span> <span class="dv">30</span>) <span class="sc">+</span></span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;自己価格弾力性の分布&quot;</span>, <span class="at">x =</span> <span class="st">&quot;自己価格弾力性&quot;</span>, <span class="at">fill =</span> <span class="cn">NULL</span>)</span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;plain: mean&quot;</span>, <span class="fu">round</span>(<span class="fu">mean</span>(e_plain), <span class="dv">3</span>), <span class="st">&quot; sd&quot;</span>, <span class="fu">round</span>(<span class="fu">sd</span>(e_plain), <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;RC   : mean&quot;</span>, <span class="fu">round</span>(<span class="fu">mean</span>(e_hat), <span class="dv">3</span>),   <span class="st">&quot; sd&quot;</span>, <span class="fu">round</span>(<span class="fu">sd</span>(e_hat), <span class="dv">3</span>),   <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2800,25 +2816,26 @@ mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
 <span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>owner_matrix <span class="ot">&lt;-</span> <span class="cf">function</span>(groups) <span class="fu">outer</span>(groups, groups, <span class="cf">function</span>(a, b) <span class="fu">as.numeric</span>(a <span class="sc">==</span> b))</span>
 <span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a><span class="co"># FOC: p = mc + Delta^{-1} s,  Delta[j,k] = -Omega[j,k] * ds_k/dp_j</span></span>
-<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>markup_pieces <span class="ot">&lt;-</span> <span class="cf">function</span>(p, groups) {</span>
-<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a>  M <span class="ot">&lt;-</span> <span class="fu">dS_dp</span>(p)</span>
-<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>  Omega <span class="ot">&lt;-</span> <span class="fu">owner_matrix</span>(groups)</span>
-<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a>  Delta <span class="ot">&lt;-</span> ______                                 <span class="co"># 【穴埋め】-(Omega * t(M))</span></span>
-<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">Delta =</span> Delta, <span class="at">s =</span> <span class="fu">agg_shares</span>(p))</span>
-<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a><span class="co"># 固定点反復で均衡を解く</span></span>
-<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a>solve_equilibrium <span class="ot">&lt;-</span> <span class="cf">function</span>(mc, groups, p_init, <span class="at">tol =</span> <span class="fl">1e-11</span>, <span class="at">maxit =</span> <span class="dv">2000</span>) {</span>
-<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> p_init</span>
-<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (it <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>maxit) {</span>
-<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a>    mp <span class="ot">&lt;-</span> <span class="fu">markup_pieces</span>(p, groups)</span>
-<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a>    p_new <span class="ot">&lt;-</span> ______                               <span class="co"># 【穴埋め】mc + solve(Delta, s)</span></span>
-<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">max</span>(<span class="fu">abs</span>(p_new <span class="sc">-</span> p)) <span class="sc">&lt;</span> tol) <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">p =</span> p_new, <span class="at">iters =</span> it, <span class="at">ok =</span> <span class="cn">TRUE</span>))</span>
-<span id="cb15-45"><a href="#cb15-45" aria-hidden="true" tabindex="-1"></a>    p <span class="ot">&lt;-</span> p_new</span>
-<span id="cb15-46"><a href="#cb15-46" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb15-47"><a href="#cb15-47" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">p =</span> p, <span class="at">iters =</span> maxit, <span class="at">ok =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb15-48"><a href="#cb15-48" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a><span class="co"># FOC: s - Delta(p - mc) = 0,  Delta[j,k] = -Omega[j,k] * ds_k/dp_j</span></span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a><span class="co">#      &lt;=&gt; p = mc + Delta^{-1} s</span></span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a>markup_pieces <span class="ot">&lt;-</span> <span class="cf">function</span>(p, groups) {</span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>  M <span class="ot">&lt;-</span> <span class="fu">dS_dp</span>(p)</span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a>  Omega <span class="ot">&lt;-</span> <span class="fu">owner_matrix</span>(groups)</span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a>  Delta <span class="ot">&lt;-</span> ______                                 <span class="co"># 【穴埋め】-(Omega * t(M))</span></span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">Delta =</span> Delta, <span class="at">s =</span> <span class="fu">agg_shares</span>(p))</span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a><span class="co"># 固定点反復で均衡を解く</span></span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a>solve_equilibrium <span class="ot">&lt;-</span> <span class="cf">function</span>(mc, groups, p_init, <span class="at">tol =</span> <span class="fl">1e-11</span>, <span class="at">maxit =</span> <span class="dv">2000</span>) {</span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> p_init</span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (it <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>maxit) {</span>
+<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a>    mp <span class="ot">&lt;-</span> <span class="fu">markup_pieces</span>(p, groups)</span>
+<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a>    p_new <span class="ot">&lt;-</span> ______                               <span class="co"># 【穴埋め】mc + solve(Delta, s)</span></span>
+<span id="cb15-45"><a href="#cb15-45" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">max</span>(<span class="fu">abs</span>(p_new <span class="sc">-</span> p)) <span class="sc">&lt;</span> tol) <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">p =</span> p_new, <span class="at">iters =</span> it, <span class="at">ok =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb15-46"><a href="#cb15-46" aria-hidden="true" tabindex="-1"></a>    p <span class="ot">&lt;-</span> p_new</span>
+<span id="cb15-47"><a href="#cb15-47" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb15-48"><a href="#cb15-48" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">p =</span> p, <span class="at">iters =</span> maxit, <span class="at">ok =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb15-49"><a href="#cb15-49" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 合併前均衡 → mc 逆算 → 合併後均衡 ----</span></span>
@@ -2870,7 +2887,7 @@ mc_{jt} = \exp(\gamma_0 + \gamma_x x_{jt} + \gamma_w w_{jt} + \omega_{jt})
 <p>あなたは競争当局の審査官だとする。問7の推定結果（価格上昇率、diversion ratio、必要ならUPP や消費者余剰の変化）に基づいて、<strong>この財1・財2の合併を承認すべきか</strong>を1段落（5〜8文）で論じよ。数値を根拠に引くこと。「どういう条件なら判断が変わるか」（例：効率化＝限界費用の低下があれば、diversion がもっと低ければ）にも触れると良い。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 判断材料を1つの表にまとめておくと書きやすい</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="co"># （UPP・消費者余剰は発展課題。ここでは価格上昇率と diversion で十分）</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="co"># （ここでは価格上昇率と diversion の報告で十分）</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">

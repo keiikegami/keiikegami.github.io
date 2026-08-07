@@ -101,6 +101,8 @@ $$
 u_{ij} = x_j'\beta - \alpha_i\, p_j + \varepsilon_{ij}, \qquad \alpha_i = \exp(\bar{\alpha} + \sigma\, \nu_i), \qquad \nu_i \sim N(0, 1)
 $$
 
+このとき$e^{\bar\alpha}$は価格係数の**中央値**で、平均は$e^{\bar\alpha+\sigma^2/2}$である。そのまま$\sigma$だけを動かすと水準平均まで変わるので、下の実験では$\bar\alpha=\log E[\alpha_i]-\sigma^2/2$と調整し、平均価格感応度を固定してばらつきだけを変える。
+
 $\sigma$ が価格感応度のばらつきで、$\sigma = 0$ なら全員同じ係数、つまりただのlogitに戻る。市場には品質も価格帯も近い「プレミアム」ペア（財1・財2）と、安くて質素な「エコノミー」（財3）が並んでいる。財1を値上げしたとき、逃げた客の行き先の配分（diversion）を、「元のシェアに比例して流れる」というIIAの予測と比べよう。$\sigma > 0$ なら、財1の客はもともと価格に鈍いプレミアム好きなので、受け皿は同じプレミアムの財2に偏り、outsideへの流出はIIA予測より小さくなるはずだ。
 
 ```{webr}
@@ -117,7 +119,8 @@ nu <- rnorm(ns)
 # 財1・財2は品質も価格も近い「プレミアム」ペア、財3は「エコノミー」
 xbeta  <- c(4.5, 4.3, 2.0)   # 価格以外の魅力度（品質）
 p_base <- c(3.0, 2.8, 1.2)   # 価格
-abar   <- 0.1                # log価格係数の中心
+alpha_mean_target <- exp(0.1)                      # 固定するE[alpha_i]
+abar <- log(alpha_mean_target) - sigma^2 / 2       # sigmaを変えても平均を固定
 
 s0 <- rc_shares(xbeta, p_base, abar, sigma, nu)   # 値上げ前のシェア
 p_new <- p_base
@@ -243,7 +246,7 @@ nu <- rnorm(ns)
 # 財1・財2はプレミアム（品質・価格帯が近い）、財3・財4はエコノミー
 xbeta <- c(4.5, 4.3, 2.2, 2.0)   # 価格以外の魅力度
 mc    <- c(1.5, 1.4, 0.6, 0.5)   # 限界費用
-abar  <- 0.1                     # log価格係数の中心
+abar  <- 0.1                     # log価格係数の平均（exp(abar)は水準の中央値）
 sigma <- 0.8                     # 価格感応度のばらつき
 
 # 合併前：4財がそれぞれ別の企業
