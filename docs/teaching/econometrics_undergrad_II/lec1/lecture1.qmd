@@ -39,48 +39,24 @@ options(scipen = 8)
 ::: {.callout-important}
 ## この講義で押さえたいこと
 
-1. 計量経済学Iの「識別・推定・推論」という3ステップと「モデル＝条件付き分布の束」という考え方をおさらいし、計量経済学IIではこの道具を使って**意思決定のための反実仮想シミュレーション**を組み立てることを確認する。
-2. 実証ビジネス・エコノミクス、実証産業組織論（IO）、quantitative marketingという3つの隣接分野の関係を整理し、企業の意思決定が抱える4つの問い（需要・因果効果・顧客異質性・最適化）とこのコース全体の対応関係を頭に入れる。
-3. シミュレーションを通じて「予測」と「因果」がまったく別のタスクであることを、広告費と価格設定という2つの具体例で体感する。
-4. 「反実仮想（counterfactual）」という言葉が指す中身を明確にし、構造推定とは何のためにやるのかという見取り図を持つ。
+1. 実証ビジネス・エコノミクス、実証産業組織論（IO）、quantitative marketingという3つの隣接分野の関係を整理し、企業の意思決定が抱える4つの問い（需要と代替性・因果効果・顧客異質性・最適化）とこのコース全体の対応関係を頭に入れる。
+2. シミュレーションを通じて「予測」と「因果」がまったく別のタスクであることを、広告費と価格設定という2つの具体例で体感する。
+3. 「反実仮想（counterfactual）」という言葉が指す中身を明確にし、構造推定とは何のためにやるのかという見取り図を持つ。
 :::
 
-## 前回とのつながり・今回のゴール
 
-計量経済学Iでは、OLS・標準誤差・検定といった一般の推定・推論の道具を学び、さらにランダム化、固定効果、DiD、操作変数法、RDDを、**それぞれの識別仮定のもとで**因果効果を測る設計として学んだ。潜在アウトカムの枠組みで因果効果を定義し、識別のための仮定を明示し、推定量を作り、標準誤差で推論の不確実性を管理する、という一連の流れも身につけたはずだ。
+計量経済学Iでは、OLS・標準誤差・検定といった一般の推定・推論の道具を学び、さらに固定効果モデル、DiD、操作変数法、RDDなどを、**それぞれの識別仮定のもとで因果効果を測る設計**として学んだ。
 
-計量経済学IIはその続編である。ただし今回は、「ある施策の効果を測る」だけでなく、**モデルを使って「もしこうしていたら」を計算する**というところまで踏み込む。値上げをしたら需要はどう変わるか。新製品を出したら既存製品からどれだけシェアを奪うか。2つの企業が合併したら価格はどう動くか。広告予算をどう配分すれば利益が最大化されるか。こうした問いに答えるには、単に「過去にこうだった」というデータの記述や、ある1つの施策の因果効果を測るだけでは足りない。**まだ観測されていない世界の状態をモデルで作り出す**必要がある。これが反実仮想シミュレーションであり、実証産業組織論（empirical IO）やquantitative marketingが企業や政策当局の意思決定に使われる最大の理由である。
+計量経済学IIはその続編である。ただし今回は、「ある施策の効果を測る」だけでなく、**モデルを使って「もしこうしていたら」を計算する**というところまで踏み込む。例えば、次のような「もしこうしてたら」を計算の対象とする。
 
-今回は初回なので数式は最小限に抑え、計量Iの復習を1節だけ挟んだうえで、コース全体の地図を示すことに専念する。そのうえで、Rシミュレーションを2つ動かして「相関・予測・因果・反実仮想」がどう違うのかを体感してもらう。次回からは、この反実仮想シミュレーションの土台となる「離散選択モデル」の学習に入っていく。
+1. 値上げをしたら需要はどう変わるか。
+2. 新製品を出したら既存製品からどれだけシェアを奪うか。
+3. 2つの企業が合併したら価格はどう動くか。
+4. 広告予算をどう配分すれば利益をもっと上げられただろうか。
 
-## 1. 計量経済学Iの復習：3ステップとシミュレーション
+こうした問いに答えるには、単に「過去にこうだった」というデータの記述や、ある1つの施策の因果効果を測るだけでは足りない。**まだ観測されていない世界の状態をモデルで作り出す**必要がある。これが**構造推定（structural estimation）**とそれに基づく**反実仮想シミュレーション (Counterfactual Simulation)**であり、そのための方法論を作り出してきた実証産業組織論（empirical IO）やquantitative marketingが企業や政策当局の意思決定に使われる最大の理由となっている。
 
-計量経済学Iを貫いていた枠組みをもう一度確認しておこう。
-
-- **この講義ではまず、統計モデルを「観測変数の条件付き分布の束」として捉える。** 例えば予測モデルなら、価格などの条件を与えたときの需要の条件付き分布 $P(\text{需要} \mid \text{価格}, \dots)$ を指定する。介入や均衡まで扱う構造モデルでは、これに加えて、どの変数を外から動かせるか、行動方程式や均衡条件が政策変更後もどう保たれるかを明示する。
-- 実証分析は次の3ステップで進む。
-  1. **識別（identification）**：無限にデータがあれば、知りたいパラメータや効果は一意に定まるか。定まるための仮定は何か。
-  2. **推定（estimation）**：手元の有限データから、そのパラメータの値をどう計算するか。
-  3. **推論（inference）**：推定値には誤差がある。その誤差の大きさをどう測り、どこまで確信を持って良いかをどう表現するか。
-- そして計量Iの縦糸として繰り返し確認してきたのが、「**モデルを条件付き分布として書き下せれば、コンピュータの中でそのモデルに従うデータを生成（シミュレーション）できる**」という事実だった。シミュレーションができれば、推定量が真値を回収できるかを実験で確かめられるし、標準誤差の妥当性もモンテカルロで検証できる。
-
-計量経済学IIでもこの枠組みは変わらない。ただし、シミュレーションの使い道が一段階進む。計量Iでは主に「推定量の性質を確認するための道具」としてシミュレーションを使ってきたが、計量経済学IIでは**シミュレーションそのものが最終目標になる**。つまり、モデルのパラメータを推定したら、そのモデルを使って「もし価格を10%上げたら」「もしこの2社が合併したら」「もし広告予算を倍にしたら」という**まだ起きていない状況を計算機の中に作り出す**。これが構造推定（structural estimation）と呼ばれるアプローチの核心であり、このコースの全15回（うちゲスト講義2回）を通じて繰り返し出てくるテーマである。
-
-::: {.callout-note collapse="true"}
-## 復習：条件付き期待値とpotential outcome
-
-計量Iで扱った枠組みを記号で書き直しておく。処置 $D_i \in \{0, 1\}$、潜在アウトカム $Y_i(1)$（処置を受けた場合の結果）、$Y_i(0)$（受けなかった場合の結果）とすると、観測されるアウトカムは
-
-$$
-Y_i = D_i Y_i(1) + (1 - D_i) Y_i(0)
-$$
-
-であり、平均処置効果（ATE）は $\tau = E[Y_i(1) - Y_i(0)]$ と定義された。ここで根本的な問題は、どの個体についても $Y_i(1)$ と $Y_i(0)$ の**両方を同時に観測することはできない**という点にある。これが「因果推論の根本問題」と呼ばれるものであり、計量Iで学んだランダム化・固定効果・DiD・操作変数法・RDDは、すべてこの根本問題を回避するための異なる仮定・異なる工夫だったことを思い出そう。
-
-計量経済学IIで扱う反実仮想シミュレーションも、本質的には同じ問題への対処である。「もし価格が別の値だったら需要はどうだったか」は、まさに観測されていない潜在アウトカムを知りたいという話であり、モデル（条件付き分布の束）を使ってそれを埋め合わせるのが構造推定のアプローチだ、と理解しておくとよい。
-:::
-
-## 2. 分野の整理：実証ビジネス・エコノミクス、実証IO、quantitative marketing
+## 1. 実証IOについてと授業の進み方、授業の聞き方
 
 このコースが扱う内容は、いくつかの名前で呼ばれる。呼び方によって強調点が少し違うので整理しておこう。
 
@@ -88,11 +64,12 @@ $$
 - **quantitative marketing**：マーケティングサイエンスの分野で、消費者の購買行動（ブランド選択、購入タイミング、数量選択）を統計・計量モデルで分析し、価格設定、広告、品揃え、顧客管理（CRM）といった企業のマーケティング施策に応用する。
 - **実証ビジネス・エコノミクス（empirical business economics）**：上記2つを包含しつつ、より広く「データを使って企業の意思決定を支援する」実務的な分析全般を指すことが多い言葉である。近年は多くの企業が経済学PhDホルダーを「データサイエンティスト」「エコノミスト」として採用しており、この講義で学ぶ内容はまさにその実務と直結している。
 
-3つの分野は使う道具（離散選択モデル、最尤法、因果推論）を共有しており、明確な境界線があるわけではない。このコースでは便宜上「実証IO／quantitative marketing」とまとめて呼ぶが、要するに「データを使って、企業や政策当局の意思決定に資する形で、需要・競争・顧客行動を分析する」分野だと思ってもらえばよい。
+3つの分野は使う道具（離散選択モデル、最尤法、因果推論）を共有しており、明確な境界線があるわけではない。このコースでは言いやすいので大体は「実証IO」と呼ぶことが多いが、要するに「データを使って、企業や政策当局の意思決定に資する形で、需要・競争・顧客行動を分析する」分野だと思ってもらえばよい。
+
 
 ### 企業の意思決定を4つの問いに分解する
 
-データ分析チームや政策当局が直面する意思決定は、突き詰めると次の4つの問いに集約できる。このコースの13回（第5・12回のゲスト講義を除く）は、この4つの問いに対応する形で設計されている。
+データ分析チームや政策当局が直面する意思決定は、突き詰めると次の4つの問いに集約できる。このコースの13回は、この4つの問いに対応する形で設計されている。
 
 | 問い | 具体例 | 対応する回 |
 |---|---|---|
@@ -101,7 +78,7 @@ $$
 | (c) 顧客の異質性と価値を知る | どの顧客が優良顧客か？　この顧客の生涯価値（CLV）はどれくらい？ | 第9回（階層モデル）、第10回（BG/NBD・CLV） |
 | (d) 最適に配分・価格付けする | 誰に割引クーポンを配るべきか？　いつ・いくらで値付けすべきか？ | 第11回（uplift・policy learning）、第13回（動学的離散選択）、第14回（state dependence）、第15回（dynamic pricing） |
 
-第5回・第12回はゲスト講義（公正取引委員会、企業エコノミスト）で、実務の現場でこれらの問いがどう扱われているかを直接聞く回になる。
+ゲスト講義で、実務の現場でこれらの問いがどう扱われているかを直接聞く回になる。
 
 ::: {.callout-note}
 ## ビジネスの現場で：「この4つの問い、実際どう降ってくるか」
@@ -116,70 +93,254 @@ $$
 依頼した本人は「これは需要分析です」「これは因果推論です」とラベル付けして持ってくるわけではない。曖昧な言葉で降ってきた依頼を、この4つの問いのどれに当たるかに翻訳する力こそが、実務で最初に鍛えられる勘所である。
 :::
 
+### 実証IOの現代的な立ち位置
+
+実証IOは企業行動、および消費者行動の分析である。その方法論は疑いようもなくこれらのトピックの分析のために作られてきた。
+
+しかし、現代的にはその方法論の応用先は企業行動に限られるものではない。環境経済学、労働経済学、開発経済学、などなど、およそ実証IOが当初想定していた分析対象ではない場面でも実証IOの方法論は広く用いられるようになっている。
+
+したがって、**現代的な実証IOは、その分析対象を指す言葉というよりは、経済モデルとデータを使って何かを主張するときによって立つ統合的な分析ツールボックスを指す言葉としての側面の方が強い**。このツールを知って、自分の好きな分野の分析をする、みたいな使われ方をしている。
+
+この授業でも基本的には企業行動や消費者行動についての話をしていく。ただ、池上自身の研究関心もこういった古典的なIOのトピックとはちょっとずれているし、受講者の皆さんもあくまでもツールを理解する上でのexampleと思って企業行動や消費者行動の話を聞いてほしい。「自分の関心のある分野だったらこの話はこういうふうに使えそうだな〜」と考えながらこれらの例を理解していければベストだと思う。
+
+
+## 2. 実証研究の3ステップとシミュレーションの使い方
+
+計量経済学Iを貫いていた枠組みをもう一度確認しておこう。
+
+- モデルとは「**観測変数の条件付き分布の束**」であった。
+- 「**モデルを条件付き分布として書き下せれば、コンピュータの中でそのモデルに従うデータを生成（シミュレーション）できる**」というのが計量Iで繰り返してきたポイントで、これによってシミュレーションができれば、推定量が真値を回収できるかを実験で確かめられるし、標準誤差の妥当性などもモンテカルロで検証してきた。
+- そしてこの「モデル」を念頭に置いて、実証分析は次の3ステップで進む。
+  1. **識別（identification）**：無限にデータがあれば、知りたいモデルのパラメータや効果は一意に定まるか。定まるための仮定は何か。
+  2. **推定（estimation）**：手元の有限データから、そのパラメータの値をどう計算するか。
+  3. **推論（inference）**：推定値には誤差がある。その誤差の大きさをどう測り、どこまで確信を持って良いかをどう表現するか。
+
+計量経済学IIでもこの枠組みは変わらない。ただし、シミュレーションの使い道が一段階進む。計量Iでは主に「推定量の性質を確認するための道具」としてシミュレーションを使ってきたが、計量経済学IIでは**シミュレーションそのものが最終目標になる**。
+
+つまり、モデルのパラメータを推定したら、そのモデルを使って「もし価格を10%上げたら」「もしこの2社が合併したら」「もし広告予算を倍にしたら」という**まだ起きていない状況を計算機の中に作り出す**。これが構造推定（structural estimation）とそれを元にした反実仮想シミュレーションと呼ばれるアプローチの核心である。
+
+
+以下では早速このシミュレーションをするという最終目標を達成すると何ができるようになるのかをいくつかの例を持って実感していこう。
+
 ## 3. Rシミュレーション1：広告費と売上の罠
 
-さっそく手を動かしてみよう。ある小売チェーンで、店舗ごとの月間広告費と月間売上のデータが手に入ったとする。素朴に散布図を描いて回帰直線を引くと、広告費が多い店ほど売上が高い、という綺麗な右上がりの関係が見える。ここから「広告費を増やせば売上が増える」と結論づけてよいだろうか。
+あなたはある小売チェーンのデータサイエンティストである。
+今月の仕事は、**店舗ごとの月間広告費と月間売上のデータを分析して、広告費を2倍にしたら月間売上がどれくらい増えそうかを計算すること**である。このレポートは社長が直接チェックして、実際の経営判断に使われる。間違ったことは言えない。
 
-DGP（データ生成過程）を考えてみる。実際には、**もともと立地が良く接客力もある「地力の強い店舗」ほど、本部が広告予算を多めに配分する**という状況を考えよう。地力が強い店舗は、広告を出そうが出すまいが売上が高い。つまり地力（quality）という観測されない変数が、広告費と売上の両方に影響を与えている。これは計量Iで学んだ「交絡（confounding）」そのものだ。
+あなたはデータ基盤課と協力して店舗ごとの月間広告費と月間売上のデータを作成した。そして素朴に散布図を描いて回帰直線を引くと、
 
-まずこのDGPをコードに落とす。
+**広告費が多い店ほど売上が高い**
+
+という綺麗な右上がりの関係が見えたとしよう。
+
+例えば以下のようなものである。横軸は広告費、縦軸は売上の対数である。以下では、同じ300店舗を3か月にわたって追う。
 
 ```{r}
+#| label: ad-month1-data
+#| include: false
 n_stores <- 300
 
-# 店舗の地力（立地・接客力など、観測されない潜在変数）
+# 店舗の地力（立地・接客力など）。同じ店舗の地力は3か月間変わらない
 quality <- rnorm(n_stores, mean = 0, sd = 1)
 
-# 広告費（万円/月）：地力が高い店ほど本部が多く配分する + ノイズ
+# 1か月目の広告費（万円/月）：地力が高い店ほど多く配分される
 ad_spend <- 100 + 30 * quality + rnorm(n_stores, mean = 0, sd = 15)
 ad_spend <- pmax(ad_spend, 10)
 
-# 真の広告効果は小さい。地力の効果は大きい（交絡の源泉）
-true_beta_ad <- 0.002       # 広告費が1万円増えると売上(log)が0.2%増える程度
+# 真の広告効果は小さく、地力の効果は大きい
+true_beta_ad <- 0.002
 true_beta_quality <- 0.4
-
 log_sales_mean <- 5.0 + true_beta_quality * quality + true_beta_ad * ad_spend
 log_sales <- log_sales_mean + rnorm(n_stores, mean = 0, sd = 0.15)
-sales <- exp(log_sales)
 
 store_df <- data.frame(
   store_id = 1:n_stores,
   quality = quality,
   ad_spend = ad_spend,
-  sales = sales,
+  sales = exp(log_sales),
   log_sales = log_sales
 )
-
-head(store_df)
 ```
 
-まずは素朴に散布図と回帰直線を見てみよう。
+```{r}
+#| label: ad-months-data
+#| include: false
+# 2か月目：同じ店舗に、従来のルールで来月の広告予算が配分される
+# この予算は、来月の売上が実現する前に決まっている
+next_ad_spend <- pmax(
+  100 + 30 * quality + rnorm(n_stores, mean = 0, sd = 15), 10
+)
+next_log_sales <- 5.0 + true_beta_quality * quality +
+  true_beta_ad * next_ad_spend + rnorm(n_stores, mean = 0, sd = 0.15)
+next_month_df <- data.frame(
+  store_id = store_df$store_id,
+  quality = quality,
+  ad_spend = next_ad_spend,
+  log_sales = next_log_sales,
+  sales = exp(next_log_sales)
+)
+
+# 3か月目：2か月目の広告予算を据え置く予定だったところ、全店で2倍にする
+# 売上ショックは新しく発生する。地力や売上の決まり方は変わらない
+intervention_noise <- rnorm(n_stores, mean = 0, sd = 0.15)
+intervention_df <- next_month_df
+intervention_df$ad_spend <- 2 * next_month_df$ad_spend
+intervention_df$log_sales <- 5.0 + true_beta_quality * quality +
+  true_beta_ad * intervention_df$ad_spend + intervention_noise
+intervention_df$sales <- exp(intervention_df$log_sales)
+```
 
 ```{r}
-#| fig-cap: "広告費と売上（log）の関係：単純な散布図では強い正の関係に見える"
+#| label: ad-story-results
+#| include: false
+fit_short <- lm(log_sales ~ ad_spend, data = store_df)
+beta_short <- unname(coef(fit_short)["ad_spend"])
+intercept_short <- unname(coef(fit_short)["(Intercept)"])
+
+# 1か月目に推定したモデルを固定し、2か月目・3か月目を予測する
+pred_next <- predict(fit_short, newdata = next_month_df)
+pred_intervention <- predict(fit_short, newdata = intervention_df)
+r2_in_sample <- summary(fit_short)$r.squared
+ss_tot <- sum((next_month_df$log_sales - mean(next_month_df$log_sales))^2)
+r2_next <- 1 - sum((next_month_df$log_sales - pred_next)^2) / ss_tot
+baseline_pred <- rep(mean(store_df$log_sales), n_stores)
+r2_base <- 1 - sum((next_month_df$log_sales - baseline_pred)^2) / ss_tot
+
+ad_change <- intervention_df$ad_spend - next_month_df$ad_spend
+ols_effect <- beta_short * ad_change
+true_effect <- true_beta_ad * ad_change
+ols_mean_pct <- mean(exp(ols_effect) - 1) * 100
+true_mean_pct <- mean(exp(true_effect) - 1) * 100
+observed_mean_pct <- mean(intervention_df$sales / next_month_df$sales - 1) * 100
+
+# 予測検証と介入後の図で、軸の範囲と45度線の見え方をそろえる
+prediction_limits <- range(c(pred_next, next_month_df$log_sales,
+                             pred_intervention, intervention_df$log_sales))
+```
+
+```{r}
+#| echo: false
+#| fig-cap: "1か月目：広告費と売上（log）の散布図とOLS回帰直線"
 ggplot(store_df, aes(x = ad_spend, y = log_sales)) +
   geom_point(alpha = 0.5, color = "steelblue") +
   geom_smooth(method = "lm", se = FALSE, color = "firebrick") +
   labs(x = "広告費（万円/月）", y = "log(売上)",
-       title = "広告費と売上：一見強い正の相関")
+       title = "広告費が多い店ほど売上が高い")
 ```
 
-回帰直線は右上がりで、広告費が売上を大きく押し上げているように見える。ここで、広告費だけを説明変数にしたOLS（地力を見ない、いわば「素朴な」分析）と、地力も入れたOLS（真のモデルに近い分析）を比較してみる。
+ここから「広告費を増やせば売上が増える」と結論に飛びついていいものだろうか？また、その分析をもとに、広告費を2倍にした効果をレポートして良いだろうか。
+
+::: {.callout-note}
+## 「AなほどB」という言葉について
+
+ここで池上は「広告費が多い店ほど売上が高い」という日本語には一切の因果関係を含めていないつもりである。あくまでも広告費と売り上げに正の相関がある、という意味で使っている。
+
+しかし、山口慎太郎教授の散布図がXで燃えたとき、「AなほどB」とかくと、AがBに対して因果的な効果をもたらす、というように読んでしまう層がいるという気づきを得た。
+
+確かにそう言われるとその感覚もわからないのではないが、「相関」という専門用語を使わずにどのようにして「AとBに正の相関関係がある」という意味内容を書けばいいのか、池上はわからない。
+
+いい案があれば求む。
+:::
+
+### モデルの検証
+
+あなたは慎重な人間だ。何事も石橋は叩いて渡る派の人間である。
+
+なのでここで安易にこの回帰分析の結果を信頼するようなことはしない。まずはこのモデルのフィットを検証しようと考えた。in-sampleでのフィットの良さである決定係数は `r round(r2_in_sample, 2)` とそんなに低くない（そもそもぱっと見でよくフィットしてる）ので、out-of-sampleのフィットも確かめてみることにした。つまりこのモデルがちゃんと売上を「予測」できれば、このモデルを信じてもいい気がするというわけである。
+
+具体的には、レポートの報告を1か月遅らせてもらう。今手元にある1か月目のデータでモデルを推定し、すでに決まっている2か月目の広告予算を入れて、同じ300店舗の「来月」の売上を予測する。そして、翌月に新しく届いた売上データと比べてみよう、という算段である。**翌月のデータでモデルを推定し直すことはしない。**
+
+実際にやってみた結果、予測と実現値を比べる以下の散布図を得た。
+
+```{r}
+#| echo: false
+#| fig-cap: "2か月目：通常の広告配分が続く月には、予測値と実現値はおおむね45度線付近に並ぶ"
+ggplot(data.frame(predicted = pred_next, actual = next_month_df$log_sales),
+       aes(x = predicted, y = actual)) +
+  geom_point(alpha = 0.6, color = "steelblue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
+  coord_fixed(xlim = prediction_limits, ylim = prediction_limits) +
+  labs(x = "予測されたlog(売上)", y = "実際のlog(売上)",
+       title = "翌月の売上は、それなりに予測できている")
+```
+
+悪くない。大体45度線上にきていて、もちろん完全に予測できてるわけじゃないが、大はずしもしてないようである。
+
+これをもってついに石橋を叩いて渡り切ったあなたは、広告費を2倍にした時の売上増加分を以下のように計算し、レポートすることとなった。
+
+推定した回帰式は、店舗 $i$ の広告費を $a_i$（万円/月）として、
+
+$$
+\widehat{\log(\text{sales}_i)}=\hat\beta_0+\hat\beta_{\mathrm{ad}}a_i,
+\qquad
+\hat\beta_0=`r round(intercept_short, 3)`,\quad
+\hat\beta_{\mathrm{ad}}=`r round(beta_short, 5)`
+$$
+
+である。3か月目は2か月目と同じ予算を続ける予定だったので、それを $a_i$ として、$a_i$ を入れた予測と $2a_i$ を入れた予測の差を取る。
+
+$$
+\widehat{\Delta\log(\text{sales}_i)}
+=(\hat\beta_0+\hat\beta_{\mathrm{ad}}\,2a_i)
+ -(\hat\beta_0+\hat\beta_{\mathrm{ad}}a_i)
+=\hat\beta_{\mathrm{ad}}a_i.
+$$
+
+対数の差を売上の変化率に直すと、$100\{\exp(\hat\beta_{\mathrm{ad}}a_i)-1\}\%$ である。例えば広告費100万円の店舗なら、200万円に増やしたときの売上増加率は **`r round(100 * expm1(beta_short * 100), 1)`%**。全300店舗について計算して平均すると、**「広告費を2倍にすると、店舗別の売上は平均 `r round(ols_mean_pct, 1)`% 増える」**というレポートになる。
+
+ここでの平均は、各店舗の変化率を足して店舗数で割ったものであり、チェーン全体の合計売上の変化率とは異なる。また、この計算は「同じ店舗の広告費だけを動かしても、この係数が使える」と信じて行っている。その判断が正しいかどうかが、これからの問題である。
+
+### 現実
+
+さて、めでたくあなたのレポートは承認され、その売上増加を見込んで広告費の倍増が決定され、3か月目に実行された。その月の売上が店舗ごとに集計され、あなたのモデルとの比較のために予測値との散布図が作成された。その結果が以下の通りである。
+
+```{r}
+#| echo: false
+#| fig-cap: "3か月目：広告費を2倍にすると、実現した売上は予測を大きく下回る。前の図と軸の範囲は同じ"
+ggplot(data.frame(predicted = pred_intervention, actual = intervention_df$log_sales),
+       aes(x = predicted, y = actual)) +
+  geom_point(alpha = 0.6, color = "firebrick") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
+  coord_fixed(xlim = prediction_limits, ylim = prediction_limits) +
+  labs(x = "広告費倍増後の予測log(売上)", y = "実際のlog(売上)",
+       title = "広告費を2倍にしたら、予測が大きく外れた")
+```
+
+全然ダメである。点は45度線よりもずっと下にあり、売上を過大予測している。「店舗別の売上は平均 `r round(ols_mean_pct, 1)`% 増える」とレポートされていたのに、実際に観測された前月比の増加率は平均 **`r round(observed_mean_pct, 1)`%** にとどまった。
+
+ただし、前月比には広告以外の月ごとの変動も入るので、この数字がそのまま「広告費倍増の因果効果」になるわけではない。ここで社員にわかるのは、まずは**介入後の売上予測が大きく外れた**という事実である。
+
+この問題に気づいた社員はあなたになぜこんなことになったのかを問い詰めようとするだろう。しかしあなたは先ほどのレポートを提出した功績でめでたく栄転。気軽に話を聞けなくなってしまい、社員は途方に暮れることとなる。
+
+### なぜこんなことが起きたか：予測と介入
+
+問題点をクリアにするために、ここまでのデータを作ったDGP（データ生成過程）を種明かししよう。以下のような状況をシミュレートしていた。
+
+- **もともと立地が良く接客力もある「地力の強い店舗」ほど、本部が広告予算を多めに配分する。**
+
+地力が強い店舗は、広告を出そうが出すまいが売上が高い。つまり地力（quality）という観測されない変数が、広告費と売上の両方に影響を与えている。
+
+1か月目のデータを作ったコードは次の通りである。ここで初めて、分析担当者には見えていなかったqualityも表示している。
+
+```{r}
+#| ref.label: ad-month1-data
+#| eval: false
+```
+
+```{r}
+head(store_df)
+```
+
+先ほどの右上がりの回帰直線には、広告自体の効果だけでなく、店舗の地力の差も入り込んでいたのである。広告費だけを説明変数にしたOLS（地力を見ない「素朴な」分析）と、地力も入れたOLSを比較してみる。
 
 ```{r}
 fit_short <- lm(log_sales ~ ad_spend, data = store_df)
 fit_long  <- lm(log_sales ~ ad_spend + quality, data = store_df)
 
-summary(fit_short)$coefficients
-summary(fit_long)$coefficients
-```
-
-```{r}
-beta_short <- coef(fit_short)["ad_spend"]
-beta_long  <- coef(fit_long)["ad_spend"]
-
+beta_short <- unname(coef(fit_short)["ad_spend"])
+beta_long  <- unname(coef(fit_long)["ad_spend"])
 comparison_df <- data.frame(
-  model = c("素朴なOLS（ad_spendのみ）", "真のモデルに近いOLS（quality込み）", "真の値"),
+  model = c("素朴なOLS（広告費のみ）", "地力を調整したOLS", "真の値"),
   beta_ad = c(beta_short, beta_long, true_beta_ad)
 )
 knitr::kable(comparison_df, digits = 5,
@@ -188,136 +349,145 @@ knitr::kable(comparison_df, digits = 5,
 
 素朴なOLSでは広告費の係数が真の値よりもかなり大きく出る。地力という交絡因子を無視した結果、広告費が地力の効果まで「代わりに」拾ってしまっているからだ。地力をコントロールした回帰では、係数は真の値にかなり近づく。
 
-ここで符号を図を見る前に確認しておこう。真の式を
+計量Iの復習がてら数式で書くと、真の式を
 
 $$
-\log(\text{sales})=\beta_{\mathrm{ad}}\,\text{ad}+\beta_{q}\,\text{quality}+u
+\log(\text{sales})=\beta_0+\beta_{\mathrm{ad}}\,\text{ad}+\beta_q\,\text{quality}+u,
+\qquad E[u\mid\text{ad},\text{quality}]=0
 $$
 
-と書くと、qualityを落とした単回帰の係数は、大標本では
+と書けば、qualityを落とした単回帰の係数は、大標本では
 
 $$
-\operatorname{plim}\hat\beta_{\mathrm{short}}
+\operatorname{plim}\hat\beta_{\mathrm{ad}}^{\mathrm{short}}
 =\beta_{\mathrm{ad}}+\beta_q\frac{\operatorname{Cov}(\text{ad},\text{quality})}{\operatorname{Var}(\text{ad})}
 $$
 
-に近づく。このDGPでは $\beta_q>0$ かつ $\operatorname{Cov}(\text{ad},\text{quality})>0$ なので、欠落変数バイアスは上向きになる。散布図や推定結果は、この符号予想を確認している。
+に近づく。このDGPでは $\beta_q>0$ かつ $\operatorname{Cov}(\text{ad},\text{quality})>0$ なので、欠落変数バイアスは上向きになる。散布図や推定結果は、この符号予想と整合的である。
 
-::: {.callout-warning}
-## この分析、どこがまずい？
+この素朴なモデルは、「来月の売上を予測する」というタスクには実はよく機能する。なぜなら、地力の強い店舗には広告費も多く配られるという関係が、本部の予算配分方針が変わらない限り続くからだ。広告費という変数は「地力の強さのシグナル」として機能し、予測の役には立つ。
 
-素朴な散布図と回帰直線だけを見て「広告は効果がある」と報告してしまうのが、実務でもっともよくある誤りの1つだ。相関が強いことと、その変数を動かせば結果が変わることは、まったく別の主張である。次に見るように、この2つの主張は「予測」と「因果」というまったく異なるタスクに対応している。
-:::
+一方で、「同じ店舗の広告費を2倍にしたら売上はどうなるか」という**介入（intervention）の効果**を知りたい場合、素朴なモデルの係数をそのまま使うと大きく外れる。介入で増えるのは広告費だけで、店舗の地力は上がらない。例えば広告費100万円の店舗が200万円を使うようになっても、もともと200万円を配分されていた地力の強い店舗に変身するわけではない。**介入後には、同じ広告費の額から読み取れる地力が変わってしまう。**
 
-### 予測なら当たる、介入なら大外しする
+### 翌月の新しいデータでは、なぜ予測できたのか
 
-ここが今回のシミュレーションの核心である。広告費入りの素朴なモデルは、「来月の売上を予測する」というタスクには実はよく機能する。なぜなら、地力の強い店舗は広告費も多いという相関関係が、これからも（本部の予算配分方針が変わらない限り）続くと考えられるからだ。広告費という変数は「地力の強さのシグナル」として機能し、予測の役には立つ。
-
-一方で、「広告費を今の2倍にしたら売上はどうなるか」という**介入（intervention）の効果**を知りたい場合、素朴なモデルの係数をそのまま使うと大きく外れる。なぜなら、この介入は「地力が変わらないまま広告費だけを動かす」という操作であり、データの中にあった「地力が強いから広告費も多い」という相関関係を壊してしまうからだ。
-
-まず予測タスクを検証する。データを学習用とホールドアウト用に分割し、素朴なモデル（広告費のみ）のホールドアウトでの当てはまりを見る。
+2か月目と3か月目のデータも、次のコードで作っていた。2か月目には同じ店舗の地力を保ち、本部の通常の配分ルールで広告予算を新しく決め、売上にも新しい月のノイズを加える。3か月目には、その予算を2倍にする。
 
 ```{r}
-set.seed(20261)
-idx <- sample(1:n_stores)
-train_idx <- idx[1:200]
-test_idx  <- idx[201:300]
+#| ref.label: ad-months-data
+#| eval: false
+```
 
-train_df <- store_df[train_idx, ]
-test_df  <- store_df[test_idx, ]
+先ほどの「モデルの検証」を計算で再現してみよう。1か月目で推定済みの `fit_short` に、翌月の広告予算を入れる。翌月に届く売上は、予測の答え合わせにだけ使う。
 
-fit_pred <- lm(log_sales ~ ad_spend, data = train_df)
-pred_test <- predict(fit_pred, newdata = test_df)
+```{r}
+pred_next <- predict(fit_short, newdata = next_month_df)
 
-ss_res <- sum((test_df$log_sales - pred_test)^2)
-ss_tot <- sum((test_df$log_sales - mean(test_df$log_sales))^2)
-r2_holdout <- 1 - ss_res / ss_tot
+# 2か月目の実現値で予測精度を評価する（売上はすべてlog）
+ss_res <- sum((next_month_df$log_sales - pred_next)^2)
+ss_tot <- sum((next_month_df$log_sales - mean(next_month_df$log_sales))^2)
+r2_next <- 1 - ss_res / ss_tot
 
-# ベースライン：広告費を使わず平均だけで予測した場合
-baseline_pred <- rep(mean(train_df$log_sales), nrow(test_df))
-ss_res_base <- sum((test_df$log_sales - baseline_pred)^2)
-r2_base <- 1 - ss_res_base / ss_tot
+# ベースライン：1か月目の平均売上(log)だけで予測する
+baseline_pred <- rep(mean(store_df$log_sales), nrow(next_month_df))
+r2_base <- 1 - sum((next_month_df$log_sales - baseline_pred)^2) / ss_tot
 
-data.frame(
-  method = c("広告費を使う予測モデル", "ベースライン（平均のみ）"),
-  holdout_R2 = c(r2_holdout, r2_base)
+knitr::kable(
+  data.frame(method = c("広告費を使う予測モデル", "平均だけのベースライン"),
+             next_month_R2 = c(r2_next, r2_base)),
+  digits = 3, col.names = c("予測方法", "翌月データでのR²")
 )
 ```
 
-```{r}
-#| fig-cap: "ホールドアウトにおける実測値と予測値の対応：予測タスクとしてはよく当てはまっている"
-holdout_plot_df <- data.frame(
-  actual = test_df$log_sales,
-  predicted = pred_test
-)
+広告費を使うモデルの翌月R²は **`r round(r2_next, 3)`** で、平均だけの予測よりずっと当てはまりが良い。データは新しくなっているが、広告費が地力のシグナルになる仕組みは続いているのである。したがって、これは確かにout-of-sampleの予測検証になっている。ただし、**従来の運用が続く月の予測を検証したのであって、広告費を倍増させた世界を検証したわけではない。**
 
-ggplot(holdout_plot_df, aes(x = predicted, y = actual)) +
-  geom_point(alpha = 0.6, color = "steelblue") +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
-  labs(x = "予測されたlog(売上)", y = "実際のlog(売上)",
-       title = "予測タスクとしては、素朴なモデルでも点は45度線付近に集まる")
-```
+### 広告費を2倍にする反実仮想を、どう計算するか
 
-広告費を使うモデルのホールドアウトR²はかなり高く、平均だけで予測するベースラインよりずっと当てはまりが良い。上の図でも、予測値と実測値がおおむね45度線（破線）付近に集まっており、来月の売上を当てるという意味では悪くない予測モデルになっていることがわかる。つまり「来月の売上を予測する」という目的だけを考えるなら、広告費入りの素朴なモデルは十分役に立つ。
+今度は、3か月目について「予算を据え置いた世界」と「広告費を2倍にした世界」を作り、比べる。**同じ店舗の地力と、同じ月の売上ショックを固定して、広告費だけを入れ替える**のがポイントである。$a_i$ を据え置いた場合の予算、$q_i$ を地力、$u_{i3}$ を3か月目のショックとすると、真のモデルでは
 
-次に、介入予測を検証する。「広告費を2倍にする」という架空の施策を、(i) 真のモデル（地力を織り込んだ本当のDGP）と、(ii) 素朴なOLSモデル、それぞれで計算してみよう。
+$$
+\begin{aligned}
+\log(\text{sales}_{i3}^{\mathrm{据え置き}})&=5+0.4q_i+0.002a_i+u_{i3},\\
+\log(\text{sales}_{i3}^{\mathrm{倍増}})&=5+0.4q_i+0.002(2a_i)+u_{i3}.
+\end{aligned}
+$$
 
-```{r}
-new_ad_spend <- store_df$ad_spend * 2
+この2つの差は $0.002a_i$ であり、売上の増加率は $100\{\exp(0.002a_i)-1\}\%$ となる。広告費100万円の店舗なら、真の効果は約 **`r round(100 * expm1(true_beta_ad * 100), 1)`%** である。
 
-# 真のモデルによる効果：広告費の変化分だけがlog(売上)に影響する
-true_effect <- true_beta_ad * (new_ad_spend - store_df$ad_spend)
-
-# 素朴なOLSモデルによる（誤った）効果
-ols_effect <- beta_short * (new_ad_spend - store_df$ad_spend)
-
-effect_df <- data.frame(
-  store_id = store_df$store_id,
-  true_effect = true_effect,
-  ols_effect = ols_effect
-)
-
-effect_summary <- data.frame(
-  method = c("真の効果", "素朴なOLSによる予測"),
-  mean_log_change = c(mean(true_effect), mean(ols_effect)),
-  mean_pct_change = c(
-    mean(exp(true_effect) - 1) * 100,
-    mean(exp(ols_effect) - 1) * 100
-  )
-)
-knitr::kable(effect_summary, digits = 3,
-             col.names = c("手法", "log売上の平均変化", "店舗別の売上変化率の平均（%）"))
-```
-
-真の効果では、広告費を2倍にしても売上は2割程度しか増えない。ところが素朴なOLSモデルに基づいて予測すると、売上は3倍近くに増えるという、現実離れした数字が出てしまう。これは先ほどのホールドアウトR²が高かったのと同じモデルの話である。
+つまり今回は、**効果を計算するために新しく乱数を振ってシミュレーションを繰り返す必要はない**。同じ $q_i$ と $u_{i3}$ は引き算で消えるので、数式に広告費を代入するだけでよい。冒頭の図を作るには各月の実現値をシミュレートしたが、この単純なモデルの反実仮想効果は直接計算できるのである。
 
 ```{r}
-#| fig-cap: "同じモデルでも『予測』は当たり、『介入効果』は大外しする"
+# 3か月目の2つの世界：同じquality・同じ売上ショックを使う
+no_intervention_log_sales <- 5.0 + true_beta_quality * quality +
+  true_beta_ad * next_month_df$ad_spend + intervention_noise
+
+# 真の効果：引き算すると、広告費の変化分だけが残る
+true_effect <- intervention_df$log_sales - no_intervention_log_sales
+
+# 素朴なモデルのレポート：同じ予算変更に、OLSの係数を使っている
+ols_effect <- predict(fit_short, newdata = intervention_df) -
+  predict(fit_short, newdata = next_month_df)
+
 true_mean_pct <- mean(exp(true_effect) - 1) * 100
 ols_mean_pct <- mean(exp(ols_effect) - 1) * 100
-
-compare_long <- bind_rows(
-  data.frame(metric = "ホールドアウト", unit = "R²",
-             series = c("素朴なモデル", "平均だけのベースライン"),
-             value = c(r2_holdout, r2_base)),
-  data.frame(metric = "広告費2倍", unit = "売上変化率（%）",
-             series = c("素朴なモデル", "真の効果"),
-             value = c(ols_mean_pct, true_mean_pct))
-)
-
-ggplot(compare_long, aes(x = metric, y = value, fill = series)) +
-  geom_col(position = "dodge") +
-  facet_wrap(~unit, scales = "free_y") +
-  labs(x = NULL, y = NULL, fill = NULL,
-       title = "予測タスクではよく当たるが、介入予測では大外しする") +
-  theme(legend.position = "bottom")
 ```
 
-::: {.callout-important}
-## ここが核心
+真の効果は店舗別平均で **`r round(true_mean_pct, 1)`%** の売上増加である。一方、同じ予算変更を素朴なOLSで計算すると **`r round(ols_mean_pct, 1)`%** 増えると予測してしまう。これは翌月の予測検証でR²が高かったのと同じモデルの話である。ここで真の効果までわかるのは、私たちがDGPを知っていて、現実には観測できない「3か月目に広告費を倍増しなかった世界」も計算できるからだ。
 
-**同じ変数、同じ回帰式でも、「予測」と「因果（介入効果）」はまったく別のタスクである。** 広告費と売上の相関を利用した予測モデルは、来月の売上を当てるという意味では優秀だ。しかし「広告費を動かしたらどうなるか」という問いに答えるには、その相関がどこから来ているのか（交絡因子は何か）を明示的に考えなければならない。この区別は、このコース全体を通じて何度も立ち返ることになる。
-:::
+**同じ変数、同じ回帰式でも、「予測」と「因果（介入効果）」はまったく別のタスクである。** 広告費と売上の相関を利用した予測モデルは、通常の運用が続く来月の売上を当てるという意味では優秀だ。しかし「広告費を動かしたらどうなるか」という問いに答えるには、その相関がどこから来ているのか（交絡因子は何か）を明示的に考えなければならない。
+
+### シミュレーションの力
+
+では、どうすればよかったのか？話を簡単にするために、ひとまずqualityの変数も新たに手に入れられたとしよう。
+
+このDGPなら、qualityと広告費の2つに回帰することで、より真の値に近いパラメータの推定値をゲットすることができる。上で推定した `fit_long` がそれである。
+
+これを元に、**qualityを元の値に保ったまま、広告費だけを2倍にする**という計算をしてみよう。
+
+```{r}
+# qualityは変えず、広告費だけが異なる2つのデータをモデルに渡す
+adjusted_effect <- predict(fit_long, newdata = intervention_df) -
+  predict(fit_long, newdata = next_month_df)
+adjusted_mean_pct <- mean(exp(adjusted_effect) - 1) * 100
+
+effect_summary <- data.frame(
+  method = c("真の効果", "素朴なOLS", "地力を調整したOLS"),
+  mean_pct_change = c(true_mean_pct, ols_mean_pct, adjusted_mean_pct)
+)
+knitr::kable(effect_summary, digits = 1,
+             col.names = c("計算方法", "店舗別の売上増加率の平均（%）"))
+```
+
+```{r}
+#| echo: false
+#| fig-cap: "広告費2倍の効果を同じ尺度で比較する。地力を調整すると真の効果に近づく"
+effect_summary$method <- factor(effect_summary$method,
+  levels = c("地力を調整したOLS", "素朴なOLS", "真の効果"))
+ggplot(effect_summary, aes(x = mean_pct_change, y = method, color = method)) +
+  geom_segment(aes(x = 0, xend = mean_pct_change, yend = method),
+               color = "gray80", linewidth = 0.8) +
+  geom_point(size = 4) +
+  geom_text(aes(label = paste0(round(mean_pct_change, 1), "%")),
+            hjust = -0.3, color = "gray20", size = 4) +
+  scale_color_manual(values = c("真の効果" = "gray25", "素朴なOLS" = "firebrick",
+                                "地力を調整したOLS" = "steelblue")) +
+  scale_x_continuous(expand = expansion(mult = c(0.02, 0.18))) +
+  labs(x = "店舗別の売上増加率の平均（%）", y = NULL,
+       title = "広告費2倍の効果：地力を調整するとどう変わるか") +
+  theme(legend.position = "none", panel.grid.major.y = element_blank())
+```
+
+地力を調整したモデルの予測は **`r round(adjusted_mean_pct, 1)`%** の増加で、真の効果 **`r round(true_mean_pct, 1)`%** に近い。単に予測の当てはまりを良くするだけでなく、広告費を変えたときに何が変わり、何が変わらないのかをモデルに組み込んだからである。
+
+もちろん、現実にはqualityがそのまま手に入るとは限らないし、何か変数を追加すれば必ず解決するわけでもない。この例では、qualityを調整した後に広告費と売上のノイズが独立であり、介入後も売上の決まり方が変わらない、というDGPの仮定が効いている。このような仮定を吟味して、知りたい介入効果を計算できるモデルを作ることが、構造推定と反実仮想分析の出発点になる。
+
+```{r}
+#| include: false
+# 後続のシミュレーションは改訂前と同じ乱数列を使う
+set.seed(20261)
+invisible(sample.int(n_stores))
+```
+
 
 ## 4. Rシミュレーション2：値上げすると販売数量が増える？
 
