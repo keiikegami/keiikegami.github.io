@@ -2398,11 +2398,11 @@ window.Quarto = {
 
 <section id="この課題について" class="level2">
 <h2 class="anchored" data-anchor-id="この課題について">この課題について</h2>
-<p>第1回の講義では、「値上げすると販売数量が増える？」というシミュレーションを通じて、価格の内生性（繁忙期には価格も需要も同時に上がる）がOLSによる弾力性推定をどう歪めるかを見た。この課題では、その内容を<strong>小売チェーンの店舗パネルデータ</strong>（複数店舗×複数週）という、実務でより典型的な設定に拡張し、計量経済学Iで学んだ<strong>操作変数法（2SLS）</strong>を使ってこの内生性に対処する練習をする。</p>
+<p>第1回の講義では、広告の例で予測と介入後のシミュレーションの違いを学び、価格実験から推定した需要を使って値付けを提案した。この課題では、価格をランダムに割り当てた実験とは異なり、店舗が需要の動きを見て値付けをしている<strong>小売チェーンの店舗パネルデータ</strong>（複数店舗×複数週）を扱う。計量経済学Iで学んだ<strong>操作変数法（2SLS）</strong>を使って価格の内生性に対処し、推定した弾力性を値上げの影響試算につなげる練習である。</p>
 <p>やることは大きく2つである。</p>
 <ul>
 <li><strong>Part 1</strong>：自分でデータ生成過程（DGP）を書き、20店舗×52週分の小売パネルデータをシミュレーションで作る。</li>
-<li><strong>Part 2</strong>：そのデータを使って、(i) OLSで弾力性を推定してバイアスを確認し、(ii) 操作変数法（2SLS）で真の弾力性を回収し、(iii) モンテカルロ・シミュレーションで両者の標本分布を比較する。</li>
+<li><strong>Part 2</strong>：そのデータを使って、(i) OLSと操作変数法（2SLS）で弾力性を推定し、(ii) モンテカルロ・シミュレーションで両者の標本分布を比較し、(iii) 推定値から値上げ時の数量変化を試算する。</li>
 </ul>
 <p>配点は合計100点。手を動かせば2〜4時間程度で終わる分量である。各設問にヒントcalloutを用意しているので、詰まったら遠慮なく開いてほしい。</p>
 <div class="callout callout-style-default callout-important callout-titled">
@@ -2431,7 +2431,7 @@ window.Quarto = {
 <p>20店舗、各店舗52週（1年分）のデータを考える。店舗を <span class="math inline">\(i = 1, \dots, 20\)</span>、週を <span class="math inline">\(t = 1, \dots, 52\)</span> とする。</p>
 <p>対数需要（販売数量）は次のモデルに従うとする。</p>
 <p><span class="math display">\[
-\ln q_{it} = \mu + \eta \ln p_{it} + \gamma_t + \mu_i + \varepsilon_{it}
+\ln q_{it} = \ln 150 + \eta \ln(p_{it}/500) + \gamma_t + \mu_i + \varepsilon_{it}
 \]</span></p>
 <ul>
 <li><span class="math inline">\(\eta = -1.5\)</span>：真の価格弾力性（既知の値としてシミュレーションに使う。推定する対象）。</li>
@@ -2439,6 +2439,7 @@ window.Quarto = {
 <li><span class="math inline">\(\mu_i\)</span>：店舗固定効果（店舗ごとの需要水準の違い、立地や客層の違いなど）。</li>
 <li><span class="math inline">\(\varepsilon_{it}\)</span>：観測されない週次のノイズ。</li>
 </ul>
+<p>価格が500円、<span class="math inline">\(\gamma_t=\mu_i=0\)</span> のとき、数量の中央値が週150個となるように切片を設定している。</p>
 <p>価格は次のように決まるとする。</p>
 <p><span class="math display">\[
 \ln p_{it} = \pi_0 + \pi_1 c_{it} + \pi_2 \gamma_t + \nu_{it}
@@ -2448,7 +2449,16 @@ window.Quarto = {
 <li><span class="math inline">\(\gamma_t\)</span>：Part 1のモデルで説明した季節的な需要ショックと<strong>同じ変数</strong>。つまり店舗（の価格設定担当者）は、繁忙期には価格を強気に設定する。</li>
 <li><span class="math inline">\(\nu_{it}\)</span>：価格設定における観測されないノイズ。</li>
 </ul>
-<p>このモデルの構造を図にすると、次のような関係になる。<span class="math inline">\(\gamma_t\)</span>（需要ショック）が <span class="math inline">\(\ln p_{it}\)</span> と <span class="math inline">\(\ln q_{it}\)</span> の<strong>両方</strong>に影響を与えている点に注目してほしい。これが価格の内生性の源泉であり、<span class="math inline">\(c_{it}\)</span>（仕入コスト）は <span class="math inline">\(\ln p_{it}\)</span> には影響するが <span class="math inline">\(\ln q_{it}\)</span> には（価格を経由する以外は）影響しないという点が、操作変数として使える理由である。</p>
+<p><span class="math inline">\(\pi_0=\ln 500\)</span> とし、需要ショックは <span class="math inline">\(\gamma_t=0.3\sin(2\pi t/52)+w_t\)</span> とする。乱数部分は</p>
+<p><span class="math display">\[
+\begin{aligned}
+\mu_i&amp;\sim N(0,0.3^2), &amp; w_t&amp;\sim N(0,0.25^2), &amp; c_{it}&amp;\sim N(0,1),\\
+\varepsilon_{it}&amp;\sim N(0,0.1^2), &amp; \nu_{it}&amp;\sim N(0,0.05^2)
+\end{aligned}
+\]</span></p>
+<p>に従い、これらの乱数は互いに独立に生成する。同じ店舗の行は <span class="math inline">\(\mu_i\)</span> を、同じ週の行は <span class="math inline">\(\gamma_t\)</span> を共有する。</p>
+<p><span class="math inline">\(\gamma_t\)</span>（需要ショック）が <span class="math inline">\(\ln p_{it}\)</span> と <span class="math inline">\(\ln q_{it}\)</span> の<strong>両方</strong>に影響を与えている点に注目してほしい。これを回帰から落とすと価格に内生性が生じる。一方、<span class="math inline">\(c_{it}\)</span>（仕入コスト）は需要側の要因とは独立で、数量には価格を経由する以外に影響しない。この設定と価格への関連性が、操作変数として使える理由である。</p>
+<p>真の弾力性や <code>demand_shock</code> を知っているのは、ここでは自分でデータを作るからである。真値はデータ生成と推定結果の検証に使い、Part 2の推定では需要ショックを観測できないと考える。最後の値上げの試算には、真値ではなくデータから得た推定値を使う。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2549,7 +2559,7 @@ window.Quarto = {
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><code>dplyr::filter(panel_df, store_id == 1)</code> で1店舗分に絞り込んでから、<code>ggplot(aes(x = week_id, y = log_price)) + geom_line()</code> のように描けばよい。価格と需要が同じような山谷のタイミングで動いていることが確認できるはずである（これが繁忙期に価格も需要も一緒に動くというDGPの反映である）。</p>
+<p><code>dplyr::filter(panel_df, store_id == 1)</code> で1店舗分に絞り込んでから、<code>ggplot(aes(x = week_id, y = log_price)) + geom_line()</code> のように描けばよい。需要ショックは価格と数量の両方を押し上げるが、仕入コストなども毎週変わるので、実際の価格と数量の山谷が常に一致するわけではない。</p>
 </div>
 </div>
 </section>
@@ -2559,7 +2569,7 @@ window.Quarto = {
 <ul>
 <li>価格・需要それぞれの平均、標準偏差、最小値、最大値（全店舗・全週プール）。</li>
 <li>価格と需要（levelでも対数でもよい）の単純な相関係数。</li>
-<li>価格と仕入コストシフターの相関係数、価格と需要ショックの相関係数（この2つの数値が、後で2SLSがなぜ必要かを理解する伏線になる）。</li>
+<li>価格と仕入コストシフターの相関係数、価格と需要ショックの相関係数（価格を動かす2つの要因を確認する。相関だけで操作変数の妥当性を証明できるわけではない）。</li>
 </ul>
 </section>
 </section>
@@ -2571,7 +2581,7 @@ window.Quarto = {
 <p><span class="math display">\[
 \ln q_{it} = a + \eta \ln p_{it} + u_{it}
 \]</span></p>
-<p>店舗固定効果 <span class="math inline">\(\mu_i\)</span> を明示的にコントロールする場合としない場合の両方を推定し（<code>lm()</code> または <code>fixest::feols()</code>、固定効果ありは <code>feols(log_demand ~ log_price | store_id, data = panel_df)</code> の形式）、推定された <span class="math inline">\(\hat\eta\)</span> を真の値 <span class="math inline">\(\eta = -1.5\)</span> と比較せよ。バイアスの大きさと方向（上方か下方か）についてコメントすること。</p>
+<p>店舗固定効果 <span class="math inline">\(\mu_i\)</span> を明示的にコントロールする場合としない場合の両方を推定し（<code>lm()</code> または <code>fixest::feols()</code>、固定効果ありは <code>feols(log_demand ~ log_price | store_id, data = panel_df)</code> の形式）、推定された <span class="math inline">\(\hat\eta\)</span> を真の値 <span class="math inline">\(\eta = -1.5\)</span> と比較せよ。真値からのずれの大きさと方向を述べ、DGPから予想されるバイアスの方向と対応させること。1回の推定のずれと、繰り返し標本を生成したときのバイアスは区別する。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2582,9 +2592,10 @@ window.Quarto = {
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>価格は需要ショック <span class="math inline">\(\gamma_t\)</span> に正に反応して決まる（<span class="math inline">\(\pi_2 = 0.25 &gt; 0\)</span>）。需要ショックは需要そのものにも正の影響を与える。つまり「価格が高い週＝需要ショックが大きい週」であり、需要ショックの効果が価格の係数に混ざり込む。真の弾力性は負なので、この混入は係数を<strong>真の値よりも大きい方向（0に近い、あるいは正）</strong>にバイアスさせる。</p>
+<p>価格は需要ショック <span class="math inline">\(\gamma_t\)</span> に正に反応して決まる（<span class="math inline">\(\pi_2 = 0.25 &gt; 0\)</span>）。需要ショックは需要そのものにも正の影響を与える。価格が高い週ほど需要ショックも大きい傾向があるため、これを回帰から落とすと、その効果が価格の係数に混ざり込む。真の弾力性は負なので、この混入は係数を<strong>真の値よりも大きい方向（0に近い、あるいは正）</strong>にバイアスさせる。</p>
 </div>
 </div>
+<p>なお、このDGPでは需要ショックが全店舗で共通なので、<strong>店舗固定効果に加えて週固定効果も入れれば</strong> <span class="math inline">\(\gamma_t\)</span> を取り除ける（<code>| store_id + week_id</code>）。IVだけが対処法ではない。以下では操作変数法の練習として、店舗固定効果のみを入れたOLSと2SLSを比較する。</p>
 </section>
 <section id="設問2-220点操作変数法2slsによる弾力性の回収" class="level3">
 <h3 class="anchored" data-anchor-id="設問2-220点操作変数法2slsによる弾力性の回収">設問2-2（20点）：操作変数法（2SLS）による弾力性の回収</h3>
@@ -2599,14 +2610,15 @@ window.Quarto = {
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># IV構文： y ~ 外生説明変数 | 固定効果 | 内生変数 ~ 操作変数</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>iv_fit <span class="ot">&lt;-</span> <span class="fu">feols</span>(log_demand <span class="sc">~</span> <span class="dv">1</span> <span class="sc">|</span> store_id <span class="sc">|</span> log_price <span class="sc">~</span> cost_shifter,</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>                <span class="at">data =</span> panel_df)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(iv_fit)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(iv_fit, <span class="at">vcov =</span> <span class="sc">~</span>week_id)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>以下を行え。</p>
 <ol type="a">
 <li>上記の2SLS推定を実行し、<span class="math inline">\(\hat\eta_{IV}\)</span> を得て、OLS推定値・真の値と並べた比較表を作る。</li>
-<li>第1段階の回帰（<code>log_price ~ cost_shifter</code>、固定効果込み）を単独で実行し、操作変数の関連性（instrument relevance）を、係数の大きさと有意性で確認せよ。</li>
-<li>（発展・任意）第1段階のF統計量を確認し、「弱操作変数」の心配がないかコメントせよ。</li>
+<li>第1段階の回帰（<code>log_price ~ cost_shifter</code>、店舗固定効果込み）を単独で実行し、操作変数の関連性（instrument relevance）を、係数の大きさと有意性で確認せよ。さらに、関連性以外に必要な条件がこのDGPでどう満たされているか説明せよ。</li>
+<li>（発展・任意、配点外）第1段階のF統計量を確認し、「弱操作変数」の心配がないかコメントせよ。</li>
 </ol>
+<p>同じ週の店舗は需要ショックを共有するので、(a)(b)の標準誤差は <code>summary(推定結果, vcov = ~week_id)</code> として週単位でクラスター化する。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2623,12 +2635,12 @@ window.Quarto = {
 </section>
 <section id="設問2-315点モンテカルロシミュレーションによる標本分布の比較" class="level3">
 <h3 class="anchored" data-anchor-id="設問2-315点モンテカルロシミュレーションによる標本分布の比較">設問2-3（15点）：モンテカルロ・シミュレーションによる標本分布の比較</h3>
-<p>Part 1のDGPを関数化し、200回繰り返してデータを生成し直し、そのたびにOLS推定値とIV推定値を計算せよ。得られた200個のOLS推定値、200個のIV推定値をヒストグラム（または密度プロット）で重ねて描き、真の値 <span class="math inline">\(\eta = -1.5\)</span> に縦線を引いて比較せよ。</p>
+<p>Part 1のDGPを200回繰り返してデータを生成し直し、そのたびにOLS推定値とIV推定値を計算せよ。両方とも店舗固定効果のみを入れる。得られた200個のOLS推定値、200個のIV推定値をヒストグラム（または密度プロット）で重ねて描き、真の値 <span class="math inline">\(\eta = -1.5\)</span> に縦線を引いて比較せよ。</p>
 <p>以下を確認・報告すること。</p>
 <ul>
 <li>OLS推定値の平均は真の値からどれだけ乖離しているか（バイアス）。</li>
 <li>IV推定値の平均は真の値にどれだけ近いか。</li>
-<li>両者の標準偏差（ばらつき）を比較せよ。一般に操作変数法は、内生性を除去する代わりに推定量のばらつきが大きくなることが知られているが、操作変数（仕入コストシフター）の説明力が強い場合はこの分散拡大は小さくなる。手元の結果がどちらの方向に出たか、その理由（第1段階の関連性の強さ）とあわせてコメントせよ。</li>
+<li>両者の標準偏差（ばらつき）とRMSE（二乗誤差の平均の平方根）を比較せよ。偏ったOLSとIVの比較では、標準偏差の大小だけで推定の良さを判断できない。真値からのずれとばらつきを合わせてコメントせよ。</li>
 </ul>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2659,7 +2671,7 @@ window.Quarto = {
 <section id="設問2-410点値付け担当者への3行メモ" class="level3">
 <h3 class="anchored" data-anchor-id="設問2-410点値付け担当者への3行メモ">設問2-4（10点）：値付け担当者への3行メモ</h3>
 <p>あなたはこの小売チェーンの価格戦略チームに所属するアナリストである。上司（値付け担当のシニアマネージャー）から「うちのデータでざっくり価格弾力性を見て、OLSで-0.6くらいと出たので、この数字を使って値上げの影響を試算してほしい」と言われた。</p>
-<p>この依頼に対して、<strong>3行程度</strong>で返信メモを書け。何が問題で、どの数字を代わりに使うべきで、なぜそう言えるのかを簡潔に述べること。</p>
+<p>同じ店舗・同じ週の需要条件を保って価格を10%上げる場合を考え、設問2-2で推定したIV弾力性を使って数量の変化率を試算せよ。その結果を含めて、<strong>3行程度</strong>で返信メモを書け。OLSの数字の問題、試算した数量変化、試算を信頼するための条件を簡潔に述べること。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -2670,7 +2682,8 @@ window.Quarto = {
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>単に「OLSはダメでIVが正しい」ではなく、(1) なぜOLSの-0.6が過小評価（絶対値として小さい）なのか一言で説明する、(2) 実務でどの数字を使うべきか明言する、(3) 可能であれば「他にもコストシフターのような操作変数を使えるデータがないか」という前向きな提案を添える、という3点を意識すると実務的なメモになる。</p>
+<p>一定弾力性の需要式では、価格を1.1倍にしたときの数量変化率は <span class="math inline">\(100\{1.1^{\hat\eta_{IV}}-1\}\)</span>% である。データ生成に使った <span class="math inline">\(-1.5\)</span> を代入するのではなく、自分の推定値を使う。この数量比では、需要条件と需要側ノイズの分布が変わらなければ、対数から水準に戻す際の補正項も分子・分母で相殺される。</p>
+<p>メモでは、(1) 需要ショックの混入によってOLSが値上げによる数量減を小さく見積もりうること、(2) IV推定値から計算した数量変化、(3) 仕入コストが需要に直接影響せず需要側の要因と独立であることに加え、値上げ後も需要式が変わらないという前提を意識するとよい。</p>
 </div>
 </div>
 </section>

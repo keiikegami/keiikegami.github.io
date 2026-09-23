@@ -1,5 +1,5 @@
 ---
-title: "Playground 1：予測と因果の実験室"
+title: "Playground 1：予測・介入と値付けの実験室"
 subtitle: "計量経済学II（ブラウザ上でRが動きます）"
 author: "Kei Ikegami"
 lang: ja
@@ -13,8 +13,6 @@ engine: knitr
 webr:
   packages:
     - ggplot2
-    - dplyr
-    - tidyr
   repos:
     - https://repo.r-wasm.org
     - https://cran.r-universe.dev
@@ -25,209 +23,401 @@ webr:
 ::: {.callout-important}
 ## このページの使い方
 
-- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
-- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
-- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
-- 元ネタは講義ノート（`lecture1.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+- Rはブラウザの中で動く。インストールは不要だが、初回の準備には30秒〜1分ほどかかる。
+- 準備が終わったら、まず上から順に「Run Code」を押そう。コードの冒頭にある「いじるのはここ」の数値を変えると、結果も変わる。
+- **実験1は「予測」→「介入」の順、実験3・4は「需要推定」→「価格提案」→「来期の業績」の順に実行する。** 前のセルを変えたら、後のセルも実行し直そう。実験2は単独で動く。
+- おかしくなったらページを再読み込みすれば元に戻る。図のラベルは英語で、`low / normal / high` は暇・普通・忙しい週を表す。
+- [講義ノート](lecture1.html)と同じモデルを使う。実験1・2はシミュレーション1、実験3・4はシミュレーション2に対応している。
 :::
+
+```{webr}
+#| include: false
+#| autorun: true
+#| timelimit: 120
+library(ggplot2)
+theme_set(theme_minimal(base_size = 13))
+options(scipen = 8)
+```
+
+## 実験1：翌月予測が当たれば、介入にも使える？
+
+### 従来の広告配分が続く2か月目を予測する
+
+講義と同じ300店舗を追う。地力の強い店舗には広告費も多く配られる。1か月目に推定したモデルをそのまま使い、2か月目の売上を予測する。地力は月をまたいで変わらないが、広告配分と売上のノイズは毎月変わる。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+n_stores <- 300
+conf_strength <- 30   # 地力から広告費への係数
+beta_quality <- 0.4   # 地力から対数売上への係数
+# -----------------------
+set.seed(20261)
+beta_ad <- 0.002
+quality <- rnorm(n_stores)
+
+# 1か月目：モデルを推定するデータ
+ad1 <- pmax(100 + conf_strength * quality + rnorm(n_stores, 0, 15), 10)
+log_sales1 <- 5 + beta_quality * quality + beta_ad * ad1 +
+  rnorm(n_stores, 0, 0.15)
+month1 <- data.frame(quality = quality, ad_spend = ad1, log_sales = log_sales1)
+fit_naive <- lm(log_sales ~ ad_spend, data = month1)
+fit_adjusted <- lm(log_sales ~ ad_spend + quality, data = month1)
+
+# 2か月目：同じ店舗・従来の配分ルール、新しい月のノイズ
+ad2 <- pmax(100 + conf_strength * quality + rnorm(n_stores, 0, 15), 10)
+log_sales2 <- 5 + beta_quality * quality + beta_ad * ad2 +
+  rnorm(n_stores, 0, 0.15)
+month2 <- data.frame(quality = quality, ad_spend = ad2, log_sales = log_sales2)
+prediction2 <- predict(fit_naive, newdata = month2)
+r2_month2 <- 1 - sum((month2$log_sales - prediction2)^2) /
+  sum((month2$log_sales - mean(month2$log_sales))^2)
+print(data.frame(
+  model = c("Naive OLS", "OLS with quality", "True effect"),
+  ad_coefficient = round(c(coef(fit_naive)["ad_spend"],
+    coef(fit_adjusted)["ad_spend"], beta_ad), 5)
+))
+print(data.frame(month = "Month 2: usual allocation", R2 = round(r2_month2, 3)))
+
+# 倍率を変えても同じ3か月目のノイズで比較できるよう保存
+ads <- list(month2 = month2, prediction2 = prediction2,
+  noise3 = rnorm(n_stores, 0, 0.15), beta_ad = beta_ad,
+  beta_quality = beta_quality, naive = fit_naive, adjusted = fit_adjusted)
+```
+
+### 広告配分ルールを変えた3か月目を予測する
+
+3か月目には、2か月目の予算を据え置く予定だったところ、全店でその`ad_multiplier`倍にする。地力と売上が決まる仕組みは変えない。モデルを推定し直さず、新しい広告費を入力した予測と実現値を比べる。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+ad_multiplier <- 2   # 1なら据え置き、2なら全店で倍増
+# -----------------------
+stopifnot(exists("ads"), ad_multiplier > 0)
+month3 <- ads$month2
+month3$ad_spend <- ad_multiplier * ads$month2$ad_spend
+month3$log_sales <- 5 + ads$beta_quality * month3$quality +
+  ads$beta_ad * month3$ad_spend + ads$noise3
+prediction3 <- predict(ads$naive, newdata = month3)
+comparison <- data.frame(
+  predicted = c(ads$prediction2, prediction3),
+  actual = c(ads$month2$log_sales, month3$log_sales),
+  month = rep(c("Month 2: usual allocation", "Month 3: changed allocation"),
+              each = nrow(month3))
+)
+comparison$squared_error <- (comparison$actual - comparison$predicted)^2
+print(aggregate(squared_error ~ month, comparison, mean))
+limits <- range(comparison$predicted, comparison$actual)
+print(ggplot(comparison, aes(predicted, actual)) +
+  geom_point(alpha = 0.35, color = "steelblue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  facet_wrap(~ month, nrow = 1) +
+  coord_equal(xlim = limits, ylim = limits) +
+  labs(x = "Predicted log(sales)", y = "Actual log(sales)"))
+
+# 同じ3か月目に、予算を据え置く場合と倍率を変える場合の差を計算
+delta_ad <- month3$ad_spend - ads$month2$ad_spend
+naive_change <- predict(ads$naive, month3) - predict(ads$naive, ads$month2)
+adjusted_change <- predict(ads$adjusted, month3) - predict(ads$adjusted, ads$month2)
+print(data.frame(
+  method = c("True effect", "Naive OLS", "OLS with quality"),
+  mean_sales_change_pct = round(100 * c(
+    mean(exp(ads$beta_ad * delta_ad) - 1),
+    mean(exp(naive_change) - 1),
+    mean(exp(adjusted_change) - 1)), 1)
+))
+```
+
+最初の表は対数売上の**平均二乗予測誤差**、最後の表は**店舗別の売上変化率の平均（%）**である。「真の効果」は同じ地力・同じ3か月目の売上ショックを保った2つの世界の差であり、単なる2か月目から3か月目への増加率ではない。
+
+::: {.callout-note}
+## やってみよう
+
+- 倍率を1に戻すと、3か月目の予測はどうなるか。倍率だけ変えたら、このセルだけ再実行すればよい。
+- 最初のセルで店舗数を3,000にして、2つのセルを順に再実行しよう。予測と介入の違いは、データを増やすだけで消えるだろうか。
+- `conf_strength <- 0`、または`beta_quality <- 0`にすると、何が変わるか。どちらが「地力→広告費」「地力→売上」の経路をなくす操作か、考えてから試そう。
+:::
+
+## 実験2：無限のデータがあっても、2つの関数は違う
+
+ここでは標本からの推定をやめ、母集団の条件付き平均を直接描く。広告配分を
+$A_\lambda=\lambda\max(100+cQ+V,10)$ とし、売上の式は変えない。$c$ は地力から広告費への係数、$V$ の標準偏差は15である。
+
+下限の点を除く $a>10\lambda$ では、
+
+$$
+m_\lambda(a)=E[L_\lambda\mid A_\lambda=a]
+=5+0.002a+\beta_Q\frac{c}{c^2+15^2}(a/\lambda-100).
+$$
+
+同じ広告費 $a$ を入れても、どの店舗について平均するかが制度によって変わる。`A`は旧制度で広告費100万円の店舗集団、`B`は旧制度の曲線に変更後の広告費を入力した点、`C`は`A`の店舗集団の広告費を変えた結果である。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+allocation_multiplier <- 2  # 1〜5の範囲で試そう
+conf_strength <- 30
+beta_quality <- 0.4
+# -----------------------
+stopifnot(allocation_multiplier >= 1, allocation_multiplier <= 5)
+base_ad <- 100
+changed_ad <- allocation_multiplier * base_ad
+m_policy <- function(a, multiplier) {
+  5 + 0.002 * a +
+    beta_quality * conf_strength / (conf_strength^2 + 15^2) *
+    (a / multiplier - 100)
+}
+# 両制度の下限より上の、共通の支持域で描く
+a_grid <- seq(10 * allocation_multiplier + 1,
+              max(250, changed_ad + 40), length.out = 200)
+curves <- data.frame(
+  ad = rep(a_grid, 2),
+  mean_log_sales = c(m_policy(a_grid, 1),
+                    m_policy(a_grid, allocation_multiplier)),
+  rule = rep(c("Old allocation rule", "Changed allocation rule"), each = 200)
+)
+points <- data.frame(
+  point = c("A: original stores", "B: old-rule prediction", "C: changed ads, same stores"),
+  ad = c(base_ad, changed_ad, changed_ad),
+  mean_log_sales = c(m_policy(base_ad, 1), m_policy(changed_ad, 1),
+                    m_policy(changed_ad, allocation_multiplier))
+)
+print(points)
+print(data.frame(
+  change = c("A to B: using the old function", "A to C: policy effect"),
+  delta_mean_log_sales = c(diff(points$mean_log_sales[1:2]),
+                          points$mean_log_sales[3] - points$mean_log_sales[1])
+))
+ggplot(curves, aes(ad, mean_log_sales, color = rule)) +
+  geom_line(linewidth = 1) +
+  geom_point(data = points, aes(ad, mean_log_sales),
+             inherit.aes = FALSE, size = 3, color = "black") +
+  geom_text(data = points, aes(ad, mean_log_sales, label = substr(point, 1, 1)),
+            inherit.aes = FALSE, nudge_x = 5, nudge_y = 0.04, check_overlap = TRUE) +
+  labs(x = "Advertising budget (10,000 yen)", y = "Mean log(sales)", color = NULL) +
+  theme(legend.position = "bottom")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- ここには標本サイズの指定がない。推定誤差を完全になくしたのに、なぜ`B`と`C`は違うのだろうか。
+- 100万円も200万円も旧制度の支持域にある。それでも旧制度の関数だけでは足りない理由を、`A`・`B`・`C`の表を使って説明しよう。
+- 倍率を1、交絡の係数を0、地力の売上への効果を0に、それぞれ変えてみよう。どの場合に2本の線が重なるか。数値は**対数売上**なので、`A`から`C`への0.2の変化は20%ちょうどの売上増加ではない。
+:::
+
+## 実験3：価格実験から需要を推定する
+
+今度は店長から、仕入費用の上昇に備えた値付けの提案を頼まれた。まず、価格を無作為に変えた実験から、
+
+$$
+\log q=\alpha_S-\eta_S\log(p/1000)+\varepsilon,
+\qquad \varepsilon\sim N(0,\sigma^2)
+$$
+
+を推定する。$S$ は価格を決める前にわかる需要の見通しである。価格弾力性は $-\eta_S$。各状態の来期の確率は、別に用意された通常営業の記録から推定する。
+
+以下の折りたたみは、データ基盤課の代わりにデータを用意する道具である。自動実行されるので、開かずに次の推定セルへ進んでよい。
+
+::: {.callout-note collapse="true"}
+## 教材用データを作るコード
+
+講義と同じ真値で、価格実験と通常営業の記録を作る。真値はこの関数の中でだけ使い、後の分析にはデータだけを渡す。対象店舗と実験店舗には同じ条件付き需要モデルを使えるものとする。
 
 ```{webr}
 #| edit: false
 #| output: false
 #| autorun: true
-#| timelimit: 120
-# ---- 共通の道具箱（講義ノートと同じDGP・関数群。編集不可・自動実行）----
-
-# 広告費シミュレーション：地力(quality)が広告費と売上の両方に効く
-# conf_strength: quality→広告費の係数（講義ノートでは30）
-# beta_quality : quality→log(売上)の係数（講義ノートでは0.4）
-# beta_ad      : 真の広告効果（講義ノートでは0.002）
-simulate_stores <- function(n_stores, conf_strength, beta_quality,
-                            beta_ad = 0.002) {
-  quality  <- rnorm(n_stores, mean = 0, sd = 1)
-  ad_spend <- 100 + conf_strength * quality + rnorm(n_stores, mean = 0, sd = 15)
-  ad_spend <- pmax(ad_spend, 10)
-  log_sales <- 5.0 + beta_quality * quality + beta_ad * ad_spend +
-    rnorm(n_stores, mean = 0, sd = 0.15)
-  data.frame(quality = quality, ad_spend = ad_spend, log_sales = log_sales)
+#| timelimit: 60
+make_pricing_data <- function(n_per_state = 200, n_history = 208,
+                              experiment_seed = 20264) {
+  state_levels <- c("low", "normal", "high")
+  price_menu <- seq(600, 1800, by = 50)
+  set.seed(experiment_seed)
+  true_alpha <- log(c(250, 500, 750))
+  true_eta <- c(3.5, 2.5, 2.0)
+  experiment <- data.frame(
+    state = factor(rep(state_levels, each = n_per_state), levels = state_levels),
+    price = sample(price_menu, 3 * n_per_state, replace = TRUE)
+  )
+  s <- as.integer(experiment$state)
+  experiment$quantity <- exp(true_alpha[s] - true_eta[s] *
+    log(experiment$price / 1000) + rnorm(nrow(experiment), 0, 0.20))
+  set.seed(20265)
+  history <- factor(sample(state_levels, n_history, replace = TRUE,
+    prob = c(0.25, 0.50, 0.25)), levels = state_levels)
+  list(experiment = experiment, history = history)
 }
-
-# 価格シミュレーション：需要ショックが価格と数量の両方に効く
-# gamma_price: 需要ショック→log(価格)の係数（講義ノートでは0.3）
-# phi_demand : 需要ショック→log(数量)の直接効果（講義ノートでは0.8）
-simulate_price_weeks <- function(n_weeks, gamma_price, phi_demand,
-                                 true_elasticity = -1.2) {
-  demand_shock <- rnorm(n_weeks, mean = 0, sd = 1)
-  log_price <- log(1000) + gamma_price * demand_shock +
-    rnorm(n_weeks, mean = 0, sd = 0.05)
-  log_q <- log(500) + true_elasticity * (log_price - log(1000)) +
-    phi_demand * demand_shock +
-    rnorm(n_weeks, mean = 0, sd = 0.1)
-  data.frame(demand_shock = demand_shock, log_price = log_price, log_q = log_q)
-}
-
-# 「広告費をmultiplier倍にしたら売上は何%変わるか」を
-# 真のモデルと素朴OLSモデルの両方で計算する
-naive_vs_true_effect <- function(df, multiplier = 2, beta_ad = 0.002) {
-  beta_naive <- coef(lm(log_sales ~ ad_spend, data = df))[["ad_spend"]]
-  delta_ad   <- (multiplier - 1) * df$ad_spend
-  true_pct   <- mean(exp(beta_ad * delta_ad) - 1) * 100
-  naive_pct  <- mean(exp(beta_naive * delta_ad) - 1) * 100
-  c(true_pct = true_pct, naive_pct = naive_pct)
-}
-
-theme_set(theme_minimal(base_size = 13))
 ```
-
-## 実験1：交絡の強さと素朴OLSのバイアス
-
-講義ノートのシミュレーション1、「広告費と売上の罠」の世界だ。地力（quality）の強い店舗ほど本部が広告費を多く配分し、地力はそれ自体が売上を押し上げる。交絡のツマミは2つある。quality→広告費の `conf_strength`（ノートでは30）と、quality→売上の `beta_quality`（ノートでは0.4）だ。真の広告効果は `0.002` しかない。qualityを見ない素朴なOLSの係数が真値の数倍に膨らみ、quality込みのOLSが真値のすぐ近くに戻ることを、表で確かめよう。
+:::
 
 ```{webr}
 #| timelimit: 60
 # ---- いじるのはここ ----
-conf_strength <- 30    # quality→広告費の強さ（ノートでは30。交絡の源泉その1）
-beta_quality  <- 0.4   # quality→log(売上)の効果（ノートでは0.4。交絡の源泉その2）
-n_stores      <- 300   # 店舗数
+n_per_state <- 200       # 価格実験の件数：各状態につき何件か
+n_history <- 208         # 通常営業の記録：何週間か
+experiment_seed <- 20264 # 変えると別の価格実験の標本になる
 # -----------------------
+stopifnot(n_per_state >= 10, n_history >= 10)
+data <- make_pricing_data(n_per_state, n_history, experiment_seed)
+experiment <- data$experiment
+state_levels <- levels(experiment$state)
+experiment$log_q <- log(experiment$quantity)
+experiment$log_price_ratio <- log(experiment$price / 1000)
+fit <- lm(log_q ~ 0 + state + state:log_price_ratio, data = experiment)
+alpha_hat <- unname(coef(fit)[paste0("state", state_levels)])
+eta_hat <- -unname(coef(fit)[paste0("state", state_levels, ":log_price_ratio")])
+sigma_hat <- summary(fit)$sigma
+state_prob_hat <- as.numeric(prop.table(table(data$history)))
+print(data.frame(state = state_levels, alpha_hat = round(alpha_hat, 3),
+  elasticity_hat = round(-eta_hat, 3), state_probability = round(state_prob_hat, 3)))
+print(data.frame(sigma_hat = round(sigma_hat, 3)))
 
-set.seed(20261)
-true_beta_ad <- 0.002  # 真の広告効果（広告費1万円で売上+0.2%程度）
-df <- simulate_stores(n_stores, conf_strength, beta_quality,
-                      beta_ad = true_beta_ad)
-
-fit_naive <- lm(log_sales ~ ad_spend, data = df)
-fit_ctrl  <- lm(log_sales ~ ad_spend + quality, data = df)
-
-b_naive <- coef(fit_naive)[["ad_spend"]]
-b_ctrl  <- coef(fit_ctrl)[["ad_spend"]]
-
-data.frame(
-  model   = c("naive OLS (ad_spend only)", "OLS with quality", "true value"),
-  beta_ad = round(c(b_naive, b_ctrl, true_beta_ad), 5),
-  bias    = round(c(b_naive, b_ctrl, true_beta_ad) - true_beta_ad, 5)
-)
+# 次の実験に渡すのは、ここでデータから推定した値だけ
+demand_estimates <- list(alpha = alpha_hat, eta = eta_hat,
+  sigma = sigma_hat, probability = state_prob_hat, states = state_levels)
+grid <- expand.grid(state = state_levels, price = seq(600, 1800, by = 50))
+grid$state <- factor(grid$state, levels = state_levels)
+grid$log_price_ratio <- log(grid$price / 1000)
+grid$predicted <- predict(fit, newdata = grid)
+ggplot(experiment, aes(log_price_ratio, log_q)) +
+  geom_point(alpha = 0.3, color = "gray50") +
+  geom_line(data = grid, aes(y = predicted), color = "steelblue", linewidth = 1) +
+  facet_wrap(~ state, nrow = 1) +
+  labs(x = "log(price / 1000)", y = "log(quantity)")
 ```
 
 ::: {.callout-note}
 ## やってみよう
 
-- `conf_strength <- 0`（本部が地力と無関係に予算を配る世界）にすると、素朴OLSの係数は真値0.002にほぼ一致するか。予想してから実行しよう。
-- `beta_quality <- 0.8`（地力の売上への効果を2倍）にすると、素朴OLSの係数はどれくらい膨らむか。広告の真の効果は何ひとつ変わっていないのに、である。
-- このバイアスは、データを増やせば消える種類の問題だろうか。予想してから `n_stores` を10倍にして確かめ、「識別の問題」と「推定精度の問題」の違いを自分の言葉で説明してみよう。
+- 各状態の実験件数を20に減らし、`experiment_seed`も変えてみよう。真の弾力性`-3.5, -2.5, -2.0`から推定値はどのくらいずれるか。
+- 実験件数を増やす操作と、通常営業の記録を増やす操作では、どの推定値が変わるか。
+- 価格実験では各状態が同じ件数なのに、来期の状態確率は3分の1ずつになっていない。なぜその確率には営業記録を使うのだろうか。
 :::
 
-## 実験2：価格の内生性 — 販売数量の弾力性の符号が逆転する瞬間
+## 実験4：値付けを提案し、来期の業績を報告する
 
-講義ノートのシミュレーション2、「値上げすると売上が増える？」の世界。繁忙期（需要ショックが大きい週）ほど店は強気の価格を付ける。その強気さが `gamma_price`（ノートでは0.3）だ。真の需要曲線は弾力性-1.2の右下がりなのに、log-log OLSの推定弾力性は `gamma_price` 次第で符号までひっくり返る。図は両対数なので、真の需要曲線もOLSの回帰直線もまっすぐな線として重なる。`gamma_price` を0から少しずつ上げて（あるいは0.3から少しずつ下げて）、推定値がプラスに転じる境目を探そう。境目の近くでは標本誤差が邪魔をするので、探索するときは `n_weeks <- 20000` にしておくと見やすい。
+### 候補価格ごとの期待粗利益を比べる
+
+**実験3を実行してから始めよう。** 粗利益は「（価格−1個あたり仕入費用）×数量」。店長には、週初にわかる需要の見通しごとに、期待粗利益が最大になる価格を提案する。価格の候補は実験と同じ600〜1,800円、50円刻みである。
+
+このセルでは、状態と価格を固定して、**売上ショックだけが異なる1週間の粗利益を20,000通り平均する**。来期13週間の平均ではない。
 
 ```{webr}
 #| timelimit: 60
 # ---- いじるのはここ ----
-gamma_price <- 0.3    # 需要ショック→価格の強さ（ノートでは0.3。0で交絡が消える）
-phi_demand  <- 0.8    # 需要ショック→数量の直接効果（ノートでは0.8）
-n_weeks     <- 200    # 週数（境目を探すときは20000に増やすとよい）
+cost_after <- 650
 # -----------------------
-
-set.seed(20261)
-true_elasticity <- -1.2
-df <- simulate_price_weeks(n_weeks, gamma_price, phi_demand,
-                           true_elasticity = true_elasticity)
-
-fit   <- lm(log_q ~ log_price, data = df)
-e_hat <- coef(fit)[["log_price"]]
-
-print(data.frame(
-  method     = c("log-log OLS", "true elasticity"),
-  elasticity = round(c(e_hat, true_elasticity), 3)
-))
-
-grid <- seq(min(df$log_price), max(df$log_price), length.out = 50)
-lines_df <- data.frame(
-  log_price = rep(grid, 2),
-  log_q = c(coef(fit)[[1]] + e_hat * grid,
-            log(500) + true_elasticity * (grid - log(1000))),
-  curve = rep(c("OLS fit", "true demand curve (shock fixed at 0)"), each = 50)
-)
-
-ggplot() +
-  geom_point(data = df, aes(log_price, log_q), alpha = 0.35, color = "gray55") +
-  geom_line(data = lines_df,
-            aes(log_price, log_q, color = curve, linetype = curve),
-            linewidth = 1) +
-  labs(x = "log(price)", y = "log(quantity)",
-       title = paste0("OLS slope = ", round(e_hat, 2),
-                      " vs true = ", true_elasticity),
-       color = NULL, linetype = NULL) +
-  theme(legend.position = "top")
-```
-
-::: {.callout-note}
-## やってみよう
-
-- `gamma_price <- 0`（価格設定が需要ショックと無関係な世界）にすると、推定弾力性は真の-1.2の近くに戻る。残ったズレは標本誤差なので、`n_weeks` を増やすとさらに-1.2に近づくことも確かめよう。
-- `phi_demand <- 1.6`（需要ショックの直接効果を2倍）にすると、推定弾力性はどちら向きに、どれくらい動くか。交絡変数が需要に強く効くほど、汚染はひどくなるだろうか。
-- 符号がプラスに転じる境目の `gamma_price` は、あなたの予想よりずっと小さかったはずだ。価格そのものの変動の小ささ（logでsd 0.05）と見比べて、なぜこれほど僅かな交絡でOLSが壊れるのか考えてみよう。
-:::
-
-## 実験3：反実仮想の乖離 — 素朴な予測はどこまで信じてよいか
-
-実験1の世界に戻り、意思決定の言葉に翻訳する。「広告費を2倍にしたら売上は何%増えるか」という反実仮想を、(i) 真のモデルと (ii) 素朴OLSモデルの両方で計算し、その乖離を交絡の強さ $c$（quality→広告費の係数）の関数として描く。サンプルが大きいとき、素朴OLSの係数はおおよそ
-
-$$
-\hat{\beta}_{\mathrm{naive}} \approx \beta_{\mathrm{ad}} + \beta_{\mathrm{quality}} \times \frac{c}{c^2 + 15^2}
-$$
-
-に近づく（15は広告費に入るノイズの標準偏差）。分母に $c^2$ が入っているので、膨らみ方は単調ではない点にも注意して眺めよう。既定の設定では、真の効果はどの $c$ でもおおむね22%前後である（店舗別の変化率を平均するため、広告費分布の分散や10万円でのクリップにより僅かには動く）。それに対し、素朴OLSに基づく予測は大きく暴走する。表の `gap_pp` 列が、%ポイントで測った両者の乖離だ。
-
-```{webr}
-#| timelimit: 60
-# ---- いじるのはここ ----
-conf_grid     <- seq(0, 30, by = 2)   # 試す交絡の強さの範囲（ノートの値は30）
-beta_quality  <- 0.4                  # quality→log(売上)の効果（ノートでは0.4）
-ad_multiplier <- 2                    # 広告費を何倍にする施策か
-# -----------------------
-
-set.seed(20261)
-n_stores <- 5000   # 各点のサンプルサイズ（曲線を滑らかにするため大きめ）
-
-res <- sapply(conf_grid, function(cs) {
-  naive_vs_true_effect(simulate_stores(n_stores, cs, beta_quality),
-                       multiplier = ad_multiplier)
+stopifnot(exists("demand_estimates"), cost_after > 0, cost_after < 1800)
+price_menu <- seq(600, 1800, by = 50)
+current_prices <- c(700, 850, 1000)
+set.seed(20266)
+planning_z <- rnorm(20000)
+quantity_hat <- function(price, state_id, z) {
+  exp(demand_estimates$alpha[state_id] -
+    demand_estimates$eta[state_id] * log(price / 1000) + demand_estimates$sigma * z)
+}
+expected_profit <- function(price, state_id) {
+  mean((price - cost_after) * quantity_hat(price, state_id, planning_z))
+}
+recommended_prices <- sapply(1:3, function(s) {
+  price_menu[which.max(sapply(price_menu, function(p) expected_profit(p, s)))]
 })
+print(data.frame(state = demand_estimates$states,
+  current_price = current_prices, recommended_price = recommended_prices))
 
-print(data.frame(
-  conf_strength = conf_grid,
-  true_pct      = round(res["true_pct", ], 1),
-  naive_pct     = round(res["naive_pct", ], 1),
-  gap_pp        = round(res["naive_pct", ] - res["true_pct", ], 1)
-))
-
-df_plot <- data.frame(
-  conf  = rep(conf_grid, 2),
-  pct   = c(res["true_pct", ], res["naive_pct", ]),
-  model = factor(rep(c("true effect", "naive OLS prediction"),
-                     each = length(conf_grid)),
-                 levels = c("true effect", "naive OLS prediction"))
-)
-ggplot(df_plot, aes(conf, pct, color = model)) +
-  geom_line(linewidth = 1) +
-  geom_point(size = 1.8) +
-  labs(x = "confounding strength c (quality -> ad_spend)",
-       y = paste0("predicted sales change from ads x", ad_multiplier, " (%)"),
-       color = NULL) +
-  theme(legend.position = "top")
+# 価格選択時の推定値と費用をまとめて、次のセルに渡す
+pricing_plan <- list(model = demand_estimates, cost = cost_after,
+  current = current_prices, recommended = recommended_prices)
+profit_grid <- expand.grid(price = price_menu, state_id = 1:3)
+profit_grid$profit <- mapply(expected_profit, profit_grid$price, profit_grid$state_id)
+profit_grid$state <- factor(demand_estimates$states[profit_grid$state_id],
+                           levels = demand_estimates$states)
+chosen <- data.frame(price = recommended_prices, state_id = 1:3)
+chosen$profit <- mapply(expected_profit, chosen$price, chosen$state_id)
+chosen$state <- factor(demand_estimates$states, levels = demand_estimates$states)
+ggplot(profit_grid, aes(price, profit / 10000)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(data = chosen, color = "firebrick", size = 3) +
+  facet_wrap(~ state, nrow = 1) +
+  labs(x = "Price (yen)", y = "Expected weekly gross profit (10,000 yen)")
 ```
+
+### 提案した値付けで13週間を過ごす
+
+今度は、見通しも売上ショックも異なる来期を`n_future`通り作る。各週の価格は**その週の見通しだけ**で決める。価格比較用とは別の乱数を使い、3つの世界には同じ見通しとショックを与えて比較する。
+
+```{webr}
+#| timelimit: 60
+#| fig-height: 7
+# ---- いじるのはここ ----
+n_future <- 5000
+target_man <- 250       # 13週間の粗利益の目標（万円）
+# -----------------------
+stopifnot(exists("pricing_plan"), n_future >= 100)
+model <- pricing_plan$model
+set.seed(20267)
+future_state <- matrix(sample(1:3, n_future * 13, replace = TRUE,
+  prob = model$probability), nrow = n_future)
+future_z <- matrix(rnorm(n_future * 13), nrow = n_future)
+
+simulate_quarters <- function(cost, prices) {
+  p <- matrix(prices[future_state], nrow = n_future)
+  alpha <- matrix(model$alpha[future_state], nrow = n_future)
+  eta <- matrix(model$eta[future_state], nrow = n_future)
+  q <- exp(alpha - eta * log(p / 1000) + model$sigma * future_z)
+  data.frame(quantity = rowSums(q), revenue = rowSums(p * q),
+             profit = rowSums((p - cost) * q))
+}
+worlds <- list(
+  "Cost 500 / current prices" = simulate_quarters(500, pricing_plan$current),
+  "New cost / current prices" = simulate_quarters(pricing_plan$cost, pricing_plan$current),
+  "New cost / recommended prices" = simulate_quarters(pricing_plan$cost, pricing_plan$recommended)
+)
+report <- do.call(rbind, lapply(names(worlds), function(label) {
+  x <- worlds[[label]]
+  risk <- mean(x$profit < target_man * 10000)
+  data.frame(scenario = label, mean_quantity = round(mean(x$quantity)),
+    mean_revenue_man = round(mean(x$revenue) / 10000, 1),
+    mean_profit_man = round(mean(x$profit) / 10000, 1),
+    below_target_pct = round(100 * risk, 2),
+    risk_mcse_pp = round(100 * sqrt(risk * (1 - risk) / n_future), 2))
+}))
+print(report)
+distribution <- data.frame(
+  scenario = factor(rep(names(worlds), each = n_future), levels = names(worlds)),
+  profit_man = unlist(lapply(worlds, function(x) x$profit), use.names = FALSE) / 10000
+)
+ggplot(distribution, aes(profit_man, after_stat(count / n_future), fill = scenario)) +
+  geom_histogram(binwidth = 10, boundary = 0, alpha = 0.85) +
+  geom_vline(xintercept = target_man, linetype = "dashed") +
+  facet_wrap(~ scenario, ncol = 1) +
+  scale_fill_manual(values = c("steelblue", "gray60", "firebrick")) +
+  labs(x = "13-week gross profit (10,000 yen)", y = "Fraction of simulated quarters") +
+  theme(legend.position = "none")
+```
+
+表の数量・売上・粗利益は、**13週分を合計してから、来期間で平均したもの**である。`below_target_pct`は目標未達の来期の割合（%）、`risk_mcse_pp`はその割合のモンテカルロ標準誤差（%ポイント）。図の破線が目標で、その左側が未達の来期だ。
 
 ::: {.callout-note}
 ## やってみよう
 
-- `conf_grid <- seq(0, 5, by = 0.5)` にして、弱い交絡の領域をズームしよう。乖離は $c$ がどのあたりから「無視できない」大きさになるか。
-- `ad_multiplier <- 1.2`（2割増というささやかな施策）に変えると、真の効果と乖離の大きさはそれぞれどう変わるか。
-- あなたが意思決定者なら、素朴OLSの予測を使ってよいのは乖離がどこまでのときか。基準を自分で決めて（例：真の効果の±2割以内なら許容、など）、それを満たす $c$ の範囲を表から読み取ってみよう。その範囲の狭さが、このコースで因果推論と構造モデルを学ぶ理由である。
+- 費用を750円に変え、実験4の2つのセルを順に実行しよう。提案価格は各状態で一律100円上がるだろうか。提案価格を使っても、費用上昇前の粗利益に戻れるだろうか。
+- `target_man <- 300`に変えると、未達割合と利益分布はそれぞれどうなるか。目標だけ変えたら、最後のセルだけ実行すればよい。
+- `n_future`を500、5,000、20,000と変えよう。回数を増やすと、計算の誤差と実際の営業のリスクは、それぞれどうなるだろうか。
+- 実験3の標本を変え、実験3・4を順に実行し直そう。需要の推定誤差は、提案価格や業績の見通しにも影響するだろうか。
+:::
+
+::: {.callout-important}
+## 何を固定したシミュレーションか
+
+来期の計算には、需要の係数・ショックの大きさ・状態の確率の**推定値**を使った。費用や価格が変わっても需要モデルは使い続けられ、状態とショックは週ごとに独立に発生すると仮定している。数量は連続量として近似し、品切れや在庫の持ち越しは考えない。
+
+図は推定したモデルの下での営業上のばらつきである。パラメータの推定誤差を織り込んだ予測区間ではない。シミュレーション回数を増やしても、需要を正しく推定できたことにはならない。また、この単純なモデルの週の期待粗利益は式から直接計算もできる。乱数は、候補価格を比べる共通の手順と、13週間の利益分布を調べるために使っている。
 :::
 
 ## 次に読むもの
 
-- 講義ノート本体：`lecture1.html`（コース全体の見取り図と、今回の2つのシミュレーションの完全版）
-- coding課題：`assignment1.qmd`（今回の価格弾力性シミュレーションを店舗パネルデータに拡張し、操作変数法（2SLS）で真の弾力性を回収する練習）
+- [講義ノート](lecture1.html)：予測と介入の違い、需要推定から値付けを提案するまでの説明。
+- [課題1（HTML）](assignment1.html)／[課題1（QMD）](assignment1.qmd)：価格実験がない店舗パネルデータで、操作変数を使って需要の価格弾力性を推定する練習。
