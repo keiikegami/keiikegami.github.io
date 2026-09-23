@@ -800,102 +800,397 @@ invisible(sample.int(n_stores))
 ```
 
 
-## 4. Rシミュレーション2：仕入れが高くなったら、店長はどう値付けする？
+## 4. Rシミュレーション2：需要を推定して、値付けを提案する
 
-さて、めでたく栄転したあなたは、今度は商品の価格と利益を分析する仕事を任された。ある店舗の主力商品について、来期の予算を作ることになったのである。新天地でも仕事は待っている。
+さて、めでたく栄転したあなたは、今度はある店舗の主力商品について来期の予算を考えることになった。というのも、仕入先から連絡があり、この商品の仕入費用が来期から1個**500円**から**650円**に上がることになったのだ。
 
-仕入先から連絡があり、この商品の仕入費用が来期から1個500円から650円に上がることになった。上司からの依頼は、次のようなものである。
+あなたの上司は、この店の店長である。毎週の販売価格を決めるのも、この店長だ。その店長から、次のような依頼が来た。
 
-> 来期13週間をシミュレーションして、販売価格、販売数量、売上、粗利益がどうなりそうか報告してほしい。平均だけでなく、四半期の粗利益が250万円を下回る確率も知りたい。価格は引き続き店長に任せる予定だ。
+> 仕入れが高くなるので、値付けを見直したい。販売記録や価格実験のデータを使って、粗利益をできるだけ確保できる値付けを提案してほしい。その値付けで来期13週間をシミュレーションして、販売数量、売上、粗利益がどうなりそうかも報告してほしい。四半期の粗利益が250万円を下回る確率も知りたい。
 
-最初からシミュレーションの仕事である。来期にどれだけ売れるかはまだわからない。「平均では大丈夫です」と言われても、予算を組む側は、それをどのくらい下回ることがありそうかも気になる。なお、ここでいう**粗利益は売上から仕入費用を引いたもの**で、人件費や家賃を引いた最終的な利益ではない。
+ここでいう粗利益は、売上から仕入費用を引いたものだ。人件費や家賃を引いた最終的な利益ではない。
 
-この店では、店長が毎週、その週の需要の見通しを見てから価格を決めている。暇になりそうな週、普通の週、忙しくなりそうな週では、値付けも違う。しかし、いくら店長でも実際に何個売れるかまではわからない。価格を決めた後で、予想より売れたり売れなかったりすることはある。来期が始まる前のあなたには、どの週が忙しくなるかもまだわかっていない。
+この店では、その週が暇になりそうか、普通か、忙しくなりそうかを週初に判断し、それを見てから価格を決めている。あなたの仕事は、この見通しごとにどんな価格にすればよいかを店長に提案することである。店長がその提案を採用したら、来期の業績はどうなりそうか。平均だけでなく、下振れの可能性まで計算する。
 
-幸い、この商品では以前に価格を無作為に変える実験をしていた。今回は、その実験と販売記録から、**需要の見通しと価格を与えたときの販売数量の分布を正しく把握できている**としよう。その推定方法はいったん脇に置き、得られた需要モデルを使って何を計算するかに集中する。広告のときと同じ失敗を繰り返すわけにはいかないのである。
+
+
+### 手元のデータ
+
+価格を変えたら何個売れるのか、その関係をデータから推定するところから始める必要がある。
+
+データ基盤課から、次の2つのデータを受け取った。
+
+- **価格実験のデータ**：対象店舗を含む同種店舗で集めた600件の「店舗×週」の記録。価格決定前の需要の見通し、無作為に割り当てた価格、販売数量が入っている。暇・普通・忙しい週をそれぞれ200件ずつ集めている。
+- **対象店舗の通常営業の記録**：過去208週について、週初にどの需要の見通しだったかを記録したもの。
+
+「忙しい週」は、売れた後に販売数量を見て付けたラベルではない。**価格を決める前にわかっていた見通し**である。
 
 ```{r}
-#| label: pricing-model
+#| label: pricing-observed-data
 #| include: false
+# 教材用のデータ生成。true_で始まる値は、その後の推定・予測には渡さない。
+state_levels <- c("low", "normal", "high")
+state_names <- c("暇な週", "普通の週", "忙しい週")
+price_menu <- seq(600, 1800, by = 50)
+
+set.seed(20264)
+true_alpha <- log(c(250, 500, 750))
+true_eta <- c(3.5, 2.5, 2.0)
+true_sigma <- 0.20
+experiment_df <- data.frame(
+  state = factor(rep(state_levels, each = 200), levels = state_levels),
+  price = sample(price_menu, 600, replace = TRUE)
+)
+state_id <- as.integer(experiment_df$state)
+experiment_df$quantity <- exp(
+  true_alpha[state_id] - true_eta[state_id] * log(experiment_df$price / 1000) +
+    rnorm(nrow(experiment_df), mean = 0, sd = true_sigma)
+)
+
+set.seed(20265)
+true_state_prob <- c(0.25, 0.50, 0.25)
+history_df <- data.frame(
+  week = 1:208,
+  state = factor(sample(state_levels, 208, replace = TRUE,
+                        prob = true_state_prob), levels = state_levels)
+)
+
+# 費用・価格候補・現在の値付けは、業務上わかっている情報
 cost_before <- 500
 cost_after <- 650
-price_menu <- seq(800, 1600, by = 50)
-demand_levels <- c(1200, 1500, 1800)
-state_names <- c("暇な週", "普通の週", "忙しい週")
-state_prob <- c(0.25, 0.50, 0.25)
-sales_capacity <- 650
-sales_shock_sd <- 150
+current_prices <- c(700, 850, 1000)
+history_df$price <- current_prices[as.integer(history_df$state)]
 profit_target <- 2500000
-
-# 価格を決めた後でshockが実現し、販売数量が決まる
-quantity_at <- function(price, demand, shock) {
-  pmin(pmax(demand - price + shock, 0), sales_capacity)
-}
 ```
+
+たとえば、価格実験のデータの一部は次のようになっている。`low`、`normal`、`high` がそれぞれ暇・普通・忙しい週を表す。
 
 ```{r}
-#| label: pricing-choice
-#| include: false
-set.seed(20262)
-# 価格を選ぶための仮想的な売上ショック
-planning_shock <- rnorm(20000, mean = 0, sd = sales_shock_sd)
-
-expected_profit <- function(price, cost, demand) {
-  mean((price - cost) * quantity_at(price, demand, planning_shock))
-}
-
-choose_price <- function(demand, cost) {
-  profits <- sapply(price_menu, function(p) expected_profit(p, cost, demand))
-  price_menu[which.max(profits)]
-}
-
-old_price_rule <- sapply(demand_levels, function(d) choose_price(d, cost_before))
-new_price_rule <- sapply(demand_levels, function(d) choose_price(d, cost_after))
+knitr::kable(head(experiment_df), digits = 1,
+             col.names = c("需要の見通し", "実験で割り当てた価格（円）", "販売数量"))
 ```
+
+普段の価格は、暇な週に700円、普通の週に850円、忙しい週に1,000円である。
+
+<!-- あなたは前の仕事で、相関をそのまま施策の効果として使うと痛い目を見ることを学んだ。通常営業のデータでは、店長が需要を見て価格を決めている。そこで今回は、 -->
+
+あなたは**同じ需要の見通しの中で価格を無作為に変えた実験**を使って、価格への反応を推定することを考えた。
+
+### 需要関数を推定する
+
+需要の見通しを $S\in\{\text{暇},\text{普通},\text{忙しい}\}$、価格を $p$、販売数量を $q$ とする。次の需要モデルを置こう。
+
+$$
+\log q=\alpha_S-\eta_S\log(p/1000)+\varepsilon,
+\qquad \varepsilon\sim N(0,\sigma^2).
+$$
+
+$\alpha_S$ は需要の水準、$\eta_S$ は価格への反応の強さを表すパラメータで、**どちらもまだわかっていない**。見通しごとに別の値を認める。$\eta_S>0$ なら価格が上がると需要は減り、このモデルの価格弾力性は $-\eta_S$ である。$p/1000$ とするのは、1,000円を基準にして式を読みやすくするためだ。
+
+$\varepsilon$ は価格決定後に実現する需要のぶれであり、その大きさを表す $\sigma$ もデータから推定する。実験では、見通しを条件に価格が $\varepsilon$ と独立に割り当てられる。この設定の下で、価格の係数を因果的な需要反応として推定できる。なぜなら実験だからである。正規分布・共通の分散という部分は、業績の分布まで計算するために追加するモデルの仮定である。
+
+まずは計量Iで使ったOLSで推定する。状態別の切片と、状態別の価格の係数を入れればよい。
+
+```{r}
+#| label: pricing-estimation
+experiment_df$log_q <- log(experiment_df$quantity)
+experiment_df$log_price_ratio <- log(experiment_df$price / 1000)
+
+# 0 + stateで状態別の切片、state:log_price_ratioで状態別の傾きを入れる
+fit_demand <- lm(log_q ~ 0 + state + state:log_price_ratio,
+                 data = experiment_df)
+alpha_hat <- unname(coef(fit_demand)[paste0("state", state_levels)])
+eta_hat <- -unname(coef(fit_demand)[paste0("state", state_levels, ":log_price_ratio")])
+sigma_hat <- summary(fit_demand)$sigma
+
+knitr::kable(data.frame(
+  state = state_names, alpha = alpha_hat, elasticity = -eta_hat
+), digits = 3, col.names = c("需要の見通し", "切片の推定値", "価格弾力性の推定値"))
+```
+
+需要が多そうな週と少なそうな週では、需要の水準だけでなく、価格への反応も違うようだ。また、対数需要のショックの標準偏差は **`r round(sigma_hat, 3)`** と推定された。
+
+実験データと推定した需要曲線を重ねると、次のようになる。ここで縦軸は数量そのものではなく、対数である。
+
+```{r}
+#| echo: false
+#| label: fig-estimated-demand
+#| fig-width: 9
+#| fig-cap: "価格実験のデータと、状態別に推定した対数需要の条件付き平均"
+demand_grid <- expand.grid(state = state_levels, price = price_menu)
+demand_grid$state <- factor(demand_grid$state, levels = state_levels)
+demand_grid$log_price_ratio <- log(demand_grid$price / 1000)
+demand_grid$predicted_log_q <- predict(fit_demand, newdata = demand_grid)
+state_labeller <- as_labeller(setNames(state_names, state_levels))
+ggplot(experiment_df, aes(x = log_price_ratio, y = log_q)) +
+  geom_point(alpha = 0.3, color = "gray50", size = 1.5) +
+  geom_line(data = demand_grid, aes(y = predicted_log_q),
+            color = "steelblue", linewidth = 1) +
+  facet_wrap(~ state, nrow = 1, labeller = state_labeller) +
+  labs(x = "log(価格 / 1000)", y = "log(販売数量)",
+       title = "価格実験から需要曲線を推定する")
+```
+
+::: {.callout-note collapse="true"}
+## 教材用データを作ったコードと、真値の確認
+
+この講義では外部データを使わず、実験と営業記録も次のコードで作っている。実務の分析担当者には `true_` で始まる値は見えない。上の推定も、この後のシミュレーションも、実験データと営業記録から得た推定値を使う。
+
+```{r}
+#| ref.label: pricing-observed-data
+#| eval: false
+```
+
+生成時の $\exp(\alpha_S)$ は、価格1,000円における数量の**中央値**であり、平均ではない。数量は連続量として近似している。生成時のパラメータと推定結果を比べると、次のようになる。
+
+```{r}
+knitr::kable(data.frame(
+  state = state_names,
+  true_alpha = true_alpha, estimated_alpha = alpha_hat,
+  true_elasticity = -true_eta, estimated_elasticity = -eta_hat
+), digits = 3,
+col.names = c("見通し", "切片の真値", "切片の推定値", "弾力性の真値", "弾力性の推定値"))
+```
+
+標本からの推定なので、真値と完全には一致しない。以下では、真値に戻して計算するのではなく、**この推定結果を使って店長への提案を作る**。
+:::
+
+### 来期の需要を発生させるモデルを組み立てる
+
+価格への反応が推定できても、それだけでは来期の業績は計算できない。そもそも、暇な週、普通の週、忙しい週が、それぞれどのくらい来るのだろうか。
+
+各状態の確率を $\pi_s=P(S_t=s)$ とし、通常営業の208週の記録から、
+
+$$
+\hat\pi_s=\frac{1}{208}\sum_{t=1}^{208}\mathbf{1}\{S_t=s\}
+$$
+
+で推定する。$\mathbf{1}\{S_t=s\}$ は、その週が状態 $s$ なら1、それ以外なら0という記号である。
+
+```{r}
+#| label: pricing-state-probabilities
+state_counts <- table(history_df$state)
+state_prob_hat <- as.numeric(prop.table(state_counts))
+knitr::kable(data.frame(
+  state = state_names, weeks = as.integer(state_counts), probability = state_prob_hat
+), digits = 3, col.names = c("需要の見通し", "過去208週の回数", "推定した確率"))
+```
+
+
+ここでは、来期もこの確率が続き、週ごとの状態は独立に決まると仮定する。また、費用が変わっても、価格と見通しに対する需要の反応は変わらないとする。すると、来期の1週を作るモデルは次のように書ける。
+
+$$
+\begin{aligned}
+P(S_t=s)&=\hat\pi_s,\\
+Z_t&\sim N(0,1),\\
+q_t(p)&=\exp\{\hat\alpha_{S_t}-\hat\eta_{S_t}\log(p/1000)+\hat\sigma Z_t\}.
+\end{aligned}
+$$
+
+$Z_t$ は状態とも他の週のショックとも独立とする。店長は週初に $S_t$ を見て価格を決めるが、$Z_t$ が実現するのはその後である。**需要の水準、価格への反応、ショックの大きさ、状態の確率のすべてに、データから得た推定値を入れている。**
+
+指定した価格・状態・ショックから数量を作る関数を用意しておこう。
+
+```{r}
+#| label: pricing-estimated-quantity
+quantity_hat <- function(price, state_id, z) {
+  exp(alpha_hat[state_id] - eta_hat[state_id] * log(price / 1000) + sigma_hat * z)
+}
+```
+
+::: {.callout-note collapse="true"}
+## 対数の予測値を、そのままexpすれば平均数量になる？
+
+推定した対数需要の平均を $\hat\mu_s(p)=\hat\alpha_s-\hat\eta_s\log(p/1000)$ と書く。$\exp\{\hat\mu_s(p)\}$ は、このモデルでは数量の中央値である。平均数量は
+
+$$
+\widehat E[q\mid p,S=s]
+=\exp\{\hat\mu_s(p)+\hat\sigma^2/2\}
+$$
+
+になる。対数を取った量の平均と、元の量の平均を混同しないようにしよう。この後のコードは、$\hat\sigma Z$ を加えてから `exp()` で数量を発生させ、それを平均する。そのため、ショックによって元の数量の平均が変わることも計算に入る。
+:::
+
+### 候補価格ごとの粗利益をシミュレーションする
+
+ここまでの結果を店長に見せると、「価格への反応はわかった。で、来期はいくらにするのがよいの？」と聞かれた。確かに、需要関数の係数を報告するだけでは依頼は終わっていない。
+
+高く売れば1個あたりの利益は増えるが、売れる数量は減る。**推定した需要関数を使って、この兼ね合いを計算しよう。** 価格候補は600円から1,800円まで50円刻みとし、これは実験で無作為に割り当てた価格の候補と同じである。ここでは品切れや販売能力の制約はなく、売れた1個につき仕入費用 $c$ がかかるものとする。
+
+まず、需要の見通しを $s$、候補価格を $p$ に固定する。標準正規乱数 $Z^{(1)},\ldots,Z^{(M)}$ を発生させると、その価格での販売数量と粗利益が $M$ 通りできる。これを平均して、週の期待粗利益を近似する。
+
+$$
+\widehat V_M(p,s;c)
+=\frac{1}{M}\sum_{m=1}^{M}(p-c)
+\exp\{\hat\alpha_s-\hat\eta_s\log(p/1000)+\hat\sigma Z^{(m)}\}.
+$$
+
+**ここで平均しているのは、同じ見通し・同じ価格の下で、売上ショックだけが異なる $M$ 通りの「1週間の粗利益」**である。暇・普通・忙しい週を混ぜた平均でも、13週分の合計でもない。
+
+このように、多数の乱数から作った結果の平均や割合で期待値や確率を近似する計算を、**モンテカルロ・シミュレーション**という。ここでは $M=20{,}000$ とする。
+
+```{r}
+#| label: pricing-candidates
+set.seed(20266)
+planning_z <- rnorm(20000)
+
+expected_profit_hat <- function(price, cost, state_id) {
+  mean((price - cost) * quantity_hat(price, state_id, planning_z))
+}
+
+# 価格候補と需要の見通しの、すべての組み合わせを計算する
+profit_grid <- expand.grid(price = price_menu, state_id = 1:3)
+profit_grid$profit <- mapply(
+  function(p, s) expected_profit_hat(p, cost_after, s),
+  profit_grid$price, profit_grid$state_id
+)
+```
+
+どの候補価格でも同じ `planning_z` を使っている。これにより、価格を比べるときに、たまたまよいショックが出たかどうかという違いを混ぜずに済む。
+
+### 推定した需要に基づいて、値付けを提案する
+
+店長の「粗利益をできるだけ確保したい」という目的に合わせて、**推定モデルの下で週の期待粗利益が最も大きくなる価格**を提案する。
+
+$$
+\hat g(s;c)=\arg\max_{p\in\{600,650,\ldots,1800\}}\widehat V_M(p,s;c).
+$$
+
+$\arg\max$ は「右側を最大にする $p$ を選ぶ」という記号である。$\hat g(s;c)$ は、見通し $s$ と費用 $c$ を与えると、提案する価格を返すルールだ。店長の行動を外から推測しているのではなく、**あなたが需要推定の結果を使って提案を作っている**。
+
+```{r}
+#| label: pricing-recommendation
+recommended_prices <- sapply(1:3, function(s) {
+  profits <- sapply(price_menu, function(p) expected_profit_hat(p, cost_after, s))
+  price_menu[which.max(profits)]
+})
+knitr::kable(data.frame(
+  state = state_names,
+  current = current_prices,
+  recommended = recommended_prices,
+  increase = recommended_prices - current_prices
+), col.names = c("需要の見通し", "現在の価格（円）", "提案価格（円）", "値上げ幅（円）"))
+```
+
+仕入費用の上昇はどの週も150円だが、提案する値上げ幅は一律150円ではない。需要の価格への反応が見通しごとに違うため、利益を確保できる価格も違うのである。各週で今の価格を続けるか、提案価格に変えるかを、次の図で比べてみよう。
+
+```{r}
+#| echo: false
+#| label: fig-pricing-profit
+#| fig-width: 9
+#| fig-cap: "費用650円での候補価格と期待粗利益。現在の価格と、推定モデルから提案する価格を示す"
+profit_grid$state <- factor(state_levels[profit_grid$state_id], levels = state_levels)
+price_points <- data.frame(
+  state_id = rep(1:3, 2),
+  price = c(current_prices, recommended_prices),
+  rule = factor(rep(c("現在の価格", "提案価格"), each = 3),
+                levels = c("現在の価格", "提案価格"))
+)
+price_points$state <- factor(state_levels[price_points$state_id], levels = state_levels)
+price_points$profit <- mapply(
+  function(p, s) expected_profit_hat(p, cost_after, s),
+  price_points$price, price_points$state_id
+)
+ggplot(profit_grid, aes(x = price, y = profit / 10000)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(data = price_points, aes(color = rule, shape = rule), size = 3) +
+  geom_text(data = subset(price_points, rule == "提案価格"),
+            aes(label = paste0(price, "円")), vjust = -1, size = 3.5) +
+  facet_wrap(~ state, nrow = 1, labeller = state_labeller) +
+  scale_color_manual(values = c("gray45", "firebrick")) +
+  scale_x_continuous(breaks = c(800, 1200, 1600)) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+  labs(x = "候補価格（円）", y = "週の期待粗利益（万円）", color = NULL, shape = NULL,
+       title = "需要を推定してから、粗利益が大きい価格を提案する") +
+  theme(legend.position = "bottom")
+```
+
+ここで最大にしているのは、売上ショックが実現する**前**の期待粗利益である。実際に売れた数量を見てから、一番儲かったはずの価格を選び直しているわけではない。また、毎週の価格変更に追加の費用はなく、今週の価格は翌週の需要に影響しないものとする。この設定だから、見通しごとに週の期待粗利益を比べればよい。
+
+::: {.callout-note collapse="true"}
+## この価格比較にも、乱数は必須なのか
+
+実は、このlog-log需要と正規ショックのモデルでは、先ほどの平均数量の式から、週の期待粗利益も直接計算できる。価格選択だけのために、乱数が不可欠というわけではない。
+
+ここでは候補価格ごとの結果を発生させて比べる手順を見せたが、今回の依頼はそれで終わらない。**需要の見通しも売上ショックも異なる13週間を通した業績の分布と、予算を下回る確率**まで報告する必要がある。次のシミュレーションは、その部分に答えるためのものである。
+:::
+
+### その値付けを採用した来期を、5,000通り作る
+
+店長に提案を採用してもらった場合、来期はどうなりそうか。週初の見通しが暇なら暇な週用の価格、普通なら普通の週用の価格、忙しいなら忙しい週用の価格を使う。来期の13週間を5,000通り発生させてみよう。
 
 ```{r}
 #| label: pricing-futures
-#| include: false
-set.seed(20263)
+set.seed(20267)
 n_future <- 5000
 weeks_per_quarter <- 13
 
-# 行が「1つの来期」、列がその来期の第1週〜第13週
+# 行が1つの仮想的な来期、列が第1週から第13週
 future_state <- matrix(
-  sample(1:3, n_future * weeks_per_quarter, replace = TRUE, prob = state_prob),
-  nrow = n_future, ncol = weeks_per_quarter
+  sample(1:3, n_future * weeks_per_quarter, replace = TRUE, prob = state_prob_hat),
+  nrow = n_future
 )
-future_shock <- matrix(
-  rnorm(n_future * weeks_per_quarter, mean = 0, sd = sales_shock_sd),
-  nrow = n_future, ncol = weeks_per_quarter
-)
+future_z <- matrix(rnorm(n_future * weeks_per_quarter), nrow = n_future)
 ```
+
+ここでも、状態の確率には営業記録からの推定値を使っている。価格を比較するときの `planning_z` とは別の乱数を使い、提案した値付けの結果を評価する。
+
+値付けルールを $g$ とすると、仮想的な来期 $b$ における粗利益の合計は、
+
+$$
+\begin{aligned}
+p_{bt}&=g(S_{bt}),\\
+q_{bt}&=\exp\{\hat\alpha_{S_{bt}}-\hat\eta_{S_{bt}}\log(p_{bt}/1000)+\hat\sigma Z_{bt}\},\\
+\Pi_b(c,g)&=\sum_{t=1}^{13}(p_{bt}-c)q_{bt}.
+\end{aligned}
+$$
+
+となる。各週で見通しに合わせた価格を選び、その後に売上ショックが実現する。**価格を決める式に、その週の $Z_{bt}$ は入っていない。** そして13週分の粗利益を足せば、1つの来期の粗利益ができる。
 
 ```{r}
 #| label: pricing-worlds
-#| include: false
 simulate_quarters <- function(cost, price_rule) {
-  # 店長が見てよいのはその週のstate。future_shockは値付けに使わない
-  p <- matrix(price_rule[future_state], nrow = n_future)
-  d <- matrix(demand_levels[future_state], nrow = n_future)
-  q <- quantity_at(p, d, future_shock)
+  price <- matrix(price_rule[future_state], nrow = n_future)
+  alpha <- matrix(alpha_hat[future_state], nrow = n_future)
+  eta <- matrix(eta_hat[future_state], nrow = n_future)
+  quantity <- exp(alpha - eta * log(price / 1000) + sigma_hat * future_z)
   data.frame(
-    mean_price = rowMeans(p),
-    quantity = rowSums(q),
-    revenue = rowSums(p * q),
-    profit = rowSums((p - cost) * q)
+    mean_price = rowMeans(price),
+    quantity = rowSums(quantity),
+    revenue = rowSums(price * quantity),
+    profit = rowSums((price - cost) * quantity)
   )
 }
 
-# 同じ5000通りの来期を、費用と値付けの違う3つの世界で使う
-baseline_quarters <- simulate_quarters(cost_before, old_price_rule)
-unchanged_quarters <- simulate_quarters(cost_after, old_price_rule)
-adapted_quarters <- simulate_quarters(cost_after, new_price_rule)
+# 対応する来期では、同じ需要の見通しと同じ売上ショックを使う
+baseline_quarters <- simulate_quarters(cost_before, current_prices)
+unchanged_quarters <- simulate_quarters(cost_after, current_prices)
+recommended_quarters <- simulate_quarters(cost_after, recommended_prices)
 ```
 
+比較するのは、費用が500円のまま今の価格を続ける世界、費用が650円になっても今の価格を続ける世界、費用650円で提案価格を使う世界の3つである。同じ来期どうしには同じ状態とショックを使い、たまたま忙しい週が多かったという違いを、費用や価格の違いに混ぜないようにしている。
+
+### 平均と下振れリスクを報告する
+
+店長へのレポートを作ろう。来期の粗利益の期待値を近似するには、**13週分を合計した粗利益を、5,000通りの来期について平均する**。
+
+$$
+\widehat{E[\Pi(c,g)]}_{\mathrm{MC}}
+=\frac{1}{B}\sum_{b=1}^{B}\Pi_b(c,g),
+\qquad B=5000.
+$$
+
+13で割っていないので、これは1週間の平均ではなく、四半期の粗利益の平均である。一方、250万円を下回る確率は、
+
+$$
+\widehat{P(\Pi(c,g)<2500000)}_{\mathrm{MC}}
+=\frac{1}{B}\sum_{b=1}^{B}\mathbf{1}\{\Pi_b(c,g)<2500000\}
+$$
+
+で近似する。5,000通りのうち何通りが未達だったか、という割合である。
+
 ```{r}
-#| label: pricing-summary
-#| include: false
+#| label: pricing-report
 summarize_quarters <- function(x, label) {
   data.frame(
     scenario = label,
@@ -907,186 +1202,11 @@ summarize_quarters <- function(x, label) {
   )
 }
 pricing_report <- rbind(
-  summarize_quarters(baseline_quarters, "費用500円・従来の値付け"),
-  summarize_quarters(unchanged_quarters, "費用650円・従来の値付け"),
-  summarize_quarters(adapted_quarters, "費用650円・価格を選び直す")
+  summarize_quarters(baseline_quarters, "費用500円・現在の価格"),
+  summarize_quarters(unchanged_quarters, "費用650円・現在の価格"),
+  summarize_quarters(recommended_quarters, "費用650円・提案価格")
 )
-profit_recovery_man <- mean(adapted_quarters$profit - unchanged_quarters$profit) / 10000
-risk_mc_se <- 100 * sqrt(mean(adapted_quarters$profit < profit_target) *
-  (1 - mean(adapted_quarters$profit < profit_target)) / n_future)
 ```
-
-### まずは、今の値付けを続けたらどうなるか
-
-あなたは慎重な人間だ。いきなり複雑な計算をする前に、比較の出発点を作ることにした。
-
-**「仕入費用が上がっても、暇な週・普通の週・忙しい週それぞれの価格を、今のまま続けたらどうなるか」**を計算する。ここで据え置くのは毎週一律の価格ではなく、需要の見通しに応じた現在の値付け方である。
-
-来期13週間をコンピュータの中で5,000通り発生させる。忙しい週の多い来期もあれば、暇な週が続く来期もある。さらに、同じ見通しの週でも販売数量はぶれる。それぞれの来期について売上と粗利益を集計し、その平均と、粗利益が250万円を下回った割合を調べる。
-
-実際に計算してみた結果が以下である。「費用500円」は、仕入費用の上昇がなかった場合の比較用の世界である。
-
-```{r}
-#| echo: false
-knitr::kable(pricing_report[1:2, c("scenario", "profit_man", "below_target_pct")],
-             digits = 1,
-             col.names = c("計算した世界", "四半期の平均粗利益（万円）", "250万円未満の割合（%）"))
-```
-
-なるほど、仕入費用の上昇は痛い。今の値付けを続けると、粗利益の平均は **`r round(pricing_report$profit_man[2], 1)`万円**、250万円を下回る割合は **`r round(pricing_report$below_target_pct[2], 1)`%** となった。今回は未来を何千通りも作った。平均だけでなく、悪い方に振れる可能性もちゃんと計算している。
-
-### 会議で聞かれたこと
-
-この結果を上司に見せると、こんな返事が返ってきた。
-
-> 今の値付けを続けたらどうなるかはわかった。でも、来期も値付けは店長に任せるんだよね。仕入れが高くなったら、店長も価格を変えるんじゃない？
-
-そのとおりである。あなたが計算したのは、**本部が従来の値付け方を続けさせる世界**だった。そのシミュレーション自体がおかしいわけではない。しかし、今回予算を作りたいのは、新しい仕入費用の下で店長が価格を選び直す世界である。
-
-需要モデルは正しい。乱数もたくさん振った。それでも、店長の判断を入れないままでは、依頼された世界のシミュレーションにはなっていない。
-
-では、価格をいくらに変えればよいのだろうか。「原価が150円上がるから、販売価格も150円上げておけばいいか」と、あなたが決めてしまってよいだろうか。値上げすると1個あたりの利益は増えるが、売れる個数は減る。その兼ね合いは、その週の需要の見通しにもよる。**値上げ幅そのものを、店長の意思決定から計算する必要がある。**
-
-シミュレーション1では、広告費を2倍にすることをこちらから指定した。今回は、こちらから変更するのは仕入費用であり、販売価格はその変更を受けて決まる結果である。
-
-### 需要だけでなく、店長の意思決定もモデルにする
-
-ここから、計算に使っているモデルの中身を明かそう。まず、週 $t$ の需要の見通しを $D_t$ と書く。
-
-$$
-D_t=\begin{cases}
-1200 & \text{確率 }0.25\text{（暇な週）},\\
-1500 & \text{確率 }0.50\text{（普通の週）},\\
-1800 & \text{確率 }0.25\text{（忙しい週）}.
-\end{cases}
-$$
-
-$D_t$ は需要の強さを表す数字であって、実際の販売数量ではない。週ごとの $D_t$ は独立とする。店長には週初にその週の $D_t$ がわかる。一方、価格決定後に起きる売上ショックを $\varepsilon_t\sim N(0,150^2)$ とし、これは $D_t$ とも他の週のショックとも独立とする。
-
-価格を $p$ 円にしたときの販売数量は、
-
-$$
-q(p,D_t,\varepsilon_t)
-=\min\{650,\;\max(D_t-p+\varepsilon_t,\;0)\}
-$$
-
-で決まる。この店は、売れた分を仕入れて引き渡す商品を扱っており、1週間に対応できる販売数量の上限が650個である。販売数量は負にならず、上限にもぶつかる。売れた1個につき仕入費用 $c$ がかかり、在庫の持ち越しは考えない。数量は簡単のため連続量として扱う。
-
-価格は800円から1,600円まで50円刻みで選べる。この制約には、レジに登録できる価格の候補が決まっている、という状況を想像すればよい。週の粗利益は
-
-$$
-\pi(p,c,D_t,\varepsilon_t)=(p-c)q(p,D_t,\varepsilon_t)
-$$
-
-である。Rではここまでを次のように書いている。
-
-```{r}
-#| ref.label: pricing-model
-#| eval: false
-```
-
-これで、**価格を与えた場合に**販売数量と粗利益を計算できる。しかし、店長が選ぶ価格はまだ決まっていない。そこを埋めるため、この店長はその週の**期待粗利益を最大にする価格を選ぶ**と仮定する。
-
-$$
-p^*(D_t,c)
-=\arg\max_{p\in\{800,850,\ldots,1600\}}
-E_{\varepsilon_t}\big[(p-c)q(p,D_t,\varepsilon_t)\mid D_t\big].
-$$
-
-$\arg\max$ は「右側を最大にする $p$ を選ぶ」という記号である。店長は $D_t$ を見たうえで、まだわからない $\varepsilon_t$ について平均した粗利益を比べる。毎週の価格変更に追加の費用はなく、今週の価格が翌週の需要に影響することもないので、ここでは週ごとに選べばよい。
-
-**需要モデルが「この価格なら何個売れそうか」を計算し、意思決定のモデルが「その中からどの価格を選ぶか」を決める。** この2つを組み合わせると、仕入費用を変えた後の価格まで計算できる。
-
-### まず、店長が選ぶ価格を計算する
-
-候補価格ごとの期待粗利益を計算するために、売上ショックを20,000個発生させる。同じ候補価格の下で20,000通りの販売数量と粗利益を作り、その平均を取る。それをすべての候補価格について行い、平均が最大になる価格を選ぶ。
-
-このように、乱数で作った多数の結果の平均や割合を使って、期待値や確率を近似する計算を**モンテカルロ・シミュレーション**という。候補価格どうしを比較するときには、同じショックの組を使う。価格ごとにたまたま景気のよい乱数や悪い乱数を引くと、価格の違いと乱数の違いが混ざるからである。
-
-```{r}
-#| ref.label: pricing-choice
-#| eval: false
-```
-
-`choose_price()` は、需要の見通しと仕入費用を受け取り、選ばれる価格を返す関数である。これを費用500円と650円で計算すると、次の値付け方になる。
-
-```{r}
-knitr::kable(data.frame(
-  state = state_names,
-  old_price = old_price_rule,
-  new_price = new_price_rule,
-  increase = new_price_rule - old_price_rule
-), col.names = c("需要の見通し", "費用500円での価格", "費用650円での価格", "値上げ幅（円）"))
-```
-
-仕入費用はどの週も150円上がるが、販売価格の上げ幅は一律150円にはならない。**値上げ幅は入力ではなく、需要と費用を踏まえた意思決定の出力になっている。** 最初のレポートで据え置いたのは、この表の「費用500円での価格」を各週の見通しに応じて選ぶルールであった。
-
-普通の週について、候補価格と期待粗利益の関係を図にしてみよう。
-
-```{r}
-#| echo: false
-#| label: fig-pricing-profit
-#| fig-cap: "普通の週の期待粗利益。仕入費用が変わると、粗利益を最大にする価格も変わる"
-profit_grid <- expand.grid(price = price_menu, cost = c(cost_before, cost_after))
-profit_grid$profit <- mapply(function(p, c) expected_profit(p, c, 1500),
-                             profit_grid$price, profit_grid$cost)
-profit_grid$cost_label <- factor(paste0("仕入費用", profit_grid$cost, "円"),
-                                  levels = c("仕入費用500円", "仕入費用650円"))
-best_points <- profit_grid[c(
-  which(profit_grid$cost == cost_before & profit_grid$price == old_price_rule[2]),
-  which(profit_grid$cost == cost_after & profit_grid$price == new_price_rule[2])
-), ]
-ggplot(profit_grid, aes(x = price, y = profit / 10000, color = cost_label)) +
-  geom_line(linewidth = 0.8) +
-  geom_point(size = 1.8) +
-  geom_point(data = best_points, size = 4) +
-  geom_text(data = best_points, aes(label = paste0(price, "円")),
-            vjust = -1.1, size = 4, show.legend = FALSE) +
-  scale_color_manual(values = c("steelblue", "firebrick")) +
-  scale_y_continuous(expand = expansion(mult = c(0.03, 0.12))) +
-  labs(x = "候補価格（円）", y = "週の期待粗利益（万円）", color = NULL,
-       title = "店長が選ぶのは、それぞれの線で一番高い点") +
-  theme(legend.position = "bottom")
-```
-
-ここで選んでいるのは**平均として儲かる価格**である。実際の売上ショックを見てから、一番儲かったはずの価格を選んでいるわけではない。未来を知っている店長を作ってしまうと、シミュレーションの中だけやたらと優秀な店ができてしまう。
-
-### 次に、来期13週間を5,000通り作る
-
-値付け方が決まったので、来期を発生させよう。1つの来期につき13週分の需要の見通しと売上ショックを引く。それを5,000回繰り返す。**価格を選ぶために使った乱数とは別の乱数**で、来期の結果を評価する。
-
-```{r}
-#| ref.label: pricing-futures
-#| eval: false
-```
-
-`future_state` と `future_shock` は、それぞれ5,000行・13列の行列である。たとえば第1行が「1つ目の仮想的な来期」の13週間を表す。行を変えると、別の来期になる。
-
-同じ5,000通りの来期を、次の3つの世界で使う。
-
-1. **費用が上がらなかった世界**：費用500円で、従来の値付けをする。
-2. **費用だけ変えて、値付けを据え置く世界**：費用650円で、従来の値付けをする。最初のレポートはこれだった。
-3. **費用の変更に店長が対応する世界**：費用650円で、価格を選び直す。上司が知りたかったのはこちらである。
-
-対応する来期どうしでは、同じ週に同じ需要の見通しと売上ショックを使う。こうすれば、費用や値付けの違いを、たまたま忙しい週が多かったという違いと混ぜずに比べられる。
-
-```{r}
-#| ref.label: pricing-worlds
-#| eval: false
-```
-
-コンピュータには先に13週分の乱数を用意したが、**価格の計算が参照しているのは、その週の需要の見通しだけ**である。各週の計算は、次の順序になっている。
-
-1. 店長がその週の需要の見通し $D_t$ を知る。
-2. その見通しと仕入費用から、価格 $p^*(D_t,c)$ を選ぶ。
-3. 価格決定後に売上ショック $\varepsilon_t$ が実現する。
-4. その価格での販売数量・売上・粗利益が決まる。
-
-そして13週分の数量・売上・粗利益を足し合わせる。これで1つの仮想的な来期が完成する。
-
-### レポートを書き直す
-
-ようやく、上司の依頼に対応したレポートが作れる。それぞれの世界について、5,000通りの来期から平均を計算する。
 
 ```{r}
 #| echo: false
@@ -1095,85 +1215,66 @@ knitr::kable(pricing_report[, c("scenario", "mean_price", "quantity", "revenue_m
              col.names = c("計算した世界", "平均価格（円）", "数量（個）", "売上（万円）", "粗利益（万円）"))
 ```
 
-平均価格は各週の価格の単純平均である。売上は各週の「価格×数量」を足しているので、この平均価格に四半期の数量を掛けたものとは限らない。
-
-店長が価格を選び直すことで、値付けを据え置く場合よりも四半期の期待粗利益は約 **`r round(profit_recovery_man, 1)`万円** 改善した。それでも、仕入費用が上がらなかった世界まで利益が戻るわけではない。**店長の対応が費用上昇の損失をどのくらい和らげるか**を計算したのである。
-
-では、粗利益が250万円を下回るリスクはどうなっただろうか。各世界のシミュレーション結果について、250万円未満だった来期の割合を計算すればよい。
+数量・売上・粗利益は13週合計を来期間で平均したもの、価格は各週の価格を全5,000×13週で単純平均したものだ。
 
 ```{r}
-risk_pct <- 100 * c(
-  mean(baseline_quarters$profit < profit_target),
-  mean(unchanged_quarters$profit < profit_target),
-  mean(adapted_quarters$profit < profit_target)
-)
-risk_report <- data.frame(
-  scenario = c("費用500円・従来の値付け", "費用650円・従来の値付け",
-               "費用650円・価格を選び直す"),
-  risk_pct = risk_pct
-)
-knitr::kable(risk_report, digits = 1,
+#| echo: false
+knitr::kable(pricing_report[, c("scenario", "below_target_pct")], digits = 2,
              col.names = c("計算した世界", "250万円未満の割合（%）"))
 ```
-
-次の図では、1つ1つのシミュレーションで得た四半期の粗利益をヒストグラムにしている。棒が高い範囲ほど、その粗利益になる来期が多かった。破線の左側が、250万円を下回った来期である。
 
 ```{r}
 #| echo: false
 #| label: fig-pricing-quarters
 #| fig-height: 6
-#| fig-cap: "同じ5,000通りの来期を3つの世界で比較する。破線は四半期の粗利益250万円"
+#| fig-cap: "推定した需要モデルで作った四半期の粗利益の分布。破線は250万円"
 profit_distribution <- data.frame(
   scenario = factor(rep(pricing_report$scenario, each = n_future), levels = pricing_report$scenario),
-  profit_man = c(baseline_quarters$profit, unchanged_quarters$profit, adapted_quarters$profit) / 10000
+  profit_man = c(baseline_quarters$profit, unchanged_quarters$profit,
+                 recommended_quarters$profit) / 10000
 )
 ggplot(profit_distribution, aes(x = profit_man, y = after_stat(count / n_future), fill = scenario)) +
   geom_histogram(binwidth = 10, boundary = 0, alpha = 0.85) +
   geom_vline(xintercept = profit_target / 10000, linetype = "dashed", color = "gray25") +
   facet_wrap(~ scenario, ncol = 1) +
   scale_fill_manual(values = c("steelblue", "gray60", "firebrick")) +
-  scale_y_continuous(breaks = seq(0, 0.12, by = 0.02),
-                     labels = scales::label_percent(accuracy = 1)) +
+  scale_y_continuous(labels = scales::label_percent(accuracy = 0.1)) +
   labs(x = "13週間の粗利益（万円）", y = "来期の割合",
-       title = "平均だけでなく、利益のばらつきも報告する") +
+       title = "提案する値付けの下で、来期の業績をシミュレーションする") +
   theme(legend.position = "none")
 ```
 
-上司には、**「店長が新しい費用の下で期待粗利益を最大にするように値付けするなら、四半期の粗利益は平均 `r round(pricing_report$profit_man[3], 1)`万円、250万円を下回る確率は約 `r round(pricing_report$below_target_pct[3], 1)`%です」**と報告できる。これは、ここで置いた需要と店長の行動のモデルに基づく見通しである。来期の実績を先に見たわけではない。
+図の棒が高いところほど、その範囲の粗利益になる来期が多かった。破線の左側が予算未達の来期である。
 
-なお、店長に仮定したのは期待粗利益の最大化であり、250万円を下回る確率の最小化ではない。予算未達を特に避けたい会社なら、価格を選ぶときの目的も改めて考える必要がある。
+店長には、**「費用上昇後も今の値付けを続ける場合と比べて、提案価格を使うと四半期の期待粗利益は約 `r round(pricing_report$profit_man[3] - pricing_report$profit_man[2], 1)`万円改善する見通しです。ただ、それでも250万円を下回る確率は約 `r round(pricing_report$below_target_pct[3], 1)`%あります」**と報告できる。
+
+需要曲線の推定で終わらず、**その需要の下でどんな価格を提案し、採用した場合にどんな業績とリスクが見込まれるか**まで、データを使って答えたのである。
+
+今回の提案では、期待粗利益の最大化を判断基準にした。予算未達の確率は、その提案を採用した場合にも残るリスクとして報告している。
 
 ::: {.callout-note collapse="true"}
-## 5,000回やれば、どのくらい正確なのか
+## 推定したモデルの見通しと、実際の来期は同じではない
 
-この計算には、区別したい2種類の不確実さがある。まず、需要が変動するために来期の利益自体がばらつく。ヒストグラムはそのばらつきを表している。もう1つは、有限回のシミュレーションで確率を近似しているための計算上の誤差である。
+このレポートでは、需要係数、ショックの大きさ、状態の確率を**推定値に固定して**来期を発生させた。図が示しているのは、そのモデルの下での営業上の不確実さであり、パラメータの推定誤差も含めた予測区間ではない。提案価格も、推定した需要の下で最良の価格であって、真の需要の下で必ず最良とは限らない。
 
-未達の割合を $\hat r$、シミュレーション回数を $B$ とすると、独立な来期を発生させたときのモンテカルロ標準誤差はおおよそ $\sqrt{\hat r(1-\hat r)/B}$ である。最後のケースでは約 **`r round(risk_mc_se, 2)`パーセントポイント**になる。回数を増やすと、この計算上の誤差は小さくなるが、来期の利益のばらつきそのものはなくならない。
+有限回のシミュレーションによる計算上の誤差もある。未達割合を $\hat r$ とすると、モンテカルロ標準誤差はおおよそ $\sqrt{\hat r(1-\hat r)/B}$ である。回数を増やせばこの誤差は小さくなるが、需要推定の誤差や来期の利益のばらつきは、それによって消えるわけではない。
 
-さらに今回は、需要のパラメータとショックの分布を正しく知っているという設定で計算した。パラメータ推定の不確実さや、費用変更後にもこの需要モデルと店長の行動の仮定が通用するかは、この標準誤差に含まれない。試行回数を増やすだけで、モデルの妥当性まで保証できるわけではない。
+実験と対象店舗に同じ需要モデルを使えること、来期も需要の反応や状態の分布が変わらないことも、結果を支える仮定である。実際の業務では推定の不確実さやこれらの仮定を検討し、提案を採用した後の実績とも照合していく必要がある。
 :::
 
-### シミュレーション1から、何が増えたのか
-
-シミュレーション1の広告費倍増の効果は、広告費の変化分に正しい係数を掛ければ直接計算できた。売上ショックも、同じ店舗の2つの世界を引き算すると消えたので、効果を知るために未来を何千回も発生させる必要はなかった。
-
-今回は、最初から**「費用が変わった後、店長が価格を選び直す来期を作り、13週間の業績の分布まで知る」**という仕事だった。需要の式に1つの価格を代入するだけでは終わらない。価格候補を比べて意思決定を計算し、その意思決定を需要の異なる週で繰り返し、四半期として集計した。
-
-この小さなモデルの一部は、積分や場合分けを使って解析的に計算することもできる。乱数を使うこと自体が目的なのではない。ここでは、価格の候補、販売能力の上限、需要の変動を含めて、**変更後の世界で起きる意思決定と結果を順に作り、平均や確率を求める方法**としてシミュレーションを使っている。
-
 ::: {.callout-important}
-## いいシミュレーションには、変更後の意思決定も必要になる
+## 推定した需要を、意思決定に使う
 
-シミュレーション1では、**変更後にも使える需要や売上の関係を識別・推定すること**が必要だった。シミュレーション2では、それに加えて、**環境の変更を受けて企業が何を選ぶかをモデルに入れること**が必要になった。
+ここでの流れは、**需要推定 → 反実仮想シミュレーション → 値付けの提案と業績の見通し**である。需要のパラメータを推定するのは、係数の表を作るためだけではない。価格や費用を変えた世界で何が起きるかを計算し、どの選択をするか考えるためである。
 
-今回変えたのは仕入費用であり、需要の仕組み、店長が知っている情報、選べる価格、期待粗利益を最大にするという行動原理は維持した。それでも選ばれる価格は変わる。構造モデルは、このように「何を変えた結果、何がどう決まるか」を計算するために使う。
+ここは非常に重要なところである。どういう財をどういう価格で出した時に何個売れるのか、という需要関数を「所与」として、価格だけを動かした世界をシミュレーションした。なぜ需要関数は「所与」でいいのか？それは、需要関数を構成する、消費者の**効用関数**とそ効用関数に基づいた**期待効用最大化という行動モデル**は店側の価格を変えるという行動とは無関係だからである。つまり価格を変えた世界でも消費者の行動は変わらないので需要関数は変わらない。最初から１点の需要というポイントではなく、「こうなったらいくら買う」という関数として需要を求めておけば、それをいろんな世界で使いまわせるということである。
 
-今後の授業では、この計算に必要な需要や費用のパラメータを実際のデータからどう推定するかを学ぶ。さらに、他社の値付けにも反応する企業を考えれば、競争や合併後の価格をシミュレーションする話につながっていく。
+なので、需要関数は実証IOの根底にある概念であり、次回以降の数回はこの需要関数の推定という一点のみについて話す。今回は1商品の単純な需要関数を使った。次回以降は、消費者の選択から需要を組み立て、商品の代替関係も推定していく。そうした需要推定を土台に、複数商品の価格設定や企業間の競争、合併後の価格を計算する話へ進んでいく。
 :::
 
 ## 5. 反実仮想とは何か
 
-ここまで見てきた「広告費を2倍にしたら」「仕入費用が上がり、店長が価格を選び直したら」という計算が、まさに**反実仮想（counterfactual）**である。反実仮想とは、「もしあの時、実際に起きたこととは違う選択をしていたら、結果はどうなっていたか」をモデルを使って計算することだと定義できる。
+ここまで見てきた「広告費を2倍にしたら」「仕入費用が上がり、提案した値付けを採用したら」という計算が、まさに**反実仮想（counterfactual）**である。反実仮想とは、「もしあの時、実際に起きたこととは違う選択をしていたら、結果はどうなっていたか」をモデルを使って計算することだと定義できる。
 
 計量経済学Iで学んだ因果推論の道具（DiD、IV、RDDなど）も、広い意味では反実仮想を扱っている。「もしこの処置を受けていなかったら」という潜在アウトカムを、実際に観測されたデータの変動を利用して推定するのがそれらの手法だった。これらの設計が最も説得力を持つのは、通常、**実際に観測された処置や共変量の支持範囲に近い問い**である。支持範囲の外へ因果効果を外挿すること自体は不可能ではないが、効果の関数形や不変性について追加の仮定が必要になる。例えば、5%の値上げの変動から「50%値上げしたらどうなるか」「まったく新しい価格帯ならどうなるか」を答えるには、研究デザインだけでは足りない。
 
@@ -1210,57 +1311,41 @@ ggplot(profit_distribution, aes(x = profit_man, y = after_stat(count / n_future)
 ::: {.callout-tip}
 ## 実証研究コーナー：Chintagunta, Erdem, Rossi, and Wedel (2006)
 
-**研究の問い**：マーケティングサイエンスにおける「構造モデリング（structural modeling）」とは何か。それは還元形（reduced-form）の分析とどう違い、どのような利点・コストを持つのか。
+消費者や企業の行動をモデルに書くと、何ができるようになるのか。["Structural Modeling in Marketing: Review and Assessment"](https://pubsonline.informs.org/doi/10.1287/mksc.1050.0161) は、消費者の選択・需要や企業間の競争を扱った研究を振り返り、マーケティングにおける構造モデルの役割を論じたレビューである。
 
-**データ・アプローチ**：この論文はMarketing Science誌の特集号の序文として書かれたレビュー論文であり、単一のデータセットを分析するものではない。むしろ、構造モデルを用いたquantitative marketingの一連の研究（ブランド選択モデル、価格設定モデル、広告効果モデルなど）を概観し、方法論としての位置づけを整理している。
+著者たちが検討しているのは、行動についての理論をデータで確かめることと、そのモデルを実際の意思決定に使うことである。モデルを細かく作るほど、行動についての仮定や推定の計算負担も増える。その手間に見合うだけ、よい意思決定ができるのか。論文では、構造モデルの利点とともに、仮定の検証やモデルの妥当性をどう評価するかも取り上げている。
 
-**識別戦略・モデル**：構造モデルは、消費者や企業の意思決定を明示的な効用最大化・利潤最大化問題として定式化し、そのモデルのパラメータをデータから推定する。これにより、観測されたデータの範囲を超えた反実仮想（新製品導入、価格変更、規制変化など）のシミュレーションが可能になる、という点が還元形分析との大きな違いとして強調される。
-
-**主要な発見**：この論文では、構造モデルが果たす役割を「政策の反実仮想シミュレーションを可能にすること」「観測されないパラメータ（選好の異質性など）に経済学的な解釈を与えること」の2点に整理し、複数の応用領域（少なくとも10以上の異なるマーケティング上の意思決定領域）にわたって構造モデルが使われてきたことを紹介している。
-
-**このトピックとの関係**：まさに今回のシミュレーション2で見た「反実仮想を計算するにはモデルが必要だ」という主張を、方法論の言葉で正面から論じた文献である。第2回以降で学ぶ離散選択モデルは、この論文が言う「構造モデル」の最も基本的な形の1つに当たる。
+今回のシミュレーション2では、推定した需要関数を使って価格を選んだ。この例を踏まえると、「その提案は、需要について置いた仮定にどこまで依存しているのか」という問いを持って読める。これから構造モデルを学ぶにあたって、その使い道と、結果を信用するために確かめるべきことを考える入口になる。
 :::
 
 ::: {.callout-tip}
 ## 実証研究コーナー：Athey and Luca (2019)
 
-**研究の問い**：テック企業で働く経済学者（エコノミスト）は、実際にどのような仕事をしているのか。経済学の博士号を持つ人材が企業に採用されることは、経済学という学問にとってどのような意味を持つのか。
+["Economists (and Economics) in Tech Companies"](https://www.aeaweb.org/articles?id=10.1257/jep.33.1.209) が紹介するのは、経済学がテック企業の中でどのような仕事になっているか、という話である。広告の効果を測ることから、広告枠を売るオークションや、利用者どうしが評価するレビューの仕組みまで、経済学者が関わる対象は幅広い。因果推論の技能に加えて、人のインセンティブや企業どうしの相互作用を考える力が、こうした仕事で使われている。
 
-**データ・アプローチ**：Journal of Economic Perspectives誌に掲載されたこの論文は、Amazon、Microsoft、Uber、eBay、Airbnbといった主要テック企業における経済学者チームの活動を、著者らの直接の観察・インタビューに基づいて整理したものである。
+例えば、相手のレビューを読んでから自分のレビューを書く仕組みでは、悪い評価への報復を恐れて、正直な感想を書きにくくなるかもしれない。論文は、評価の公開方法を変えることでこうした問題に対処する研究を取り上げている。データを分析することと、人がどう反応するかを考えて仕組みを設計することが、つながっているのである。
 
-**識別戦略・モデル**：この論文自体は特定の統計モデルを推定するものではなく、企業内でエコノミストが担う役割を類型化する記述的な研究である。エコノミストの仕事は、大きく「A/Bテストなどの実験デザインの設計・評価」「マーケットデザイン（オークション設計、マッチングアルゴリズムなど）」「予測・機械学習との連携」「経営陣への政策提言」といった領域に整理される。
-
-**主要な発見**：2010年代後半にかけて、主要テック企業における経済学PhD人材の採用が急速に増加したことが指摘されている。エコノミストは単にデータ分析をするだけでなく、プラットフォームの設計そのもの（オークション形式、レコメンデーションアルゴリズム、料金体系）に関与するようになっている点が強調される。
-
-**このトピックとの関係**：この講義が「公開講座として企業のデータ分析担当者も受講する」ことの背景そのものを説明している論文である。実証IO・quantitative marketingで学ぶ道具（需要推定、因果推論、構造モデル）が、まさにこの論文で描かれるような企業内エコノミストの実務で使われている。
+今回、需要を推定してから値付けを提案したのも、こうした仕事の小さな例として読める。企業の依頼を分析できる問いに直し、その結果を実際の選択につなげるところまでが仕事になる。この講義で学ぶ道具がどこで使われるのか、具体的なイメージを持つのによい論文である。
 :::
 
 ::: {.callout-tip}
 ## 実証研究コーナー：Einav and Levin (2014)
 
-**研究の問い**：ビッグデータの登場は、経済学（特に実証経済学）の研究手法をどう変えるのか。
+行政記録や企業の取引データが使えるようになると、経済学で調べられることはどう広がるのだろうか。["Economics in the Age of Big Data"](https://web.stanford.edu/~leinav/pubs/Science2014.pdf) は、そうした変化を具体的な研究とともに紹介している。
 
-**データ・アプローチ**：Science誌に掲載されたこの論文は、企業や政府が保有する大規模なトランザクションデータ（POS、検索ログ、税務データなど）が、経済学の実証研究にとってどのような新しい機会と課題をもたらすかを論じている。
+面白い例が、eBayで同じ売り手が同じ商品を繰り返し出品する記録である。商品や売り手をそろえながら、価格、送料、販売方法の違いを比較できる。ただし、売り手が需要の変化を見て価格を変えている可能性は残る。そこで同時に出品された商品に比較を絞るなど、細かな記録を使って比較の説得力を高めていく。大量のデータがあることの利点が、具体的に見えてくる例である。
 
-**識別戦略・モデル**：特定の計量モデルを推定する論文ではなく、方法論的な論考である。著者らは、ビッグデータが経済学研究にもたらす変化を、(i) 従来は観測不可能だった行動（検索、閲覧、迷いなど）が観測可能になること、(ii) リアルタイムに近いデータで政策・施策の効果を評価できるようになること、(iii) 予測タスクにおいて機械学習的な手法との融合が進むこと、の3点に整理している。
-
-**主要な発見**：ビッグデータは経済学の理論的な問い（因果関係の識別、構造モデルの妥当性）を置き換えるものではなく、むしろそれらの問いに答えるための材料を豊富にするものだ、という立場が示されている。単に「データが大きくなった」だけでは因果関係は識別できず、実験デザインや構造モデルといった従来の道具の重要性はむしろ増す、という主張が中心にある。
-
-**このトピックとの関係**：今回学んだ「予測と因果は別のタスクである」という教訓を、ビッグデータ時代においてどう活かすべきかを論じた文献である。データが大きくなればなるほど、相関と因果を混同する誘惑も大きくなる、という警鐘として読むとよい。
+機械学習と経済理論の組み合わせにも話が及ぶ。広告がクリックされる確率を予測することと、その広告枠をどのように売り、料金を決めるかは、組み合わせて考える必要がある。豊かなデータから何を学び、それをどんな意思決定に使うか。今回の講義を、データの変化によって広がる経済学の仕事の一部として捉えられる論文である。
 :::
 
 ::: {.callout-tip}
 ## おもしろ枠：Varian (2014)
 
-**研究の問い**：ビッグデータ時代に、計量経済学者は機械学習のどのような手法を「新しい道具」として取り入れるべきか。
+["Big Data: New Tricks for Econometrics"](https://www.aeaweb.org/articles?id=10.1257/jep.28.2.3) は、回帰分析に馴染みのある経済学者に向けて、決定木、ランダムフォレスト、LASSOなどを紹介する論文である。タイタニック号の乗客の生存を予測する例などを使い、実際のデータに手法を当てはめながら説明している。学習に使ったデータへの当てはまりだけで満足せず、別のデータで予測性能を確かめることや、クロスバリデーションを使うことも勧めている。
 
-**データ・アプローチ**：Journal of Economic Perspectives誌に掲載されたこの論文（"Big Data: New Tricks for Econometrics"）は、Google社のチーフエコノミストを務めた著者が、決定木、ランダムフォレスト、正則化（LASSOなど）といった機械学習の手法を、経済学者にもわかる言葉で紹介した入門的な論考である。
+今回の講義と特に近いのは、後半の予測と因果の議論だ。犯罪が多い地区ほど警官を多く配置しているなら、警官の人数と犯罪の相関は予測に役立っても、警官を増やす政策の効果にはならない。シミュレーション1の広告費と同じ問題である。一方で著者は、予測の道具を因果推論に組み込む可能性にも目を向け、広告を出さなかった場合のウェブサイト訪問数を予測して、実際の訪問数と比較する例を紹介している。
 
-**識別戦略・モデル**：この論文自体はモデルを推定するのではなく、教育的なチュートリアルとして書かれている。回帰木やクロスバリデーションといった機械学習の基本概念を、計量経済学者が馴染んでいる回帰分析の枠組みと対比させながら説明している。
-
-**主要な発見**：機械学習の手法は「予測」タスクにおいては強力だが、それだけでは「因果効果の推定」という経済学者が重視するタスクには直接使えない、という論点が明確に示されている。両者を組み合わせる（例えば傾向スコアの推定に機械学習を使う）ことで、より柔軟で頑健な因果推論が可能になる、という方向性が示唆されている。
-
-**このトピックとの関係**：今回のシミュレーションで扱った「予測モデルは当たるが介入効果は外れる」という教訓の、機械学習版の解説として読める。第11回で学ぶuplift・policy learningの背景にある問題意識にもつながっている。
+予測性能を高める工夫を学びながら、「その予測は、どの世界の結果を予測しているのか」と考えて読むとよい。今回分けて考えた予測と介入を、実際の分析でどう組み合わせるかに関心がある人に勧めたい。
 :::
 
 ## 7. ビジネスの現場で
@@ -1298,7 +1383,7 @@ ggplot(profit_distribution, aes(x = profit_man, y = after_stat(count / n_future)
 - 計量経済学IIは、計量経済学Iで学んだ「識別・推定・推論」の3ステップと「モデル＝条件付き分布の束」という考え方を土台に、**意思決定のための反実仮想シミュレーション**を組み立てることを目指す。
 - 実証ビジネス・エコノミクス、実証IO、quantitative marketingは、いずれも「データを使って企業・政策の意思決定を支える」という目的を共有する隣接分野であり、企業の意思決定は(a)需要と代替性、(b)施策の因果効果、(c)顧客の異質性、(d)最適な配分・価格付け、という4つの問いに整理できる。
 - 「予測」と「因果」はまったく別のタスクである。広告費と売上の相関を使ったモデルは、来月の売上予測にはよく効くが、「広告費を動かしたらどうなるか」という介入予測には大きく外れることがある。
-- 費用の変更後に価格や業績がどうなるかを計算するには、需要だけでなく企業の意思決定もモデルにする必要がある。需要が異なる将来を繰り返し作れば、平均業績に加えて、予算未達の確率も計算できる。
+- データから需要関数を推定し、候補価格ごとの結果を計算することで、値付けを提案できる。その提案を採用した将来を繰り返し作れば、平均業績に加えて、予算未達の確率も計算できる。
 - 反実仮想とは「もしあの時○○していたら」をモデルで計算することであり、構造推定とはそのためのパラメータ推定作業である。合併審査や価格最適化など、このコース後半の多くのトピックがこの考え方の応用である。
 - 実験（A/Bテスト）ができない意思決定は数多く存在し、そこでは観察データの因果推論や構造モデルによる反実仮想シミュレーションが主要な武器になる。
 :::
@@ -1313,7 +1398,7 @@ ggplot(profit_distribution, aes(x = profit_man, y = after_stat(count / n_future)
 
 ## 次回予告
 
-次回（第2回）では、今回のシミュレーション2で与えた需要関数の中身に踏み込み、「消費者は複数の選択肢の中から1つを選ぶ」という状況を、確率的効用最大化モデル（random utility model, RUM）として定式化する。消費者が財の効用を比較して選択するというモデルから、有名な「logitモデル」の選択確率の式を導出し、計量Iでは扱わなかった**最尤法（maximum likelihood estimation）**を初めて学ぶ。さらに、価格弾力性・交差弾力性の計算方法も導入する。ここから数回にわたって、離散選択モデルという、実証IO・quantitative marketingの中心的な道具を身につけていくことになる。
+次回（第2回）では、今回のシミュレーション2で推定した需要関数の中身に踏み込み、「消費者は複数の選択肢の中から1つを選ぶ」という状況を、確率的効用最大化モデル（random utility model, RUM）として定式化する。消費者が財の効用を比較して選択するというモデルから、有名な「logitモデル」の選択確率の式を導出し、計量Iでは扱わなかった**最尤法（maximum likelihood estimation）**を初めて学ぶ。さらに、価格弾力性・交差弾力性の計算方法も導入する。ここから数回にわたって、離散選択モデルという、実証IO・quantitative marketingの中心的な道具を身につけていくことになる。
 
 ## 参考文献
 
