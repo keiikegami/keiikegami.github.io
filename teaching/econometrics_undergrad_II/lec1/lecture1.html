@@ -2358,10 +2358,6 @@ window.Quarto = {
   <li><a href="#モデルの検証" id="toc-モデルの検証" class="nav-link" data-scroll-target="#モデルの検証">モデルの検証</a></li>
   <li><a href="#現実" id="toc-現実" class="nav-link" data-scroll-target="#現実">現実</a></li>
   <li><a href="#なぜこんなことが起きたか予測と介入２つのシミュレーション" id="toc-なぜこんなことが起きたか予測と介入２つのシミュレーション" class="nav-link" data-scroll-target="#なぜこんなことが起きたか予測と介入２つのシミュレーション">なぜこんなことが起きたか：予測と介入、２つのシミュレーション</a></li>
-  <li><a href="#広告費2倍はどの仕組みを変えるのか" id="toc-広告費2倍はどの仕組みを変えるのか" class="nav-link" data-scroll-target="#広告費2倍はどの仕組みを変えるのか">広告費2倍は、どの仕組みを変えるのか</a></li>
-  <li><a href="#同じ広告額でも予測する関数が違う" id="toc-同じ広告額でも予測する関数が違う" class="nav-link" data-scroll-target="#同じ広告額でも予測する関数が違う">同じ広告額でも、予測する関数が違う</a></li>
-  <li><a href="#a2の売上がわかっても何が足りないのか" id="toc-a2の売上がわかっても何が足りないのか" class="nav-link" data-scroll-target="#a2の売上がわかっても何が足りないのか">a/2の売上がわかっても、何が足りないのか</a></li>
-  <li><a href="#広告費を2倍にする反実仮想をどう計算するか" id="toc-広告費を2倍にする反実仮想をどう計算するか" class="nav-link" data-scroll-target="#広告費を2倍にする反実仮想をどう計算するか">広告費を2倍にする反実仮想を、どう計算するか</a></li>
   <li><a href="#いいシミュレーションのために何を推定するか" id="toc-いいシミュレーションのために何を推定するか" class="nav-link" data-scroll-target="#いいシミュレーションのために何を推定するか">いいシミュレーションのために、何を推定するか</a></li>
   </ul></li>
   <li><a href="#rシミュレーション2値上げすると販売数量が増える" id="toc-rシミュレーション2値上げすると販売数量が増える" class="nav-link" data-scroll-target="#rシミュレーション2値上げすると販売数量が増える">4. Rシミュレーション2：値上げすると販売数量が増える？</a>
@@ -2690,6 +2686,8 @@ S_i&amp;=\exp(L_i)
 6        6  0.8246515 151.59929 278.07868  5.627904</code></pre>
 </div>
 </div>
+<section id="予測というシミュレーション" class="level4">
+<h4 class="anchored" data-anchor-id="予測というシミュレーション">予測というシミュレーション</h4>
 <p>先ほどの右上がりの回帰直線には、広告自体の効果だけでなく、店舗の地力の差も入り込んでいたのである。広告費だけを説明変数にしたOLS（地力を見ない「素朴な」分析）と、地力も入れたOLSを比較してみる。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>fit_short <span class="ot">&lt;-</span> <span class="fu">lm</span>(log_sales <span class="sc">~</span> ad_spend, <span class="at">data =</span> store_df)</span>
@@ -2768,27 +2766,17 @@ S_i&amp;=\exp(L_i)
 </div>
 <div id="callout-6" class="callout-6-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>ここで、<strong>DGP全体を書くことと、予測に使う回帰式を書くことは違う</strong>、という点を確認しておこう。先ほどの真のモデルは、地力の分布に加えて、</p>
+<p>地力を見ずに広告費だけに回帰した場合を考える。つまり、</p>
 <p><span class="math display">\[
-A_i=\max\{100+30Q_i+V_i,\;10\},\qquad
-L_i=5+0.4Q_i+0.002A_i+U_i
+L_i = a + b A_i + \epsilon_i
 \]</span></p>
-<p>という、広告費と売上がそれぞれ決まる仕組みを記述している。</p>
-<p>一方、地力をコントロールした線形回帰で使っている予測式は、</p>
-<p><span class="math display">\[
-\widehat L_i=\hat b_0+\hat b_A A_i+\hat b_Q Q_i
-\]</span></p>
-<p>である。この式は、与えられた広告費と地力から売上を予測するためのもので、広告費がどう配分されるかまでは記述していない。</p>
-<p>ただし、<strong>このDGPでは、地力を含めた回帰は売上の条件付き平均を正しく表している</strong>。実際、ノイズの独立性から、</p>
-<p><span class="math display">\[
-E[L_i\mid A_i=a,Q_i=q]=5+0.002a+0.4q
-\]</span></p>
-<p>であり、これは <span class="math inline">\(a\)</span> と <span class="math inline">\(q\)</span> の線形関数である。「DGP全体を記述していない」ことと「条件付き平均を間違って指定している」ことは区別しておこう。</p>
-<p>では、地力を見ずに広告費だけに回帰した場合はどうか。真の条件付き平均は</p>
+<p>のような回帰である。</p>
+<p>こういう回帰を見たらまず考えるのは売り上げの広告費についての<strong>条件付き期待値</strong>である。</p>
 <p><span class="math display">\[
 E[L_i\mid A_i=a]=5+0.002a+0.4E[Q_i\mid A_i=a]
 \]</span></p>
-<p>であり、広告費から読み取れる地力も含まれる。一般には、この条件付き平均が広告費の線形関数になるとは限らない。それでも線形回帰には、<strong>最良線形予測（best linear prediction）</strong>という性質がある。</p>
+<p>これは「広告費から読み取れる地力」（<span class="math inline">\(E[Q_i\mid A_i=a]\)</span>）の効果も含んでいる。一般には、この条件付き期待値が広告費の線形関数になるとは限らない。実際今のモデルでは広告費 <span class="math inline">\(A\)</span> と地力 <span class="math inline">\(Q\)</span> はmax operatorを介して繋がるので線形な関係ではない。</p>
+<p>それでも先の線形回帰には、<strong>最良線形予測（best linear prediction）</strong>という性質がある。</p>
 <p>母集団で最良の直線の係数を、</p>
 <p><span class="math display">\[
 (b_0^*,b_A^*)
@@ -2799,14 +2787,13 @@ E[L_i\mid A_i=a]=5+0.002a+0.4E[Q_i\mid A_i=a]
 b_A^*=\frac{\operatorname{Cov}(A_i,L_i)}{\operatorname{Var}(A_i)},\qquad
 b_0^*=E[L_i]-b_A^*E[A_i]
 \]</span></p>
-<p>となる。標本のOLSは期待値を標本平均に置き換えて計算するもので、独立同分布の標本を増やすと、その係数はこの母集団の最良線形予測の係数に近づく。</p>
-<p>最良の直線からの残差を <span class="math inline">\(e_i^*=L_i-b_0^*-b_A^*A_i\)</span> とすれば、<span class="math inline">\(E[e_i^*]=0\)</span>、<span class="math inline">\(E[A_i e_i^*]=0\)</span> が成り立つ。ただし、これは一般に <span class="math inline">\(E[e_i^*\mid A_i]=0\)</span> まで意味しない。<strong>直線の中で最良であることと、真の条件付き平均に一致することも別である。</strong> 地力を加えた重回帰でも、同じ考え方で、広告費と地力の線形結合の中から最良の予測を選んでいる。</p>
+<p>となる。標本のOLSは期待値を標本平均に置き換えて計算するもので、独立同分布の標本を増やすと、その係数はこの母集団の最良線形予測の係数に近づく。なので、たとえ真の関係性に <span class="math inline">\(E[Q_i\mid A_i=a]\)</span> のような非線形かも知れない項が入っていても、linear regressionすれば大体OKという感じである。</p>
 <p>この例では、広告費が地力のシグナルになるので、地力の効果を拾うことは従来の運用の下での予測には役立つ。上の欠落変数バイアスの式は、「広告費の因果効果」を知りたいときのずれを表しているが、その係数が「広告費だけを使った予測」にとって悪いという意味ではない。</p>
-<p>そして、この「最良」は<strong>どの分布の下で予測誤差を平均するか</strong>に依存する。従来の広告配分の下で最良の予測であっても、広告費を倍増した制度の下で最良になるとは限らない。この違いを、続くシミュレーションで考えていこう。</p>
+<!-- そして、この「最良」は**どの分布の下で予測誤差を平均するか**に依存する。従来の広告配分の下で最良の予測であっても、広告費を倍増した制度の下で最良になるとは限らない。この違いを、続くシミュレーションで考えていこう。 -->
 </div>
 </div>
 </div>
-<p>2か月目と3か月目のデータも、次のコードで作っていた。2か月目には同じ店舗の地力を保ち、本部の通常の配分ルールで広告予算を新しく決め、売上にも新しい月のノイズを加える。3か月目には、その予算を2倍にする。</p>
+<p>2か月目のデータも、次のコードで作っていた。2か月目には同じ店舗の地力を保ち、本部の通常の配分ルールで広告予算を新しく決め、売上にも新しい月のノイズを加える。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 2か月目：同じ店舗に、従来のルールで来月の広告予算が配分される</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># この予算は、来月の売上が実現する前に決まっている</span></span>
@@ -2821,16 +2808,7 @@ b_0^*=E[L_i]-b_A^*E[A_i]
 <span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">ad_spend =</span> next_ad_spend,</span>
 <span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">log_sales =</span> next_log_sales,</span>
 <span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">sales =</span> <span class="fu">exp</span>(next_log_sales)</span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="co"># 3か月目：2か月目の広告予算を据え置く予定だったところ、全店で2倍にする</span></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 売上ショックは新しく発生する。地力や売上の決まり方は変わらない</span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>intervention_noise <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_stores, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">0.15</span>)</span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>intervention_df <span class="ot">&lt;-</span> next_month_df</span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>intervention_df<span class="sc">$</span>ad_spend <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">*</span> next_month_df<span class="sc">$</span>ad_spend</span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>intervention_df<span class="sc">$</span>log_sales <span class="ot">&lt;-</span> <span class="fl">5.0</span> <span class="sc">+</span> true_beta_quality <span class="sc">*</span> quality <span class="sc">+</span></span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  true_beta_ad <span class="sc">*</span> intervention_df<span class="sc">$</span>ad_spend <span class="sc">+</span> intervention_noise</span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>intervention_df<span class="sc">$</span>sales <span class="ot">&lt;-</span> <span class="fu">exp</span>(intervention_df<span class="sc">$</span>log_sales)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>先ほどの「モデルの検証」を計算で再現してみよう。1か月目で推定済みの <code>fit_short</code> に、翌月の広告予算を入れる。翌月に届く売上は、予測の答え合わせにだけ使う。</p>
 <div class="cell" data-layout-align="center">
@@ -2874,9 +2852,10 @@ b_0^*=E[L_i]-b_A^*E[A_i]
 <p>広告費を使うモデルの翌月R²は <strong>0.752</strong> で、平均だけの予測よりずっと当てはまりが良い。データは新しくなっているが、広告費が地力のシグナルになる仕組みは続いているのである。したがって、これは確かにout-of-sampleの予測検証になっている。</p>
 <p>ただし、<strong>従来の運用が続く月の予測を検証したのであって、広告費を倍増させた世界を検証したわけではない。</strong></p>
 </section>
-<section id="広告費2倍はどの仕組みを変えるのか" class="level3">
-<h3 class="anchored" data-anchor-id="広告費2倍はどの仕組みを変えるのか">広告費2倍は、どの仕組みを変えるのか</h3>
-<p>ここまでの話を、<strong>「いいシミュレーション」とは何か</strong>という問いに戻して整理しよう。「来月の売上を当てる」のも「広告費を2倍にしたらどうなるかを当てる」のも、モデルを使った予測である。違いは、予測したい世界で広告費を決めるルールが変わるかどうかにある。</p>
+<section id="介入というシミュレーション" class="level4">
+<h4 class="anchored" data-anchor-id="介入というシミュレーション">介入というシミュレーション</h4>
+<!-- ここまでの話を、**「いいシミュレーション」とは何か**という問いに戻して整理しよう。「来月の売上を当てる」のも「広告費を2倍にしたらどうなるかを当てる」のも、モデルを使った予測である。違いは、予測したい世界で広告費を決めるルールが変わるかどうかにある。 -->
+<p>ここから介入という新しいシミュレーションの設定に入る。</p>
 <p>広告費を <span class="math inline">\(A\)</span>、地力を <span class="math inline">\(Q\)</span>、対数売上を <span class="math inline">\(L\)</span> と書く。広告費の配分倍率を表すパラメータ <span class="math inline">\(\lambda\)</span> を導入すると、先ほどのDGPは次のように書ける。</p>
 <p><span class="math display">\[
 \begin{aligned}
@@ -2892,10 +2871,7 @@ L_\lambda&amp;=5+0.4Q+0.002A_\lambda+U,
 A_2=2A_1=\max(200+60Q+2V,\;20)
 \]</span></p>
 <p>となる。地力にかかる係数だけでなく、切片・ノイズの尺度・下限も倍にする政策である。一方、<strong>店舗の地力と、売上を決める式の係数は変えない</strong>。何を変えて、何を固定するかが、これで明確になった。</p>
-</section>
-<section id="同じ広告額でも予測する関数が違う" class="level3">
-<h3 class="anchored" data-anchor-id="同じ広告額でも予測する関数が違う">同じ広告額でも、予測する関数が違う</h3>
-<p>従来のルールの下で、広告費だけを使って対数売上を予測するとしよう。二乗誤差を最小にする予測関数は、条件付き平均</p>
+<p>従来のルールの下で、広告費だけを使って対数売上を予測するとしよう。二乗誤差を最小にする予測関数は、条件付き期待値</p>
 <p><span class="math display">\[
 \begin{aligned}
 m_1(a)&amp;\equiv E[L_1\mid A_1=a]\\
@@ -2994,9 +2970,18 @@ m_2(a)&amp;=3.93333\ldots+0.007333\ldots\,a.
 </div>
 </div>
 </div>
-</section>
-<section id="a2の売上がわかっても何が足りないのか" class="level3">
-<h3 class="anchored" data-anchor-id="a2の売上がわかっても何が足りないのか">a/2の売上がわかっても、何が足りないのか</h3>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>a/2の売上がわかっても、何が足りないのか
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-8" class="callout-8-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
 <p>ここはもう一段、丁寧に確認しておこう。<strong>従来制度で広告費が <span class="math inline">\(a/2\)</span> の店舗の対数売上の平均、すなわち <span class="math inline">\(m_1(a/2)\)</span> は、データから学べる。</strong> そこについて何もわからないわけではない。</p>
 <p>足りないのは、その店舗集団の広告費だけを <span class="math inline">\(a/2\)</span> から <span class="math inline">\(a\)</span> に増やしたときの上乗せである。真のモデルでは、</p>
 <p><span class="math display">\[
@@ -3008,6 +2993,9 @@ m_2(a)&amp;=3.93333\ldots+0.007333\ldots\,a.
 \qquad \beta_{\mathrm{ad}}=0.002.
 \]</span></p>
 <p>AからCへ進むには、この最後の因果効果が必要になる。青い線上でAからBへ進むと、広告費の効果に加えて、地力が高い店舗への入れ替わりまで含めてしまう。</p>
+</div>
+</div>
+</div>
 <p><strong>旧制度で売上をよく当てるように学習することと、この上乗せを正しく求めることは、同じではない。</strong> 旧制度の予測精度だけでは、広告費の因果効果の大きさや、それが制度変更後にも使えることは保証されない。実験、適切な交絡調整、あるいは追加の識別仮定などによって、介入後にも使える関係を取り出す必要がある。</p>
 <div class="callout callout-style-default callout-important callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -3024,10 +3012,18 @@ m_2(a)&amp;=3.93333\ldots+0.007333\ldots\,a.
 <p>この講義で目指す「いいシミュレーション」は、何を変更した世界を計算したいのかに合わせて、変更後にも使える関係を識別・推定し、その世界を計算することである。機械学習もその推定に使える。問題は手法の名前ではなく、何を学び、それをどの世界の予測に使っているかである。</p>
 </div>
 </div>
-</section>
-<section id="広告費を2倍にする反実仮想をどう計算するか" class="level3">
-<h3 class="anchored" data-anchor-id="広告費を2倍にする反実仮想をどう計算するか">広告費を2倍にする反実仮想を、どう計算するか</h3>
-<p>今度は、3か月目について「予算を据え置いた世界」と「広告費を2倍にした世界」を作り、比べる。<strong>同じ店舗の地力と、同じ月の売上ショックを固定して、広告費だけを入れ替える</strong>のがポイントである。<span class="math inline">\(a_i\)</span> を据え置いた場合の予算、<span class="math inline">\(q_i\)</span> を地力、<span class="math inline">\(u_{i3}\)</span> を3か月目のショックとすると、真のモデルでは</p>
+<p>ここで、冒頭の「現実」で見た3か月目のデータを作るコードを見てみよう。2か月目の広告予算を据え置く予定だったところ、全店でその2倍にする。店舗の地力と売上の決まり方はそのままで、3か月目には新しい売上ショックが発生する。</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 3か月目：2か月目の広告予算を据え置く予定だったところ、全店で2倍にする</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 売上ショックは新しく発生する。地力や売上の決まり方は変わらない</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>intervention_noise <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_stores, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">0.15</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>intervention_df <span class="ot">&lt;-</span> next_month_df</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>intervention_df<span class="sc">$</span>ad_spend <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">*</span> next_month_df<span class="sc">$</span>ad_spend</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>intervention_df<span class="sc">$</span>log_sales <span class="ot">&lt;-</span> <span class="fl">5.0</span> <span class="sc">+</span> true_beta_quality <span class="sc">*</span> quality <span class="sc">+</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  true_beta_ad <span class="sc">*</span> intervention_df<span class="sc">$</span>ad_spend <span class="sc">+</span> intervention_noise</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>intervention_df<span class="sc">$</span>sales <span class="ot">&lt;-</span> <span class="fu">exp</span>(intervention_df<span class="sc">$</span>log_sales)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>次に、この3か月目について「予算を据え置いた世界」と「広告費を2倍にした世界」を作り、比べる。<strong>同じ店舗の地力と、同じ月の売上ショックを固定して、広告費だけを入れ替える</strong>のがポイントである。<span class="math inline">\(a_i\)</span> を据え置いた場合の予算、<span class="math inline">\(q_i\)</span> を地力、<span class="math inline">\(u_{i3}\)</span> を3か月目のショックとすると、真のモデルでは</p>
 <p><span class="math display">\[
 \begin{aligned}
 \log(\text{sales}_{i3}^{\mathrm{据え置き}})&amp;=5+0.4q_i+0.002a_i+u_{i3},\\
@@ -3037,22 +3033,23 @@ m_2(a)&amp;=3.93333\ldots+0.007333\ldots\,a.
 <p>この2つの差は <span class="math inline">\(0.002a_i\)</span> であり、売上の増加率は <span class="math inline">\(100\{\exp(0.002a_i)-1\}\%\)</span> となる。広告費100万円の店舗なら、真の効果は約 <strong>22.1%</strong> である。</p>
 <p>つまり今回は、<strong>効果を計算するために新しく乱数を振ってシミュレーションを繰り返す必要はない</strong>。同じ <span class="math inline">\(q_i\)</span> と <span class="math inline">\(u_{i3}\)</span> は引き算で消えるので、数式に広告費を代入するだけでよい。冒頭の図を作るには各月の実現値をシミュレートしたが、この単純なモデルの反実仮想効果は直接計算できるのである。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 3か月目の2つの世界：同じquality・同じ売上ショックを使う</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>no_intervention_log_sales <span class="ot">&lt;-</span> <span class="fl">5.0</span> <span class="sc">+</span> true_beta_quality <span class="sc">*</span> quality <span class="sc">+</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  true_beta_ad <span class="sc">*</span> next_month_df<span class="sc">$</span>ad_spend <span class="sc">+</span> intervention_noise</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の効果：引き算すると、広告費の変化分だけが残る</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>true_effect <span class="ot">&lt;-</span> intervention_df<span class="sc">$</span>log_sales <span class="sc">-</span> no_intervention_log_sales</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 素朴なモデルのレポート：同じ予算変更に、OLSの係数を使っている</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>ols_effect <span class="ot">&lt;-</span> <span class="fu">predict</span>(fit_short, <span class="at">newdata =</span> intervention_df) <span class="sc">-</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">predict</span>(fit_short, <span class="at">newdata =</span> next_month_df)</span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>true_mean_pct <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">exp</span>(true_effect) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>ols_mean_pct <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">exp</span>(ols_effect) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 3か月目の2つの世界：同じquality・同じ売上ショックを使う</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>no_intervention_log_sales <span class="ot">&lt;-</span> <span class="fl">5.0</span> <span class="sc">+</span> true_beta_quality <span class="sc">*</span> quality <span class="sc">+</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  true_beta_ad <span class="sc">*</span> next_month_df<span class="sc">$</span>ad_spend <span class="sc">+</span> intervention_noise</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の効果：引き算すると、広告費の変化分だけが残る</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>true_effect <span class="ot">&lt;-</span> intervention_df<span class="sc">$</span>log_sales <span class="sc">-</span> no_intervention_log_sales</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 素朴なモデルのレポート：同じ予算変更に、OLSの係数を使っている</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>ols_effect <span class="ot">&lt;-</span> <span class="fu">predict</span>(fit_short, <span class="at">newdata =</span> intervention_df) <span class="sc">-</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">predict</span>(fit_short, <span class="at">newdata =</span> next_month_df)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>true_mean_pct <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">exp</span>(true_effect) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>ols_mean_pct <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">exp</span>(ols_effect) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>真の効果は店舗別平均で <strong>22.1%</strong> の売上増加である。一方、同じ予算変更を素朴なOLSで計算すると <strong>260.1%</strong> 増えると予測してしまう。これは翌月の予測検証でR²が高かったのと同じモデルの話である。ここで真の効果までわかるのは、私たちがDGPを知っていて、現実には観測できない「3か月目に広告費を倍増しなかった世界」も計算できるからだ。</p>
 <p>どちらもモデルを使ったシミュレーションだが、売上の増加分として広告費の因果効果を使うか、地力の違いまで含んだ予測上の関係を使うかで、結果はこれだけ変わる。「いいシミュレーション」を作るには、意思決定で変える部分に対応した効果を識別する必要がある。</p>
+</section>
 </section>
 <section id="いいシミュレーションのために何を推定するか" class="level3">
 <h3 class="anchored" data-anchor-id="いいシミュレーションのために何を推定するか">いいシミュレーションのために、何を推定するか</h3>
@@ -3060,17 +3057,17 @@ m_2(a)&amp;=3.93333\ldots+0.007333\ldots\,a.
 <p>このDGPなら、qualityと広告費の2つに回帰することで、より真の値に近いパラメータの推定値をゲットすることができる。上で推定した <code>fit_long</code> がそれである。</p>
 <p>これを元に、<strong>qualityを元の値に保ったまま、広告費だけを2倍にする</strong>という計算をしてみよう。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># qualityは変えず、広告費だけが異なる2つのデータをモデルに渡す</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>adjusted_effect <span class="ot">&lt;-</span> <span class="fu">predict</span>(fit_long, <span class="at">newdata =</span> intervention_df) <span class="sc">-</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">predict</span>(fit_long, <span class="at">newdata =</span> next_month_df)</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>adjusted_mean_pct <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">exp</span>(adjusted_effect) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>effect_summary <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;真の効果&quot;</span>, <span class="st">&quot;素朴なOLS&quot;</span>, <span class="st">&quot;地力を調整したOLS&quot;</span>),</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_pct_change =</span> <span class="fu">c</span>(true_mean_pct, ols_mean_pct, adjusted_mean_pct)</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(effect_summary, <span class="at">digits =</span> <span class="dv">1</span>,</span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;計算方法&quot;</span>, <span class="st">&quot;店舗別の売上増加率の平均（%）&quot;</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># qualityは変えず、広告費だけが異なる2つのデータをモデルに渡す</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>adjusted_effect <span class="ot">&lt;-</span> <span class="fu">predict</span>(fit_long, <span class="at">newdata =</span> intervention_df) <span class="sc">-</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">predict</span>(fit_long, <span class="at">newdata =</span> next_month_df)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>adjusted_mean_pct <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">exp</span>(adjusted_effect) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>effect_summary <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;真の効果&quot;</span>, <span class="st">&quot;素朴なOLS&quot;</span>, <span class="st">&quot;地力を調整したOLS&quot;</span>),</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_pct_change =</span> <span class="fu">c</span>(true_mean_pct, ols_mean_pct, adjusted_mean_pct)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(effect_summary, <span class="at">digits =</span> <span class="dv">1</span>,</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;計算方法&quot;</span>, <span class="st">&quot;店舗別の売上増加率の平均（%）&quot;</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <thead>
@@ -3115,38 +3112,38 @@ m_2(a)&amp;=3.93333\ldots+0.007333\ldots\,a.
 <p>もう1つ、実務でよく起きる誤解を見ておこう。ある店舗の週次の価格と販売数量のデータがあるとする。log-log回帰（価格弾力性を推定する定番の方法）をかけると、価格の係数が<strong>正</strong>に出ることがある。「値上げすると販売数量が増える」というのは常識的に考えて奇妙だが、これは一体何が起きているのか。</p>
 <p>DGPを考える。<strong>繁忙期（需要が盛り上がっている時期）には、店舗側も強気の価格設定をする</strong>という状況を考えよう。需要が旺盛なタイミングでは価格を上げても売れるので、価格自体を吊り上げる。この結果、データの中では「価格が高い週ほど、需要ショックも大きいので、結果的に販売数量も多く見える」という状況が生まれる。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>n_weeks <span class="ot">&lt;-</span> <span class="dv">200</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 需要ショック（繁忙期・季節性など、観測しにくい変数）</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>demand_shock <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_weeks, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>)</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の価格弾力性（負の値。需要曲線の傾き）</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>true_elasticity <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fl">1.2</span></span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 価格設定：繁忙期には価格も強気に設定される（内生性の源泉）</span></span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>gamma_price <span class="ot">&lt;-</span> <span class="fl">0.3</span></span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>log_price <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">1000</span>) <span class="sc">+</span> gamma_price <span class="sc">*</span> demand_shock <span class="sc">+</span> <span class="fu">rnorm</span>(n_weeks, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">0.05</span>)</span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>price <span class="ot">&lt;-</span> <span class="fu">exp</span>(log_price)</span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の需要関数：価格1,000円のときの基準数量を500に置く</span></span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>phi_demand <span class="ot">&lt;-</span> <span class="fl">0.8</span></span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>log_q_mean <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">500</span>) <span class="sc">+</span> true_elasticity <span class="sc">*</span> (log_price <span class="sc">-</span> <span class="fu">log</span>(<span class="dv">1000</span>)) <span class="sc">+</span></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>  phi_demand <span class="sc">*</span> demand_shock</span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>demand_noise <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_weeks, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">0.1</span>)</span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>log_q <span class="ot">&lt;-</span> log_q_mean <span class="sc">+</span> demand_noise</span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>q <span class="ot">&lt;-</span> <span class="fu">exp</span>(log_q)</span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>price_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">week =</span> <span class="dv">1</span><span class="sc">:</span>n_weeks,</span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">demand_shock =</span> demand_shock,</span>
-<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">demand_noise =</span> demand_noise,</span>
-<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">price =</span> price,</span>
-<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">log_price =</span> log_price,</span>
-<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">q =</span> q,</span>
-<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">log_q =</span> log_q</span>
-<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(price_df)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>n_weeks <span class="ot">&lt;-</span> <span class="dv">200</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 需要ショック（繁忙期・季節性など、観測しにくい変数）</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>demand_shock <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_weeks, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の価格弾力性（負の値。需要曲線の傾き）</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>true_elasticity <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fl">1.2</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 価格設定：繁忙期には価格も強気に設定される（内生性の源泉）</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>gamma_price <span class="ot">&lt;-</span> <span class="fl">0.3</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>log_price <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">1000</span>) <span class="sc">+</span> gamma_price <span class="sc">*</span> demand_shock <span class="sc">+</span> <span class="fu">rnorm</span>(n_weeks, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">0.05</span>)</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>price <span class="ot">&lt;-</span> <span class="fu">exp</span>(log_price)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の需要関数：価格1,000円のときの基準数量を500に置く</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>phi_demand <span class="ot">&lt;-</span> <span class="fl">0.8</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>log_q_mean <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">500</span>) <span class="sc">+</span> true_elasticity <span class="sc">*</span> (log_price <span class="sc">-</span> <span class="fu">log</span>(<span class="dv">1000</span>)) <span class="sc">+</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>  phi_demand <span class="sc">*</span> demand_shock</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>demand_noise <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_weeks, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">0.1</span>)</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>log_q <span class="ot">&lt;-</span> log_q_mean <span class="sc">+</span> demand_noise</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>q <span class="ot">&lt;-</span> <span class="fu">exp</span>(log_q)</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>price_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">week =</span> <span class="dv">1</span><span class="sc">:</span>n_weeks,</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">demand_shock =</span> demand_shock,</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">demand_noise =</span> demand_noise,</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">price =</span> price,</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">log_price =</span> log_price,</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">q =</span> q,</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">log_q =</span> log_q</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(price_df)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  week demand_shock demand_noise     price log_price        q    log_q
 1    1   0.31421111 -0.045280445 1074.8959  6.979979 563.4215 6.334028
@@ -3158,11 +3155,11 @@ m_2(a)&amp;=3.93333\ldots+0.007333\ldots\,a.
 </div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(price_df, <span class="fu">aes</span>(<span class="at">x =</span> log_price, <span class="at">y =</span> log_q)) <span class="sc">+</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>, <span class="at">color =</span> <span class="st">&quot;darkorange&quot;</span>) <span class="sc">+</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">&quot;lm&quot;</span>, <span class="at">se =</span> <span class="cn">FALSE</span>, <span class="at">color =</span> <span class="st">&quot;firebrick&quot;</span>) <span class="sc">+</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;log(価格)&quot;</span>, <span class="at">y =</span> <span class="st">&quot;log(販売数量)&quot;</span>,</span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">&quot;価格と数量：log-log回帰では正の関係に見える&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(price_df, <span class="fu">aes</span>(<span class="at">x =</span> log_price, <span class="at">y =</span> log_q)) <span class="sc">+</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>, <span class="at">color =</span> <span class="st">&quot;darkorange&quot;</span>) <span class="sc">+</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">&quot;lm&quot;</span>, <span class="at">se =</span> <span class="cn">FALSE</span>, <span class="at">color =</span> <span class="st">&quot;firebrick&quot;</span>) <span class="sc">+</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;log(価格)&quot;</span>, <span class="at">y =</span> <span class="st">&quot;log(販売数量)&quot;</span>,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">&quot;価格と数量：log-log回帰では正の関係に見える&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -3174,8 +3171,8 @@ m_2(a)&amp;=3.93333\ldots+0.007333\ldots\,a.
 </div>
 <p>log-log OLSで価格弾力性を推定してみる。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>fit_price_ols <span class="ot">&lt;-</span> <span class="fu">lm</span>(log_q <span class="sc">~</span> log_price, <span class="at">data =</span> price_df)</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit_price_ols)<span class="sc">$</span>coefficients</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>fit_price_ols <span class="ot">&lt;-</span> <span class="fu">lm</span>(log_q <span class="sc">~</span> log_price, <span class="at">data =</span> price_df)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit_price_ols)<span class="sc">$</span>coefficients</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>             Estimate Std. Error   t value     Pr(&gt;|t|)
 (Intercept) -3.171584 0.25097151 -12.63723 3.140887e-27
@@ -3183,12 +3180,12 @@ log_price    1.356950 0.03614709  37.53967 5.617124e-92</code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>elasticity_hat_ols <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_price_ols)[<span class="st">&quot;log_price&quot;</span>]</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;OLS推定値&quot;</span>, <span class="st">&quot;真の弾力性&quot;</span>),</span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">elasticity =</span> <span class="fu">c</span>(elasticity_hat_ols, true_elasticity)</span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>elasticity_hat_ols <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_price_ols)[<span class="st">&quot;log_price&quot;</span>]</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;OLS推定値&quot;</span>, <span class="st">&quot;真の弾力性&quot;</span>),</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">elasticity =</span> <span class="fu">c</span>(elasticity_hat_ols, true_elasticity)</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>              method elasticity
 log_price  OLS推定値    1.35695
@@ -3198,26 +3195,26 @@ log_price  OLS推定値    1.35695
 <p>推定された価格係数はプラスになっている。真の弾力性は-1.2（値上げすれば需要は減る、という普通の需要曲線）なのに、OLSでは符号まで逆転してしまっている。これは、需要ショックという変数が価格と需要の両方を同時に押し上げているために起きる<strong>価格の内生性（price endogeneity）</strong>である。</p>
 <p>なぜこんなことが起きるのか、真の需要曲線（需要ショックを固定して、価格だけを動かした場合にどうなるか）と、データから引かれたOLSの回帰直線を重ねて図示してみよう。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>price_grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">min</span>(price_df<span class="sc">$</span>price), <span class="fu">max</span>(price_df<span class="sc">$</span>price), <span class="at">length.out =</span> <span class="dv">50</span>)</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>log_price_grid <span class="ot">&lt;-</span> <span class="fu">log</span>(price_grid)</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の需要曲線：需要ショックを0（平均的な状態）に固定し、価格だけを動かす</span></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>true_log_q_grid <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">500</span>) <span class="sc">+</span> true_elasticity <span class="sc">*</span> (log_price_grid <span class="sc">-</span> <span class="fu">log</span>(<span class="dv">1000</span>)) <span class="sc">+</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  phi_demand <span class="sc">*</span> <span class="dv">0</span></span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>true_curve_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">price =</span> price_grid, <span class="at">log_q =</span> true_log_q_grid, <span class="at">curve =</span> <span class="st">&quot;真の需要曲線（需要ショック固定）&quot;</span>)</span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a><span class="co"># OLSの回帰直線</span></span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>ols_log_q_grid <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_price_ols)[<span class="st">&quot;(Intercept)&quot;</span>] <span class="sc">+</span> elasticity_hat_ols <span class="sc">*</span> log_price_grid</span>
-<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>ols_curve_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">price =</span> price_grid, <span class="at">log_q =</span> ols_log_q_grid, <span class="at">curve =</span> <span class="st">&quot;OLS回帰直線（データから引いた線）&quot;</span>)</span>
-<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>curve_compare_df <span class="ot">&lt;-</span> <span class="fu">rbind</span>(true_curve_df, ols_curve_df)</span>
-<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> price_df, <span class="fu">aes</span>(<span class="at">x =</span> price, <span class="at">y =</span> log_q), <span class="at">alpha =</span> <span class="fl">0.3</span>, <span class="at">color =</span> <span class="st">&quot;gray60&quot;</span>) <span class="sc">+</span></span>
-<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">data =</span> curve_compare_df, <span class="fu">aes</span>(<span class="at">x =</span> price, <span class="at">y =</span> log_q, <span class="at">color =</span> curve, <span class="at">linetype =</span> curve), <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;価格&quot;</span>, <span class="at">y =</span> <span class="st">&quot;log(販売数量)&quot;</span>, <span class="at">color =</span> <span class="cn">NULL</span>, <span class="at">linetype =</span> <span class="cn">NULL</span>,</span>
-<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">&quot;真の需要曲線は右下がり、OLSの回帰直線は右上がり&quot;</span>) <span class="sc">+</span></span>
-<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>price_grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">min</span>(price_df<span class="sc">$</span>price), <span class="fu">max</span>(price_df<span class="sc">$</span>price), <span class="at">length.out =</span> <span class="dv">50</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>log_price_grid <span class="ot">&lt;-</span> <span class="fu">log</span>(price_grid)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の需要曲線：需要ショックを0（平均的な状態）に固定し、価格だけを動かす</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>true_log_q_grid <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">500</span>) <span class="sc">+</span> true_elasticity <span class="sc">*</span> (log_price_grid <span class="sc">-</span> <span class="fu">log</span>(<span class="dv">1000</span>)) <span class="sc">+</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  phi_demand <span class="sc">*</span> <span class="dv">0</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>true_curve_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">price =</span> price_grid, <span class="at">log_q =</span> true_log_q_grid, <span class="at">curve =</span> <span class="st">&quot;真の需要曲線（需要ショック固定）&quot;</span>)</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="co"># OLSの回帰直線</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>ols_log_q_grid <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_price_ols)[<span class="st">&quot;(Intercept)&quot;</span>] <span class="sc">+</span> elasticity_hat_ols <span class="sc">*</span> log_price_grid</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>ols_curve_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">price =</span> price_grid, <span class="at">log_q =</span> ols_log_q_grid, <span class="at">curve =</span> <span class="st">&quot;OLS回帰直線（データから引いた線）&quot;</span>)</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>curve_compare_df <span class="ot">&lt;-</span> <span class="fu">rbind</span>(true_curve_df, ols_curve_df)</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> price_df, <span class="fu">aes</span>(<span class="at">x =</span> price, <span class="at">y =</span> log_q), <span class="at">alpha =</span> <span class="fl">0.3</span>, <span class="at">color =</span> <span class="st">&quot;gray60&quot;</span>) <span class="sc">+</span></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">data =</span> curve_compare_df, <span class="fu">aes</span>(<span class="at">x =</span> price, <span class="at">y =</span> log_q, <span class="at">color =</span> curve, <span class="at">linetype =</span> curve), <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;価格&quot;</span>, <span class="at">y =</span> <span class="st">&quot;log(販売数量)&quot;</span>, <span class="at">color =</span> <span class="cn">NULL</span>, <span class="at">linetype =</span> <span class="cn">NULL</span>,</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">&quot;真の需要曲線は右下がり、OLSの回帰直線は右上がり&quot;</span>) <span class="sc">+</span></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -3245,26 +3242,26 @@ log_price  OLS推定値    1.35695
 <h3 class="anchored" data-anchor-id="真の反実仮想とolsに基づく反実仮想を比較する">真の反実仮想とOLSに基づく反実仮想を比較する</h3>
 <p>ここでも「価格を10%上げたら販売数量・売上はどう変わるか」という反実仮想を、(i) 真のモデル、(ii) OLSで推定した（内生性に汚染された）モデル、の両方で計算してみよう。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>new_price <span class="ot">&lt;-</span> price_df<span class="sc">$</span>price <span class="sc">*</span> <span class="fl">1.10</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>new_log_price <span class="ot">&lt;-</span> <span class="fu">log</span>(new_price)</span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 真のモデルによる反実仮想：価格だけを動かし、需要ショックと個別ノイズは同じ値に保つ</span></span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>true_new_log_q <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">500</span>) <span class="sc">+</span> true_elasticity <span class="sc">*</span> (new_log_price <span class="sc">-</span> <span class="fu">log</span>(<span class="dv">1000</span>)) <span class="sc">+</span></span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  phi_demand <span class="sc">*</span> demand_shock <span class="sc">+</span> demand_noise</span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>true_pct_change_q <span class="ot">&lt;-</span> (<span class="fu">exp</span>(true_new_log_q) <span class="sc">-</span> price_df<span class="sc">$</span>q) <span class="sc">/</span> price_df<span class="sc">$</span>q <span class="sc">*</span> <span class="dv">100</span></span>
-<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="co"># OLSモデルによる（内生性に汚染された）反実仮想</span></span>
-<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>ols_intercept <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_price_ols)[<span class="st">&quot;(Intercept)&quot;</span>]</span>
-<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>ols_new_log_q <span class="ot">&lt;-</span> ols_intercept <span class="sc">+</span> elasticity_hat_ols <span class="sc">*</span> new_log_price</span>
-<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>ols_old_log_q_fitted <span class="ot">&lt;-</span> ols_intercept <span class="sc">+</span> elasticity_hat_ols <span class="sc">*</span> price_df<span class="sc">$</span>log_price</span>
-<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>ols_pct_change_q <span class="ot">&lt;-</span> (<span class="fu">exp</span>(ols_new_log_q) <span class="sc">-</span> <span class="fu">exp</span>(ols_old_log_q_fitted)) <span class="sc">/</span> <span class="fu">exp</span>(ols_old_log_q_fitted) <span class="sc">*</span> <span class="dv">100</span></span>
-<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>cf_demand_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;真のモデル&quot;</span>, <span class="st">&quot;OLSモデル&quot;</span>),</span>
-<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_pct_change_q =</span> <span class="fu">c</span>(<span class="fu">mean</span>(true_pct_change_q), <span class="fu">mean</span>(ols_pct_change_q))</span>
-<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(cf_demand_df, <span class="at">digits =</span> <span class="dv">2</span>,</span>
-<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;手法&quot;</span>, <span class="st">&quot;価格+10%のときの需要変化（%）&quot;</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>new_price <span class="ot">&lt;-</span> price_df<span class="sc">$</span>price <span class="sc">*</span> <span class="fl">1.10</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>new_log_price <span class="ot">&lt;-</span> <span class="fu">log</span>(new_price)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 真のモデルによる反実仮想：価格だけを動かし、需要ショックと個別ノイズは同じ値に保つ</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>true_new_log_q <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">500</span>) <span class="sc">+</span> true_elasticity <span class="sc">*</span> (new_log_price <span class="sc">-</span> <span class="fu">log</span>(<span class="dv">1000</span>)) <span class="sc">+</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  phi_demand <span class="sc">*</span> demand_shock <span class="sc">+</span> demand_noise</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>true_pct_change_q <span class="ot">&lt;-</span> (<span class="fu">exp</span>(true_new_log_q) <span class="sc">-</span> price_df<span class="sc">$</span>q) <span class="sc">/</span> price_df<span class="sc">$</span>q <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a><span class="co"># OLSモデルによる（内生性に汚染された）反実仮想</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>ols_intercept <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_price_ols)[<span class="st">&quot;(Intercept)&quot;</span>]</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>ols_new_log_q <span class="ot">&lt;-</span> ols_intercept <span class="sc">+</span> elasticity_hat_ols <span class="sc">*</span> new_log_price</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>ols_old_log_q_fitted <span class="ot">&lt;-</span> ols_intercept <span class="sc">+</span> elasticity_hat_ols <span class="sc">*</span> price_df<span class="sc">$</span>log_price</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>ols_pct_change_q <span class="ot">&lt;-</span> (<span class="fu">exp</span>(ols_new_log_q) <span class="sc">-</span> <span class="fu">exp</span>(ols_old_log_q_fitted)) <span class="sc">/</span> <span class="fu">exp</span>(ols_old_log_q_fitted) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>cf_demand_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;真のモデル&quot;</span>, <span class="st">&quot;OLSモデル&quot;</span>),</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_pct_change_q =</span> <span class="fu">c</span>(<span class="fu">mean</span>(true_pct_change_q), <span class="fu">mean</span>(ols_pct_change_q))</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(cf_demand_df, <span class="at">digits =</span> <span class="dv">2</span>,</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;手法&quot;</span>, <span class="st">&quot;価格+10%のときの需要変化（%）&quot;</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <thead>
@@ -3289,20 +3286,20 @@ log_price  OLS推定値    1.35695
 <p>真のモデルでは、価格を10%上げると需要（販売数量）は1割程度減る。これは弾力性-1.2から予想される通りの、ごく普通の需要曲線の反応である。ところがOLSモデルに基づいて計算すると、価格を10%上げたら需要が<strong>増える</strong>という、経済学の教科書をひっくり返すような結論になってしまう。</p>
 <p>売上（revenue = 価格 × 数量）で見ても同様の食い違いが起きる。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>true_new_revenue <span class="ot">&lt;-</span> new_price <span class="sc">*</span> <span class="fu">exp</span>(true_new_log_q)</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>old_revenue <span class="ot">&lt;-</span> price_df<span class="sc">$</span>price <span class="sc">*</span> price_df<span class="sc">$</span>q</span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>true_rev_change <span class="ot">&lt;-</span> (true_new_revenue <span class="sc">-</span> old_revenue) <span class="sc">/</span> old_revenue <span class="sc">*</span> <span class="dv">100</span></span>
-<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>ols_new_revenue <span class="ot">&lt;-</span> new_price <span class="sc">*</span> <span class="fu">exp</span>(ols_new_log_q)</span>
-<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>ols_old_revenue_fitted <span class="ot">&lt;-</span> price_df<span class="sc">$</span>price <span class="sc">*</span> <span class="fu">exp</span>(ols_old_log_q_fitted)</span>
-<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>ols_rev_change <span class="ot">&lt;-</span> (ols_new_revenue <span class="sc">-</span> ols_old_revenue_fitted) <span class="sc">/</span> ols_old_revenue_fitted <span class="sc">*</span> <span class="dv">100</span></span>
-<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>cf_revenue_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;真のモデル&quot;</span>, <span class="st">&quot;OLSモデル&quot;</span>),</span>
-<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_pct_change_revenue =</span> <span class="fu">c</span>(<span class="fu">mean</span>(true_rev_change), <span class="fu">mean</span>(ols_rev_change))</span>
-<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(cf_revenue_df, <span class="at">digits =</span> <span class="dv">2</span>,</span>
-<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;手法&quot;</span>, <span class="st">&quot;価格+10%のときの売上変化（%）&quot;</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>true_new_revenue <span class="ot">&lt;-</span> new_price <span class="sc">*</span> <span class="fu">exp</span>(true_new_log_q)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>old_revenue <span class="ot">&lt;-</span> price_df<span class="sc">$</span>price <span class="sc">*</span> price_df<span class="sc">$</span>q</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>true_rev_change <span class="ot">&lt;-</span> (true_new_revenue <span class="sc">-</span> old_revenue) <span class="sc">/</span> old_revenue <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>ols_new_revenue <span class="ot">&lt;-</span> new_price <span class="sc">*</span> <span class="fu">exp</span>(ols_new_log_q)</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>ols_old_revenue_fitted <span class="ot">&lt;-</span> price_df<span class="sc">$</span>price <span class="sc">*</span> <span class="fu">exp</span>(ols_old_log_q_fitted)</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>ols_rev_change <span class="ot">&lt;-</span> (ols_new_revenue <span class="sc">-</span> ols_old_revenue_fitted) <span class="sc">/</span> ols_old_revenue_fitted <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>cf_revenue_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;真のモデル&quot;</span>, <span class="st">&quot;OLSモデル&quot;</span>),</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_pct_change_revenue =</span> <span class="fu">c</span>(<span class="fu">mean</span>(true_rev_change), <span class="fu">mean</span>(ols_rev_change))</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(cf_revenue_df, <span class="at">digits =</span> <span class="dv">2</span>,</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;手法&quot;</span>, <span class="st">&quot;価格+10%のときの売上変化（%）&quot;</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <thead>
@@ -3325,19 +3322,19 @@ log_price  OLS推定値    1.35695
 </div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>cf_plot_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">metric =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;需要（数量）の変化(%)&quot;</span>, <span class="st">&quot;売上の変化(%)&quot;</span>), <span class="at">each =</span> <span class="dv">2</span>),</span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;真のモデル&quot;</span>, <span class="st">&quot;OLSモデル&quot;</span>), <span class="dv">2</span>),</span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">value =</span> <span class="fu">c</span>(<span class="fu">mean</span>(true_pct_change_q), <span class="fu">mean</span>(ols_pct_change_q),</span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>            <span class="fu">mean</span>(true_rev_change), <span class="fu">mean</span>(ols_rev_change))</span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(cf_plot_df, <span class="fu">aes</span>(<span class="at">x =</span> metric, <span class="at">y =</span> value, <span class="at">fill =</span> method)) <span class="sc">+</span></span>
-<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">position =</span> <span class="st">&quot;dodge&quot;</span>) <span class="sc">+</span></span>
-<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>, <span class="at">color =</span> <span class="st">&quot;gray40&quot;</span>) <span class="sc">+</span></span>
-<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;変化率（%）&quot;</span>, <span class="at">fill =</span> <span class="cn">NULL</span>,</span>
-<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">&quot;価格+10%の反実仮想：真のモデル vs OLSモデル&quot;</span>) <span class="sc">+</span></span>
-<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>cf_plot_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">metric =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;需要（数量）の変化(%)&quot;</span>, <span class="st">&quot;売上の変化(%)&quot;</span>), <span class="at">each =</span> <span class="dv">2</span>),</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;真のモデル&quot;</span>, <span class="st">&quot;OLSモデル&quot;</span>), <span class="dv">2</span>),</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">value =</span> <span class="fu">c</span>(<span class="fu">mean</span>(true_pct_change_q), <span class="fu">mean</span>(ols_pct_change_q),</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>            <span class="fu">mean</span>(true_rev_change), <span class="fu">mean</span>(ols_rev_change))</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(cf_plot_df, <span class="fu">aes</span>(<span class="at">x =</span> metric, <span class="at">y =</span> value, <span class="at">fill =</span> method)) <span class="sc">+</span></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">position =</span> <span class="st">&quot;dodge&quot;</span>) <span class="sc">+</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>, <span class="at">color =</span> <span class="st">&quot;gray40&quot;</span>) <span class="sc">+</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;変化率（%）&quot;</span>, <span class="at">fill =</span> <span class="cn">NULL</span>,</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">&quot;価格+10%の反実仮想：真のモデル vs OLSモデル&quot;</span>) <span class="sc">+</span></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -3374,7 +3371,7 @@ log_price  OLS推定値    1.35695
 <li><strong>価格最適化</strong>（第15回）：将来の需要変動や在庫状況を織り込んだ上で、いつ・いくらで値付けすれば利益（または売上）が最大になるかを、動的計画法を使ってシミュレーションする。</li>
 </ul>
 <div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-11-contents" aria-controls="callout-11" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-12-contents" aria-controls="callout-12" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -3383,7 +3380,7 @@ log_price  OLS推定値    1.35695
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-11" class="callout-11-contents callout-collapse collapse">
+<div id="callout-12" class="callout-12-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <p>3つの概念の違いを、もう一度整理しておこう。</p>
 <ul>
