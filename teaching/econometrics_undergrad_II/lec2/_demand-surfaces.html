@@ -1,0 +1,191 @@
+<div id="lec2-demand-surfaces" class="lec2-surfaces">
+  <div class="lec2-surfaces-toolbar">
+    <span class="lec2-surfaces-hint">ドラッグして回転 · 左右の視点は連動します</span>
+    <div class="lec2-surfaces-buttons" aria-label="需要曲面の表示操作">
+      <button type="button" data-surface-action="zoom-in" aria-label="両方の需要曲面を拡大">拡大</button>
+      <button type="button" data-surface-action="zoom-out" aria-label="両方の需要曲面を縮小">縮小</button>
+      <button type="button" data-surface-action="reset">元の向き</button>
+    </div>
+  </div>
+  <div class="lec2-surfaces-grid">
+    <div class="lec2-surface-panel">
+      <div class="lec2-surface-title">Aの需要量（本）</div>
+      <div id="lec2-surface-a" class="lec2-surface-plot" role="img" aria-label="Aの需要曲面。床はAの価格とBの価格、高さはAの需要量。ドラッグすると回転します。"></div>
+      <div class="lec2-surface-caption">断面ではBの価格を固定</div>
+    </div>
+    <div class="lec2-surface-panel">
+      <div class="lec2-surface-title">Bの需要量（本）</div>
+      <div id="lec2-surface-b" class="lec2-surface-plot" role="img" aria-label="Bの需要曲面。床はAの価格とBの価格、高さはBの需要量。ドラッグすると回転します。"></div>
+      <div class="lec2-surface-caption">断面ではAの価格を固定</div>
+    </div>
+  </div>
+  <div class="lec2-surfaces-legend" aria-label="断面の凡例">
+    <span><i class="lec2-section-line lec2-section-100" aria-hidden="true"></i>競合価格100円</span>
+    <span><i class="lec2-section-line lec2-section-150" aria-hidden="true"></i>競合価格150円</span>
+  </div>
+  <p class="lec2-surfaces-error" hidden>回転できる図を表示できませんでした。下の「静止画とRコード」から同じ需要曲面を確認できます。</p>
+  <noscript><p>回転する図にはJavaScriptが必要です。下の静止画で需要曲面を確認できます。</p></noscript>
+</div>
+<style>
+  .lec2-surfaces { margin: 1.25rem 0 1.5rem; padding: 1rem .6rem .85rem; border: 1px solid #d8e1e8; border-radius: 10px; background: #fff; color: #25374a; scroll-margin-top: 1rem; }
+  .lec2-surfaces-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .7rem; padding: 0 .4rem .9rem; }
+  .lec2-surfaces-hint { font-size: .82rem; line-height: 1.6; color: #536678; }
+  .lec2-surfaces-buttons { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .lec2-surfaces-buttons button { appearance: none; padding: .35rem .7rem; border: 1px solid #b8c7d4; border-radius: 5px; background: #f7fafc; color: #27465e; font: inherit; font-size: .8rem; line-height: 1.4; cursor: pointer; }
+  .lec2-surfaces-buttons button:hover { background: #eaf1f6; }
+  .lec2-surfaces-buttons button:focus-visible { outline: 3px solid #4c72b0; outline-offset: 2px; }
+  .lec2-surfaces-buttons button:disabled { opacity: .5; cursor: wait; }
+  .lec2-surfaces-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: .5rem; }
+  .lec2-surface-panel { min-width: 0; }
+  .lec2-surface-title { font-weight: 600; text-align: center; font-size: 1rem; }
+  .lec2-surface-plot { width: 100%; height: 440px; touch-action: none; }
+  .lec2-surface-caption { margin-top: -.25rem; text-align: center; font-size: .8rem; color: #536678; }
+  .lec2-surfaces-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem 1.5rem; margin-top: 1rem; font-size: .85rem; }
+  .lec2-surfaces-legend > span { display: inline-flex; align-items: center; gap: .45rem; }
+  .lec2-section-line { width: 28px; display: inline-block; border-top: 3px solid; }
+  .lec2-section-100 { border-color: #4c72b0; }
+  .lec2-section-150 { border-color: #dd8452; border-top-style: dashed; }
+  .lec2-surfaces-error { margin: 1rem .5rem 0; font-size: .9rem; }
+  @media (max-width: 500px) { .lec2-surface-plot { height: 410px; } }
+  @media print { .lec2-surfaces-toolbar { display: none; } }
+</style>
+<script src="assets/plotly-gl3d-4.1.1.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  const root = document.getElementById("lec2-demand-surfaces");
+  const plots = [document.getElementById("lec2-surface-a"), document.getElementById("lec2-surface-b")];
+  const buttons = Array.from(root.querySelectorAll("button"));
+  const copy = value => JSON.parse(JSON.stringify(value));
+  const initialCamera = { eye: { x: 2.1, y: 2.1, z: 1.6 }, center: { x: 0, y: 0, z: -0.07 }, up: { x: 0, y: 0, z: 1 }, projection: { type: "perspective" } };
+  let currentCamera = copy(initialCamera);
+  const prices = Array.from({ length: 51 }, (_, i) => i * 5);
+  const curvePrices = Array.from({ length: 126 }, (_, i) => i * 2);
+  const quantity = (product, pa, pb) => {
+    const a = Math.exp(2 - 0.02 * pa);
+    const b = Math.exp(1.5 - 0.02 * pb);
+    return 1000 * (product === "A" ? a : b) / (1 + a + b);
+  };
+  const hover = product => "Aの価格：%{x:.0f}円<br>Bの価格：%{y:.0f}円<br>" + product + "の需要量：%{z:.1f}本<extra></extra>";
+  function traces(product) {
+    const surface = {
+      type: "surface", x: prices, y: prices,
+      // Plotly surface rows are y (B's price), columns are x (A's price).
+      z: prices.map(pb => prices.map(pa => quantity(product, pa, pb))),
+      colorscale: [[0, "#d5e0e8"], [1, "#d5e0e8"]], showscale: false,
+      lighting: { ambient: 0.7, diffuse: 0.65, specular: 0.1, roughness: 0.9 },
+      lightposition: { x: 1000, y: 500, z: 1500 },
+      contours: { x: { show: true, start: 0, end: 250, size: 25, color: "#aebfcd", width: 1 }, y: { show: true, start: 0, end: 250, size: 25, color: "#aebfcd", width: 1 } },
+      hovertemplate: hover(product), name: product + "の需要曲面"
+    };
+    const sections = [100, 150].map(rival => {
+      const x = curvePrices.map(price => product === "A" ? price : rival);
+      const y = curvePrices.map(price => product === "A" ? rival : price);
+      return {
+        type: "scatter3d", mode: "lines", x: x, y: y,
+        // A tiny display offset keeps the line visible above the surface mesh.
+        z: x.map((pa, i) => quantity(product, pa, y[i]) + 2),
+        customdata: x.map((pa, i) => quantity(product, pa, y[i])),
+        line: { color: rival === 100 ? "#4c72b0" : "#dd8452", width: 7, dash: rival === 100 ? "solid" : "dash" },
+        hovertemplate: hover(product).replace("%{z:.1f}", "%{customdata:.1f}"), name: "競合価格" + rival + "円", showlegend: false
+      };
+    });
+    return [surface].concat(sections);
+  }
+  function axis(title, range, ticks) {
+    return {
+      title: { text: title, font: { size: 12 } }, range: range,
+      tickvals: ticks, tickfont: { size: 11 }, showbackground: true,
+      backgroundcolor: "#fafcfd", gridcolor: "#dbe3e9", zerolinecolor: "#b8c7d4",
+      showspikes: false
+    };
+  }
+  function layout() {
+    return {
+      margin: { l: 0, r: 0, t: 0, b: 0 }, paper_bgcolor: "#fff",
+      font: { family: '"Hiragino Sans", "Yu Gothic", sans-serif', color: "#25374a" },
+      showlegend: false, autosize: true, uirevision: "lec2-demand-surfaces",
+      scene: {
+        xaxis: axis("Aの価格（円）", [0, 250], [0, 100, 200, 250]),
+        yaxis: axis("Bの価格（円）", [0, 250], [0, 100, 200, 250]),
+        zaxis: axis("", [0, 1000], [0, 500, 1000]),
+        camera: copy(initialCamera), aspectmode: "manual", aspectratio: { x: 1, y: 1, z: 0.8 },
+        dragmode: "orbit", bgcolor: "#fff"
+      }
+    };
+  }
+  const config = { displayModeBar: false, displaylogo: false, responsive: true, scrollZoom: false, showTips: false, plotGlPixelRatio: Math.min(window.devicePixelRatio || 1, 2) };
+  buttons.forEach(button => { button.disabled = true; });
+  if (!window.Plotly) {
+    root.querySelector(".lec2-surfaces-error").hidden = false;
+    return;
+  }
+  Promise.all(plots.map((plot, i) => Plotly.newPlot(plot, traces(i === 0 ? "A" : "B"), layout(), config))).then(() => {
+    buttons.forEach(button => { button.disabled = false; });
+    const syncing = new Set();
+    let queuedCamera = null;
+    let frame = null;
+    let updating = false;
+    let controlsActive = false;
+    function flushCamera() {
+      frame = null;
+      if (updating || controlsActive || !queuedCamera) return;
+      const update = queuedCamera;
+      queuedCamera = null;
+      const target = plots[1 - update.source];
+      updating = true;
+      syncing.add(target);
+      Promise.resolve(Plotly.relayout(target, { "scene.camera": copy(update.camera) })).finally(() => {
+        syncing.delete(target);
+        updating = false;
+        if (queuedCamera && !frame) frame = requestAnimationFrame(flushCamera);
+      });
+    }
+    function cameraChanged(source, event) {
+      if (syncing.has(plots[source]) || controlsActive || !Object.keys(event).some(key => key.indexOf("scene.camera") === 0)) return;
+      const camera = event["scene.camera"] || plots[source]._fullLayout.scene.camera;
+      currentCamera = copy(camera);
+      queuedCamera = { source: source, camera: copy(camera) };
+      if (!frame) frame = requestAnimationFrame(flushCamera);
+    }
+    plots.forEach((plot, source) => {
+      plot.on("plotly_relayout", event => cameraChanged(source, event));
+      plot.on("plotly_relayouting", event => cameraChanged(source, event));
+    });
+    async function setCamera(camera) {
+      controlsActive = true;
+      queuedCamera = null;
+      if (frame) { cancelAnimationFrame(frame); frame = null; }
+      currentCamera = copy(camera);
+      buttons.forEach(button => { button.disabled = true; });
+      try {
+        await Promise.all(plots.map(plot => Plotly.relayout(plot, { "scene.camera": copy(camera) })));
+      } finally {
+        controlsActive = false;
+        buttons.forEach(button => { button.disabled = false; });
+      }
+    }
+    buttons.forEach(button => button.addEventListener("click", () => {
+      if (button.dataset.surfaceAction === "reset") { setCamera(initialCamera); return; }
+      const camera = copy(currentCamera);
+      const length = Math.hypot(camera.eye.x, camera.eye.y, camera.eye.z);
+      const factor = button.dataset.surfaceAction === "zoom-in" ? 0.8 : 1.25;
+      const scale = Math.min(5.5, Math.max(0.7, length * factor)) / length;
+      ["x", "y", "z"].forEach(axisName => { camera.eye[axisName] *= scale; });
+      setCamera(camera);
+    }));
+    if (window.ResizeObserver) {
+      let resizeFrame;
+      const observer = new ResizeObserver(() => {
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => plots.forEach(plot => Plotly.Plots.resize(plot)));
+      });
+      plots.forEach(plot => observer.observe(plot));
+    }
+    root.dataset.ready = "true";
+  }).catch(error => {
+    root.querySelector(".lec2-surfaces-error").hidden = false;
+    console.error("Demand surface initialization failed:", error);
+  });
+}());
+</script>

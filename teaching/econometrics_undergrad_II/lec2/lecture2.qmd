@@ -42,7 +42,7 @@ options(scipen = 8)
 
 - 製品を特徴の束として表し、消費者の選択から「価格を変えると購入数がどう変わるか」という需要関数を組み立てられる。
 - Gumbel分布（Type I極値分布）を効用のランダム項に仮定すると、選択確率が驚くほどシンプルな閉形式（logit公式）になる理由を理解する。
-- 価格弾力性の式を理解し、「値上げしたら客がどこへ流れるか」という問いに答えられるようになる。
+- 価格弾力性から「値上げしたら客がどこへ流れるか」を読み取り、企業の利益最大化や2社の価格競争の均衡につなげられる。
 - 最尤法（MLE）の考え方を、3人の購入データから出発してlogitモデルまで自分の手で追える。
 - `optim()`を使って自作の対数尤度を最大化し、シミュレーションデータから真のパラメータを回収できることを確認する。Hessianから標準誤差・信頼区間を計算する。
 :::
@@ -416,7 +416,14 @@ ggplot(demand_curves, aes(x = quantity, y = own_price,
 
 そこで、$p_A$ と $p_B$ の両方を動かしたくなる。$q_A(p_A,p_B)$ は2つの数を受け取って需要量を返す関数だから、需要量を高さに取れば、3次元の曲面として描ける。$q_B(p_A,p_B)$ についても、別の曲面が1枚ある。
 
-下の図では、**床の2軸をAの価格・Bの価格、高さを需要量**とした。先ほどの2次元図とは縦軸の置き方を変えていることに注意しよう。左の曲面は $q_A$、右は $q_B$ であり、どちらも同じ2つの価格に依存する。右の図は曲面の形が見やすい向きに回転しているので、床の軸ラベルで価格の方向を確認しよう。左の曲面上の青い線は $p_B=100$、右の青い線は $p_A=100$ に固定した断面である。これを取り出して価格を縦軸に置き直すと、先ほどの青い需要曲線になる。オレンジの線は、競合価格を150円に固定した断面に対応する。
+下の図では、**床の2軸をAの価格・Bの価格、高さを需要量**とした。先ほどの2次元図とは縦軸の置き方を変えていることに注意しよう。Aの図の曲面は $q_A$、Bの図は $q_B$ であり、どちらも同じ2つの価格に依存する。両図の床の軸は同じ向きにそろえてあり、同じ価格の組合せでAとBの需要量を比べられる。Aの曲面上の青い線は $p_B=100$、Bの曲面上の青い線は $p_A=100$ に固定した断面である。これを取り出して価格を縦軸に置き直すと、先ほどの青い需要曲線になる。オレンジの線は、競合価格を150円に固定した断面に対応する。
+
+```{=html}
+{{< include _demand-surfaces.html >}}
+```
+
+::: {.callout-note collapse="true"}
+## 静止画とRコード
 
 ```{r}
 #| label: fig-lec2-demand-surfaces
@@ -441,7 +448,7 @@ draw_demand_surfaces <- function() {
     quantity <- if (product == "A") quantity_A else quantity_B
     projection <- persp(
       price_axis, price_axis, quantity,
-      theta = if (product == "A") 40 else 140, phi = 25, expand = 0.65,
+      theta = 40, phi = 25, expand = 0.65,
       xlab = "Aの価格（円）", ylab = "Bの価格（円）",
       zlab = "",
       zlim = c(0, 1000), ticktype = "detailed", nticks = 3,
@@ -462,13 +469,15 @@ draw_demand_surfaces <- function() {
 }
 draw_demand_surfaces()
 ```
+:::
+
 
 Aの曲面は、Aの価格を高くする方向では低くなり、Bの価格を高くする方向では高くなる。Bの曲面では、その役割が逆になる。続いて定義する**自己価格弾力性**は、曲面上で「自分の価格だけを動かす方向」の需要の反応を、**交差価格弾力性**は「もう一方の価格だけを動かす方向」の反応を、それぞれ変化率で測るものである。
 
 
 ## 需要の反応を弾力性で測る
 
-@fig-lec2-demand-surfaces では、需要の反応を見る方向が2つあった。続けて、その「自分の価格を動かす方向」と「競合の価格を動かす方向」の反応を、変化率の比として測ってみよう。まず小さな数値例で計算し、その計算を微分による定義につなげる。ここでも係数は与えられているものとし、係数をデータから推定する方法はこの後に扱う。
+[需要曲面の図](#lec2-demand-surfaces)では、需要の反応を見る方向が2つあった。続けて、その「自分の価格を動かす方向」と「競合の価格を動かす方向」の反応を、変化率の比として測ってみよう。まず小さな数値例で計算し、その計算を微分による定義につなげる。ここでも係数は与えられているものとし、係数をデータから推定する方法はこの後に扱う。
 
 ### 自分の価格を変える：自己価格弾力性 {#sec-lec2-own-elasticity}
 
@@ -1068,46 +1077,236 @@ knitr::kable(round(elasticity_mat, 4),
 
 したがって、AとCの**増加率**は同じだが、流入するシェアポイントまで同じとは限らない。絶対的な流出は各行き先の元のシェアに比例配分される。AがBに似ていても、その「近さ」による上乗せはなく、Cとの違いは元の人気度だけである。これがIIA（Independence of Irrelevant Alternatives）が課す代替パターンの制約である。
 
-### 需要予測をプライシングにつなげる
+### 需要予測をプライシングにつなげる {#sec-lec2-pricing}
 
-需要数量と売上金額は別のものである。Aの期待需要数量は $q_A=M s_A$、収入（売上金額）は $R_A=p_Aq_A=M p_A s_A$ である。前半の[自己価格弾力性の数値例](#sec-lec2-own-elasticity)では、100円で400本なら40,000円、101円で約395.210本なら約39,916円となる。値上げしても、数量の減り方が大きいと収入は減る。
+需要関数が分かると、候補となる価格ごとに販売数量を予測できる。売り手が選びたいのは、その予測を使って**利益を最大にする価格**である。そこで、まずAだけを販売する1社の価格設定を考え、次にAとBを別々の企業が販売する価格競争へ進もう。どちらも市場規模と商品の属性は固定し、売り手は予測需要量をすべて供給できるとする。
 
-最後に、推定した3ブランドのモデルで、Aの価格を動かしたときのシェアと収入を可視化する。右の図は総収入を市場規模 $M$ で割った $p_A s_A$、すなわち市場の1人当たりの予測収入である。$M$ が固定なら、総収入を最大にする価格も同じになる。
+#### 1社がAだけを販売する：利益最大化と自己価格弾力性 {#sec-lec2-single-pricing}
+
+消費者がAを買うか、何も買わないかを選ぶ市場を考える。売り手は需要関数 $q_A(p_A)$ を把握しており、Aを1本追加で供給する費用（**限界費用**）は一定の $c_A$ 円である。1本売ると $p_A-c_A$ 円が残るので、価格で変わらない固定費を省いた利益は $(p_A-c_A)q_A(p_A)$ となる。売り手の問題は
+
+$$
+\max_{p_A\geq 0}\ \pi_A(p_A)
+=\max_{p_A\geq 0}\ (p_A-c_A)q_A(p_A)
+$$
+
+である。価格を上げると1本当たりの利幅は増えるが、売れる本数は減る。この2つの効果がちょうど釣り合う価格を探したい。需要が微分可能で、最適価格が正の内点にあるなら、利益の微分が0になるという**一階条件**は
+
+$$
+\frac{d\pi_A}{dp_A}
+=\underbrace{q_A(p_A)}_{\text{単価上昇による利益の増加}}
++\underbrace{(p_A-c_A)\frac{dq_A(p_A)}{dp_A}}_{\text{数量減少による利益の減少}}
+=0
+$$
+
+となる。価格をわずかに、たとえば1円引き上げると、もともと売れていた各1本から約1円ずつ余分に得られる。一方、買わなくなる人の分だけ、1本当たり $p_A-c_A$ 円の利益を失う。
+
+ここで[自己価格弾力性](#sec-lec2-elasticity-definition) $\eta_{AA}(p_A)=\{dq_A(p_A)/dp_A\}\,p_A/q_A(p_A)$ を使うと、この条件を読みやすく書き直せる。上式を正の需要量 $q_A(p_A)$ で割り、微分の項を弾力性に置き換えると、
+
+$$
+1+\frac{p_A-c_A}{p_A}\eta_{AA}(p_A)=0.
+$$
+
+したがって、最適価格 $p_A^*$ は
+
+$$
+\boxed{\frac{p_A^*-c_A}{p_A^*}
+=-\frac{1}{\eta_{AA}(p_A^*)}
+=\frac{1}{|\eta_{AA}(p_A^*)|}}
+$$
+
+を満たす。**価格に占める利幅の割合が、自己価格弾力性の絶対値の逆数に等しくなる**という関係である。値上げで数量が大きく減る需要に直面するほど、最適価格で維持できる利幅の割合は小さい。ただし、弾力性自体も価格とともに変わる。今の価格で測った弾力性を固定して値付けするのではなく、需要と弾力性を計算し直しながら、この条件を満たす価格を求める。
+
+前半のAとoutsideだけの数値例に戻ろう。$M=1{,}000$、$a_A=2$、$\alpha=0.02$ なので、
+
+$$
+s_A(p_A)=\frac{e^{2-0.02p_A}}{1+e^{2-0.02p_A}},
+\qquad q_A(p_A)=1{,}000s_A(p_A).
+$$
+
+ここに $c_A=50$ 円という費用の条件を加える。logitの自己価格弾力性 $\eta_{AA}=-\alpha p_A(1-s_A)$ を一階条件に代入すると、解くべき式は
+
+$$
+p_A^*=50+\frac{1}{0.02\{1-s_A(p_A^*)\}}
+$$
+
+となる。右辺のシェアにも $p_A^*$ が入っているので、Rで数値的に解いてみよう。
+
+```{r}
+#| label: lec2-single-product-pricing
+#| code-fold: true
+#| code-summary: "利益を最大にする価格を求めるRコード"
+
+pricing_alpha <- 0.02
+pricing_cost <- 50
+share_single <- function(p_A) plogis(2 - pricing_alpha * p_A)
+
+# 一階条件 1 - alpha * (p_A - c_A) * (1 - s_A) = 0 を解く。
+price_single <- uniroot(function(p_A) {
+  1 - pricing_alpha * (p_A - pricing_cost) * (1 - share_single(p_A))
+}, interval = c(pricing_cost, 500), tol = 1e-10)$root
+quantity_single <- 1000 * share_single(price_single)
+profit_single <- (price_single - pricing_cost) * quantity_single
+eta_single <- -pricing_alpha * price_single * (1 - share_single(price_single))
+```
+
+答えは約 **`r sprintf("%.2f", price_single)` 円**である。このとき約 `r sprintf("%.1f", quantity_single)` 本売れ、利益は約 `r format(round(profit_single), big.mark = ",")` 円になる。弾力性は約 `r sprintf("%.3f", eta_single)`、価格に占める利幅は約 `r sprintf("%.3f", (price_single - pricing_cost) / price_single)` であり、上の逆数の関係も確認できる。
+
+収入（売上金額）だけを最大にする場合は、目的関数が $R_A(p_A)=p_Aq_A(p_A)$ になる。これは費用を0として同じ計算をすることに等しく、一階条件は $\eta_{AA}=-1$ である。この例では収入最大化価格は100円で、500本が売れる。そのときの利益は $(100-50)\times500=25{,}000$ 円なので、利益最大化価格での利益より小さい。下の図では、収入と利益の頂点が異なる位置に現れる。
 
 ```{r}
 #| label: fig-lec2-pricing-curve
-#| fig-cap: "ブランドAの価格を動かしたときの予測シェアと市場の1人当たり予測収入"
+#| fig-cap: "Aとoutsideだけの市場。限界費用は50円。左は予測シェア、右は収入と利益。縦線は各曲線を最大にする価格を示す。"
+#| fig-width: 9
+#| fig-height: 4.8
+#| code-fold: true
+#| code-summary: "シェア・収入・利益を描くRコード"
 
-price_grid <- seq(80, 200, by = 2)
-share_A_grid <- numeric(length(price_grid))
-revenue_A_grid <- numeric(length(price_grid))
-
-for (i in seq_along(price_grid)) {
-  p_try <- price_base
-  p_try[1] <- price_grid[i]
-  s_try <- compute_shares(theta_hat, matrix(p_try, nrow = 1), sweetness)[1, ]
-  share_A_grid[i] <- s_try[2]  # Aのシェア（1列目はoutside）
-  revenue_A_grid[i] <- price_grid[i] * s_try[2]
-}
-
-pricing_df <- data.frame(price = price_grid, share = share_A_grid, revenue = revenue_A_grid)
+pricing_df <- data.frame(price = seq(50, 250, length.out = 401))
+pricing_df$share <- share_single(pricing_df$price)
+pricing_df$revenue <- pricing_df$price * 1000 * pricing_df$share
+pricing_df$profit <- (pricing_df$price - pricing_cost) * 1000 * pricing_df$share
+pricing_money <- data.frame(
+  price = rep(pricing_df$price, 2),
+  amount = c(pricing_df$revenue, pricing_df$profit),
+  measure = factor(rep(c("収入", "利益"), each = nrow(pricing_df)),
+                   levels = c("収入", "利益")))
+pricing_optima <- data.frame(
+  price = c(100, price_single),
+  measure = factor(c("収入", "利益"), levels = c("収入", "利益")))
 
 p1 <- ggplot(pricing_df, aes(x = price, y = share)) +
   geom_line(color = "#4C72B0", linewidth = 1) +
-  labs(x = "ブランドAの価格（円）", y = "予測シェア", title = "価格 vs 予測シェア")
-
-p2 <- ggplot(pricing_df, aes(x = price, y = revenue)) +
-  geom_line(color = "#DD8452", linewidth = 1) +
-  geom_vline(xintercept = pricing_df$price[which.max(pricing_df$revenue)],
-             linetype = "dashed", color = "gray40") +
-  labs(x = "ブランドAの価格（円）", y = "1人当たり予測収入（円）", title = "価格 vs 1人当たり予測収入")
-
+  labs(x = "Aの価格（円）", y = "予測シェア", title = "価格を上げると需要が減る")
+p2 <- ggplot(pricing_money, aes(x = price, y = amount / 1000, color = measure)) +
+  geom_line(linewidth = 1) +
+  geom_vline(data = pricing_optima, aes(xintercept = price, color = measure),
+             linetype = "dashed", show.legend = FALSE) +
+  scale_color_manual(values = c("収入" = "#4C72B0", "利益" = "#DD8452"), name = NULL) +
+  labs(x = "Aの価格（円）", y = "金額（千円）", title = "収入と利益では最適価格が違う") +
+  theme(legend.position = "bottom")
 p1 + p2
 ```
 
-右側の曲線の頂点は、ほかの価格・属性を固定したときに、図の価格範囲で**収入を最大化する価格**である。需要関数を推定すれば、値上げの単価上昇と数量減少を同じ計算の中で比較できる。
+#### AとBを別々の企業が販売する：最適反応と価格の均衡 {#sec-lec2-price-equilibrium}
 
-ただし、収入と利益も異なる。Aの1本当たり費用が一定の $c_A$ 円なら、価格で変わらない固定費を省いたAの利益は $\pi_A=(p_A-c_A)M s_A$ である。利益を最大化したいなら、この費用も入れて計算する必要があり、上図の収入最大化価格がそのまま答えになるとは限らない。
+次に、Aを売る企業とBを売る企業が1社ずついる市場を考える。各企業は自分の商品の価格を同時に選び、消費者はA・B・outsideから選ぶ。前半で描いた2つの需要曲面 $q_A(p_A,p_B)$、$q_B(p_A,p_B)$ が、ここで必要になる。Aの販売数量はAの価格だけでなく、Bの価格にも依存するからである。
+
+各商品の一定の限界費用を $c_A$、$c_B$ とする。Aの企業は、Bの価格を所与として自分の利益を最大にする。同様にBの企業は、Aの価格を所与として自分の利益を最大にする。各社の問題は
+
+$$
+\begin{aligned}
+\text{Aの企業：}\quad &\max_{p_A\geq0}\ (p_A-c_A)q_A(p_A,p_B)
+&&\text{（$p_B$を固定）},\\
+\text{Bの企業：}\quad &\max_{p_B\geq0}\ (p_B-c_B)q_B(p_A,p_B)
+&&\text{（$p_A$を固定）}.
+\end{aligned}
+$$
+
+相手の価格に対して、自分の利益を最大にする価格を**最適反応**と呼ぶ。そして、**互いの価格が相手に対する最適反応になっている価格の組** $(p_A^*,p_B^*)$ が、価格競争の**ナッシュ均衡**である。均衡では、相手が価格を変えないかぎり、どちらの企業も自分だけ価格を変更して利益を増やせない。式では
+
+$$
+\begin{aligned}
+p_A^*&\in\operatorname*{arg\,max}_{p_A\geq0}(p_A-c_A)q_A(p_A,p_B^*),\\
+p_B^*&\in\operatorname*{arg\,max}_{p_B\geq0}(p_B-c_B)q_B(p_A^*,p_B)
+\end{aligned}
+$$
+
+と書ける。$\operatorname*{arg\,max}$ は、最大の利益額そのものではなく、その利益を実現する価格を表す。
+
+均衡価格を計算するにも、弾力性が役に立つ。各社が相手価格を固定して自分の価格で利益を微分すると、正の内点での一階条件は
+
+$$
+\begin{aligned}
+q_A+(p_A-c_A)\frac{\partial q_A}{\partial p_A}&=0,\\
+q_B+(p_B-c_B)\frac{\partial q_B}{\partial p_B}&=0.
+\end{aligned}
+$$
+
+1社の場合と同じ変形により、均衡では次の2つが同時に成り立つ。
+
+$$
+\frac{p_A^*-c_A}{p_A^*}
+=-\frac{1}{\eta_{AA}(p_A^*,p_B^*)},
+\qquad
+\frac{p_B^*-c_B}{p_B^*}
+=-\frac{1}{\eta_{BB}(p_A^*,p_B^*)}.
+$$
+
+どちらの企業も1商品だけを販売するので、自分の値上げでBやAに移った顧客から利益を得ることはない。そのため、それぞれの条件に直接入るのは**自己価格弾力性**である。一方、**交差価格弾力性**は、相手が価格を変えたときに自社の需要がどう変わるかを表す。その需要の変化によって自社の最適反応も変わるため、2社の価格を求めるには、それぞれの需要が両方の価格にどう依存するかを把握する必要がある。
+
+数値例には、前半の需要曲面と同じ $M=1{,}000$、$a_A=2$、$a_B=1.5$、$\alpha=0.02$ を使う。費用は両社とも1本50円とする。このとき、シェアと均衡の一階条件は
+
+$$
+\begin{aligned}
+s_A(p_A,p_B)&=\frac{e^{2-0.02p_A}}{1+e^{2-0.02p_A}+e^{1.5-0.02p_B}},\\
+s_B(p_A,p_B)&=\frac{e^{1.5-0.02p_B}}{1+e^{2-0.02p_A}+e^{1.5-0.02p_B}},\\[6pt]
+p_A^*&=50+\frac{1}{0.02\{1-s_A(p_A^*,p_B^*)\}},\\
+p_B^*&=50+\frac{1}{0.02\{1-s_B(p_A^*,p_B^*)\}}.
+\end{aligned}
+$$
+
+今度は未知の価格が2つあり、右辺のシェアも両方の価格に依存する。この2つの条件を連立して解くと、次の均衡が得られる。
+
+```{r}
+#| label: lec2-two-firm-pricing
+#| code-fold: true
+#| code-summary: "各社の最適反応から均衡価格を求めるRコード"
+
+# 相手の価格を固定し、各社の一階条件を解く。
+best_response_A <- function(p_B) {
+  uniroot(function(p_A) {
+    s_A <- demand_two(p_A, p_B)$q_A / 1000
+    1 - pricing_alpha * (p_A - pricing_cost) * (1 - s_A)
+  }, interval = c(pricing_cost, 500), tol = 1e-10)$root
+}
+best_response_B <- function(p_A) {
+  uniroot(function(p_B) {
+    s_B <- demand_two(p_A, p_B)$q_B / 1000
+    1 - pricing_alpha * (p_B - pricing_cost) * (1 - s_B)
+  }, interval = c(pricing_cost, 500), tol = 1e-10)$root
+}
+
+# 互いの最適反応を順に計算し、両価格が変わらなくなるまで繰り返す。
+price_nash <- c(A = 100, B = 100)
+for (iteration in 1:100) {
+  previous_prices <- price_nash
+  price_nash["A"] <- best_response_A(price_nash["B"])
+  price_nash["B"] <- best_response_B(price_nash["A"])
+  if (max(abs(price_nash - previous_prices)) < 1e-9) break
+}
+stopifnot(abs(price_nash["A"] - best_response_A(price_nash["B"])) < 1e-7,
+          abs(price_nash["B"] - best_response_B(price_nash["A"])) < 1e-7)
+quantity_nash <- unlist(demand_two(price_nash["A"], price_nash["B"])[c("q_A", "q_B")],
+                        use.names = FALSE)
+eta_nash <- -pricing_alpha * price_nash * (1 - quantity_nash / 1000)
+knitr::kable(data.frame(
+  商品 = c("A", "B"),
+  均衡価格_円 = as.numeric(price_nash),
+  予測需要量_本 = quantity_nash,
+  自己価格弾力性 = as.numeric(eta_nash),
+  利幅の割合 = as.numeric((price_nash - pricing_cost) / price_nash)),
+  digits = c(0, 2, 1, 3, 3),
+  col.names = c("商品", "均衡価格（円）", "予測需要量（本）", "自己価格弾力性", "利幅／価格"),
+  caption = "AとBを別々の企業が販売する場合のナッシュ均衡（限界費用は両社とも50円）")
+```
+
+Bが約 `r sprintf("%.2f", price_nash["B"])` 円なら、Aにとっては約 `r sprintf("%.2f", price_nash["A"])` 円が最も利益の高い価格である。同時に、Aがその価格なら、Bにとっては約 `r sprintf("%.2f", price_nash["B"])` 円が最も利益の高い価格になっている。Aだけを販売する市場では約 `r sprintf("%.2f", price_single)` 円だった最適価格が、この例ではBとの競争によって低くなる。
+
+::: {.callout-note collapse="true"}
+## 一階条件を解けば、本当に利益最大になるのか
+
+一般の需要関数では、微分が0になることは内点での必要条件であり、それだけで最大とは限らない。今回のlogit需要と一定の限界費用では、Aだけの市場でも、Bの価格を固定した市場でも、利益の微分は
+
+$$
+\frac{\partial\pi_A}{\partial p_A}
+=q_A\bigl\{1-\alpha(p_A-c_A)(1-s_A)\bigr\}
+$$
+
+と書ける。$p_A<c_A$ では利益が負なので、$p_A\geq c_A$ を調べればよい。この範囲で価格を上げると、$p_A-c_A$ は増え、$s_A$ は下がるので $1-s_A$ も増える。そのため、中括弧は $p_A=c_A$ での1から単調に下がり、やがて負になる。利益は一階条件の解まで増え、その後は減るので、解は利益を最大にする唯一の価格である。Bについても同じ理由が成り立ち、両社の一階条件を同時に満たす上の価格は、互いに最適反応となっている。
+:::
+
+この2つの例では、計算の流れが見えるように前半の係数を使った。推定した需要を使う場合も、$\hat\alpha$ や属性の推定係数から各価格での需要量と弾力性を計算し、同じ利益最大化問題を解けばよい。その際には、需要の推定に加えて限界費用の情報が必要になる。競争相手も価格を変える場面では、さらに「各社が同時に自社の価格を選ぶ」といった競争の仕方を定めることで、予測需要から均衡価格まで計算できる。
 
 ## 実証研究コーナー
 
