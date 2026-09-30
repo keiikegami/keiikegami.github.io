@@ -354,6 +354,125 @@ $$
 
 約450.2本は平均的に売れると予測する本数であって、1人が0.2本を買うという意味ではない。このように価格を順に変えて $q_A$ を計算すれば、需要曲線が描ける。これから最尤法で推定するのは、この計算を支える $\alpha$ や $\beta$ である。今回のシミュレーションでは価格を観測されない効用と独立に生成する。現実のデータでも価格の変化を需要の反応として読めるか、という識別の問題は次回に扱う。
 
+#### 2財それぞれの需要曲線を描く
+
+今度は、商品A・商品B・outsideから1つを選ぶ市場に広げる。$M=1{,}000$、$\alpha=0.02$ はそのままに、非価格部分の魅力を $a_A=2$、$a_B=1.5$ としよう。logitから導かれる需要関数は、AにもBにも1本ずつある。
+
+$$
+\begin{aligned}
+q_A(p_A,p_B)&=1{,}000\frac{e^{2-0.02p_A}}{1+e^{2-0.02p_A}+e^{1.5-0.02p_B}},\\
+q_B(p_A,p_B)&=1{,}000\frac{e^{1.5-0.02p_B}}{1+e^{2-0.02p_A}+e^{1.5-0.02p_B}}.
+\end{aligned}
+$$
+
+まずは経済学でおなじみの、**横軸に需要量、縦軸にその財自身の価格**を置く図にしてみよう。左はAの需要曲線で、Bの価格を100円に固定してAの価格だけを動かす。右は逆に、Aの価格を100円に固定してBの価格だけを動かす。それぞれの青い実線が、その計算結果である。オレンジの破線は、もう一方の財の価格を150円に固定し直した場合を表す。
+
+```{r}
+#| label: fig-lec2-demand-curves
+#| fig-cap: "logitが導く2財の需要曲線。横軸は各財の需要量、縦軸は各財自身の価格。青い実線は競合価格100円、オレンジの破線は150円。点は自分の価格も100円のとき。"
+#| fig-width: 9
+#| fig-height: 4.8
+#| code-fold: true
+#| code-summary: "図を描くRコード"
+
+# A・B・outsideの3択。市場規模と属性への評価は固定する。
+demand_two <- function(p_A, p_B) {
+  exp_A <- exp(2 - 0.02 * p_A)
+  exp_B <- exp(1.5 - 0.02 * p_B)
+  denominator <- 1 + exp_A + exp_B
+  data.frame(q_A = 1000 * exp_A / denominator,
+             q_B = 1000 * exp_B / denominator,
+             q_0 = 1000 / denominator)
+}
+
+demand_price_grid <- seq(0, 250, length.out = 251)
+demand_curves <- do.call(rbind, lapply(c(100, 150), function(rival_price) {
+  rbind(
+    data.frame(product = "Aの需要曲線", own_price = demand_price_grid,
+               quantity = demand_two(demand_price_grid, rival_price)$q_A,
+               rival_price = factor(rival_price, levels = c(100, 150))),
+    data.frame(product = "Bの需要曲線", own_price = demand_price_grid,
+               quantity = demand_two(rival_price, demand_price_grid)$q_B,
+               rival_price = factor(rival_price, levels = c(100, 150)))
+  )
+}))
+
+ggplot(demand_curves, aes(x = quantity, y = own_price,
+                         color = rival_price, linetype = rival_price)) +
+  geom_hline(yintercept = 100, color = "gray80", linetype = "dotted") +
+  geom_line(linewidth = 1) +
+  geom_point(data = subset(demand_curves, own_price == 100), size = 2.3) +
+  facet_wrap(~ product, nrow = 1) +
+  scale_color_manual(values = c("100" = "#4C72B0", "150" = "#DD8452"),
+                     name = "もう一方の財の価格", labels = c("100円", "150円")) +
+  scale_linetype_manual(values = c("100" = "solid", "150" = "dashed"),
+                       name = "もう一方の財の価格", labels = c("100円", "150円")) +
+  scale_x_continuous(limits = c(0, 1000), breaks = seq(0, 1000, 250)) +
+  scale_y_continuous(limits = c(0, 250), breaks = seq(0, 250, 50)) +
+  labs(x = "その財の需要量（本）", y = "その財自身の価格（円）") +
+  theme(legend.position = "bottom")
+```
+
+どちらも右下がりだが、直線ではない。価格が効用に入り、それを指数関数で変換しているので、価格帯によって数量の変わり方が異なる。また、需要量は0本と市場規模1,000本の間に収まる。outsideもあるため、$q_A+q_B$ が必ず1,000本になるわけではない。
+
+両方100円のとき、Aの需要は約384本、Bは約233本である。Aが先ほどの1財の例の500本より少ないのは、Bも選べるようになったためである。A自身は100円のまま、Bだけを150円にすると、Aの需要は約450本に増える。左の図では、青い点からオレンジの点へ右に移る。**自分の価格を変えると1本の曲線に沿って動き、競合の価格を変えると需要曲線そのものが移動する**。AもBも、需要が自分の価格だけで決まっているわけではないことが見えてくる。
+
+#### 本当は2つの価格に依存する：需要曲面とその断面
+
+そこで、$p_A$ と $p_B$ の両方を動かしたくなる。$q_A(p_A,p_B)$ は2つの数を受け取って需要量を返す関数だから、需要量を高さに取れば、3次元の曲面として描ける。$q_B(p_A,p_B)$ についても、別の曲面が1枚ある。
+
+下の図では、**床の2軸をAの価格・Bの価格、高さを需要量**とした。先ほどの2次元図とは縦軸の置き方を変えていることに注意しよう。左の曲面は $q_A$、右は $q_B$ であり、どちらも同じ2つの価格に依存する。右の図は曲面の形が見やすい向きに回転しているので、床の軸ラベルで価格の方向を確認しよう。左の曲面上の青い線は $p_B=100$、右の青い線は $p_A=100$ に固定した断面である。これを取り出して価格を縦軸に置き直すと、先ほどの青い需要曲線になる。オレンジの線は、競合価格を150円に固定した断面に対応する。
+
+```{r}
+#| label: fig-lec2-demand-surfaces
+#| fig-cap: "2つの価格に依存する需要曲面。左の高さはAの需要量、右はBの需要量。曲面上の青い実線・オレンジの破線は、前の図と同じ競合価格100円・150円の断面を表す。"
+#| fig-width: 10
+#| fig-height: 5.2
+#| code-fold: true
+#| code-summary: "図を描くRコード"
+
+draw_demand_surfaces <- function() {
+  old_par <- par(mfrow = c(1, 2), mar = c(2.5, 1.5, 2.5, 1.5),
+                 oma = c(1.5, 0, 0, 0),
+                 family = if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else "")
+  on.exit(par(old_par))
+  price_axis <- seq(0, 250, length.out = 41)
+  quantity_A <- outer(price_axis, price_axis,
+                      function(pa, pb) demand_two(pa, pb)$q_A)
+  quantity_B <- outer(price_axis, price_axis,
+                      function(pa, pb) demand_two(pa, pb)$q_B)
+
+  for (product in c("A", "B")) {
+    quantity <- if (product == "A") quantity_A else quantity_B
+    projection <- persp(
+      price_axis, price_axis, quantity,
+      theta = if (product == "A") 40 else 140, phi = 25, expand = 0.65,
+      xlab = "Aの価格（円）", ylab = "Bの価格（円）",
+      zlab = "",
+      zlim = c(0, 1000), ticktype = "detailed", nticks = 3,
+      col = "#E1E7EC", border = "#AEBCC7", shade = 0.25,
+      cex.axis = 0.75, cex.lab = 0.9,
+      main = paste0(product, "の需要量（高さ、単位：本）"))
+    for (rival_price in c(100, 150)) {
+      pa <- if (product == "A") price_axis else rep(rival_price, length(price_axis))
+      pb <- if (product == "A") rep(rival_price, length(price_axis)) else price_axis
+      q <- demand_two(pa, pb)[[paste0("q_", product)]]
+      lines(trans3d(pa, pb, q, pmat = projection),
+            col = if (rival_price == 100) "#4C72B0" else "#DD8452",
+            lty = if (rival_price == 100) 1 else 2, lwd = 3)
+    }
+  }
+  mtext("青い実線：競合価格100円の断面　／　オレンジの破線：競合価格150円の断面",
+        side = 1, outer = TRUE, line = 0, cex = 0.85)
+}
+draw_demand_surfaces()
+```
+
+Aの曲面は、Aの価格を高くする方向では低くなり、Bの価格を高くする方向では高くなる。Bの曲面では、その役割が逆になる。後で学ぶ**自己価格弾力性**は、曲面上で「自分の価格だけを動かす方向」の需要の反応を、**交差価格弾力性**は「もう一方の価格だけを動かす方向」の反応を、それぞれ変化率で測るものである。
+
+記号で書くなら、Aについて前者は $\partial q_A/\partial p_A$、後者は $\partial q_A/\partial p_B$ という偏微分に対応する。ただし、ここでの傾きは「円あたり何本」であり、弾力性にするには価格と需要量で換算する必要がある。また、最初の2次元図は価格が縦軸なので、図上の傾きは $\partial p_A/\partial q_A$ の側である。需要の価格への反応と軸の向きを取り違えないようにしよう。
+
+
 ## 最尤法（Maximum Likelihood Estimation）
 
 ここからが今回の本題である。データからパラメータ（$v_{ij}$ の中身にある価格係数や属性への好みなど）を推定する方法として、最尤法（maximum likelihood estimation, MLE）を導入する。**最尤法は計量経済学IIで初めて出てくる推定方法**なので、じっくり丁寧に進める。
@@ -468,6 +587,8 @@ L_i(\theta)=s_i(\theta)^{y_i}\{1-s_i(\theta)\}^{1-y_i}.
 $$
 
 $y_i=1$ なら対数尤度への寄与は $\log s_i$、$y_i=0$ なら $\log(1-s_i)$ である。多項選択の $\sum_j y_{ij}\log s_{ij}$ は、この「実際に選んだ確率のlogだけを拾う」を $J+1$択に拡張したものにすぎない。
+
+二項分布のときと同様に、logitの対数尤度もグラフで眺められる。この後、実際にパラメータを推定してから、@fig-lec2-loglik-slice で価格係数を動かしたときの形を確認する。
 
 線形指数のlogitモデルでは、対数尤度はパラメータについて大域的に凹（globally concave）である。したがって、見つかった局所最大は大域最大でもある。ただし、凹であることだけから「どの数値アルゴリズムも、どの初期値からでも必ず収束する」とは言えない。有限で一意な最大値には、説明変数行列の十分なランクと完全分離がないことが必要であり、平坦な方向・極端な初期値・数値誤差があれば最適化は失敗し得る。
 
@@ -649,6 +770,44 @@ knitr::kable(recovery_df, caption = "真値とMLE推定値の比較（N=3,000）
 
 推定値は、真値のごく近くに戻ってきている。これが「真値回収（parameter recovery）」の確認である。DGPを自分で書いてシミュレーションし、真のパラメータを与えてデータを作り、そのデータから同じパラメータを推定量が復元できるかどうかを確かめる——これは、推定量の実装が正しいかを検証する最も基本的で確実な方法である。実際のデータでは真値は分からないが、シミュレーションでは分かる。だからこそ、新しい推定量を実装したら、まずこの手順を踏むべきである。
 
+### logitの対数尤度も「山」として見る
+
+二項分布の例では、確率 $p$ を横軸にして対数尤度の山を描いた。今回のlogitでは4つの係数を同時に推定しているので、そのまま1枚の曲線にはできない。そこで、**A・Bの切片と甘さの係数を推定値に固定し、価格係数 $\alpha$ だけを動かした断面**を描こう。3,000人の観測された価格・属性・選択はそのまま固定し、各候補の $\alpha$ がその選択をどれだけよく説明するかを比べる。
+
+```{r}
+#| label: fig-lec2-loglik-slice
+#| code-fold: true
+#| code-summary: "図を描くRコード"
+#| fig-cap: "logitの対数尤度の断面：価格係数だけを動かし、ほかの係数と観測データを固定"
+
+alpha_mle <- unname(theta_hat["alpha_price"])
+alpha_grid <- sort(unique(c(seq(0.005, 0.04, length.out = 201), alpha_mle)))
+
+# 各候補でも同じデータを使う。ほかの3係数は推定値のままにする。
+loglik_slice <- vapply(alpha_grid, function(alpha_try) {
+  theta_try <- theta_hat
+  theta_try["alpha_price"] <- alpha_try
+  -neg_loglik_mnl(theta_try, X = X_design, choice = choice_vec)
+}, numeric(1))
+loglik_at_mle <- -neg_loglik_mnl(theta_hat, X = X_design, choice = choice_vec)
+loglik_slice_df <- data.frame(alpha = alpha_grid, loglik = loglik_slice)
+
+ggplot(loglik_slice_df, aes(x = alpha, y = loglik)) +
+  geom_line(color = "#4C72B0", linewidth = 1) +
+  geom_vline(xintercept = alpha_mle, linetype = "dashed", color = "#C44E52") +
+  annotate("point", x = alpha_mle, y = loglik_at_mle,
+           color = "#C44E52", size = 2.5) +
+  annotate("text", x = alpha_mle + 0.001, hjust = 0,
+           y = min(loglik_slice) + 0.1 * diff(range(loglik_slice)),
+           label = paste0("alpha_hat = ", sprintf("%.4f", alpha_mle)),
+           color = "#C44E52") +
+  labs(x = "価格係数 α の候補値（価格は円単位）", y = "対数尤度",
+       title = "対数尤度を最大にする価格係数を探す",
+       subtitle = "ほかの3係数は推定値に固定")
+```
+
+この断面でも、対数尤度は $\hat\alpha=`r sprintf("%.4f", alpha_mle)`$ 付近で最大になる。二項分布では確率 $p$ を直接動かしたが、logitでは係数 $\alpha$ を動かすと各人の選択確率が変わり、その確率から対数尤度を計算する。**観測データを固定して、対数尤度を最大にするパラメータを探す**という考え方は同じである。ここで動かすのは商品の価格ではなく「価格にどれくらい反応するか」という係数である。また、各 $\alpha$ でほかの係数を再推定するプロファイル尤度ではなく、推定値を通る固定した断面である。
+
 ::: {.callout-note collapse="true"}
 ## 大域凹性について一言
 
@@ -772,6 +931,8 @@ ggplot(mc_df, aes(x = alpha_hat)) +
 ## 価格弾力性とプライシング
 
 さて、ここまでで推定はできた。次は「Aを値上げしたらAが何本売れ、Bに何人の客が流れるか」に答える。市場規模を $M$ 人、1人が買う数量を最大1本とすると、期待需要数量は $q_j=M s_j$ である。**価格を変えて選択確率を予測することは、需要関数 $q_j(p_1,\ldots,p_J)$ を推定していることにほかならない。** まず具体的な数値から、需要数量の変化をどう測るかを見てみよう。
+
+@fig-lec2-demand-surfaces では、需要の反応を見る方向が2つあった。以下では、その「自分の価格を動かす方向」と「競合の価格を動かす方向」の違いを、変化率の比として計算する。
 
 ### 自分の価格を変える：自己価格弾力性
 
