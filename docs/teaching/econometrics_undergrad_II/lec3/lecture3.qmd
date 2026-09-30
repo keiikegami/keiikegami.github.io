@@ -57,7 +57,7 @@ options(scipen = 8)
 
 2つ目は、**価格の内生性**の問題である。前回までは、価格を含む説明変数はすべて「外生」として扱ってきた。しかし現実の価格は、企業が需要側の情報（消費者に人気がある、広告で話題になっている、といった要因）を知った上でつけている。この情報が分析者には見えない「未観測の需要ショック」だとすると、価格とこの未観測ショックは相関し、OLSによる価格反応の推定はバイアスを持つ。これはまさに第1回のイントロで見せたデモ——「値上げすると売上が増える」——の正体である。今回はこれを操作変数法（2SLS）で解決する。
 
-次回（第4回）は、消費者ごとに価格感応度や好みが異なる状況（random coefficient logit）を扱い、そこから合併分析へ進む。今回学ぶ「代替性をどう捉えるか」という問題意識は、次回さらに柔軟な形で引き継がれる。
+次回（第4回）は、商品属性への評価や価格感応度そのものを消費者ごとに変える拡張（random coefficient logit）を扱い、そこから合併分析へ進む。今回学ぶ「代替性をどう捉えるか」という問題意識は、次回さらに柔軟な形で引き継がれる。
 
 ## IIAを直視する：赤バス・青バス問題の現代版
 
@@ -179,7 +179,7 @@ round(E_iia, 4)
 
 「BMWが値上げしたら、シェアの比率に応じて軽トラの需要も増える」——これがlogitモデルの機械的な帰結である。もちろん現実には、BMWの値上げで乗り換える先は同じ高級車セグメント（ベンツやアウディ）に偏るはずで、軽トラに乗り換える人はほとんどいないだろう。しかしlogitモデルは、この「BMWと軽トラは全然違うカテゴリだ」という情報を一切使わずに、シェアの大きさだけで機械的に配分してしまう。
 
-原因は、各消費者の効用ショック $\varepsilon_{ijt}$ が財を超えて**iid**（独立同一分布）だと仮定していることにある。財1と財2が「似ている」ということは、本来ならある消費者が財1を好むなら財2も好みやすい、つまり $\varepsilon_{i1t}$ と $\varepsilon_{i2t}$ が正に相関しているはずである。しかしlogitはこの相関を許さない。この仮定の帰結が IIA と呼ばれる性質であり、次のセクションで扱う nested logit は、まさにこの相関を部分的に許すことで問題を緩和するモデルである。
+原因は、各消費者の効用ショック $\varepsilon_{ijt}$ が財を超えて**iid**（独立同一分布）だと仮定していることにある。観測できる属性や価格が効用に与える部分を説明した後にも、「ある消費者は財1も財2も特に好む」という傾向が残るなら、$\varepsilon_{i1t}$ と $\varepsilon_{i2t}$ に正の相関を許すことが役立つ。製品が似ているだけで必ず誤差が相関するという意味ではなく、**モデルで説明しきれなかった好みの共通部分**の話である。基本logitはこの相関を許さず、IIAという代替パターンの制約を持つ。次に扱う nested logit は、この相関を部分的に許すことで制約を緩和するモデルである。
 :::
 
 ::: {.callout-tip}
@@ -194,11 +194,28 @@ round(E_iia, 4)
 **なぜこの講義のトピックと繋がるのか**：Trajtenbergの研究は、耐久財・医療機器という文脈でも、差別化財市場の代替性を正しく捉えることの重要性、そしてlogitのIIA制約がもたらす実務的な問題（技術的に近い競合を過小評価する）を具体的に示した初期の実証例である。今回学ぶnested logitは、まさにこうした「近い財ほど強く競合する」という構造を組み込むための最初の一歩になる。
 :::
 
+### 垂直的・水平的差別化と、代替パターンの違い {#sec-lec3-differentiation}
+
+ここで、「製品が違う」とはどういうことかを整理しておこう。**価格を同じにそろえたとき、消費者の製品順位が一致するか**という観点から、次の2つを区別できる。
+
+| 差別化の種類 | 小さな例 | 同じ価格ならどう選ぶか |
+|---|---|---|
+| 垂直的差別化（vertical differentiation） | 他の条件は同じで、Aは充電が10時間、Bは20時間もつ。この例では全員が長持ちを好むとする。 | 全員がBを好む。ただし、追加の10時間にいくら払うかは人によって違ってよい。 |
+| 水平的差別化（horizontal differentiation） | Aは無糖、Bは甘いコーヒーである。 | 無糖好きはA、甘党はBを好む。全員に共通する「上位の製品」はない。 |
+
+実際の製品は、品質の違いと好みの違いの両方を持ちうる。この区別は製品の評価のされ方を整理するもので、logitやnested logitというモデル名と一対一に対応するものではない。
+
+第2回の $u_{ij}=x_j'\beta-\alpha p_j+\varepsilon_{ij}$ でも、**共通の $\beta$ が作るのは効用の共通部分であり、効用全体ではない**。$\varepsilon_{ij}$ が人・製品ごとに異なるので、同じ価格でもAを好む人とBを好む人がいる。基本logitにも、この意味で人による製品順位の違いはある。[Train (2009), 第3章](https://eml.berkeley.edu/books/choice2nd/Ch03_p34-75.pdf)も、観測されない効用を含むランダム効用モデルからlogitを導いている。
+
+したがって、今回のIIAの問題は「好みの違いがない」ことではない。**好みの違いを含んでいても、ある財の値上げによる需要の移動先が、他の財のシェア比だけで決まってしまう**ことが問題である。nested logitでは、例えば無糖のブランド同士に共通する未観測の好みを表すことで、乗り換え先が無糖の中に集中するような代替を扱う。水平的差別化を初めて可能にするのではなく、代替パターンの表現を広げるのである。
+
+商品属性への評価そのものを人ごとに変える考え方と、垂直的・水平的差別化で値上げ後の需要がどう変わるかの数値例は、[第4回で詳しく扱う](../lec4/lecture4.html#sec-lec4-vertical-horizontal)。まずは、今回のnested logitが代替パターンをどう広げるかを見ていこう。
+
 ## nested logit：財をグループにまとめる
 
 ### アイデア
 
-IIAの問題は、財同士の「近さ」を効用ショックの相関として表現できないことに起因していた。nested logitは、財をあらかじめいくつかの**ネスト（グループ）**に分け、同じネストに属する財同士は効用ショックが相関し、異なるネストの財同士は相関しない、という構造を与える。
+基本logitでは、観測効用を所与として、財同士に共通する未観測の好みを効用ショックの相関として表現できなかった。nested logitは、財をあらかじめいくつかの**ネスト（グループ）**に分け、同じネストに属する財同士には効用ショックの相関を許し、異なるネストの財同士は相関しない、という構造を与える。
 
 具体例として、缶コーヒー市場を考える。
 
@@ -824,7 +841,7 @@ BLP型IVの標準的な作り方（競合属性の単純な合計・平均）に
 
 ## 次回予告
 
-次回（第4回）は、今回のnested logitでは捉えきれない、より柔軟な代替性のパターンを扱う。nested logitは「あらかじめ決めたネスト構造」に沿ってしか代替性を表現できないという限界がある。次回学ぶrandom coefficient logit（BLPモデル）は、消費者ごとに価格感応度や商品属性への好みが異なるという「観測されない消費者異質性」を導入することで、ネストをあらかじめ決めなくても、データから柔軟な代替パターンを推定できるようにする。この考え方は、合併によって競合企業の商品が同じ企業の傘下に入ったときに何が起きるか（合併後の価格上昇の予測）を分析する、合併分析（merger analysis）の土台になる。
+次回（第4回）は、今回のnested logitでは捉えきれない、より柔軟な代替性のパターンを扱う。nested logitは「あらかじめ決めたネスト構造」に沿ってしか代替性を表現できないという限界がある。これまでも効用ショックを通じて個人の好みの違いを表してきたが、次回学ぶrandom coefficient logit（BLPモデル）では、商品属性への評価や価格感応度そのものを消費者ごとに変える。[垂直的・水平的差別化の数値例](../lec4/lecture4.html#sec-lec4-vertical-horizontal)を手がかりに、ネストをあらかじめ決めずに代替パターンを表す考え方を学ぶ。この考え方は、合併によって競合企業の商品が同じ企業の傘下に入ったときに何が起きるか（合併後の価格上昇の予測）を分析する、合併分析（merger analysis）の土台になる。
 
 ## 参考文献
 
@@ -835,6 +852,6 @@ BLP型IVの標準的な作り方（競合属性の単純な合計・平均）に
 - Gandhi, Amit and Jean-Francois Houde (2019) "Measuring Substitution Patterns in Differentiated-Products Industries," NBER Working Paper No. 26375.
 - Hausman, Jerry A. (1996) "Valuation of New Goods under Perfect and Imperfect Competition," in *The Economics of New Goods*, University of Chicago Press.
 - McFadden, Daniel (1974) "Conditional Logit Analysis of Qualitative Choice Behavior," in *Frontiers in Econometrics*, Academic Press.
-- Train, Kenneth E. (2009) *Discrete Choice Methods with Simulation*, 2nd ed., Cambridge University Press, Chapter 4.
+- Train, Kenneth E. (2009) *Discrete Choice Methods with Simulation*, 2nd ed., Cambridge University Press, Chapters 3–4.
 - Trajtenberg, Manuel (1989) "The Welfare Analysis of Product Innovations, with an Application to Computed Tomography Scanners," *Journal of Political Economy*, 97(2), 444-479.
 - Villas-Boas, J. Miguel and Russell S. Winer (1999) "Endogeneity in Brand Choice Models," *Management Science*, 45(10), 1324-1338.

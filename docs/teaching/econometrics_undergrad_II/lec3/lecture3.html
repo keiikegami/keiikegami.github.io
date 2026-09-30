@@ -2353,6 +2353,7 @@ window.Quarto = {
   <li><a href="#思考実験" id="toc-思考実験" class="nav-link" data-scroll-target="#思考実験">思考実験</a></li>
   <li><a href="#rシミュ13財logitでのiiaの確認" id="toc-rシミュ13財logitでのiiaの確認" class="nav-link" data-scroll-target="#rシミュ13財logitでのiiaの確認">Rシミュ1：3財logitでのIIAの確認</a></li>
   <li><a href="#交差弾力性行列でも確認する" id="toc-交差弾力性行列でも確認する" class="nav-link" data-scroll-target="#交差弾力性行列でも確認する">交差弾力性行列でも確認する</a></li>
+  <li><a href="#sec-lec3-differentiation" id="toc-sec-lec3-differentiation" class="nav-link" data-scroll-target="#sec-lec3-differentiation">垂直的・水平的差別化と、代替パターンの違い</a></li>
   </ul></li>
   <li><a href="#nested-logit財をグループにまとめる" id="toc-nested-logit財をグループにまとめる" class="nav-link" data-scroll-target="#nested-logit財をグループにまとめる">nested logit：財をグループにまとめる</a>
   <ul class="collapse">
@@ -2447,7 +2448,7 @@ window.Quarto = {
 <p>今回は、その代償の中身を直視するところから始める。具体的には2つの問題を扱う。</p>
 <p>1つ目は <strong>IIA（Independence of Irrelevant Alternatives）</strong> の問題である。logitモデルでは、ある財の価格が変化したときに他の財へ流出する需要が、他の財の「シェアの比率」だけで機械的に決まってしまう。これは「似た財ほど競合として強く反応するはず」という直感と食い違うことが多い。この問題への対処として <strong>nested logit</strong> を導入し、財をグループ（ネスト）にまとめることで、グループ内の代替をグループ外の代替より強く表現できるようにする。</p>
 <p>2つ目は、<strong>価格の内生性</strong>の問題である。前回までは、価格を含む説明変数はすべて「外生」として扱ってきた。しかし現実の価格は、企業が需要側の情報（消費者に人気がある、広告で話題になっている、といった要因）を知った上でつけている。この情報が分析者には見えない「未観測の需要ショック」だとすると、価格とこの未観測ショックは相関し、OLSによる価格反応の推定はバイアスを持つ。これはまさに第1回のイントロで見せたデモ——「値上げすると売上が増える」——の正体である。今回はこれを操作変数法（2SLS）で解決する。</p>
-<p>次回（第4回）は、消費者ごとに価格感応度や好みが異なる状況（random coefficient logit）を扱い、そこから合併分析へ進む。今回学ぶ「代替性をどう捉えるか」という問題意識は、次回さらに柔軟な形で引き継がれる。</p>
+<p>次回（第4回）は、商品属性への評価や価格感応度そのものを消費者ごとに変える拡張（random coefficient logit）を扱い、そこから合併分析へ進む。今回学ぶ「代替性をどう捉えるか」という問題意識は、次回さらに柔軟な形で引き継がれる。</p>
 </section>
 <section id="iiaを直視する赤バス青バス問題の現代版" class="level2">
 <h2 class="anchored" data-anchor-id="iiaを直視する赤バス青バス問題の現代版">IIAを直視する：赤バス・青バス問題の現代版</h2>
@@ -2596,7 +2597,7 @@ $s0
 </div>
 <div class="callout-body-container callout-body">
 <p>「BMWが値上げしたら、シェアの比率に応じて軽トラの需要も増える」——これがlogitモデルの機械的な帰結である。もちろん現実には、BMWの値上げで乗り換える先は同じ高級車セグメント（ベンツやアウディ）に偏るはずで、軽トラに乗り換える人はほとんどいないだろう。しかしlogitモデルは、この「BMWと軽トラは全然違うカテゴリだ」という情報を一切使わずに、シェアの大きさだけで機械的に配分してしまう。</p>
-<p>原因は、各消費者の効用ショック <span class="math inline">\(\varepsilon_{ijt}\)</span> が財を超えて<strong>iid</strong>（独立同一分布）だと仮定していることにある。財1と財2が「似ている」ということは、本来ならある消費者が財1を好むなら財2も好みやすい、つまり <span class="math inline">\(\varepsilon_{i1t}\)</span> と <span class="math inline">\(\varepsilon_{i2t}\)</span> が正に相関しているはずである。しかしlogitはこの相関を許さない。この仮定の帰結が IIA と呼ばれる性質であり、次のセクションで扱う nested logit は、まさにこの相関を部分的に許すことで問題を緩和するモデルである。</p>
+<p>原因は、各消費者の効用ショック <span class="math inline">\(\varepsilon_{ijt}\)</span> が財を超えて<strong>iid</strong>（独立同一分布）だと仮定していることにある。観測できる属性や価格が効用に与える部分を説明した後にも、「ある消費者は財1も財2も特に好む」という傾向が残るなら、<span class="math inline">\(\varepsilon_{i1t}\)</span> と <span class="math inline">\(\varepsilon_{i2t}\)</span> に正の相関を許すことが役立つ。製品が似ているだけで必ず誤差が相関するという意味ではなく、<strong>モデルで説明しきれなかった好みの共通部分</strong>の話である。基本logitはこの相関を許さず、IIAという代替パターンの制約を持つ。次に扱う nested logit は、この相関を部分的に許すことで制約を緩和するモデルである。</p>
 </div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -2616,12 +2617,46 @@ $s0
 </div>
 </div>
 </section>
+<section id="sec-lec3-differentiation" class="level3">
+<h3 class="anchored" data-anchor-id="sec-lec3-differentiation">垂直的・水平的差別化と、代替パターンの違い</h3>
+<p>ここで、「製品が違う」とはどういうことかを整理しておこう。<strong>価格を同じにそろえたとき、消費者の製品順位が一致するか</strong>という観点から、次の2つを区別できる。</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>差別化の種類</th>
+<th>小さな例</th>
+<th>同じ価格ならどう選ぶか</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>垂直的差別化（vertical differentiation）</td>
+<td>他の条件は同じで、Aは充電が10時間、Bは20時間もつ。この例では全員が長持ちを好むとする。</td>
+<td>全員がBを好む。ただし、追加の10時間にいくら払うかは人によって違ってよい。</td>
+</tr>
+<tr class="even">
+<td>水平的差別化（horizontal differentiation）</td>
+<td>Aは無糖、Bは甘いコーヒーである。</td>
+<td>無糖好きはA、甘党はBを好む。全員に共通する「上位の製品」はない。</td>
+</tr>
+</tbody>
+</table>
+<p>実際の製品は、品質の違いと好みの違いの両方を持ちうる。この区別は製品の評価のされ方を整理するもので、logitやnested logitというモデル名と一対一に対応するものではない。</p>
+<p>第2回の <span class="math inline">\(u_{ij}=x_j&#39;\beta-\alpha p_j+\varepsilon_{ij}\)</span> でも、<strong>共通の <span class="math inline">\(\beta\)</span> が作るのは効用の共通部分であり、効用全体ではない</strong>。<span class="math inline">\(\varepsilon_{ij}\)</span> が人・製品ごとに異なるので、同じ価格でもAを好む人とBを好む人がいる。基本logitにも、この意味で人による製品順位の違いはある。<a href="https://eml.berkeley.edu/books/choice2nd/Ch03_p34-75.pdf">Train (2009), 第3章</a>も、観測されない効用を含むランダム効用モデルからlogitを導いている。</p>
+<p>したがって、今回のIIAの問題は「好みの違いがない」ことではない。<strong>好みの違いを含んでいても、ある財の値上げによる需要の移動先が、他の財のシェア比だけで決まってしまう</strong>ことが問題である。nested logitでは、例えば無糖のブランド同士に共通する未観測の好みを表すことで、乗り換え先が無糖の中に集中するような代替を扱う。水平的差別化を初めて可能にするのではなく、代替パターンの表現を広げるのである。</p>
+<p>商品属性への評価そのものを人ごとに変える考え方と、垂直的・水平的差別化で値上げ後の需要がどう変わるかの数値例は、<a href="../lec4/lecture4.html#sec-lec4-vertical-horizontal">第4回で詳しく扱う</a>。まずは、今回のnested logitが代替パターンをどう広げるかを見ていこう。</p>
+</section>
 </section>
 <section id="nested-logit財をグループにまとめる" class="level2">
 <h2 class="anchored" data-anchor-id="nested-logit財をグループにまとめる">nested logit：財をグループにまとめる</h2>
 <section id="アイデア" class="level3">
 <h3 class="anchored" data-anchor-id="アイデア">アイデア</h3>
-<p>IIAの問題は、財同士の「近さ」を効用ショックの相関として表現できないことに起因していた。nested logitは、財をあらかじめいくつかの<strong>ネスト（グループ）</strong>に分け、同じネストに属する財同士は効用ショックが相関し、異なるネストの財同士は相関しない、という構造を与える。</p>
+<p>基本logitでは、観測効用を所与として、財同士に共通する未観測の好みを効用ショックの相関として表現できなかった。nested logitは、財をあらかじめいくつかの<strong>ネスト（グループ）</strong>に分け、同じネストに属する財同士には効用ショックの相関を許し、異なるネストの財同士は相関しない、という構造を与える。</p>
 <p>具体例として、缶コーヒー市場を考える。</p>
 <div class="cell" data-layout-align="center">
 <div class="cell-output-display">
@@ -3475,7 +3510,7 @@ OLSのalphaでの弾力性行列:</code></pre>
 </section>
 <section id="次回予告" class="level2">
 <h2 class="anchored" data-anchor-id="次回予告">次回予告</h2>
-<p>次回（第4回）は、今回のnested logitでは捉えきれない、より柔軟な代替性のパターンを扱う。nested logitは「あらかじめ決めたネスト構造」に沿ってしか代替性を表現できないという限界がある。次回学ぶrandom coefficient logit（BLPモデル）は、消費者ごとに価格感応度や商品属性への好みが異なるという「観測されない消費者異質性」を導入することで、ネストをあらかじめ決めなくても、データから柔軟な代替パターンを推定できるようにする。この考え方は、合併によって競合企業の商品が同じ企業の傘下に入ったときに何が起きるか（合併後の価格上昇の予測）を分析する、合併分析（merger analysis）の土台になる。</p>
+<p>次回（第4回）は、今回のnested logitでは捉えきれない、より柔軟な代替性のパターンを扱う。nested logitは「あらかじめ決めたネスト構造」に沿ってしか代替性を表現できないという限界がある。これまでも効用ショックを通じて個人の好みの違いを表してきたが、次回学ぶrandom coefficient logit（BLPモデル）では、商品属性への評価や価格感応度そのものを消費者ごとに変える。<a href="../lec4/lecture4.html#sec-lec4-vertical-horizontal">垂直的・水平的差別化の数値例</a>を手がかりに、ネストをあらかじめ決めずに代替パターンを表す考え方を学ぶ。この考え方は、合併によって競合企業の商品が同じ企業の傘下に入ったときに何が起きるか（合併後の価格上昇の予測）を分析する、合併分析（merger analysis）の土台になる。</p>
 </section>
 <section id="参考文献" class="level2">
 <h2 class="anchored" data-anchor-id="参考文献">参考文献</h2>
@@ -3487,7 +3522,7 @@ OLSのalphaでの弾力性行列:</code></pre>
 <li>Gandhi, Amit and Jean-Francois Houde (2019) “Measuring Substitution Patterns in Differentiated-Products Industries,” NBER Working Paper No. 26375.</li>
 <li>Hausman, Jerry A. (1996) “Valuation of New Goods under Perfect and Imperfect Competition,” in <em>The Economics of New Goods</em>, University of Chicago Press.</li>
 <li>McFadden, Daniel (1974) “Conditional Logit Analysis of Qualitative Choice Behavior,” in <em>Frontiers in Econometrics</em>, Academic Press.</li>
-<li>Train, Kenneth E. (2009) <em>Discrete Choice Methods with Simulation</em>, 2nd ed., Cambridge University Press, Chapter 4.</li>
+<li>Train, Kenneth E. (2009) <em>Discrete Choice Methods with Simulation</em>, 2nd ed., Cambridge University Press, Chapters 3–4.</li>
 <li>Trajtenberg, Manuel (1989) “The Welfare Analysis of Product Innovations, with an Application to Computed Tomography Scanners,” <em>Journal of Political Economy</em>, 97(2), 444-479.</li>
 <li>Villas-Boas, J. Miguel and Russell S. Winer (1999) “Endogeneity in Brand Choice Models,” <em>Management Science</em>, 45(10), 1324-1338.</li>
 </ul>
