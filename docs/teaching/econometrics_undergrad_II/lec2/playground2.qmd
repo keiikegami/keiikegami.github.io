@@ -13,8 +13,6 @@ engine: knitr
 webr:
   packages:
     - ggplot2
-    - dplyr
-    - tidyr
   repos:
     - https://repo.r-wasm.org
     - https://cran.r-universe.dev
@@ -25,10 +23,10 @@ webr:
 ::: {.callout-important}
 ## このページの使い方
 
-- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
-- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
-- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
-- 元ネタは講義ノート（`lecture2.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+- このページのRコードは、**あなたのブラウザの中で**動く。インストールは不要だが、初回はR本体などの読み込みに30秒〜1分ほどかかる。
+- 各セルの冒頭の数値を書き換えて「Run Code」で実行しよう。再読み込みすれば元に戻る。共通の関数は最初に自動で読み込まれる。
+- [Lecture 2](lecture2.html)と同じく、**価格・属性 → 選択確率 → 需要関数 → 弾力性 → 推定 → プライシング**の順に進む。ここでは全員に共通する係数を使い、個人ごとの違いは独立なGumbel誤差で表す。
+- 実験5の対数尤度の図と実験7は、先に実験5の推定セルを実行する。それ以外の実験は単独で試せる。図のラベルはブラウザでの文字化けを避けるため英語にしている。
 :::
 
 ```{webr}
@@ -36,24 +34,23 @@ webr:
 #| output: false
 #| autorun: true
 #| timelimit: 120
-# ---- 共通の道具箱（講義ノートと同じ関数群。編集不可・自動実行）----
-
+# 共通の道具箱（自動実行）
+library(ggplot2)
 draw_gumbel <- function(n) -log(-log(runif(n)))
+softmax <- function(v) {
+  ev <- exp(v - max(v))
+  ev / sum(ev)
+}
 
-simulate_coffee_choice <- function(n, price_base, sweetness, params) {
-  price_noise <- matrix(rnorm(n * 3, mean = 0, sd = 8), nrow = n, ncol = 3)
-  price <- sweep(price_noise, 2, price_base, "+")
-  price <- pmin(pmax(price, 60), 200)
-  delta <- cbind(
-    params$const_A + params$beta_sweet * sweetness[1] - params$alpha_price * price[, 1],
-    params$const_B + params$beta_sweet * sweetness[2] - params$alpha_price * price[, 2],
-    0              + params$beta_sweet * sweetness[3] - params$alpha_price * price[, 3]
-  )
-  delta_full <- cbind(0, delta)
-  eps <- matrix(draw_gumbel(n * 4), nrow = n, ncol = 4)
-  u <- delta_full + eps
-  choice <- apply(u, 1, which.max) - 1
-  list(choice = choice, price = price)
+# A・B・outside。ベクトルの価格にも対応する。
+demand_two <- function(p_A, p_B, a = c(2, 1.5), alpha = 0.02, M = 1000) {
+  v_A <- a[1] - alpha * p_A
+  v_B <- a[2] - alpha * p_B
+  vmax <- pmax(0, v_A, v_B)
+  e_A <- exp(v_A - vmax); e_B <- exp(v_B - vmax); e_0 <- exp(-vmax)
+  denom <- e_0 + e_A + e_B
+  data.frame(q_A = M * e_A / denom, q_B = M * e_B / denom,
+             q_0 = M * e_0 / denom)
 }
 
 build_design <- function(price, sweetness) {
@@ -65,196 +62,534 @@ build_design <- function(price, sweetness) {
   X
 }
 
+build_attribute_design <- function(price, products) {
+  n <- nrow(price); J <- nrow(products)
+  X <- array(0, dim = c(n, J + 1, 4))
+  for (j in seq_len(J)) {
+    X[, j + 1, 1] <- 1
+    X[, j + 1, 2] <- products$bitterness[j]
+    X[, j + 1, 3] <- products$sweetness[j]
+    X[, j + 1, 4] <- -price[, j]
+  }
+  X
+}
+
+utilities <- function(theta, X) {
+  n <- dim(X)[1]; J1 <- dim(X)[2]; K <- dim(X)[3]
+  V <- matrix(0, n, J1)
+  for (j in seq_len(J1)) V[, j] <- matrix(X[, j, ], n, K) %*% theta
+  V
+}
+
 neg_loglik_mnl <- function(theta, X, choice) {
-  n <- dim(X)[1]; J1 <- dim(X)[2]
-  V <- matrix(0, nrow = n, ncol = J1)
-  for (j in 1:J1) V[, j] <- X[, j, ] %*% theta
+  V <- utilities(theta, X)
   V <- V - apply(V, 1, max)
-  expV <- exp(V)
-  denom <- rowSums(expV)
-  chosen_idx <- cbind(1:n, choice + 1)
-  logprob <- V[chosen_idx] - log(denom)
-  -sum(logprob)
+  chosen <- cbind(seq_len(nrow(V)), choice + 1)  # outside=0はRでは第1列
+  -sum(V[chosen] - log(rowSums(exp(V))))
 }
 
-fit_mnl <- function(choice, price, sweetness) {
-  X <- build_design(price, sweetness)
-  opt <- optim(par = c(0, 0, 0, 0), fn = neg_loglik_mnl,
-               X = X, choice = choice, method = "BFGS", hessian = TRUE)
-  se <- sqrt(diag(solve(opt$hessian)))
-  list(theta = opt$par, se = se)
+fit_mnl <- function(X, choice) {
+  opt <- optim(rep(0, dim(X)[3]), neg_loglik_mnl, X = X, choice = choice,
+               method = "BFGS", hessian = TRUE,
+               control = list(parscale = c(1, 1, 1, 0.01),
+                              ndeps = c(0.001, 0.001, 0.001, 0.00001),
+                              maxit = 1000, reltol = 1e-11))
+  if (opt$convergence != 0) stop("MLE did not converge; try more observations.")
+  if (min(eigen(opt$hessian, symmetric = TRUE, only.values = TRUE)$values) <= 0)
+    stop("Information matrix is not positive definite; check the design.")
+  list(theta = opt$par, se = sqrt(diag(solve(opt$hessian))))
 }
 
-compute_shares <- function(theta, price, sweetness) {
-  X <- build_design(price, sweetness)
-  n <- dim(X)[1]; J1 <- dim(X)[2]
-  V <- matrix(0, nrow = n, ncol = J1)
-  for (j in 1:J1) V[, j] <- X[, j, ] %*% theta
-  V <- V - apply(V, 1, max)
-  expV <- exp(V)
+predict_shares <- function(theta, X) {
+  V <- utilities(theta, X)
+  expV <- exp(V - apply(V, 1, max))
   expV / rowSums(expV)
 }
 
-elasticity_matrix <- function(theta, price_base, sweetness) {
-  s <- compute_shares(theta, matrix(price_base, nrow = 1), sweetness)[1, ]
-  a <- theta[4]
-  E <- matrix(NA, 3, 3, dimnames = list(c("A", "B", "C"), c("A", "B", "C")))
-  for (j in 1:3) for (k in 1:3) {
-    E[j, k] <- if (j == k) -a * price_base[j] * (1 - s[j + 1]) else a * price_base[k] * s[k + 1]
+elasticity_matrix <- function(alpha, price, share) {
+  J <- length(price)
+  E <- matrix(NA_real_, J, J, dimnames = list(names(price), names(price)))
+  for (j in seq_len(J)) for (k in seq_len(J)) {
+    E[j, k] <- if (j == k) -alpha * price[j] * (1 - share[j]) else
+      alpha * price[k] * share[k]
   }
   E
 }
 
 theme_set(theme_minimal(base_size = 13))
+options(scipen = 8)
 ```
 
-## 実験1：Gumbel乱数からlogit公式が「出てくる」ことを確かめる
+## 実験1：価格を効用に入れ、Gumbel乱数で選択を作る
 
-logit公式はどこにも書いていないのに、「Gumbelノイズ付き効用の最大値を選ぶ」だけで選択頻度が公式と一致する。$\delta$（各ブランドの魅力度）と$N$を変えて確かめよう。
+商品の効用を $u_{ij}=a_j-\alpha p_j+\varepsilon_{ij}$ とする。$a_j$ は商品の属性などによる非価格部分の魅力で、ここでは与えられている。価格係数 $\alpha>0$ は全員に共通である。outsideは**決定的効用**を0とするが、Gumbel誤差は付くので、総効用は $u_{i0}=\varepsilon_{i0}$ である。
+
+「各人が最大の効用の選択肢を選ぶ」ことで得た頻度を、logit公式と比較しよう。初期設定では $a_j-\alpha p_j=(0.8,0.3,-0.2)$ となり、講義のGumbel実験と同じである。
 
 ```{webr}
 #| timelimit: 60
 # ---- いじるのはここ ----
-delta_true <- c(0.8, 0.3, -0.2)   # ブランドA, B, Cの魅力度（outsideは0）
-N <- 100000                        # シミュレーションする消費者数
+a <- c(A = 2.8, B = 2.3, C = 1.8)
+price <- c(A = 100, B = 100, C = 100)
+alpha <- 0.02
+N <- 100000
 # -----------------------
-
 set.seed(20262)
-J <- length(delta_true)
-eps <- matrix(draw_gumbel(N * (J + 1)), N, J + 1)
-u <- sweep(eps, 2, c(0, delta_true), "+")
-choice <- apply(u, 1, which.max) - 1
+stopifnot(alpha > 0, N > 0)
+v <- c(outside = 0, a - alpha * price)
+eps <- matrix(draw_gumbel(N * 4), N, 4)
+u <- sweep(eps, 2, v, "+")
+choice <- max.col(u, ties.method = "first")
+emp <- tabulate(choice, nbins = 4) / N
+theory <- softmax(v)
+print(data.frame(alternative = names(v), utility = v,
+                 simulation = emp, logit = theory), row.names = FALSE)
 
-emp <- sapply(0:J, function(j) mean(choice == j))
-theory <- c(1, exp(delta_true)) / (1 + sum(exp(delta_true)))
-
-df <- data.frame(
-  alt = factor(rep(c("outside", "A", "B", "C"), 2),
-               levels = c("outside", "A", "B", "C")),
-  prob = c(emp, theory),
-  type = rep(c("simulation", "logit formula"), each = 4)
-)
-ggplot(df, aes(alt, prob, fill = type)) +
+df <- data.frame(alternative = factor(rep(names(v), 2), levels = names(v)),
+                 share = c(emp, theory),
+                 method = rep(c("simulation", "logit formula"), each = 4))
+ggplot(df, aes(alternative, share, fill = method)) +
   geom_col(position = position_dodge(0.7), width = 0.6) +
-  labs(x = "alternative", y = "probability", fill = NULL) +
+  labs(x = "alternative", y = "choice probability", fill = NULL) +
   theme(legend.position = "top")
 ```
 
-::: {.callout-note}
-## やってみよう
+**試すこと：** Aの価格だけを100円から110円へ上げると、Aのシェアと他のシェアはどう動くか。次に `N <- 500` にして、公式と頻度のずれを比べよう。選択頻度のばらつきと、価格変更による需要の変化を区別するのがポイントである。
 
-- `delta_true <- c(0, 0, 0)` にすると4つのシェアはどうなるか。予想してから実行しよう。
-- `N <- 500` に減らすと2本の棒はどれくらいズレるか。`N` を増やすとどう収束していくか。
-- どれか1つの $\delta$ を5にしてみよう。他のシェアは「比率を保ったまま」縮むか？（この性質が後のIIAにつながる）
-:::
+## 実験2：logitを需要関数として読む {#lab-demand}
 
-## 実験2：最尤法の真値回収 — サンプルサイズとSEの関係
+市場に $M$ 人いて各人が高々1個買うなら、期待需要量は $q_j=M s_j$ である。ここからは講義の需要曲線と同じA・B・outsideの市場にする。
 
-DGPの真のパラメータを自分で決め、そのデータから自作MLEが真値を取り戻せるかを見る。講義の核心「**真値回収はいつでも最初にやるべき検証**」を体感しよう。ここではoutsideの効用を0、Gumbel誤差のscaleを1に正規化し、さらにブランド固定のsweetnessと全ブランド切片が共線になるのを避けるためCの切片を0に固定している。最後の固定は位置正規化とは別の識別制約である。
+$$
+q_A(p_A,p_B)=M\frac{e^{a_A-\alpha p_A}}{1+e^{a_A-\alpha p_A}+e^{a_B-\alpha p_B}},\qquad
+q_B(p_A,p_B)=M\frac{e^{a_B-\alpha p_B}}{1+e^{a_A-\alpha p_A}+e^{a_B-\alpha p_B}}.
+$$
+
+### 横軸が需要量、縦軸が自分の価格
+
+それぞれの図で、自分の価格を動かすと1本の曲線に沿って動く。競合価格を変えると、その曲線が移動する。点は自分の価格が100円の位置である。
 
 ```{webr}
 #| timelimit: 60
+#| fig-width: 9
+#| fig-height: 4.5
 # ---- いじるのはここ ----
-true_params <- list(
-  const_A     = 1.2,
-  const_B     = 0.6,
-  beta_sweet  = 0.5,
-  alpha_price = 0.02   # 価格係数（0.005や0.05も試そう）
-)
-N <- 3000              # 消費者数（300に減らすと？ 10000に増やすと？）
+a <- c(2, 1.5)
+alpha <- 0.02
+M <- 1000
+rival_prices <- c(100, 150)  # 比較する2つの競合価格
 # -----------------------
-
-set.seed(20262)
-price_base <- c(130, 120, 110)
-sweetness  <- c(3, 6, 5)
-
-sim <- simulate_coffee_choice(N, price_base, sweetness, true_params)
-fit <- fit_mnl(sim$choice, sim$price, sweetness)
-
-true_theta <- unlist(true_params)
-data.frame(
-  parameter = c("const_A", "const_B", "beta_sweet", "alpha_price"),
-  true_value = round(true_theta, 4),
-  estimate = round(fit$theta, 4),
-  se = round(fit$se, 5),
-  ci_low = round(fit$theta - 1.96 * fit$se, 4),
-  ci_high = round(fit$theta + 1.96 * fit$se, 4)
-)
+stopifnot(alpha > 0, M > 0, length(unique(rival_prices)) == 2)
+p_grid <- seq(0, 250, by = 1)
+curves <- do.call(rbind, lapply(rival_prices, function(rival) {
+  rbind(data.frame(product = "Demand for A", own_price = p_grid,
+                   quantity = demand_two(p_grid, rival, a, alpha, M)$q_A,
+                   rival_price = factor(rival, levels = rival_prices)),
+        data.frame(product = "Demand for B", own_price = p_grid,
+                   quantity = demand_two(rival, p_grid, a, alpha, M)$q_B,
+                   rival_price = factor(rival, levels = rival_prices)))
+}))
+print(demand_two(100, 100, a, alpha, M))
+ggplot(curves, aes(quantity, own_price, color = rival_price,
+                   linetype = rival_price)) +
+  geom_line(linewidth = 1) +
+  geom_point(data = subset(curves, own_price == 100), size = 2.5) +
+  facet_wrap(~ product, nrow = 1) +
+  scale_color_manual(values = c("#4C72B0", "#DD8452")) +
+  scale_linetype_manual(values = c("solid", "dashed")) +
+  scale_x_continuous(limits = c(0, M)) +
+  labs(x = "quantity (units)", y = "own price (yen)",
+       color = "rival price", linetype = "rival price") +
+  theme(legend.position = "bottom")
 ```
 
-::: {.callout-note}
-## やってみよう
+### 両方の価格を動かすと、需要曲面になる
 
-- `N` を300、3000、10000と変えて、SEがおおよそ $1/\sqrt{N}$ で縮むことを確認しよう。
-- `alpha_price <- 0.001`（価格がほぼ効かない世界）にすると、`alpha_price` のSEは相対的にどうなるか。データの中の価格変動が「効用の差」をほとんど生まないとき、推定は難しくなる。
-- 真値が95%信頼区間から外れることもある。何度かseedを変えて（`set.seed(1)` など）、だいたい20回に1回くらい外れる感覚を掴もう。
-- 表のSEは、正しく特定されたiid logit尤度を前提にした逆HessianのモデルベースSEである。実データの反復選択なら同じ計算を無条件に使えない。
-:::
-
-## 実験3：弾力性行列とIIA — logitの便利さと不便さ
-
-推定はスキップして、パラメータから直接、弾力性行列 $\eta_{jj} = -\alpha p_j (1 - s_j)$、$\eta_{jk} = \alpha p_k s_k$ を計算する。**列を縦に見る**のがポイント。
+今度は床の2軸が $p_A,p_B$、高さが需要量である。AとBそれぞれに1枚の曲面がある。曲面上の2本の線は、先ほどの競合価格を固定した断面である。このセルは単独で動くので、前のセルを変更した場合は同じ数値をここにも入れよう。[講義ノートの図](lecture2.html#lec2-demand-surfaces)では、2枚を連動させて回転することもできる。
 
 ```{webr}
 #| timelimit: 60
+#| fig-width: 9
+#| fig-height: 5
 # ---- いじるのはここ ----
-theta <- c(1.2, 0.6, 0.5, 0.02)   # const_A, const_B, beta_sweet, alpha_price
-price_base <- c(130, 120, 110)     # A, B, Cの価格
-sweetness  <- c(3, 6, 5)           # A, B, Cの甘さ
+a <- c(2, 1.5)
+alpha <- 0.02
+M <- 1000
+rival_prices <- c(100, 150)
+view_angle <- 40  # 視点の角度
 # -----------------------
-
-E <- elasticity_matrix(theta, price_base, sweetness)
-round(E, 4)
-```
-
-::: {.callout-note}
-## やってみよう
-
-- B列（Bの値上げの影響）を縦に見ると、AとCの**相対的な増加率（交差弾力性）**が完全に同じになっている。`sweetness` をどう変えてもこの一致が崩れないことを確認しよう。絶対的なシェアポイント増分は元のA・Cシェアに比例し、同じとは限らない。
-- `theta[4]`（価格係数）を0.05にすると、対角（自己弾力性）はどう変わるか。
-- Bの価格を200にして（シェアを潰して）、B列の交差弾力性がどう変わるか見てみよう。交差弾力性は「値上げされるBの価格とシェア」だけで決まり、流入先の類似性は入らない。
-:::
-
-## 実験4：収入を最大化する価格を探す
-
-需要モデルが手に入ると、価格設定の問いに答えられる。Aの価格を動かして、シェアと収入（価格 × シェア）の曲線を描く。
-
-```{webr}
-#| timelimit: 60
-# ---- いじるのはここ ----
-theta <- c(1.2, 0.6, 0.5, 0.02)   # 実験2の推定値を貼り付けてもよい
-price_B <- 120                     # 競合Bの価格
-price_C <- 110                     # 競合Cの価格
-# -----------------------
-
-sweetness <- c(3, 6, 5)
-grid <- seq(60, 250, by = 2)
-share_A <- revenue_A <- numeric(length(grid))
-for (i in seq_along(grid)) {
-  s <- compute_shares(theta, matrix(c(grid[i], price_B, price_C), nrow = 1), sweetness)[1, ]
-  share_A[i] <- s[2]
-  revenue_A[i] <- grid[i] * s[2]
+stopifnot(alpha > 0, M > 0, length(unique(rival_prices)) == 2,
+          all(rival_prices >= 0 & rival_prices <= 250))
+draw_surfaces <- function() {
+  old <- par(mfrow = c(1, 2), mar = c(2.5, 1.5, 2.5, 1.5), oma = c(2, 0, 0, 0))
+  on.exit(par(old))
+  grid <- seq(0, 250, length.out = 31)
+  for (product in c("A", "B")) {
+    z <- outer(grid, grid, function(pa, pb)
+      demand_two(pa, pb, a, alpha, M)[[paste0("q_", product)]])
+    projection <- persp(grid, grid, z, theta = view_angle, phi = 25,
+                        expand = 0.65, zlim = c(0, M), ticktype = "detailed",
+                        nticks = 3, xlab = "Price A", ylab = "Price B", zlab = "",
+                        main = paste("Demand for", product, "(height)"),
+                        col = "#E1E7EC", border = "#AEBCC7", shade = 0.25,
+                        cex.axis = 0.75, cex.lab = 0.85)
+    for (r in seq_along(rival_prices)) {
+      pa <- if (product == "A") grid else rep(rival_prices[r], length(grid))
+      pb <- if (product == "B") grid else rep(rival_prices[r], length(grid))
+      q <- demand_two(pa, pb, a, alpha, M)[[paste0("q_", product)]]
+      lines(trans3d(pa, pb, q, pmat = projection),
+            col = c("#4C72B0", "#DD8452")[r], lty = r, lwd = 3)
+    }
+  }
+  mtext(paste0("Rival price: blue = ", rival_prices[1],
+               ", orange = ", rival_prices[2]), side = 1, outer = TRUE, cex = 0.85)
 }
-best <- grid[which.max(revenue_A)]
-
-df <- data.frame(price = grid, share = share_A, revenue = revenue_A)
-ggplot(df, aes(price, revenue)) +
-  geom_line(color = "#DD8452", linewidth = 1) +
-  geom_vline(xintercept = best, linetype = "dashed", color = "gray40") +
-  annotate("text", x = best + 12, y = max(revenue_A) * 0.5,
-           label = paste0("best = ", best)) +
-  labs(x = "price of brand A", y = "revenue (price x share)")
+draw_surfaces()
 ```
 
-::: {.callout-note}
-## やってみよう
+**試すこと：** $\alpha$ を0.01や0.04にして、価格への反応を比べよう。自分の価格を上げる方向では曲面が低くなり、相手の価格を上げる方向では高くなる。この2方向の反応を、次に弾力性で測る。2次元図は価格が縦軸なので、図上の傾きをそのまま $\partial q/\partial p$ と読まないこと。
 
-- 価格係数 `theta[4]` を0.01（鈍感な客）と0.05（敏感な客）にして、収入最大化価格がどう動くか比べよう。
-- 競合Bが値下げ（`price_B <- 90`）してきたら、Aの最適価格はどうすべきか。モデルに聞いてみよう。
-- 実験2で自分が推定した `fit$theta` をここに貼れば、「推定 → 意思決定」のパイプラインが一周する。
-:::
+## 実験3：小さな値上げから自己・交差価格弾力性へ
+
+講義と同じく、計算を追いやすくするため非価格部分の魅力を変え、値上げ前のシェアをAが0.4、Bが0.3、outsideが0.3とする。Aの価格は100円である。Aだけを1円値上げすると、自分の需要は400から約395.210に、Bの需要は300から約302.395に変わる。
+
+まず、**需要の変化率を価格の変化率で割る**計算をしよう。Aの行が自己価格の反応、Bの行が交差価格の反応になる。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+delta_price <- 1  # 0.1、0.01、10でも比較しよう
+# -----------------------
+alpha <- 0.02
+price_A <- 100
+M <- 1000
+s_before <- c(A = 0.4, B = 0.3, outside = 0.3)
+stopifnot(delta_price != 0, price_A + delta_price > 0)
+# Aだけの効用変化を反映し、全選択肢の確率の合計を1に戻す。
+weights_after <- s_before * exp(c(-alpha * delta_price, 0, 0))
+s_after <- weights_after / sum(weights_after)
+price_change_rate <- delta_price / price_A
+quantity_change_rate <- (s_after - s_before) / s_before
+finite_ratio <- quantity_change_rate / price_change_rate
+# これは微小変化の極限。有限の値上げの比とは少し異なる。
+exact_elasticity <- c(-alpha * price_A * (1 - s_before["A"]),
+                     alpha * price_A * s_before["A"],
+                     alpha * price_A * s_before["A"])
+print(data.frame(alternative = names(s_before),
+                 quantity_before = M * s_before, quantity_after = M * s_after,
+                 quantity_change_pct = 100 * quantity_change_rate,
+                 price_A_change_pct = 100 * price_change_rate,
+                 finite_ratio = finite_ratio, elasticity = exact_elasticity),
+      row.names = FALSE, digits = 6)
+```
+
+この比の極限が、微分による定義
+
+$$
+\eta_{jk}=\frac{\partial q_j}{\partial p_k}\frac{p_k}{q_j},\qquad
+\eta_{jj}=-\alpha p_j(1-s_j),\quad
+\eta_{jk}=\alpha p_k s_k\ (j\ne k)
+$$
+
+である。添字は**需要が変わる財、価格を変える財**の順である。初期設定での $\eta_{AA}=-1.2$、$\eta_{BA}=0.8$ と、表の有限の変化率の比を比較しよう。値上げ幅を小さくすると両者が近づく。これで需要曲線の方向と、弾力性の数値・定義がつながった。
+
+## 実験4：3人の記録から尤度を組み立てる
+
+ここからは**価格・属性・選択データを固定し、係数の候補を変える**。実験2で価格を変えながら需要を予測したのとは、動かすものが違う。
+
+### 買う／買わない：Bernoulliと二項分布
+
+3人の記録を「買った、買わなかった、買った」とする。購入確率の候補が $p=0.6$ なら、尤度は $0.6\times0.4\times0.6=0.144$ である。ここだけの $p$ は価格ではなく購入確率である。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+y <- c(1, 0, 1)
+p_candidate <- 0.6
+# -----------------------
+stopifnot(all(y %in% c(0, 1)), p_candidate > 0, p_candidate < 1)
+observed_prob <- ifelse(y == 1, p_candidate, 1 - p_candidate)
+print(data.frame(person = seq_along(y), bought = y, probability = observed_prob))
+print(c(likelihood = prod(observed_prob), log_likelihood = sum(log(observed_prob))))
+p_grid <- seq(0.01, 0.99, length.out = 199)
+N <- length(y); K <- sum(y)
+ll_record <- vapply(p_grid, function(p) sum(dbinom(y, 1, p, log = TRUE)), numeric(1))
+ll_count <- dbinom(K, N, p_grid, log = TRUE)
+ll_df <- data.frame(p = rep(p_grid, 2), loglik = c(ll_record, ll_count),
+                    data_used = rep(c("individual records", "binomial count"), each = length(p_grid)))
+ggplot(ll_df, aes(p, loglik, color = data_used)) +
+  geom_line(linewidth = 1) +
+  geom_vline(xintercept = mean(y), linetype = "dashed") +
+  labs(x = "candidate purchase probability p", y = "log-likelihood",
+       color = NULL) + theme(legend.position = "bottom")
+```
+
+個人の記録を使えば $\ell(p)=\sum_i\{y_i\log p+(1-y_i)\log(1-p)\}$ である。「3人中2人」という二項分布のデータなら、$\log\binom{3}{2}$ が加わる。これは $p$ によらない定数なので、どちらの山も $\hat p=2/3$ で最大になる。
+
+### A・B・outside：選んだ確率だけを拾う
+
+講義の3人の表をそのまま計算しよう。各行は、ある共通の係数の候補から、各人の価格・属性のもとで得られた選択確率を表す。このセルは確率が計算済みの段階から、尤度の作り方だけを確かめる。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+choice_small <- c("A", "B", "outside")
+# -----------------------
+prob_small <- rbind(c(A = 0.6, B = 0.2, outside = 0.2),
+                   c(A = 0.2, B = 0.5, outside = 0.3),
+                   c(A = 0.3, B = 0.2, outside = 0.5))
+stopifnot(length(choice_small) == 3, all(choice_small %in% colnames(prob_small)))
+chosen_prob <- prob_small[cbind(1:3, match(choice_small, colnames(prob_small)))]
+print(data.frame(person = 1:3, choice = choice_small, chosen_probability = chosen_prob))
+print(c(likelihood = prod(chosen_prob), log_likelihood = sum(log(chosen_prob))))
+```
+
+初期設定なら $L=0.15$、$\ell\simeq-1.897$ になる。人数や選択肢が増えても、計算は同じである。
+
+$$
+\ell(\theta)=\sum_{i=1}^{N}\sum_{j=0}^{J}y_{ij}\log s_{ij}(\theta).
+$$
+
+$y_{ij}=1$ は各人に1つだけなので、この和は選んだ確率のlogを拾って足す。推定では確率の各セルを自由に変えるのではなく、**共通の係数を変えて、logit公式が返す確率をまとめて変える**。
+
+## 実験5：3ブランドのMLEと対数尤度の山 {#lab-mle}
+
+講義と同じ3ブランドのデータを作り、4つの係数を推定する。outsideの決定的効用を0、Gumbel誤差のscaleを1に正規化する。さらにCのブランド切片を0とする。これは位置の正規化とは別の識別制約であり、甘さと全ブランドの切片を同時に入れたときの完全共線性を避けている。この3商品の例は、商品ごとの非価格部分を自由に推定するのと同じ自由度を持つ。少数の属性係数で多数の商品を結ぶ例は、次の実験6で扱う。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+true_theta <- c(const_A = 1.2, const_B = 0.6, beta_sweet = 0.5, alpha_price = 0.02)
+N <- 3000
+seed <- 20262
+# -----------------------
+set.seed(seed)
+stopifnot(N >= 100, true_theta["alpha_price"] > 0)
+price_base <- c(A = 130, B = 120, C = 110)
+sweetness <- c(3, 6, 5)
+price_mle <- sweep(matrix(rnorm(N * 3, sd = 8), N, 3), 2, price_base, "+")
+price_mle <- pmin(pmax(price_mle, 60), 200)
+X_mle <- build_design(price_mle, sweetness)
+u_mle <- utilities(true_theta, X_mle) + matrix(draw_gumbel(N * 4), N, 4)
+choice_mle <- max.col(u_mle, ties.method = "first") - 1
+fit <- fit_mnl(X_mle, choice_mle)
+names(fit$theta) <- names(true_theta)
+print(data.frame(parameter = names(true_theta), truth = as.numeric(true_theta),
+                 estimate = fit$theta, se = fit$se,
+                 lower = fit$theta - 1.96 * fit$se,
+                 upper = fit$theta + 1.96 * fit$se), row.names = FALSE, digits = 5)
+```
+
+**試すこと：** `N` を300、3000、10000に変えて標準誤差を比べよう。標本ごとの揺れはあるが、同じDGPではおおむね $1/\sqrt{N}$ の速さで小さくなる。seedを変えても、毎回必ず信頼区間に真値が入るわけではない。SEは独立で正しく特定されたlogit尤度を前提とするモデルベースの値である。
+
+### 価格係数だけを動かした対数尤度の断面
+
+**先に上の推定セルを実行する。** そのデータと推定値を使い、価格係数 $\alpha$ だけを変える。ほかの3係数は推定値に固定する。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+alpha_range <- c(0.005, 0.04)
+# -----------------------
+if (!exists("fit") || !exists("X_mle")) stop("Run the estimation cell in Experiment 5 first.")
+alpha_hat <- unname(fit$theta["alpha_price"])
+alpha_grid <- sort(unique(c(seq(alpha_range[1], alpha_range[2], length.out = 101), alpha_hat)))
+loglik <- vapply(alpha_grid, function(a_try) {
+  theta_try <- fit$theta
+  theta_try["alpha_price"] <- a_try
+  -neg_loglik_mnl(theta_try, X_mle, choice_mle)
+}, numeric(1))
+ggplot(data.frame(alpha = alpha_grid, loglik = loglik), aes(alpha, loglik)) +
+  geom_line(color = "#4C72B0", linewidth = 1) +
+  geom_vline(xintercept = alpha_hat, linetype = "dashed", color = "#C44E52") +
+  labs(x = "candidate price coefficient alpha", y = "log-likelihood",
+       subtitle = paste0("Other coefficients fixed; alpha_hat = ", round(alpha_hat, 4)))
+```
+
+実験4の二項分布と同じく山の頂点を探している。ただし横軸は購入確率ではなく、価格への反応を表す係数である。価格や選択データ自体は変えていない。また、各 $\alpha$ でほかの係数を再推定する「プロファイル尤度」ではなく、固定した断面である。
+
+## 実験6：属性の共通係数を推定し、商品の変更を予測する
+
+講義の6商品A〜Fを使い、$v_{ij}=\beta_0+\beta_{\mathrm{bitter}}\mathrm{bitterness}_j+\beta_{\mathrm{sweet}}\mathrm{sweetness}_j-\alpha p_{ij}$ を推定する。商品の非価格部分を**共通購入切片・苦味・甘さの3係数**で説明する特性アプローチである。商品固有の切片は置かず、属性で説明しきれない恒常的な魅力はないと仮定する。個人ごとの属性係数はまだ導入しない。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+N_attr <- 4000
+new_sweetness_A <- 1  # Aの甘さを0からいくつに変えるか
+# -----------------------
+set.seed(2026204)
+products <- data.frame(product = LETTERS[1:6],
+                       bitterness = c(2, 0, 0, 0, 2, 2),
+                       sweetness = c(0, 2, 0, 1, 1, 2),
+                       price_base = c(100, 100, 90, 95, 110, 120))
+theta_attr_true <- c(beta0 = 0.5, beta_bitter = 0.8, beta_sweet = 0.5, alpha_price = 0.02)
+J_attr <- nrow(products)
+price_attr <- sweep(matrix(rnorm(N_attr * J_attr, sd = 8), N_attr, J_attr),
+                    2, products$price_base, "+")
+price_attr <- pmin(pmax(price_attr, 60), 200)
+X_attr <- build_attribute_design(price_attr, products)
+u_attr <- utilities(theta_attr_true, X_attr) + matrix(draw_gumbel(N_attr * (J_attr + 1)), N_attr)
+choice_attr <- max.col(u_attr, ties.method = "first") - 1
+fit_attr <- fit_mnl(X_attr, choice_attr)
+print(data.frame(parameter = names(theta_attr_true), truth = as.numeric(theta_attr_true),
+                 estimate = fit_attr$theta, se = fit_attr$se,
+                 lower = fit_attr$theta - 1.96 * fit_attr$se,
+                 upper = fit_attr$theta + 1.96 * fit_attr$se), row.names = FALSE, digits = 4)
+
+# 同じ推定係数を使い、Aの甘さだけを変更。全商品の価格は基準価格に固定する。
+products_after <- products
+products_after$sweetness[1] <- new_sweetness_A
+reference_price <- matrix(products$price_base, nrow = 1)
+s_before <- predict_shares(fit_attr$theta, build_attribute_design(reference_price, products))[1, ]
+s_after <- predict_shares(fit_attr$theta, build_attribute_design(reference_price, products_after))[1, ]
+print(data.frame(alternative = c("outside", products$product),
+                 quantity_before = 1000 * s_before, quantity_after = 1000 * s_after,
+                 change = 1000 * (s_after - s_before)), row.names = FALSE, digits = 4)
+```
+
+甘さを1上げると効用は $\hat\beta_{\mathrm{sweet}}$ だけ上がるが、シェアがその値だけ上がるのではない。logit公式に戻すことで、Aだけでなく他の商品とoutsideの需要も予測する。これは、Aの新しい切片を推定し直す操作ではなく、**全商品の選択から推定した属性係数を、Aの変更に当てはめる**操作である。価格・ほかの属性・観測できない魅力・共通係数が変わらないという仮定を置いている。
+
+**試すこと：** `new_sweetness_A <- 0` なら需要の変化はすべて0になるか。2にすると、1にしたときのちょうど2倍だけAの需要が増えるだろうか。
+
+## 実験7：推定した需要の弾力性とIIA
+
+**実験5の3ブランド推定を先に実行する。** その推定値を、全員に共通する基準価格で評価する。実験6の6商品とは別のモデルなので、推定値を混ぜないこと。ここで計算するのは「共通価格における需要」であり、各人の価格で計算したシェアを平均したものではない。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+reference_prices <- c(A = 130, B = 120, C = 110)
+increase_B <- 10
+# -----------------------
+if (!exists("fit")) stop("Run the estimation cell in Experiment 5 first.")
+sweetness <- c(3, 6, 5)
+s0 <- predict_shares(fit$theta, build_design(matrix(reference_prices, nrow = 1), sweetness))[1, ]
+E <- elasticity_matrix(fit$theta["alpha_price"], reference_prices, s0[-1])
+print(round(E, 4))  # 行=需要が変わる商品、列=価格を変える商品
+new_prices <- reference_prices
+new_prices["B"] <- new_prices["B"] + increase_B
+s1 <- predict_shares(fit$theta, build_design(matrix(new_prices, nrow = 1), sweetness))[1, ]
+print(data.frame(alternative = c("outside", "A", "B", "C"),
+                 share_before = s0, share_after = s1,
+                 share_point_change = s1 - s0, relative_change_pct = 100 * (s1 / s0 - 1)),
+      row.names = FALSE, digits = 5)
+print(c(A_to_C_before = s0[2] / s0[4], A_to_C_after = s1[2] / s1[4]))
+```
+
+B列の交差弾力性はAとCで同じである。有限の値上げでも、AとCの**増加率**は同じで、A対Cのシェア比が保たれる。絶対的なシェアの増分まで同じとは限らない。これがIIAの代替パターンの制約である。商品間の近さをより柔軟に表す話はLecture 3・4へ進んでから扱う。
+
+## 実験8：需要と弾力性をプライシングに使う
+
+### 1商品＋outside：収入と利益の最大値を比べる
+
+講義と同じ $a_A=2,\alpha=0.02,M=1000$ に戻る。限界費用が一定の $c_A$ なら、利益は $\pi_A=(p_A-c_A)q_A(p_A)$ である。収入 $p_Aq_A$ と利益では最適な価格が異なる。利益最大化価格では $\frac{p_A-c_A}{p_A}=-\frac{1}{\eta_{AA}}$ が成り立つか、表で確かめよう。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+a_A <- 2
+alpha <- 0.02
+cost <- 50
+M <- 1000
+# -----------------------
+stopifnot(alpha > 0, cost >= 0, M > 0)
+share_single <- function(p) plogis(a_A - alpha * p)
+# 解を挟む上限を広げ、グリッドの端を最適価格と取り違えないようにする。
+solve_price <- function(c_unit) {
+  foc <- function(p) 1 - alpha * (p - c_unit) * (1 - share_single(p))
+  upper <- c_unit + 100
+  while (foc(upper) > 0) upper <- c_unit + 2 * (upper - c_unit)
+  uniroot(foc, c(c_unit, upper), tol = 1e-9)$root
+}
+p_revenue <- solve_price(0)
+p_profit <- solve_price(cost)
+prices_star <- c(p_revenue, p_profit)
+quantity_star <- M * share_single(prices_star)
+eta_star <- -alpha * prices_star * (1 - quantity_star / M)
+print(data.frame(objective = c("revenue", "profit"), price = prices_star,
+                 quantity = quantity_star, revenue = prices_star * quantity_star,
+                 profit = (prices_star - cost) * quantity_star,
+                 own_elasticity = eta_star,
+                 margin_over_price = (prices_star - cost) / prices_star,
+                 minus_inverse_elasticity = -1 / eta_star), row.names = FALSE, digits = 5)
+
+grid <- seq(0, max(250, 1.5 * p_profit), length.out = 301)
+quantity <- M * share_single(grid)
+money <- data.frame(price = rep(grid, 2),
+                    amount = c(grid * quantity, (grid - cost) * quantity),
+                    measure = rep(c("revenue", "profit"), each = length(grid)))
+optima <- data.frame(price = prices_star, measure = c("revenue", "profit"))
+ggplot(money, aes(price, amount, color = measure)) +
+  geom_line(linewidth = 1) +
+  geom_vline(data = optima, aes(xintercept = price, color = measure),
+             linetype = "dashed", show.legend = FALSE) +
+  labs(x = "price of A (yen)", y = "amount (yen)", color = NULL) +
+  theme(legend.position = "bottom")
+```
+
+**試すこと：** 初期設定では収入最大化価格が100円、利益最大化価格が約128.36円である。`cost <- 0` にすると一致するか。費用を上げたとき、最適な価格と数量、弾力性はどう変わるか。弾力性自体も価格で変わるので、元の価格での値を固定して値付けしないこと。
+
+### 2社が別々の商品を売る：互いの最適反応と価格均衡
+
+AとBを**別々の企業**が1商品ずつ販売し、同時に価格を選ぶ。相手の価格を固定して自分の利益を最大にする価格が「最適反応」である。両社の価格が互いに最適反応になった組合せがナッシュ均衡である。共通所有の2商品をまとめて値付けする問題とは異なる。
+
+```{webr}
+#| timelimit: 60
+# ---- いじるのはここ ----
+a <- c(A = 2, B = 1.5)
+alpha <- 0.02
+costs <- c(A = 50, B = 50)
+M <- 1000
+# -----------------------
+stopifnot(alpha > 0, all(costs >= 0), M > 0)
+shares_two <- function(p) softmax(c(0, a - alpha * p))[-1]
+best_response <- function(j, rival_price) {
+  c_j <- costs[j]
+  foc <- function(own_price) {
+    p <- numeric(2); p[j] <- own_price; p[3 - j] <- rival_price
+    1 - alpha * (own_price - c_j) * (1 - shares_two(p)[j])
+  }
+  upper <- c_j + 100
+  while (foc(upper) > 0) upper <- c_j + 2 * (upper - c_j)
+  uniroot(foc, c(c_j, upper), tol = 1e-9)$root
+}
+price_nash <- c(A = 100, B = 100)
+for (iteration in 1:200) {
+  old_prices <- price_nash
+  price_nash[1] <- best_response(1, price_nash[2])
+  price_nash[2] <- best_response(2, price_nash[1])
+  if (max(abs(price_nash - old_prices)) < 1e-8) break
+}
+stopifnot(max(abs(price_nash - c(best_response(1, price_nash[2]),
+                                best_response(2, price_nash[1])))) < 1e-6)
+s_nash <- shares_two(price_nash)
+eta_nash <- -alpha * price_nash * (1 - s_nash)
+print(data.frame(product = c("A", "B"), price = price_nash,
+                 quantity = M * s_nash, profit = (price_nash - costs) * M * s_nash,
+                 own_elasticity = eta_nash,
+                 margin_over_price = (price_nash - costs) / price_nash,
+                 minus_inverse_elasticity = -1 / eta_nash), row.names = FALSE, digits = 5)
+
+grid <- seq(0, max(220, 1.5 * price_nash), length.out = 101)
+br <- rbind(data.frame(p_A = vapply(grid, function(pb) best_response(1, pb), numeric(1)),
+                       p_B = grid, firm = "A best response"),
+            data.frame(p_A = grid,
+                       p_B = vapply(grid, function(pa) best_response(2, pa), numeric(1)),
+                       firm = "B best response"))
+ggplot(br, aes(p_A, p_B, color = firm)) +
+  geom_path(linewidth = 1) +
+  annotate("point", x = price_nash[1], y = price_nash[2], size = 3) +
+  labs(x = "price of A (yen)", y = "price of B (yen)", color = NULL,
+       subtitle = "Intersection: each firm is choosing its best response") +
+  theme(legend.position = "bottom")
+```
+
+**試すこと：** Bの費用だけを70円にすると、BだけでなくAの均衡価格も動くか。自分の利益最大化条件には自己価格弾力性が入り、相手の価格が自分の需要を変えることは交差価格弾力性で表せる。最適反応の交点を求めるには、実験2で見た**両方の価格に依存する需要関数**が必要なのである。
+
+ここでは計算のつながりが見えるように講義前半の係数を使った。推定需要を使う場合も、実験5の $a_A=\widehat{\mathrm{const}}_A+3\hat\beta_{\mathrm{sweet}}$、$a_B=\widehat{\mathrm{const}}_B+6\hat\beta_{\mathrm{sweet}}$、$\alpha=\hat\alpha$ などを代入して同じ手順を使える。ただし上の2社例はA・B・outsideのみの市場なので、Cを販売しない設定での予測となる。需要の推定に加え、費用と競争の仕方の仮定が必要である。
 
 ## 次に読むもの
 
-- 講義ノート本体：`lecture2.html`（導出・推論・モンテカルロの完全版）
-- coding課題：`assignment2.qmd`（動画配信サービスのプラン選択を題材に、今日の手順をゼロから自分で実装する）
+- [Lecture 2の講義ノート](lecture2.html)：導出、推論、モンテカルロによる確認。
+- [課題2](assignment2.html)／[課題のQMDをダウンロード](assignment2.qmd)：動画配信のプラン選択を題材に、自分でモデルと推定を実装する。
