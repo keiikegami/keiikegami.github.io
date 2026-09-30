@@ -44,7 +44,7 @@ options(scipen = 8)
 - Gumbel分布（Type I極値分布）を効用のランダム項に仮定すると、選択確率が驚くほどシンプルな閉形式（logit公式）になる理由を理解する。
 - 価格弾力性から「値上げしたら客がどこへ流れるか」を読み取り、企業の利益最大化や2社の価格競争の均衡につなげられる。
 - 最尤法（MLE）の考え方を、3人の購入データから出発してlogitモデルまで自分の手で追える。
-- `optim()`を使って自作の対数尤度を最大化し、シミュレーションデータから真のパラメータを回収できることを確認する。Hessianから標準誤差・信頼区間を計算する。
+- `optim()`で商品の属性に対する共通の係数も推定し、属性変更後の需要を予測する。シミュレーションで真値回収を確認し、Hessianから標準誤差・信頼区間を計算する。
 :::
 
 ## 前回とのつながり・今回のゴール
@@ -55,7 +55,7 @@ options(scipen = 8)
 
 1. 製品の品質や好みの違いを効用に書き、消費者の選択を集めて需要関数を作れるようになる（RUM）。
 2. なぜlogitという特定の形になるのかをGumbel分布の性質から理解し、需要曲線・需要曲面から自己価格弾力性と交差価格弾力性の意味と式をつかむ。
-3. 実際にRでシミュレーションデータを作り、自作の最尤法でパラメータを推定する。その推定値から需要と弾力性を計算し、価格設定に使う。
+3. 実際にRでシミュレーションデータを作り、自作の最尤法でパラメータを推定する。商品の属性に対する共通の係数を推定して属性変更後の需要を予測し、価格設定にも使う。
 
 次回（第3回）は、今回作るMNLモデルの限界—IIA（独立性仮定）という代替性の制約と、価格が需要ショックと相関する内生性の問題—に進む。今回のモデルを「素朴に信じすぎない」ための伏線を、後半で推定値から弾力性行列を計算するときに少し張っておく。
 
@@ -724,7 +724,7 @@ $$
 \end{pmatrix}
 $$
 
-で、列ランクは3である。Cの切片を0とするのはoutsideの位置正規化と同じではなく、「Cに残る観測不能なブランド魅力は0」という実質的な制約である。市場や商品をまたいでsweetnessが変化するデータがあれば、全ブランド切片と属性係数を同時に識別できる場合もある。
+で、列ランクは3である。Cの切片を0とするのはoutsideの位置正規化と同じではなく、「Cに残る観測不能なブランド魅力は0」という実質的な制約である。市場や商品をまたいでsweetnessが変化するデータがあれば、全ブランド切片と属性係数を同時に識別できる場合もある。 この3商品の例では、非価格部分は $a_A=\text{const}_A+3\beta_{\text{sweet}}$、$a_B=\text{const}_B+6\beta_{\text{sweet}}$、$a_C=5\beta_{\text{sweet}}$ と書け、3つの $a_j$ を自由に推定するのと同じだけの自由度がある。まずこの例で最尤法の実装を学び、[後の6商品の例](#sec-lec2-attribute-estimation)では、少数の共通の属性係数で商品間の効用を結びつける。
 
 真のパラメータ値は次のように設定する。
 
@@ -1025,13 +1025,192 @@ ggplot(mc_df, aes(x = alpha_hat)) +
 
 ヒストグラムは正規分布によく似た形になり、95%信頼区間の被覆率もおおむね0.95に近い値になる（乱数の具体的な引かれ方によって、0.94〜0.97程度の間で上下する）。この「モデルを書く→シミュレーションする→推定する→それを何度も繰り返して推定量の性質を確かめる」という一連の流れは、計量経済学IIを通して何度も使う型である。
 
+## Rシミュ4：商品の属性への係数を推定する {#sec-lec2-attribute-estimation}
+
+最尤法の手順が分かったので、今度は冒頭の**特性アプローチをそのまま推定に使おう**。苦味や甘さへの評価を推定できれば、「Aという商品がどれくらい人気か」に加えて、「Aの甘さを変えると、どれくらい売れるか」を考えられる。ここでは先ほどの3商品とは別のシミュレーションとして、6種類の缶コーヒーを考える。全商品に共通する苦味・甘さの係数を、消費者の選択から推定する。
+
+### 属性から6商品の効用を作る
+
+消費者はA〜Fの6商品とoutsideから1つを選ぶ。苦味と甘さは商品の属性を表すスコアであり、商品の組合せを次のようにする。Aの「苦味2・甘さ0」とBの「苦味0・甘さ2」は、冒頭の数値例と同じ組合せである。
+
+```{r}
+#| label: lec2-attributes-products
+
+products_attr <- data.frame(
+  product = LETTERS[1:6],
+  bitterness = c(2, 0, 0, 0, 2, 2),
+  sweetness = c(0, 2, 0, 1, 1, 2),
+  price_base = c(100, 100, 90, 95, 110, 120)
+)
+knitr::kable(products_attr,
+             col.names = c("商品", "苦味", "甘さ", "基準価格（円）"))
+```
+
+全員に共通する属性の係数を使い、効用のうち観測した価格・属性で説明する部分を
+
+$$
+v_{ij}=\beta_0
++\beta_{\text{bitter}}\,\text{bitterness}_j
++\beta_{\text{sweet}}\,\text{sweetness}_j
+-\alpha p_{ij},
+\qquad j=A,\ldots,F
+$$
+
+とする。$p_{ij}$ は消費者 $i$ に提示された商品 $j$ の価格である。$\beta_0$ は、どの商品にも共通する「outsideに対して商品を買うこと」の効用の部分であり、outsideの $v_{i0}=0$ には加えない。たとえばAとBなら、
+
+$$
+\begin{aligned}
+v_{iA}&=\beta_0+2\beta_{\text{bitter}}-\alpha p_{iA},\\
+v_{iB}&=\beta_0+2\beta_{\text{sweet}}-\alpha p_{iB}.
+\end{aligned}
+$$
+
+同じ苦味が1単位増えれば、どの商品でも共通部分の効用は $\beta_{\text{bitter}}$ だけ増える。この例では、**6商品の非価格部分を、共通切片・苦味・甘さの3係数で説明する**。商品ごとに独立したブランド切片は置かず、属性で説明しきれない商品固有の恒常的な魅力はないと仮定する。個人ごとの観測できない違いは、これまでと同じ独立なGumbel項 $\varepsilon_{ij}$ によって表す。
+
+真の係数を $\beta_0=0.5$、$\beta_{\text{bitter}}=0.8$、$\beta_{\text{sweet}}=0.5$、$\alpha=0.02$ として、4,000人のデータを作る。価格には、各商品の基準価格の周りで個人ごとに独立な変動を与える。苦味・甘さの異なる商品間の選択に加え、同じ商品でも提示価格が異なると選択がどう変わるかが、係数を推定する手がかりになる。
+
+```{r}
+#| label: lec2-attributes-simulate
+#| code-fold: true
+#| code-summary: "属性から効用と選択データを作るRコード"
+
+set.seed(2026204)  # この6商品の例を独立に再現するためのseed
+N_attr <- 4000
+J_attr <- nrow(products_attr)
+theta_attr_true <- c(beta0 = 0.5, beta_bitter = 0.8,
+                     beta_sweet = 0.5, alpha_price = 0.02)
+
+price_attr <- sweep(matrix(rnorm(N_attr * J_attr, sd = 8), nrow = N_attr),
+                    2, products_attr$price_base, "+")
+price_attr <- pmin(pmax(price_attr, 60), 200)
+
+# outsideの行はすべて0。商品の行は (1, 苦味, 甘さ, -価格)。
+build_attribute_design <- function(price, products) {
+  n <- nrow(price)
+  J <- nrow(products)
+  X <- array(0, dim = c(n, J + 1, 4))
+  for (j in seq_len(J)) {
+    X[, j + 1, 1] <- 1
+    X[, j + 1, 2] <- products$bitterness[j]
+    X[, j + 1, 3] <- products$sweetness[j]
+    X[, j + 1, 4] <- -price[, j]
+  }
+  X
+}
+
+X_attr <- build_attribute_design(price_attr, products_attr)
+V_attr <- matrix(0, nrow = N_attr, ncol = J_attr + 1)
+for (j in seq_len(J_attr + 1)) {
+  V_attr[, j] <- X_attr[, j, ] %*% theta_attr_true
+}
+eps_attr <- matrix(draw_gumbel(N_attr * (J_attr + 1)), nrow = N_attr)
+choice_attr <- max.col(V_attr + eps_attr, ties.method = "first") - 1
+```
+
+推定に使うのは、各人に提示された**全商品の価格・属性と、実際に選んだ商品**である。効用そのものやGumbel項は観測しない。データを作るために使った真の係数も、推定の際には伏せる。
+
+### 選択データから共通の係数を推定する
+
+係数の候補 $\theta=(\beta_0,\beta_{\text{bitter}},\beta_{\text{sweet}},\alpha)$ を1組選ぶと、全商品の効用 $v_{ij}(\theta)$ が同時に決まる。それをlogit公式に入れれば、
+
+$$
+s_{ij}(\theta)
+=\frac{\exp\{v_{ij}(\theta)\}}
+{1+\sum_{k=A}^{F}\exp\{v_{ik}(\theta)\}}
+$$
+
+が各商品の選択確率となる。outsideの選択確率は、同じ分母のもとで分子を1としたものである。あとは、実際に選ばれた商品の対数確率を足した対数尤度を最大にすればよい。たとえば苦味の係数を大きくすると、Aだけでなく、同じく苦いEやFの予測効用も上がる。**1つの属性係数の候補を、複数商品の選択データを使って評価している**のである。
+
+前の推定と共通なのは、logit確率を計算して対数尤度を足す部分である。商品の効用を作る説明変数を $(1,\text{苦味},\text{甘さ},-\text{価格})$ に変えれば、先ほどの `neg_loglik_mnl()` をそのまま使える。
+
+```{r}
+#| label: lec2-attributes-estimate
+
+opt_attr <- optim(
+  par = c(0, 0, 0, 0), fn = neg_loglik_mnl,
+  X = X_attr, choice = choice_attr,
+  method = "BFGS", hessian = TRUE,
+  control = list(parscale = c(1, 1, 1, 0.01),
+                 maxit = 1000, reltol = 1e-11)
+)
+stopifnot(opt_attr$convergence == 0)
+theta_attr_hat <- setNames(opt_attr$par, names(theta_attr_true))
+se_attr <- sqrt(diag(solve(opt_attr$hessian)))
+
+knitr::kable(data.frame(
+  coefficient = c("購入の共通切片", "苦味の係数", "甘さの係数", "価格係数 α"),
+  truth = as.numeric(theta_attr_true),
+  estimate = as.numeric(theta_attr_hat),
+  se = se_attr,
+  lower = as.numeric(theta_attr_hat - 1.96 * se_attr),
+  upper = as.numeric(theta_attr_hat + 1.96 * se_attr)),
+  digits = 4,
+  col.names = c("係数", "真値", "推定値", "標準誤差", "95%下限", "95%上限"),
+  caption = "6商品の選択データから推定した、全商品に共通する属性の係数")
+```
+
+たとえば甘さの係数は約 `r sprintf("%.3f", theta_attr_hat["beta_sweet"])` と推定された。価格とほかの属性を固定して甘さを1単位上げると、効用の共通部分がこの値だけ上がる、という意味である。これはA〜Fのすべてに共通する係数であり、消費者ごとの好みの係数 $\beta_i$ を推定したものではない。また、選択確率がその値だけ上がるわけでもない。何本余分に売れるかを知るには、推定した効用をもう一度logit公式に入れる必要がある。
+
+::: {.callout-note collapse="true"}
+## 商品ごとの切片もすべて入れたらどうなるか
+
+このデータでは、苦味と甘さは各商品に固定されている。A〜Fのダミーをすべて入れると、苦味も甘さもそのダミーの線形結合として書けるので、属性の係数と商品切片を別々には推定できない。今回は商品固有の切片を置かず、6商品の非価格部分を3係数で説明する制約を課している。苦味・甘さの組合せが異なり、価格にも属性と独立な変動があるため、その制約のもとで各係数を推定できる。共通購入切片をoutsideとの差として推定するためには、買わなかった人もデータに含める。
+:::
+
+### 推定した係数で、商品の属性変更を予測する
+
+Aの甘さだけを0から1へ変え、価格は100円に保つとしよう。ほかの商品も表の基準価格のままで、属性・商品数・市場規模を固定する。推定したAの効用は
+
+$$
+\begin{aligned}
+\hat v_A^{\text{変更前}}
+&=\hat\beta_0+2\hat\beta_{\text{bitter}}-100\hat\alpha,\\
+\hat v_A^{\text{変更後}}
+&=\hat v_A^{\text{変更前}}+\hat\beta_{\text{sweet}}.
+\end{aligned}
+$$
+
+となる。Aの効用が上がると、Aの選択確率が増えると同時に、ほかの商品やoutsideの確率も分母を通じて変わる。推定したモデルにそのまま代入し、1,000人の市場での予測数量を比べよう。
+
+```{r}
+#| label: lec2-attributes-predict
+#| code-fold: true
+#| code-summary: "Aの甘さを変えたときの需要を予測するRコード"
+
+predict_attribute_shares <- function(theta, price, products) {
+  utility <- theta["beta0"] + theta["beta_bitter"] * products$bitterness +
+    theta["beta_sweet"] * products$sweetness - theta["alpha_price"] * price
+  utility <- c(0, utility)  # outside
+  exp_utility <- exp(utility - max(utility))
+  setNames(exp_utility / sum(exp_utility), c("outside", products$product))
+}
+
+shares_attr_before <- predict_attribute_shares(
+  theta_attr_hat, products_attr$price_base, products_attr)
+products_attr_after <- products_attr
+products_attr_after$sweetness[products_attr_after$product == "A"] <- 1
+shares_attr_after <- predict_attribute_shares(
+  theta_attr_hat, products_attr$price_base, products_attr_after)
+
+knitr::kable(data.frame(
+  product = names(shares_attr_before),
+  quantity_before = 1000 * as.numeric(shares_attr_before),
+  quantity_after = 1000 * as.numeric(shares_attr_after),
+  change = 1000 * as.numeric(shares_attr_after - shares_attr_before)),
+  digits = 1,
+  col.names = c("選択肢", "変更前の予測数量", "変更後の予測数量", "増減"),
+  caption = "Aの甘さを0から1へ変えたときの予測（商品は本、outsideは人）")
+```
+
+Aの予測数量は約 `r sprintf("%.1f", 1000 * shares_attr_before["A"])` 本から約 `r sprintf("%.1f", 1000 * shares_attr_after["A"])` 本へ増える。ここでは、Aの新しい人気度を別に推定し直したのではなく、**全商品の選択から推定した甘さの係数を、Aの属性変更に当てはめた**。これが、効用を商品の属性で表して推定する利点である。この予測は、甘さ以外の観測できない魅力や共通の選好係数も、変更によって変わらないという仮定のもとで行っている。次は、同じように価格を変えたときの需要を予測し、企業の利益最大化につなげる。
+
 ## 推定した需要関数をプライシングに使う {#価格弾力性とプライシング}
 
 ここまでで、価格や属性への反応を表す係数をデータから推定できた。前半では係数を与えて需要曲線と弾力性を計算したが、ここからは推定値を使って「値上げしたら何本売れるか、客がどこへ流れるか」を予測し、価格設定につなげる。
 
 ### 推定値から弾力性を計算する
 
-前半の[弾力性の公式](#sec-lec2-elasticity-definition)を振り返ると、自己価格弾力性は $-\alpha p_j(1-s_j)$、交差価格弾力性は $\alpha p_k s_k$ である。推定したA・B・Cの3ブランドのモデルに、推定値 $\hat\alpha$ と各価格での予測シェアを代入してみよう。
+前半の[弾力性の公式](#sec-lec2-elasticity-definition)を振り返ると、自己価格弾力性は $-\alpha p_j(1-s_j)$、交差価格弾力性は $\alpha p_k s_k$ である。ここでは最初に推定したA・B・Cの3ブランドのモデルに戻り、推定値 $\hat\alpha$ と各価格での予測シェアを代入してみよう。
 
 ```{r}
 #| label: lec2-elasticity
@@ -1354,7 +1533,7 @@ Basic・Standard・Premium・未加入という4つの選択肢からの選択�
 - 製品を特徴の束として表すのが特性アプローチである。今回は属性と価格の係数を全員共通とし、観測できない個人ごとの違いを $\varepsilon_{ij}$ で表す。個人の選択を集計すると市場の需要になる。
 - 消費者の選択は、決定的効用 $v_{ij}$ とランダム項 $\varepsilon_{ij}$ からなるRUM $u_{ij}=v_{ij}+\varepsilon_{ij}$ として書ける。
 - $\varepsilon_{ij}$ に独立なGumbel分布を仮定すると、選択確率がlogit公式になる。価格が効用に入るので、価格を変えると確率が変わり、その確率を人数分集計した $q_j$ が需要関数になる。
-- 最尤法は、「観測されたデータが最も得られやすいパラメータ」を選ぶ推定方法であり、logitの対数尤度 $\sum_i\sum_j y_{ij}\ln s_{ij}$ を`optim()`で最大化することでパラメータを推定できる。
+- 最尤法は、「観測されたデータが最も得られやすいパラメータ」を選ぶ推定方法であり、logitの対数尤度 $\sum_i\sum_j y_{ij}\ln s_{ij}$ を最大化する。効用を属性で表せば、共通の属性係数を推定し、商品の属性を変えたときの需要も予測できる。
 - Hessianの逆行列から標準誤差・信頼区間が計算でき、モンテカルロ実験でその被覆率を検証できる。
 - 自己価格弾力性は $-\alpha p_j(1-s_j)$、交差価格弾力性は $\alpha p_k s_k$ という閉形式で書け、プライシングの意思決定に直結する。ただし交差弾力性が財の類似性を反映しない（IIA）という制約があり、これが次回のテーマになる。
 :::
