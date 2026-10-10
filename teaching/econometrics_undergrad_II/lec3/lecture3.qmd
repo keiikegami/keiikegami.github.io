@@ -233,12 +233,16 @@ $$
 
 ### Rシミュ1：3財logitでのIIAの確認
 
-まず前回と同じ枠組みで、財1・2・3（+ outside option）の3財市場を作る。財1と財2は品質パラメータ・価格ともにほぼ同じに設定し、財3は品質は高いが価格も高い「高級ブランド」として設定する。
+「元のシェアに比例する」とは、**元のシェアが2倍の財は、値上げ後に獲得する需要も2倍になる**という意味である。これを、元のシェアが同じ場合と異なる場合を比べて確かめよう。市場規模は固定し、財3の価格以外は値上げ前後で変えない。
+
+#### 例A：財1・財2の元のシェアが30%ずつの場合
+
+まず、財1・2・3とoutside option（何も買わない）のシェアが、それぞれ30%、30%、20%、20%になるようにパラメータを設定する。財1と財2は品質・価格ともに同じとし、財3は品質も価格も高い「高級ブランド」とする。計算を見やすくするための仮想的な数値例であり、実際の市場の推定値ではない。
 
 ```{r}
 #| label: iia-setup
 alpha <- 1.0
-beta_j <- c(2.0, 2.0, 3.0)     # 財1,2,3の品質パラメータ(x'betaに相当)
+beta_j <- c(3 + log(1.5), 3 + log(1.5), 8)  # 品質・ブランド評価(x'betaに相当)
 price_j <- c(3.0, 3.0, 8.0)    # 財1,2は同価格帯、財3は高級ブランドで高価格
 
 logit_shares <- function(beta_j, alpha, price_j) {
@@ -251,12 +255,11 @@ logit_shares <- function(beta_j, alpha, price_j) {
 }
 
 base <- logit_shares(beta_j, alpha, price_j)
-base
 ```
 
-財1・財2のシェアはそれぞれ約21%、財3は1%未満、outside optionが約57%というシェア構成になった。財1と財2はほぼ同じ品質・価格なので、シェアも一致している。
+この設定では、$e^{\delta_1}=e^{\delta_2}=1.5$、$e^{\delta_3}=1$であり、outside optionの重みも1なので、分母は$1+1.5+1.5+1=5$になる。例えば財1のシェアは$1.5/5=0.30$である。
 
-ここで**財3の価格を10%引き上げる**とどうなるか見てみる。
+ここで**財3の価格だけを10%引き上げ、8から8.8にする**。
 
 ```{r}
 #| label: iia-shock
@@ -264,48 +267,180 @@ price_shock <- price_j
 price_shock[3] <- price_shock[3] * 1.10
 
 shocked <- logit_shares(beta_j, alpha, price_shock)
-shocked
-
 share_change <- shocked$s - base$s
-share_change
 ```
 
-財3のシェアが減り、財1・財2のシェアが増えている。ここで注目したいのは、**財1が得た需要と財2が得た需要の比率**である。
+```{r}
+#| label: tbl-iia-balanced
+#| echo: false
+#| tbl-cap: "例A：元のシェアが同じ場合の、財3の値上げによる変化"
+share_comparison <- function(before, after) {
+  s_before <- c(before$s, before$s0)
+  s_after <- c(after$s, after$s0)
+  data.frame(
+    good = c("財1（PB-A）", "財2（PB-B）", "財3（高級）", "何も買わない"),
+    before_percent = 100 * s_before,
+    after_percent = 100 * s_after,
+    change_pp = 100 * (s_after - s_before)
+  )
+}
+share_columns <- c("選択肢", "値上げ前（%）", "値上げ後（%）", "増減幅（ポイント）")
+knitr::kable(share_comparison(base, shocked), digits = 3, col.names = share_columns)
+```
+
+財3から約9.901ポイントの需要が失われ、財1・財2はそれぞれ約3.713ポイント、outside optionは約2.475ポイント増える。財1と財2については、**元のシェアの比も、獲得した需要の比も1対1**である。
+
+$$
+\frac{\text{財1の増加幅}}{\text{財2の増加幅}}
+=\frac{3.713}{3.713}=1,
+\qquad
+\frac{\text{財1の元のシェア}}{\text{財2の元のシェア}}
+=\frac{30}{30}=1.
+$$
+
+この例だけでは「同じ商品だから同じだけ増えただけではないか」と思うかもしれない。そこで、元のシェアを変えてみよう。
+
+#### 例B：財1・財2の元のシェアが40%と20%の場合
+
+今度は、財1・財2は味や価格が似ていても、知名度などを含む共通のブランド評価が財1の方で高い場合を考える。例Aから品質・ブランド評価のパラメータを設定し直し、元のシェアを**財1が40%、財2が20%**にする。財3とoutside optionは20%ずつのままである。この別の市場でも、同じく財3の価格だけを8から8.8に上げる。
+
+```{r}
+#| label: iia-unequal
+beta_unequal <- c(3 + log(2), 3, 8)
+base_unequal <- logit_shares(beta_unequal, alpha, price_j)
+shocked_unequal <- logit_shares(beta_unequal, alpha, price_shock)
+share_change_unequal <- shocked_unequal$s - base_unequal$s
+```
+
+```{r}
+#| label: tbl-iia-unequal
+#| echo: false
+#| tbl-cap: "例B：元のシェアが2対1の場合の、財3の値上げによる変化"
+knitr::kable(share_comparison(base_unequal, shocked_unequal), digits = 3,
+             col.names = share_columns)
+```
+
+財1は約4.951ポイント、財2は約2.475ポイント増える。丸める前の数値で比を取ると、**元のシェアが2倍の財1は、獲得する需要も正確に2倍**である。
 
 ```{r}
 #| label: iia-ratio
-gain_ratio <- share_change[1] / share_change[2]
-baseline_ratio <- base$s[1] / base$s[2]
+gain_ratio <- share_change_unequal[1] / share_change_unequal[2]
+baseline_ratio <- base_unequal$s[1] / base_unequal$s[2]
 
 cat("財1/財2の需要獲得比:", round(gain_ratio, 6), "\n")
-cat("財1/財2のbaselineシェア比:", round(baseline_ratio, 6), "\n")
+cat("財1/財2の元のシェア比:", round(baseline_ratio, 6), "\n")
 ```
 
-2つの比率はぴったり一致する。財1と財2は今回たまたま全く同じ設定なので比が1になるが、これは偶然ではなく、**logitモデルでは常に「値上げされた財から流出した需要が、残りの財のシェア比に応じて配分される」**ことの表れである。財1と財2が「似ている」かどうかは、この配分比に一切影響しない。
+ここでは、**増加幅（何ポイント増えたか）と増加率（元のシェアの何%増えたか）を区別する**ことが大切である。増加幅は2倍違うが、増加率は、
 
-図で確認する。
+$$
+\begin{aligned}
+\text{財1の増加率}
+&=\frac{44.9506-40}{40}\times100\approx12.3765\%,\\
+\text{財2の増加率}
+&=\frac{22.4753-20}{20}\times100\approx12.3765\%
+\end{aligned}
+$$
 
-```{r}
-#| label: fig-iia-bar
-#| fig-cap: "財3の値上げに対するシェア変化（IIAのもとでは流出先はシェア比でのみ決まる）"
-df_iia <- data.frame(
-  good = factor(c("財1(PB-A)", "財2(PB-B)", "財3(高級)"), levels = c("財1(PB-A)", "財2(PB-B)", "財3(高級)")),
-  share_before = base$s,
-  share_after = shocked$s
-) %>%
-  pivot_longer(cols = c(share_before, share_after), names_to = "period", values_to = "share") %>%
-  mutate(period = ifelse(period == "share_before", "値上げ前", "値上げ後"))
+と同じになる。**両方が同じ割合で成長するので、元が2倍なら増える量も2倍になる**、というのが「元のシェアに比例する」の意味である。
 
-ggplot(df_iia, aes(x = good, y = share, fill = period)) +
-  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
-  labs(x = NULL, y = "シェア", fill = NULL,
-       title = "財3(高級ブランド)の値上げに対するシェアの変化") +
-  scale_y_continuous(labels = scales::percent)
-```
+財3が失った約9.901ポイントのうち、財1が半分、財2とoutside optionが4分の1ずつを獲得している。これは、乗り換え先の元のシェア$40:20:20=2:1:1$に沿った配分である。この比は、財3と各乗り換え先がどれだけ似ているかによって変わらない。
+
+### なぜ元のシェアに比例するのか：一般式での確認
+
+バスでは新しい選択肢が加わり、缶コーヒーでは既存の財が値上げされた。どちらも、**効用が変わらない選択肢のシェアは、logit式の分母だけを通じて変わる**。この共通点から、先ほどの結果を導こう。
+
+#### 分母が変わると、すべて同じ割合で増減する
+
+変化前の選択肢集合を$\mathcal J$とし、シェア式の分母を$D$と書く。缶コーヒーの例ではoutside optionも$\mathcal J$に含め、$\delta_0=0$とする。バスの例では車と青バスだけを含める。
+
+$$
+D=\sum_{\ell\in\mathcal J}e^{\delta_\ell},
+\qquad s_j=\frac{e^{\delta_j}}{D}.
+$$
+
+価格変更や新財の追加が起きた後の分母を$D'$、シェアを$s'_j$と書こう。**自身の効用$\delta_j$が変わらない既存の選択肢$j$**については、分子が同じなので、
+
+$$
+s'_j=\frac{e^{\delta_j}}{D'}
+=\frac{D}{D'}s_j
+$$
+
+となる。$\Delta s_j=s'_j-s_j$と定義して両辺から$s_j$を引けば、
+
+$$
+\boxed{\Delta s_j=\left(\frac{D}{D'}-1\right)s_j},
+\qquad
+\frac{\Delta s_j}{s_j}=\frac{D}{D'}-1.
+$$
+
+右辺の係数$D/D'-1$は、効用が変わらないどの財にも共通である。したがって、**増減率は同じになり、増減幅は元のシェアに比例する**。この条件を満たす2財$j,\ell$について、分母が実際に変化していれば、
+
+$$
+\frac{\Delta s_j}{\Delta s_\ell}
+=\frac{s_j}{s_\ell}.
+$$
+
+同時に、変化後も$s'_j/s'_\ell=s_j/s_\ell=e^{\delta_j-\delta_\ell}$であり、元のシェア比そのものも変わらない。これがIIAである。この導出は微分による近似ではなく、有限の価格変更や選択肢の追加についても成り立つ。
+
+#### 缶コーヒー：値上げで失われた需要はどこへ行くか
+
+財$k$の価格だけが$\Delta p_k>0$だけ上がると、$\delta'_k=\delta_k-\alpha\Delta p_k$となる（$\alpha>0$）。そのため、
+
+$$
+D'=D-e^{\delta_k}+e^{\delta_k-\alpha\Delta p_k}<D.
+$$
+
+よって、他の財$j\ne k$には$D/D'-1>0$が共通してかかり、元のシェアに比例して需要が増える。outside optionを含む全選択肢のシェアは合計1なので、これらの増加分の合計は、財$k$の減少分$-\Delta s_k$に等しい。したがって、
+
+$$
+-\Delta s_k
+=\sum_{j\ne k}\Delta s_j
+=\left(\frac{D}{D'}-1\right)(1-s_k),
+$$
+
+$$
+\boxed{\frac{\Delta s_j}{-\Delta s_k}
+=\frac{s_j}{1-s_k}}\qquad(j\ne k).
+$$
+
+左辺は「財$k$が失った需要のうち、財$j$が獲得する割合」である。右辺は「財$k$以外の選択肢の中での、財$j$の元のシェア」にすぎない。例Bなら、財1の獲得割合は$0.40/(1-0.20)=1/2$、財2とoutside optionはそれぞれ$0.20/(1-0.20)=1/4$となる。
+
+#### 赤バス・青バス：新しい選択肢はどこから需要を奪うか
+
+既存の選択肢の効用を固定して新財$r$を追加すると、$D'=D+e^{\delta_r}$である。新財のシェアは$s'_r=e^{\delta_r}/D'$なので、
+
+$$
+\frac{D}{D'}=1-s'_r,
+\qquad
+\boxed{\Delta s_j=-s'_r s_j}\qquad(j\in\mathcal J).
+$$
+
+今度は**各既存財の元のシェアに比例して需要が奪われる**。赤バスの例では$s_C=s_B=1/2$、$s'_R=1/3$なので、
+
+$$
+\Delta s_C=\Delta s_B
+=-\frac13\times\frac12=-\frac16,
+\qquad
+s'_C=s'_B=\frac12-\frac16=\frac13.
+$$
+
+車からも青バスからも同じ$1/6$だけシェアを奪う、という先ほどの予測が得られた。**基本logitは、値上げ後の需要獲得も、新財による需要減少も、既存のシェア比に沿って配分する**。新財がどれほど青バスに似ていても、その類似性だけを理由に青バスから多く奪うことはできない。
 
 ### 交差弾力性行列でも確認する
 
-前回導入した交差弾力性の式 $\eta_{jk} = \alpha p_k s_k$（$j \neq k$）を思い出そう。この式には財$j$の情報（品質、財$k$との類似度など）が一切入っていない。つまり、共通の価格係数$\alpha$のもとでは、**財$k$の1%の値上げに対する他の財の需要の増加率は、どの財$j$でも同じ**になる。増える人数やシェアの増加幅が同じという意味ではない。これらの大きさは、元のシェアに比例する。
+今の結果を、微小な価格変化に対する反応として表したものが交差価格弾力性である。$j\ne k$では、$\partial D/\partial p_k=-\alpha e^{\delta_k}$を使うと、
+
+$$
+\frac{\partial s_j}{\partial p_k}
+=\alpha\frac{e^{\delta_j}e^{\delta_k}}{D^2}
+=\alpha s_j s_k,
+\qquad
+\eta_{jk}=\frac{\partial s_j}{\partial p_k}\frac{p_k}{s_j}
+=\alpha p_k s_k.
+$$
+
+シェアの増加幅を表す微分には$s_j$がかかっているが、増加率に直すと$s_j$は消える。つまり、共通の価格係数$\alpha$のもとでは、**財$k$の小さな値上げに対する他の財の需要の増加率は、どの財$j$でも同じ**になる。これは先ほどの一般式の、微小な変化における表現である。元のシェアが異なる例Bについて、弾力性行列も計算してみよう。
 
 ```{r}
 #| label: iia-cross-elasticity
@@ -325,12 +460,14 @@ cross_elasticity <- function(beta_j, alpha, price_j) {
   E
 }
 
-E_iia <- cross_elasticity(beta_j, alpha, price_j)
+E_iia <- cross_elasticity(beta_unequal, alpha, price_j)
 rownames(E_iia) <- colnames(E_iia) <- c("財1", "財2", "財3")
 round(E_iia, 4)
 ```
 
 3列目を見ると、財1が財3の値上げに反応する弾力性（1行3列目）と、財2が財3の値上げに反応する弾力性（2行3列目）が完全に一致している。財1と財2がどれだけ似ているかに関係なく、この値は同じになる。
+
+どちらも弾力性は1.6なので、財3の価格が1%上がれば、それぞれの需要は約1.6%増える。ただし、これは微分に基づく局所的な近似である。10%という大きな値上げに単純に掛けた16%は近似値であり、先ほどの表で厳密に計算した増加率は約12.3765%だったことに注意しよう。
 
 ::: {.callout-warning}
 ## この分析、どこがまずい？
@@ -338,18 +475,6 @@ round(E_iia, 4)
 「BMWが値上げしたら、シェアの比率に応じて軽トラの需要も増える」——これがlogitモデルの機械的な帰結である。もちろん現実には、BMWの値上げで乗り換える先は同じ高級車セグメント（ベンツやアウディ）に偏るはずで、軽トラに乗り換える人はほとんどいないだろう。しかしlogitモデルは、この「BMWと軽トラは全然違うカテゴリだ」という情報を一切使わずに、シェアの大きさだけで機械的に配分してしまう。
 
 原因は、各消費者の効用ショック $\varepsilon_{ijt}$ が財を超えて**iid**（独立同一分布）だと仮定していることにある。観測できる属性や価格が効用に与える部分を説明した後にも、「ある消費者は財1も財2も特に好む」という傾向が残るなら、$\varepsilon_{i1t}$ と $\varepsilon_{i2t}$ に正の相関を許すことが役立つ。製品が似ているだけで必ず誤差が相関するという意味ではなく、**モデルで説明しきれなかった好みの共通部分**の話である。基本logitはこの相関を許さず、IIAという代替パターンの制約を持つ。次に扱う nested logit は、この相関を部分的に許すことで制約を緩和するモデルである。
-:::
-
-::: {.callout-tip}
-## 実証研究コーナー：Trajtenberg (1989) と CTスキャナー市場
-
-**研究の問い**：CTスキャナー（医療用画像診断機器）の新製品や性能改善は、どれだけの厚生利得をもたらしたか。
-
-**データ**：米国のCTスキャナー市場における機種別の価格・性能・購入に関するデータ。購入者には病院や診療所が含まれる。
-
-**識別戦略・モデル**：Trajtenberg (1989, *Journal of Political Economy*) は、製品属性と購入選択を結びつけるnested logitの需要モデルを推定し、新製品や性能改善の価値を評価した。頭部用と全身用を区別したネスト構造を検討しており、すべての機種を一括して同じ代替関係に置くモデルではない。[公刊版の要旨](https://www.journals.uchicago.edu/doi/abs/10.1086/261611)と[著者のワーキングペーパー](https://www.nber.org/system/files/working_papers/w1724/w1724.pdf)を参照。
-
-**なぜこの講義のトピックと繋がるのか**：新製品の価値は、それが既存製品でどの程度代用できるかに依存する。この研究は、nested logitによる代替関係のモデル化を、技術革新の厚生評価に用いた実証例である。
 :::
 
 ### 垂直的・水平的差別化と、代替パターンの違い {#sec-lec3-differentiation}
@@ -597,6 +722,18 @@ nested logitの行列では、同じネスト内の交差弾力性（1行2列目
 nested logitは「似た財ほど強く競合する」という、多くの実務家にとって自然な直感を、$\rho$ というたった1つの追加パラメータでモデルに組み込む。$\rho \to 0$ でplain logitに戻るので、nested logitはplain logitを特殊ケースとして含む**一般化**になっている。次に学ぶBerry反転でも、$\rho$ の推定は「plain logitで十分か、ネスト構造が必要か」を判定する重要な役割を果たす。
 
 ただし、**同じネスト内の2財の選択確率の比にはIIAが残る**。その比は$\exp\{(\delta_j-\delta_k)/(1-\rho)\}$で、他の財の属性には依存しない。nested logitは、あらかじめ決めたネスト構造に沿ってIIAを緩和するモデルである。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Trajtenberg (1989) と CTスキャナー市場
+
+**研究の問い**：CTスキャナー（医療用画像診断機器）の新製品や性能改善は、どれだけの厚生利得をもたらしたか。
+
+**データ**：米国のCTスキャナー市場における機種別の価格・性能・購入に関するデータ。購入者には病院や診療所が含まれる。
+
+**識別戦略・モデル**：Trajtenberg (1989, *Journal of Political Economy*) は、製品属性と購入選択を結びつけるnested logitの需要モデルを推定し、新製品や性能改善の価値を評価した。頭部用と全身用を区別したネスト構造を検討しており、すべての機種を一括して同じ代替関係に置くモデルではない。[公刊版の要旨](https://www.journals.uchicago.edu/doi/abs/10.1086/261611)と[著者のワーキングペーパー](https://www.nber.org/system/files/working_papers/w1724/w1724.pdf)を参照。
+
+**なぜこの講義のトピックと繋がるのか**：新製品の価値は、それが既存製品でどの程度代用できるかに依存する。この研究は、nested logitによる代替関係のモデル化を、技術革新の厚生評価に用いた実証例である。
 :::
 
 ## 市場レベルデータへ：Berry (1994) の反転
