@@ -61,9 +61,167 @@ options(scipen = 8)
 
 ## IIAを直視する：赤バス・青バス問題の現代版
 
-### 思考実験
+### 思考実験：バスの色を分けただけで、車から客が移るのか
 
-古典的な「赤バス・青バス問題」（McFadden (1974) 等に由来）は次のような設定である。通勤手段として「車」と「青バス」の2つがあり、シェアが50%ずつだとする。ここに「赤バス」（青バスと座席の色以外は全く同じ）が新たに参入したら、シェアはどうなるべきか。直感的には、赤バスは青バスの完全な代替物なので、青バスのシェアが25%、赤バスのシェアが25%、車のシェアは50%のまま変わらないはずである。ところがlogitモデルでは、車のシェアも33%に低下してしまう。青バスと同じぐらい車からも人を奪ってしまうのである。
+古典的な「赤バス・青バス問題」は、**よく似た選択肢を追加したとき、logitがどこから需要を奪うと予測するか**を考える例である（[Train (2009), 第3章、p.46](https://eml.berkeley.edu/books/choice2nd/Ch03_p34-75.pdf)）。ここでは、バスのサービスは一切変えず、色だけを分ける思考実験にして、何が不自然なのかをはっきりさせよう。
+
+#### 変更前：車と青バスが50%ずつ
+
+通勤手段は「車」と「青バス」の2つだけで、全員がどちらかを使うとする。この例では「通勤しない」などのoutside optionは別に設けない。車を$C$、青バスを$B$と書き、それぞれのシェアが50%だとしよう。300人に換算すれば、車が150人、青バスが150人である。
+
+前回のlogit式では、共通の効用部分を$\delta_C,\delta_B$とすると、
+
+$$
+s_C=\frac{e^{\delta_C}}{e^{\delta_C}+e^{\delta_B}},
+\qquad
+s_B=\frac{e^{\delta_B}}{e^{\delta_C}+e^{\delta_B}}.
+$$
+
+両者のシェアが等しいので、$\delta_C=\delta_B$である。効用の共通定数は選択を変えないため、両方を0に正規化できる。すると、
+
+$$
+s_C=s_B=\frac{e^0}{e^0+e^0}=\frac{1}{2}=50\%
+$$
+
+と、元のシェアを再現できる。
+
+#### 色分け後の直感：バス利用者の中で半分ずつに分かれる
+
+ここで、**既存のバスの半分を赤く塗る**。運賃・経路・所要時間・総便数・時刻表・輸送力は変えない。利用者は色を気にせず、先に来たバスに乗るものとし、青・赤の便に当たる確率はそれぞれ半分とする。したがって、バス全体の待ち時間や便利さも変わらない。単に、これまで「青バス」と数えていた利用者を、青と赤に分けて数える状況である。
+
+この設定なら、車を使っていた人がバスへ乗り換える理由はない。車のシェアは$1/2$、バス全体のシェアも$1/2$のままで、バス利用者だけが色ごとに半分ずつに分かれる。赤バスを$R$と書くと、
+
+$$
+\begin{aligned}
+s_C&=\frac12=50\%,\\
+s_B&=\underbrace{\Pr(\text{バスを利用})}_{1/2}
+       \times\underbrace{\Pr(\text{青}\mid\text{バスを利用})}_{1/2}
+     =\frac14=25\%,\\
+s_R&=\Pr(\text{バスを利用})\times\Pr(\text{赤}\mid\text{バスを利用})
+     =\frac12\times\frac12=\frac14=25\%.
+\end{aligned}
+$$
+
+300人に換算すると、車150人、青バス75人、赤バス75人になる。赤バスの75人は、全員が元の青バス利用者である。青バスのシェアは25パーセントポイント減るが、車のシェアは変わらない。
+
+#### 基本logitの予測：3つの選択肢に3分の1ずつ
+
+ところが、青と赤を別々の選択肢として基本logitに入れると、異なる予測が出てくる。色以外の属性が同じで色も効用に影響しないなら、赤バスの共通効用は青バスと同じ$\delta_R=\delta_B=0$である。車と青バスの共通効用も元のままとして、3つの選択肢にlogit式を適用すると、
+
+$$
+s_C^{\mathrm{logit}}=s_B^{\mathrm{logit}}=s_R^{\mathrm{logit}}
+=\frac{e^0}{e^0+e^0+e^0}=\frac13\approx33.3\%.
+$$
+
+バスの名前を2つに分けたことで、分母のバスに対応する項が1つから2つに増えた。バス全体のシェアは、
+
+$$
+s_B^{\mathrm{logit}}+s_R^{\mathrm{logit}}
+=\frac13+\frac13=\frac23\approx66.7\%
+$$
+
+に増え、車のシェアは50%から約33.3%へ減ってしまう。変更前からのシェア変化を$\Delta s$と書けば、
+
+$$
+\Delta s_C=\Delta s_B=\frac13-\frac12=-\frac16,
+\qquad
+\Delta s_R=\frac13-0=\frac13.
+$$
+
+つまり、車と青バスがそれぞれ約16.7パーセントポイント減り、赤バスが約33.3パーセントポイント増える。300人に換算すると、車と青バスから50人ずつが赤バスへ移り、車100人、青バス100人、赤バス100人になる。
+
+3つの配分をツリー図で見比べよう。枝の数字は、その分岐における割合を表す。中央の図では、「バス全体の$1/2$」に「青・赤それぞれの$1/2$」を掛けるので、各色のシェアが$1/4$になる。人数はシェアを300人に換算した値である。
+
+```{r}
+#| label: fig-red-blue-bus-tree
+#| echo: false
+#| fig-width: 9.5
+#| fig-height: 5
+#| out-width: "100%"
+#| fig-cap: "赤バス・青バス問題：サービスを変えずに色分けした場合の配分と、基本logitの予測"
+#| fig-alt: "変更前は車150人・青バス150人。サービスを変えずにバスを色分けするなら車150人・青75人・赤75人。基本logitは車100人・青100人・赤100人を予測する。"
+bus_panels <- c("(a) 色分け前", "(b) 色分け後：直感的な配分", "(c) 色分け後：基本logit")
+bus_nodes <- rbind(
+  data.frame(panel = bus_panels[1],
+             x = c(0.5, 0.08, 0.92), y = c(1.3, 0.6, 0.6),
+             label = c("通勤者\n300人", "車\n1/2 = 50%\n150人", "青バス\n1/2 = 50%\n150人"),
+             type = c("all", "car", "blue")),
+  data.frame(panel = bus_panels[2],
+             x = c(0.4, 0.02, 0.75, 0.5, 1.0), y = c(1.3, 0.6, 0.6, -0.15, -0.15),
+             label = c("通勤者\n300人", "車\n1/2 = 50%\n150人", "バス全体\n1/2 = 50%\n150人",
+                       "青バス\n1/4 = 25%\n75人", "赤バス\n1/4 = 25%\n75人"),
+             type = c("all", "car", "all", "blue", "red")),
+  data.frame(panel = bus_panels[3],
+             x = c(0.5, 0, 0.5, 1), y = c(1.3, 0.6, 0.6, 0.6),
+             label = c("通勤者\n300人", "車\n1/3\n100人", "青バス\n1/3\n100人", "赤バス\n1/3\n100人"),
+             type = c("all", "car", "blue", "red"))
+)
+bus_edges <- rbind(
+  data.frame(panel = bus_panels[1], x = c(0.5, 0.5), y = c(1.3, 1.3),
+             xend = c(0.08, 0.92), yend = c(0.6, 0.6),
+             label = "1/2", label_x = c(0.22, 0.78), label_y = 1.01),
+  data.frame(panel = bus_panels[2], x = c(0.4, 0.4, 0.75, 0.75), y = c(1.3, 1.3, 0.6, 0.6),
+             xend = c(0.02, 0.75, 0.5, 1.0), yend = c(0.6, 0.6, -0.15, -0.15),
+             label = "1/2", label_x = c(0.13, 0.65, 0.54, 0.96), label_y = c(1.01, 1.01, 0.25, 0.25)),
+  data.frame(panel = bus_panels[3], x = rep(0.5, 3), y = rep(1.3, 3),
+             xend = c(0, 0.5, 1), yend = rep(0.6, 3),
+             label = "1/3", label_x = c(0.18, 0.5, 0.82), label_y = rep(1.01, 3))
+)
+bus_totals <- data.frame(panel = bus_panels, x = 0.5, y = -0.58,
+                         label = c("バス合計：50%", "バス合計：50%のまま", "バス合計：約66.7%に増加"))
+bus_nodes$panel <- factor(bus_nodes$panel, levels = bus_panels)
+bus_edges$panel <- factor(bus_edges$panel, levels = bus_panels)
+bus_totals$panel <- factor(bus_totals$panel, levels = bus_panels)
+bus_font <- theme_get()$text$family
+
+ggplot() +
+  geom_segment(data = bus_edges, aes(x = x, y = y, xend = xend, yend = yend),
+               color = "grey55", linewidth = 0.6) +
+  geom_label(data = bus_nodes, aes(x = x, y = y, label = label, fill = type),
+             family = bus_font, size = 3.8, lineheight = 1.15, show.legend = FALSE) +
+  geom_label(data = bus_edges, aes(x = label_x, y = label_y, label = label),
+             family = bus_font, size = 3.6, fill = "white", linewidth = 0) +
+  geom_text(data = bus_totals, aes(x = x, y = y, label = label),
+            family = bus_font, size = 3.6) +
+  scale_fill_manual(values = c(all = "#F4F4F4", car = "#E8EDF2", blue = "#DBEEFA", red = "#FCE4DE")) +
+  facet_wrap(~ panel, nrow = 1) +
+  coord_cartesian(xlim = c(-0.25, 1.3), ylim = c(-0.72, 1.56), expand = FALSE) +
+  theme_void(base_family = bus_font) +
+  theme(strip.text = element_text(size = 11.5, face = "bold", margin = margin(b = 12)),
+        panel.spacing = grid::unit(0.5, "lines"),
+        plot.margin = margin(10, 8, 10, 8))
+```
+
+この予測が不自然なのは、**車と比べたバスの便利さが何も変わっていないのに、色の分類を増やしただけで車からバスへ需要が移る**ことである。実際に増便して待ち時間が短くなったなら、車からバスへ移る人がいても不思議ではない。しかし、この思考実験ではそのような改善を一切していない。
+
+#### IIAは「何が変わらない」という制約なのか
+
+この食い違いは、車と青バスのシェアの**比**を見るとさらに明確になる。logitでは分母が消えるので、赤バスがあってもなくても、
+
+$$
+\frac{s_C}{s_B}
+=\frac{e^{\delta_C}}{e^{\delta_B}}
+=e^{\delta_C-\delta_B}=1
+$$
+
+である。赤バスを追加しても、車と青バスの共通効用が変わらない限り、この比は変わらない。これがIIAである。**各選択肢のシェアが変わらないという意味ではなく、2つの選択肢のシェア比が、他の選択肢の追加に左右されない**という意味である。
+
+一方、直感的な配分では、車はそのままで青バスだけが赤バスに利用者を分けるため、
+
+$$
+\frac{s_C}{s_B}:\quad
+\underbrace{\frac{1/2}{1/2}}_{\text{色分け前}}=1
+\quad\longrightarrow\quad
+\underbrace{\frac{1/2}{1/4}}_{\text{色分け後}}=2
+$$
+
+となる。この比の変化を、基本logitのIIAは許さない。
+
+なぜモデルはそのような予測をするのだろうか。効用を$u_{ij}=\delta_j+\varepsilon_{ij}$と書くと、基本logitは青と赤に**独立な効用ショック**$\varepsilon_{iB},\varepsilon_{iR}$を与える。同じ$\delta$を設定しても、同じ人にとって青と赤の効用が同じになるわけではない。バスを2種類に分けると、どちらかのショックが大きくなって車の効用を上回る機会が増えるのである。
+
+しかし、色だけが違う完全な代替物なら、同じ人のバスへの好みは青にも赤にも共通するはずである。この極端な例では$\varepsilon_{iB}=\varepsilon_{iR}$と考えれば、青と赤の最大効用は元のバスの効用と変わらず、車とバスの選択も変わらない。**平均的な属性が同じというだけでは、「同じ人にとって似ている」という関係を基本logitに組み込めない**ことが問題なのである。後で学ぶnested logitは、似た財のショックに共通性を持たせることで、この制約を緩和する。
+
+### 缶コーヒー市場に置き換える
 
 これを現代のビジネスの文脈に置き換えてみる。次のような3つの選択肢を考える。
 
