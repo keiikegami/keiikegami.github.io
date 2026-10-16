@@ -42,7 +42,7 @@ options(scipen = 8)
 
 - logitモデルには IIA（Independence of Irrelevant Alternatives）という強い制約があり、代替のパターンが不自然になることがある。
 - nested logit を使うと、財を「似ているもの同士」でグループ化（ネスト）することで、代替性をより柔軟に表現できる。
-- 市場レベルのシェア・価格データしかなくても、logitシェア式を反転すれば OLS で推定できる回帰式になる（Berry (1994) の反転）。
+- 個票があっても価格内生性は残る。Berry (1994) の反転で選択確率から平均効用を取り出すと、未観測の需要ショックに対してIVの条件を使える式になる。
 - 価格は未観測の需要ショック（未観測の品質・広告など）と相関しやすい。本講義で扱う典型例のように、他の説明変数を条件づけても両者の共分散が正なら、これを無視した OLS は価格反応を過小評価する（共分散が負ならバイアスの向きも逆になる）。
 - コストシフターや競合属性を操作変数として使う 2SLS で、価格内生性に対処できる。
 :::
@@ -834,7 +834,7 @@ knitr::kable(results_nest, digits = 3,
 
 この標本では、$\widehat\alpha\approx1.135$、$\widehat\rho\approx0.469$となり、真値の1と0.5はいずれも95%信頼区間に含まれる。$\widehat\lambda\approx0.531$も、モデルと整合的な範囲$0<\lambda\leq1$に入っている。**先ほど手で与えていたネストの強さを、今度は選択データから推定できた**。有限の標本なので、推定値が真値にぴったり一致するわけではない。
 
-今回データから推定したのは、**あらかじめ指定したネストの中で、代替がどれほど強いか**である。ネストの分け方自体を自動で発見したわけではない。また、価格は外生的に動かしているという点にも注意が必要である。つまり価格についての実験が行われ、顧客個別の選択結果のデータが手元にある、という状況ならできる推定をやった。この点を踏まえて、次は個票が手に入らず、しかも価格が外生的じゃないケースに進む。
+今回データから推定したのは、**あらかじめ指定したネストの中で、代替がどれほど強いか**である。ネストの分け方自体を自動で発見したわけではない。また、価格は外生的に動かしているという点にも注意が必要である。つまり価格についての実験が行われ、顧客個別の選択結果のデータが手元にある、という状況ならできる推定をやった。次は、個票は引き続き手元にあるが、価格は企業が需要を見ながら決める場合を考える。
 
 ::: {.callout-tip}
 ## 実証研究コーナー：Trajtenberg (1989) と CTスキャナー市場
@@ -848,297 +848,562 @@ knitr::kable(results_nest, digits = 3,
 **なぜこの講義のトピックと繋がるのか**：新製品の価値は、それが既存製品でどの程度代用できるかに依存する。この研究は、nested logitによる代替関係のモデル化を、技術革新の厚生評価に用いた実証例である。
 :::
 
-## 市場レベルデータへ：Berry (1994) の反転
+## 価格内生性に対処する：Berry (1994) の反転とIV {#sec-berry-inversion}
 
-### 問題設定
+### 記号とデータ：個票はあるが、価格は企業が決める
 
-前回は個票データを使ってlogitを推定し、今回はnested logitでも価格係数と$\rho$を最尤法で推定できることを確認した。では、企業のPOSデータやスキャナーデータのように、個々人の選択ではなく「市場$t$・製品$j$ごとの販売数量と価格」が集計されている場合、どのように需要パラメータを推定すればよいだろうか。
+ここから考えるのは、**一人ひとりの選択を観測できるが、価格は企業が需要を見ながら決めている**という状況である。先ほどの選択実験では、価格を人ごとにランダムに提示した。今度は店舗×週を一つの市場とし、その市場の消費者は同じ品揃えと価格に直面するとする。個票を持っている点は同じでも、価格の決まり方が変わる。
 
-個票がなくても、製品別の購入者数 $n_{jt}$ と市場規模 $N_t$（outsideの人数を含む）が分かれば、集計カウントに対する多項尤度 $L_t\propto\prod_{j=0}^J s_{jt}^{n_{jt}}$ は組める。したがって「集計データではMLEが不可能」なのではない。ただし、シェアだけで市場規模や標本抽出過程が分からないと、カウント尤度の情報量や標準誤差は定まらない。ここで便利なのが Berry (1994) の反転である。**logitのシェア式を代数的に反転すると、尤度を直接最大化せずに推定できる回帰式が出てくる**。
+まず、この章で使う添字と変数を定義しておこう。個票には、購入した商品だけでなく、購入しなかった人の記録と、全選択肢の価格・属性も含まれているとする。
 
-思い出そう。財$j$・市場$t$のlogitシェアは
+| 記号 | 意味 |
+|:---|:---|
+| $t=1,\ldots,T$ | 市場。例えば「ある店舗のある週」 |
+| $j=1,\ldots,J$ | 市場で販売される商品。$j=0$は「買わない」というoutside option |
+| $i=1,\ldots,N_t$ | 市場$t$の消費者。$N_t$には買わなかった人も含む |
+| $d_{ijt}$ | 消費者$i$が市場$t$で商品$j$を選んだら1、それ以外は0 |
+| $n_{jt}=\sum_{i=1}^{N_t}d_{ijt}$ | 商品$j$を選んだ人数。$n_{0t}$は買わなかった人数 |
+| $\widehat s_{jt}=n_{jt}/N_t$ | 個票から計算する**実測シェア** |
+| $P_{ijt}$ | 市場の価格・属性・需要要因を所与として、消費者$i$が商品$j$を選ぶ**確率** |
+| $s_{jt}$ | 同じ市場の消費者に共通する選択確率。このモデルでは$P_{ijt}=s_{jt}$ |
+| $p_{jt},\ x_{jt}$ | 商品$j$の価格と、研究者が観測する商品属性。$x_{jt}$には定数項も含められる |
+| $\alpha>0,\ \beta$ | 価格反応の強さと、商品属性への評価を表す係数。価格の係数は$-\alpha$ |
+| $\xi_{jt}$ | 商品$j$・市場$t$に共通する、研究者には見えない需要要因 |
+| $\varepsilon_{ijt}$ | 個人$i$に固有の効用ショック |
+| $\delta_{jt}=x_{jt}'\beta-\alpha p_{jt}+\xi_{jt}$ | 同じ市場の消費者に共通する効用部分（平均効用） |
+| $z_{jt}$ | 価格の操作変数として使う観測変数。例えば、商品の原材料費を動かす変数 |
 
-$$
-s_{jt} = \frac{\exp(\delta_{jt})}{1 + \sum_{k=1}^J \exp(\delta_{kt})}, \qquad
-s_{0t} = \frac{1}{1 + \sum_{k=1}^J \exp(\delta_{kt})}
-$$
+一人は一つだけ選ぶので、$\sum_{j=0}^J d_{ijt}=1$であり、$\sum_{j=0}^J n_{jt}=N_t$である。添字$j,t$を持つ価格や需要要因は同じ市場の全員に共通し、添字$i$も持つ選択や好みは人によって異なる。二択の例でも、商品を$j$、買わない選択肢を0と呼び、この添字を変えずに説明する。
 
-であった。この2つの比を取ると、
-
-$$
-\frac{s_{jt}}{s_{0t}} = \exp(\delta_{jt})
-$$
-
-となり、分母の面倒な項がきれいに消える。両辺の対数を取ると、
-
-$$
-\ln s_{jt} - \ln s_{0t} = \delta_{jt} = x_{jt}'\beta - \alpha p_{jt} + \xi_{jt}
-$$
-
-という式が得られる。これが**Berry反転**である。左辺は観測データ（シェア）から直接計算できる。右辺は、商品属性 $x_{jt}$・価格 $p_{jt}$ に係数がかかった、見慣れた線形回帰式の形をしている。つまり、
-
-> 「個々の消費者の離散選択」という複雑な問題が、「市場×製品レベルのシェアの対数比を被説明変数とする回帰」という、計量Iで慣れ親しんだOLSの問題に化ける。
-
-これは実務上とても嬉しい事実である。個票が手に入らなくても、市場シェアと価格・商品属性があり、後述する外生性・操作変数の条件が満たされれば、$\beta$ と $\alpha$ を推定できる。
-
-ここで使うシェアは、購入しなかった人も含めた市場規模に対する割合である。購入された商品の構成比だけでは$s_{0t}$は分からず、この反転はできない。また、対数を取るため、$s_{jt}$と$s_{0t}$は正である必要がある。以下のシミュレーションではモデルの選択確率をそのままシェアとして使い、有限人数からシェアを測る際の標本誤差や売上ゼロの問題は扱わない。
-
-nested logitについても同様の反転ができる。詳細は省くが（$\bar{s}_{j|g,t}$ を使って同様に比を取ればよい）、結果は
+以下では、まずplain logitで価格内生性への対処を学び、最後にnested logitへ戻る。効用は
 
 $$
-\ln s_{jt} - \ln s_{0t} = x_{jt}'\beta - \alpha p_{jt} + \rho \ln \bar{s}_{j|g,t} + \xi_{jt}
+u_{ijt}=\delta_{jt}+\varepsilon_{ijt}
+=x_{jt}'\beta-\alpha p_{jt}+\xi_{jt}+\varepsilon_{ijt},
+\qquad u_{i0t}=\varepsilon_{i0t}
 $$
 
-という形になる。plain logitの式に、**within-nest share の対数**という項が1つ追加されただけである。$\rho = 0$ ならplain logitの式に一致することも確認できる。
+とする。outsideの**平均効用**を$\delta_{0t}=0$に正規化するが、outsideにも個人の効用ショックはある。$\varepsilon_{ijt}$は市場の価格・属性・$\xi$を条件づけたもとで、消費者・選択肢間で独立なType I極値分布に従うとする。個人ごとの属性や係数の違いはこの例には入れないので、同じ市場の全員が同じ選択確率を持つ。したがって、$P_{ijt}$の値は$i$によらず、その共通の値を$s_{jt}$とも書く。個人の**選択結果**は違っても、選ぶ前の**選択確率**は共通なのである。
 
-::: {.callout-warning}
-## この分析、どこがまずい？
+### 個票があっても、価格内生性は残る
 
-nested logit版のBerry反転式をよく見ると、右辺に $\ln \bar{s}_{j|g,t}$ という「シェアそのもの」から計算される変数が説明変数として入っている。これは通常、価格と同じように**内生変数**である。自財の$\xi_{jt}$が高まるとネスト内シェアも上がるため、回帰の誤差$\xi_{jt}$と相関する。価格とこの変数をともに内生変数として扱うには、少なくとも2本の除外された操作変数が必要で、さらに両者を区別して動かすだけの関連性（rank条件）が要る。IVの本数だけでは十分ではない。以下の推定シミュレーションでは、価格内生性の効果に絞るため、plain logitを用いる。
+共通の需要要因$\xi_{jt}$と個人の好み$\varepsilon_{ijt}$は、別の役割を持つ。例えば、ある週に商品Aの評判が高まり、多くの消費者がAを魅力的に感じるなら、Aの$\xi_{jt}$が高い。一方、「今日はたまたまAを飲みたい」という個人の事情は$\varepsilon_{ijt}$に入る。消費者を増やして個人の偶然を平均しても、その週の評判は残る。
+
+企業はその評判を知り、「多少高くても売れる」と考えて価格を上げるかもしれない。評判が研究者のデータに含まれていなければ、**価格が高いときによく売れた理由に、価格以外の要因が混ざる**。各人の購入記録がすべてあっても、評判を観測できるようになるわけではない。
+
+この状況で$\xi_{jt}$を省いたlogitの最尤法を使うと、商品属性と価格だけで選択を説明しようとしてしまう。価格とともに動く商品の魅力まで価格の効果に含めるため、価格反応を正しく捉えられるとは限らない。第1回で見た「値上げすると売上が増える」というデモと同じ問題が、個票の選択モデルでも生じるのである。
+
+### IVを使うには、需要ショックを取り出したい
+
+計量IのIVがこの問題にどう対処していたか、まず線形の需要モデルで復習しよう。需要量を$q_{jt}$と書き、仮に
+
+$$
+q_{jt}=x_{jt}'\beta-\alpha p_{jt}+\xi_{jt}
+$$
+
+という線形の関係が成り立つとする。価格と$\xi_{jt}$が相関していても、操作変数$z_{jt}$について$E[z_{jt}\xi_{jt}]=0$が成り立ち、$x_{jt}$を条件づけたうえで価格を動かす十分な変動があれば、IVを使える。ここでは$x_{jt}$も外生で、$E[x_{jt}\xi_{jt}]=0$を満たすとする。
+
+この線形モデルでは、係数の候補$(\beta,\alpha)$を与えるたびに、観測値から
+
+$$
+q_{jt}-x_{jt}'\beta+\alpha p_{jt}
+$$
+
+という残差を作れる。真の係数なら、この残差が$\xi_{jt}$に一致する。そこで
+
+$$
+E\left[z_{jt}\{q_{jt}-x_{jt}'\beta+\alpha p_{jt}\}\right]=0
+$$
+
+という条件を推定に使う。**操作変数と無相関だと仮定した誤差を、観測データと係数から計算できること**が、この手順を支えている。
+
+logitでは、同じ引き算をしても$\xi_{jt}$を取り出せない。これを見るため、いったん「商品$j$を買う／買わない」の二択に絞る。ロジスティック関数を$\Lambda(v)=e^v/(1+e^v)$と書くと、個人$i$の選択確率は
+
+$$
+P_{ijt}=\Lambda(x_{jt}'\beta-\alpha p_{jt}+\xi_{jt})
+$$
+
+である。$\xi_{jt}$を入れずに計算した確率を引いても、その差は
+
+$$
+P_{ijt}-\Lambda(x_{jt}'\beta-\alpha p_{jt})
+=\Lambda(x_{jt}'\beta-\alpha p_{jt}+\xi_{jt})
+-\Lambda(x_{jt}'\beta-\alpha p_{jt})
+$$
+
+となり、一般には$\xi_{jt}$に一致しない。同じ大きさの$\xi_{jt}$でも、もとの価格や購入確率によって、この差の大きさは変わる。したがって、$E[z_{jt}\xi_{jt}]=0$だけでは、この確率の差と$z_{jt}$が無相関になるとはいえない。確率の式から単純に引き算するだけでは、使いたかったIVの条件につながらないのである。
+
+**では、観測データをうまく変換し、係数の候補を与えれば$\xi_{jt}$だけを取り出せる形にできないだろうか。** それができれば、線形モデルと同じように、取り出した誤差と操作変数が無相関になる条件を使って推定できる。ここからは、その変換を探していこう。
+
+### 個人の選択確率を変形すると、線形の式が得られる
+
+変換の手がかりは、logitが選択確率を平均効用の関数として表していることである。その関数を逆にたどれば、選択確率から平均効用へ戻れそうである。まず、選択確率について成り立つ式だけを変形してみよう。
+
+二択logitでは、個人$i$の購入確率と非購入確率は、
+
+$$
+P_{ijt}=\frac{e^{\delta_{jt}}}{1+e^{\delta_{jt}}},
+\qquad
+P_{i0t}=\frac{1}{1+e^{\delta_{jt}}}.
+$$
+
+二つの分母が共通なので、比を取ると指数関数の部分だけが残る。さらに対数を取れば、
+
+$$
+\frac{P_{ijt}}{P_{i0t}}=e^{\delta_{jt}}
+\quad\Longrightarrow\quad
+\log P_{ijt}-\log P_{i0t}
+=\delta_{jt}=x_{jt}'\beta-\alpha p_{jt}+\xi_{jt}.
+$$
+
+これで、非線形な確率の式の内側に入っていた$\xi_{jt}$が、足し算の誤差として現れた。右辺は$\beta,\alpha$について線形である。**もし左辺をデータから計算できれば、探していた「通常のIVを使える形」になっている。**
+
+同じ変換は、多項logitでも使える。缶コーヒー4商品とoutsideの設定に戻ろう。個人$i$が商品$j$とoutsideを選ぶ確率は、
+
+$$
+P_{ijt}=\frac{e^{\delta_{jt}}}{1+\sum_{k=1}^{J}e^{\delta_{kt}}},
+\qquad
+P_{i0t}=\frac{1}{1+\sum_{k=1}^{J}e^{\delta_{kt}}}.
+$$
+
+ここでも分母が共通なので、
+
+$$
+\frac{P_{ijt}}{P_{i0t}}=e^{\delta_{jt}}
+\quad\Longrightarrow\quad
+\boxed{\log P_{ijt}-\log P_{i0t}
+=\delta_{jt}=x_{jt}'\beta-\alpha p_{jt}+\xi_{jt}}.
+$$
+
+となる。商品数が増えても、outsideとの確率の比を取るだけで、同じ線形の式が得られる。ここまではモデルの確率を式変形しただけであり、シェアのsampling errorについては何も仮定していない。
+
+ただし、このままでは推定に使えない。**個票で観測するのは「選んだ／選ばなかった」という結果$d_{ijt}$であり、左辺の確率$P_{ijt}$そのものではない。** 一人が商品Aを選んだという記録から、その人がAを選ぶ確率が0.4だったのか0.8だったのかは分からない。0か1の選択結果を、そのまま対数に入れることもできない。では、この見えない左辺を、どうやってデータから計算すればよいだろうか。
+
+### 見えない選択確率を、観測シェアから把握する
+
+ここで使うのが、同じ市場の全員が共通の選択確率を持つ、というモデルの設定である。個人の属性や係数の違いを入れていないため、$P_{ijt}=s_{jt}$がすべての$i$について成り立つ。そこで、同じ市場にいる人の選択を数え、購入割合を計算する。
+
+$$
+n_{jt}=\sum_{i=1}^{N_t}d_{ijt},
+\qquad
+\widehat s_{jt}=\frac{n_{jt}}{N_t}.
+$$
+
+例えば、ある市場の1,000人のうち、商品$j$を買った人が400人なら、実測シェアは$\widehat s_{jt}=0.4$である。これは一人の選択からその人の確率を読み取る操作ではない。共通の確率で選ぶ人を多数観測し、その選択頻度から確率を把握する操作である。
+
+実測シェアとモデルの選択確率には、有限人数の選択によるずれがある。市場の価格・属性・$\xi_{jt}$を固定したもとで選択が独立なら、
+
+$$
+E[\widehat s_{jt}\mid\text{市場条件}]=s_{jt},
+\qquad
+\operatorname{Var}(\widehat s_{jt}\mid\text{市場条件})
+=\frac{s_{jt}(1-s_{jt})}{N_t}.
+$$
+
+人数$N_t$が十分に多ければ、このずれは小さくなる。**ここからはシェアのsampling errorを無視し、実測シェアを選択確率と同一視する。** これがno sampling errorの仮定である。大きな市場を近似するために、$\widehat s_{jt}=s_{jt}=P_{ijt}$と扱う（[Berry (1994), p.247, 脚注4](https://www.its.caltech.edu/~mshum/gradio/papers/Berry1994.pdf#page=7)）。
+
+すると、先ほど見えなかった左辺を、観測シェアから計算できる。
+
+$$
+\underbrace{\log\widehat s_{jt}-\log\widehat s_{0t}}_{\text{データから計算できる}}
+=\log P_{ijt}-\log P_{i0t}
+=\delta_{jt}.
+$$
+
+**選択確率の式を反転し、その確率をシェアから把握することで、平均効用が観測できるようになった。** この手順がlogitのBerry反転である。以降はシェアの標本誤差を無視して、反転式を
+
+$$
+\boxed{\log s_{jt}-\log s_{0t}
+=\delta_{jt}=x_{jt}'\beta-\alpha p_{jt}+\xi_{jt}}
+$$
+
+と書く。例えば二択で、購入シェアが0.4、非購入シェアが0.6なら、平均効用は$\log(0.4/0.6)\approx-0.405$と計算できる。ただし、この値だけから価格の係数が分かるわけではない。平均効用を、観測属性・価格・未観測需要要因に分ける作業は、この後に残っている。
+
+no sampling errorは、共通の需要要因$\xi_{jt}$をゼロにする仮定ではない。人数が増えると、その評判や品質を反映した選択確率を正確に把握できる。また、確率の反転という式変形そのものに必要な仮定でもない。**反転式の左辺を、観測シェアから誤差なく計算できると扱うための仮定**なのである。後のシミュレーションでは実際に有限人数の個票を発生させ、$\widehat s_{jt}$と$s_{jt}$の違いも確認する。
+
+この計算には、outsideを含む市場規模と、正のシェアが必要である。購入された商品の構成比だけでは$s_{0t}$は分からず、売上ゼロの選択肢では対数を取れない。以下の数値例は、全選択肢に十分な選択人数がいる設定にする。
+
+### 反転した式にIVを使う
+
+平均効用が分かれば、データと係数の候補から残差を計算できる。真の係数なら、次の残差が需要ショックに一致する。
+
+$$
+\xi_{jt}
+=\log s_{jt}-\log s_{0t}-x_{jt}'\beta+\alpha p_{jt}.
+$$
+
+したがって、操作変数の条件$E[z_{jt}\xi_{jt}]=0$は、
+
+$$
+E\left[z_{jt}\left\{
+\log s_{jt}-\log s_{0t}-x_{jt}'\beta+\alpha p_{jt}
+\right\}\right]=0
+$$
+
+と書ける。今度は、シェアと説明変数から計算した残差に、IVの条件をそのまま課せる。外生な$x_{jt}$についての条件と合わせ、シェアの対数比を被説明変数とする2SLSを行えばよい。**Berry反転は需要ショックを取り出す形を作り、IVはその需要ショックと価格の相関に対処する。** この二つがそろって、価格効果を推定する手順になる（[Berry (1994), pp.248–249](https://www.its.caltech.edu/~mshum/gradio/papers/Berry1994.pdf#page=8)）。
+
+操作変数には、例えば原材料の仕入れ費用を動かす変数を使う。仕入れ費用が高くなれば販売価格も変わるが、その変数自体は消費者の評判や商品の未観測品質とは無相関、という仮定である。価格への関連性と、この外生性の両方が必要になる。以下の数値例では、この条件を満たすコストシフターを$w_{jt}$と呼び、$z_{jt}=w_{jt}$として使う。
+
+反転した式をOLSで推定するだけでは、価格内生性は解消しない。なぜなら、価格$p_{jt}$と誤差$\xi_{jt}$の相関はそのまま残っているからである。商品の評判が高いときに価格も高ければ、OLSは評判による売上の増加の一部まで価格の効果として拾い、価格の負の効果を弱く見積もりうる。
+
+::: {.callout-note collapse="true"}
+## 確認：OLSのバイアスの向き
+
+観測属性$x_{jt}$を価格から線形に取り除いた残差を$\widetilde p_{jt}$と書く。シェアの標本誤差を無視できるとき、価格の係数$b_p=-\alpha$のOLS推定量は、通常の大標本条件のもとで
+
+$$
+\operatorname{plim}\widehat b_p
+=-\alpha+
+\frac{\operatorname{Cov}(\widetilde p_{jt},\xi_{jt})}
+{\operatorname{Var}(\widetilde p_{jt})}
+$$
+
+となる。したがって、ここで考えるように共分散が正なら、価格の係数は上方にずれ、$\alpha$を過小評価する。共分散が負なら方向は逆であり、すべての有限標本で同じ不等号が成り立つわけでもない。
 :::
 
-## 価格内生性の正体
+シェアの標本誤差を無視しても、価格係数の推定に不確実性は残る。有限個の市場で観測した属性・価格・需要ショックの関係から係数を推定するためである。各市場の消費者数を増やしてシェアを精密に測ることと、市場間の変動から価格効果を精密に推定することは、区別して考えよう。
 
-### なぜ価格と $\xi_{jt}$ は相関するのか
 
-$\xi_{jt}$ は「観測されない需要ショック」で、具体的には次のようなものを指す。
+## Rシミュ3：同じ個票データでMLE・OLS・IVを比較する
 
-- 未観測の商品品質（パッケージデザイン、口コミでの評判）
-- 広告・販促の強さ（分析者のデータセットに含まれていない場合）
-- 店頭の棚位置・陳列面積（良い場所に置かれている商品ほど売れる）
+ここでは、企業が需要を見て価格を決める市場を作り、各人の選択を発生させる。同じ個票から、(i) $\xi_{jt}$を省いたlogitの最尤推定、(ii) シェアを反転した後のOLS、(iii) 反転した式の2SLSを行う。**個票を持つこと、反転すること、IVを使うことが、それぞれ何をしているか**を数値で確かめよう。
 
-企業はこれらの情報を、少なくとも分析者よりはよく知った上で価格を決めている。$\xi_{jt}$ が高い（消費者から人気がある、話題になっている）商品ほど、企業は「多少値上げしても売れる」と判断し、強気の価格をつける傾向がある。つまり
+### 市場の価格を決め、個人の選択を発生させる
 
-価格を観測属性$x$へ線形射影した残差を$\tilde p_{jt}$と書けば、本節で想定する典型ケースでは
+$T=500$市場、$J=4$商品とoutsideを考え、各市場に$N_t=10{,}000$人いるとする。観測属性は一つに絞り、平均効用を
 
 $$
-\operatorname{Cov}(\tilde p_{jt}, \xi_{jt}) > 0
+\delta_{jt}=\beta_0+\beta_1x_{jt}-\alpha p_{jt}+\xi_{jt},
+\qquad
+(\beta_0,\beta_1,\alpha)=(2,1.5,2)
 $$
 
-が生じる。これは前回まで仮定していた「説明変数は外生」という前提が崩れていることを意味する。
+とする。これは、先ほどの$x_{jt}'\beta$を「定数項＋一つの属性」で具体化したものである。$x_{jt}$、コストシフター$w_{jt}$、需要ショック$\xi_{jt}$を互いに独立に生成する。$w_{jt}$は需要の効用式には入らず、価格だけを動かす。
 
-### バイアスの方向
-
-Berry反転の回帰式 $\ln s_{jt} - \ln s_{0t} = x_{jt}'\beta - \alpha p_{jt} + \xi_{jt}$ をOLSで推定するとどうなるか。Frisch--Waugh--Lovellの考え方で$x$を取り除くと、価格係数$ b_p=-\alpha$の確率極限は
+価格は、限界費用とマークアップの和として作る。
 
 $$
-\operatorname{plim}\hat b_p
-=-\alpha+\frac{\operatorname{Cov}(\tilde p,\xi)}{\operatorname{Var}(\tilde p)}.
+mc_{jt}=1+0.4w_{jt}+\nu_{jt},
+\qquad
+\text{markup}_{jt}=1+\kappa\xi_{jt},
+\qquad
+p_{jt}=mc_{jt}+\text{markup}_{jt}.
 $$
 
-したがって$\operatorname{Cov}(\tilde p,\xi)>0$のとき、OLSの価格係数は大標本で真の$-\alpha$よりも**上方にずれる**。つまり $\operatorname{plim}\hat\alpha_{\text{OLS}} < \alpha_{\text{true}}$となり、価格反応の強さを過小評価する方向のバイアスが生じる。バイアスが強ければ価格係数が正になることもある。共分散が負ならバイアスの方向は逆である。これは大標本での方向を述べたもので、すべての有限標本で同じ不等号になるという意味ではない。
-
-推定された価格係数が負にとどまる場合には、需要が実際より非弾力的に見える。実務的には次のような危険につながる。
-
-> 「このモデルの推定では、値上げしてもあまり客が離れないようです。強気の値上げを提案しましょう。」
-
-しかし実際の $\alpha$ はもっと大きい（需要はもっと弾力的）かもしれない。過小評価された価格反応をもとに値上げを実行すれば、想定以上に客が離れ、シェアも利益も見込みを下回る。これはまさに**第1回のイントロで見せた「値上げすると売上が増える」というデモの正体**である。あのデモでは、価格が需要ショックと同時に決まっている（人気商品ほど値上げされる）状況で、単純な相関・OLSが価格の効果を正しく捉えられないことを見た。今回はその問題を、離散選択モデル・市場レベルデータという具体的な文脈で再訪し、次のセクションで解決策（2SLS）を学ぶ。
-
-## Rシミュ3（メイン）：市場レベルDGPでOLSのバイアスと2SLSでの回収を確認する
-
-ここからが今回のシミュレーションの本丸である。価格を未観測需要ショックに正に反応させるDGPを書き、(i) このDGPではBerry反転をOLSで推定するとαが過小評価されること、(ii) 2SLSで回収できること、(iii) 弱操作変数の診断（first-stage F）、(iv) OLSとIVで弾力性行列がどれだけ変わるか、を順番に確認する。
-
-### DGPの設計
-
-$T = 100$ 市場、$J = 4$ 財のplain logit市場を考える。各市場・財について、
-
-- $x_{jt}$：商品属性（観測される）
-- $w_{jt}$：コストシフター（操作変数の候補。$\xi_{jt}$とは無相関になるよう外生的に生成する）
-- $\xi_{jt}$：観測されない需要ショック
-- 限界費用 $mc_{jt} = 1 + 0.8 w_{jt} + \text{(誤差)}$
-- 価格 $p_{jt} = mc_{jt} + \text{markup}_{jt}$、ここで $\text{markup}_{jt} = \max\{1 + \kappa \, \xi_{jt},\,0.05\}$（$\kappa$は「企業が$\xi$にどれだけ強気に反応するか」を表すパラメータ。マークアップには正の下限を置く）
-
-$\kappa$（内生性の強さ）を大きくするほど、価格は需要ショックに強く反応し、$\mathrm{corr}(p, \xi)$ が大きくなる。
-
-この価格式は、価格と需要ショックの相関を作るために置いた単純なルールであり、企業の利潤最大化から均衡価格を解いたものではない。
+ここで$\nu_{jt}$は他の変数から独立な費用の変動で、$\kappa=0.8$とする。人気を表す$\xi_{jt}$が高ければ価格も高くなる一方、$w_{jt}$による価格変動は$\xi_{jt}$とは無相関である。この価格式は、その関係を作るための単純なルールであり、企業の利潤最大化から均衡価格を解いたものではない。
 
 ```{r}
 #| label: dgp-market-setup
-set.seed(20263)  # このシミュレーションの乱数を、直前の選択実験から独立に固定する
-T_mkt <- 100
-J_mkt <- 4
-alpha_true <- 2.0
+set.seed(2026302)
+T_mkt <- 500L
+J_mkt <- 4L
+N_per_market <- 10000L
+alpha_true <- 2
 beta_true <- 1.5
-kappa <- 1.1   # 内生性の強さ(markupがxiにどれだけ反応するか)
+intercept_true <- 2
+kappa <- 0.8
 
-x_mkt <- matrix(rnorm(T_mkt * J_mkt, mean = 1.0, sd = 0.5), nrow = T_mkt, ncol = J_mkt)
-w_mkt <- matrix(rnorm(T_mkt * J_mkt, mean = 4.0, sd = 1.0), nrow = T_mkt, ncol = J_mkt)
-xi_mkt <- matrix(rnorm(T_mkt * J_mkt, mean = 0, sd = 0.6), nrow = T_mkt, ncol = J_mkt)
-
-mc_mkt <- 1.0 + 0.8 * w_mkt + matrix(rnorm(T_mkt * J_mkt, sd = 0.3), nrow = T_mkt, ncol = J_mkt)
-markup_mkt <- pmax(1.0 + kappa * xi_mkt, 0.05)
+x_mkt <- matrix(runif(T_mkt * J_mkt, 0.5, 1.5), T_mkt, J_mkt)
+w_mkt <- matrix(runif(T_mkt * J_mkt, -1, 1), T_mkt, J_mkt)
+xi_mkt <- matrix(runif(T_mkt * J_mkt, -0.7, 0.7), T_mkt, J_mkt)
+mc_mkt <- 1 + 0.4 * w_mkt +
+  matrix(runif(T_mkt * J_mkt, -0.15, 0.15), T_mkt, J_mkt)
+markup_mkt <- 1 + kappa * xi_mkt
 price_mkt <- mc_mkt + markup_mkt
 
-cat("corr(price, xi):", round(cor(as.vector(price_mkt), as.vector(xi_mkt)), 3), "\n")
+cat("corr(price, xi):",
+    round(cor(as.vector(price_mkt), as.vector(xi_mkt)), 3), "\n")
 ```
 
-想定通り、価格と需要ショックの間に正の相関が生まれている。この市場のシェアをlogit式で計算する。
+次に、logitの選択確率を計算し、そこから一人につき一つの選択を抽出する。個票の`chosen`が0ならoutside、1〜4なら購入した商品の番号である。市場内では価格・属性が共通なので、それらは市場番号を使って個票と対応づけられる。
 
 ```{r}
-#| label: dgp-shares
-compute_market_shares <- function(x, price, xi, alpha, beta) {
-  delta <- beta * x - alpha * price + xi
-  ev <- exp(delta)
-  denom <- 1 + rowSums(ev)
-  s <- ev / denom
-  s0 <- 1 / denom
-  list(s = s, s0 = s0)
-}
+#| label: dgp-micro-choices
+delta_true <- intercept_true + beta_true * x_mkt -
+  alpha_true * price_mkt + xi_mkt
+exp_delta <- exp(delta_true)
+prob_true <- cbind(outside = 1, exp_delta) / (1 + rowSums(exp_delta))
 
-mkt <- compute_market_shares(x_mkt, price_mkt, xi_mkt, alpha_true, beta_true)
-cat("平均シェア:", round(mean(mkt$s), 4), " 平均outsideシェア:", round(mean(mkt$s0), 4), "\n")
+micro_df <- data.frame(
+  market = rep(seq_len(T_mkt), each = N_per_market),
+  person = rep(seq_len(N_per_market), times = T_mkt),
+  chosen = integer(T_mkt * N_per_market)
+)
+for (t in seq_len(T_mkt)) {
+  rows <- ((t - 1L) * N_per_market + 1L):(t * N_per_market)
+  micro_df$chosen[rows] <- sample.int(
+    J_mkt + 1L, N_per_market, replace = TRUE, prob = prob_true[t, ]
+  ) - 1L
+}
+head(micro_df)
 ```
 
-データフレームに整形し、価格とシェアの関係を可視化しておく。
+ここから推定に渡すのは、個票の選択結果と、観測変数$x,p,w$である。データ生成に使った$\xi$と`prob_true`は推定には渡さない。
+
+### 個票を集計し、実測シェアを作る
+
+同じ市場の消費者がどの商品を選んだかを数え、outsideを含む人数で割る。`table()`で作る表は行が市場、列が選択肢0〜4に対応する。
+
+```{r}
+#| label: dgp-observed-shares
+counts <- table(micro_df$market,
+                factor(micro_df$chosen, levels = 0:J_mkt))
+share_observed <- counts / rowSums(counts)
+stopifnot(all(rowSums(counts) == N_per_market), all(counts > 0))
+
+cat("最も少ない選択人数:", min(counts), "\n")
+cat("実測シェアと選択確率の最大の差:",
+    round(max(abs(share_observed - prob_true)), 4), "\n")
+```
+
+この標本では、すべての市場・選択肢に正の人数があり、最小でも`r min(counts)`人が選択している。実測シェアとモデルの選択確率は完全には一致せず、最大で約`r round(100 * max(abs(share_observed - prob_true)), 2)`パーセントポイントの差がある。以下では、**この個票から作った実測シェア**を使う。
+
+::: {.callout-note collapse="true"}
+## 有限人数のシェアを反転すると何が残るか
+
+真の選択確率なら$\log s_{jt}-\log s_{0t}=\delta_{jt}$だが、実測シェアで計算すると、
+
+$$
+\log\widehat s_{jt}-\log\widehat s_{0t}
+=\delta_{jt}+r_{jt},
+\qquad
+r_{jt}=
+\log\frac{\widehat s_{jt}}{s_{jt}}
+-\log\frac{\widehat s_{0t}}{s_{0t}}
+$$
+
+という誤差が加わる。$r_{jt}$は実測シェアを反転したことによる誤差であり、共通の需要要因$\xi_{jt}$とは別である。対数は非線形なので、実測シェアが不偏でも$r_{jt}$の平均がゼロになるとは限らない。ここでは各市場の人数を多くしてこの誤差を小さくする。ロバスト標準誤差やクラスタ標準誤差を使うだけで、この誤差によるバイアスが消えるわけではない。
+:::
+
+### (i) 共通の需要ショックを省いたlogitを最尤法で推定する
+
+最初は、価格内生性を考慮せず、$\xi_{jt}$を省いたlogitを推定する。係数の候補を$\theta=(b_0,b_x,b_p)$と書き、このモデルの予測確率を$P_{jt}(\theta)$とする。価格係数は$b_p=-\alpha$である。
+
+市場内では全員の予測確率が同じなので、個票の対数尤度は、
+
+$$
+\ell(\theta)
+=\sum_t\sum_i\sum_{j=0}^J d_{ijt}\log P_{jt}(\theta)
+=\sum_t\sum_{j=0}^J n_{jt}\log P_{jt}(\theta)
+$$
+
+と書き直せる。同じ対数確率を何度も足す代わりに、人数を掛けているだけである。コードでは右端の形を使うが、最適化しているのは個票から作ったものと同じ尤度である。
+
+```{r}
+#| label: berry-naive-mle
+#| code-fold: true
+#| code-summary: "個票と同じ尤度を、選択人数でまとめて最大化する"
+choice_probability <- function(theta) {
+  v <- theta[1] + theta[2] * x_mkt + theta[3] * price_mkt
+  # outsideも含む最大値を引き、指数計算を安定させる。
+  shift <- pmax(0, apply(v, 1, max))
+  ev <- exp(v - shift)
+  denominator <- exp(-shift) + rowSums(ev)
+  cbind(exp(-shift), ev) / denominator
+}
+neg_loglik <- function(theta) {
+  -sum(counts * log(choice_probability(theta))) / sum(counts)
+}
+grad_loglik <- function(theta) {
+  predicted <- choice_probability(theta)[, -1, drop = FALSE]
+  residual <- counts[, -1, drop = FALSE] - rowSums(counts) * predicted
+  -c(sum(residual), sum(residual * x_mkt),
+     sum(residual * price_mkt)) / sum(counts)
+}
+naive_fit <- optim(
+  c(0, 0, 0), neg_loglik, gr = grad_loglik, method = "BFGS",
+  control = list(reltol = 1e-12, maxit = 1000)
+)
+stopifnot(naive_fit$convergence == 0)
+alpha_naive <- -naive_fit$par[3]
+cat("alpha_hat(MLE, xi omitted) =", round(alpha_naive, 3), "\n")
+```
+
+真値$\alpha=2$に対して、推定値は約`r round(alpha_naive, 3)`である。個票があっても、共通の需要要因を省いたモデルでは価格効果を誤って捉えている。これは、最尤法そのものの欠点ではなく、推定するモデルが価格とともに動く$\xi_{jt}$を扱っていないためである。
+
+### (ii) 実測シェアを反転し、OLSで推定する
+
+次に、同じ個票から作ったシェアを反転する。市場×商品ごとに1行の表を作り、被説明変数を`y_berry`に入れる。
 
 ```{r}
 #| label: dgp-to-df
 market_df <- data.frame(
-  market = rep(1:T_mkt, times = J_mkt),
-  product = rep(1:J_mkt, each = T_mkt),
+  market = rep(seq_len(T_mkt), times = J_mkt),
+  product = rep(seq_len(J_mkt), each = T_mkt),
   x = as.vector(x_mkt),
   w = as.vector(w_mkt),
-  xi = as.vector(xi_mkt),
   price = as.vector(price_mkt),
-  share = as.vector(mkt$s)
+  share = as.vector(share_observed[, -1]),
+  share0 = rep(share_observed[, 1], times = J_mkt)
 ) %>%
-  mutate(share0 = rep(mkt$s0, times = J_mkt)) %>%
   mutate(y_berry = log(share) - log(share0))
-
 head(market_df)
 ```
 
 ```{r}
-#| label: fig-price-share-scatter
-#| fig-cap: "価格とシェアの関係（市場レベルデータ）"
-ggplot(market_df, aes(x = price, y = share, color = factor(product))) +
-  geom_point(alpha = 0.5, size = 1.3) +
-  labs(x = "価格", y = "シェア", color = "財",
-       title = "価格が高い財ほどシェアが低い、という単純な関係だけではない") +
-  scale_y_continuous(labels = scales::percent)
-```
-
-散布図には、価格だけでなく、商品属性$x$や需要ショック$\xi$の違いも混ざっている。こうしたばらつきは価格が外生でも生じるので、散布図だけで内生性の有無は判断できない。このDGPで内生性があると分かるのは、価格式に$\xi$を入れ、価格と需要ショックを相関させているからである。
-
-### (i) Berry反転をOLSで推定する
-
-```{r}
 #| label: berry-ols
-ols_fit <- feols(y_berry ~ price + x, data = market_df, vcov = "hetero")
-summary(ols_fit)
-```
-
-```{r}
-#| label: berry-ols-alpha
-alpha_ols <- -coef(ols_fit)["price"]
-cat("alpha_true =", alpha_true, "\n")
+ols_fit <- feols(y_berry ~ price + x, data = market_df, vcov = ~ market)
+alpha_ols <- -unname(coef(ols_fit)["price"])
 cat("alpha_hat(OLS) =", round(alpha_ols, 3), "\n")
-cat("今回の推定値と真値の差 =", round(alpha_ols - alpha_true, 3), "\n")
 ```
 
-真値 $\alpha = 2.0$ に対して、OLSの推定値ははっきりと小さい。想定通り、価格反応を過小評価している。
+反転しても、OLSの推定値は約`r round(alpha_ols, 3)`にとどまる。平均効用に戻すことはできても、価格と需要ショックの相関を処理していないためである。**反転した式にOLSを当てるだけでは、価格内生性への対処は終わらない。**
 
-### (ii) 2SLSで回収する：コストシフター$w$を操作変数に
+`vcov = ~ market`は、市場内で誤差が相関することを許すクラスタ標準誤差を指定している。同じ市場の商品シェアは同じ消費者の選択から計算され、outsideのシェアも共通なので、市場をひとまとまりとして推論する。以下の2SLSとfirst-stageにも同じ指定を使う。
 
-コストシフター$w_{jt}$は、価格を動かす一方で（$mc$を通じて）、需要ショック$\xi_{jt}$そのものには影響しない、という設定でDGPを組んでいる。これを操作変数として2SLSを行う。`fixest::feols`のIV構文は `y ~ 外生変数 | 内生変数 ~ 操作変数` である。
+### (iii) コストシフターを使って2SLSで推定する
+
+このDGPでは、$w_{jt}$は限界費用を通じて価格を動かし、$\xi_{jt}$とは独立に作られている。そこで$w_{jt}$を価格の操作変数にする。`fixest`の構文`y ~ x | price ~ w`は、$x$を外生変数、`price`を内生変数、`w`を除外された操作変数として2SLSを実行する。
 
 ```{r}
 #| label: berry-2sls
-iv_fit <- feols(y_berry ~ x | price ~ w, data = market_df, vcov = "hetero")
-summary(iv_fit)
+iv_fit <- feols(y_berry ~ x | price ~ w, data = market_df, vcov = ~ market)
+coeftable(iv_fit)
 ```
 
-`coef()`が返す係数名は`fixest`のバージョンによって内生変数名がそのまま使われる場合と接頭辞が付く場合があるため、まず名前を確認してから安全に取り出す。
+価格の係数は$-\alpha$なので、符号を反転して価格反応の強さを取り出す。IVの価格係数の名前はパッケージのバージョンによって接頭辞が付く場合があるため、名前に`price`を含む係数を選ぶ。
 
 ```{r}
 #| label: berry-2sls-alpha
-# 内生変数priceに対応する係数名を、接頭辞の有無によらず取り出すヘルパー
-get_coef_for <- function(model, varname) {
-  cf <- coef(model)
-  hit <- grepl(varname, names(cf), fixed = TRUE)
-  cf[hit][1]
-}
-
-names(coef(iv_fit))  # 係数名を確認しておく
-alpha_iv <- -get_coef_for(iv_fit, "price")
-cat("alpha_true =", alpha_true, "\n")
-cat("alpha_hat(OLS)  =", round(alpha_ols, 3), "\n")
-cat("alpha_hat(2SLS) =", round(alpha_iv, 3), "\n")
+iv_price_name <- names(coef(iv_fit))[
+  grepl("price", names(coef(iv_fit)), fixed = TRUE)
+]
+alpha_iv <- -unname(coef(iv_fit)[iv_price_name])
+alpha_iv_ci <- -rev(unlist(confint(iv_fit, parm = iv_price_name),
+                          use.names = FALSE))
 ```
-
-2SLSの推定値は真値2.0にかなり近い値まで戻ってくる。真値回収の様子を表にまとめておく。
 
 ```{r}
 #| label: tbl-alpha-comparison
+#| echo: false
+#| tbl-cap: "同じ個票データによる価格反応の推定：真値と3手法の比較"
 comparison_tbl <- data.frame(
-  method = c("真値", "OLS", "2SLS"),
-  alpha_hat = c(alpha_true, round(alpha_ols, 3), round(alpha_iv, 3))
+  method = c("真値", "xiを省いたlogit MLE", "Berry反転＋OLS", "Berry反転＋2SLS"),
+  alpha = c(alpha_true, alpha_naive, alpha_ols, alpha_iv)
 )
-knitr::kable(comparison_tbl, col.names = c("推定方法", "alpha_hat"))
+knitr::kable(comparison_tbl, digits = 3,
+             col.names = c("推定方法", "alpha"))
 ```
 
-### (iii) first-stage Fと弱操作変数
+2SLSの推定値は約`r round(alpha_iv, 3)`で、真値2に近づいた。この標本での95%信頼区間は[`r round(alpha_iv_ci[1], 3)`, `r round(alpha_iv_ci[2], 3)`]であり、真値を含む。個票の有無を変えずに推定を比べることで、**改善をもたらしたのは、反転した式に妥当なIVを使ったこと**だと確認できる。有限個の市場と消費者からの推定なので、真値とぴったり一致するわけではない。
 
-2SLSがうまく機能するためには、操作変数$w$が、含まれる外生変数 $x$ を条件づけたうえで価格$p$を十分強く説明する必要がある。見るべきなのはfirst-stage回帰全体のFではなく、**除外された操作変数 $w$ のpartial F**である。ここでは除外IVが1本なので、$H_0:\pi_w=0$ に対するロバストt統計量の二乗がロバストWald Fになる。
+### 操作変数が価格を動かしているか確認する
+
+IVの条件の一つは、含まれる外生変数$x$を条件づけたうえで、$w$が価格を十分に説明することである。価格を$x,w$に回帰し、除外された操作変数$w$の係数がゼロかを検定する。ここでは除外IVが1本なので、クラスタ標準誤差によるt統計量の二乗が、1本の係数に対するWald Fになる。
 
 ```{r}
 #| label: first-stage-f
-first_stage <- feols(price ~ x + w, data = market_df, vcov = "hetero")
+first_stage <- feols(price ~ x + w, data = market_df, vcov = ~ market)
 t_w <- coeftable(first_stage)["w", "t value"]
 partial_F_w <- unname(t_w^2)
 cat("excluded-IV partial F (w | x):", round(partial_F_w, 1), "\n")
 ```
 
-partial Fは十分大きく、少なくとも関連性が極端に弱いという兆候はない。ただし「Fが10以上」という基準は、単一内生変数・古典的な分散仮定を念頭に置いた大まかな経験則であり、合否判定ではない。異分散や複数の内生変数がある実証では、Kleibergen–Paap統計量、Sanderson–Windmeijerのconditional F、弱IVに頑健な推論も併用する。
+この数値例ではpartial Fが約`r round(partial_F_w, 1)`であり、価格への関連性が極端に弱いという兆候はない。ただし、first-stageが強くても、$w$と需要ショックが無相関だという条件は保証されない。ここではDGPで独立に生成したためその条件が成り立つ。実データでは、原材料費の変動が品質や需要も動かしていないか、別途考える必要がある。
 
-::: {.callout-note collapse="true"}
-## 補足：`fixest`のIV構文とfirst-stageの見方
+「Fが10以上」という基準は、古典的な分散仮定などを念頭に置いた大まかな経験則であり、ここで計算したクラスタWald Fの合否基準ではない。弱IVが疑われる実証では、誤差構造や内生変数の数に合った診断・推論が必要になる。
 
-`feols(y ~ x | price ~ w)` は「$y$を$x$（外生）と$\widehat{\text{price}}$（$x,w$で予測した価格）に回帰する」2SLSを実行する。`summary(..., stage = 1)`でfirst stageを確認できる。明示的に回帰する場合も、`fitstat(first_stage, "f")`が返す**回帰全体のF**と、除外IVだけを検定するpartial Fを混同しないこと。除外IVが1本なら本文のようにそのロバストt値を二乗すればよい。複数なら除外IVの係数を同時にゼロとするWald検定を使う。
-:::
+### 価格反応の違いを、弾力性の違いとして読む
 
-### (iv) OLS vs IVで弾力性行列を比較する
+価格反応$\alpha$が小さく推定されると、値上げによる需要の減少も小さく見えてしまう。logitの自己価格弾力性と交差価格弾力性は、
 
-$\alpha$ の推定値が変われば、当然すべての価格弾力性の計算も変わる。自己価格弾力性 $\eta_{jj} = -\alpha p_j (1-s_j)$、交差弾力性 $\eta_{jk} = \alpha p_k s_k$ を、OLSの$\hat\alpha$とIVの$\hat\alpha$それぞれで計算し、比較してみる。説明を単純にするため、シェアと価格をそれぞれ市場間で平均し、その値を式に代入する。これは市場別に計算した弾力性の平均とは異なる。
+$$
+\eta_{jj}=-\alpha p_j(1-s_j),
+\qquad
+\eta_{jk}=\alpha p_k s_k\quad(j\ne k)
+$$
+
+である。同じ価格・シェアで評価したとき、OLSとIVで弾力性がどれだけ違うかを確認しよう。ここでは価格と実測シェアを市場間で平均した値に代入する。この計算は、市場ごとに弾力性を計算して平均することとは異なる。
 
 ```{r}
 #| label: elasticity-comparison
-mean_share <- market_df %>% group_by(product) %>% summarize(share = mean(share), price = mean(price))
+#| code-fold: true
+#| code-summary: "同じ価格・シェアで弾力性行列を比較する"
+mean_share <- market_df %>%
+  group_by(product) %>%
+  summarize(share = mean(share), price = mean(price), .groups = "drop")
 
 build_elasticity <- function(alpha_hat, mean_share) {
   J <- nrow(mean_share)
-  E <- matrix(NA, J, J)
-  for (j in 1:J) {
-    for (k in 1:J) {
-      if (j == k) {
-        E[j, k] <- -alpha_hat * mean_share$price[j] * (1 - mean_share$share[j])
+  E <- matrix(NA_real_, J, J)
+  for (j in seq_len(J)) {
+    for (k in seq_len(J)) {
+      E[j, k] <- if (j == k) {
+        -alpha_hat * mean_share$price[j] * (1 - mean_share$share[j])
       } else {
-        E[j, k] <- alpha_hat * mean_share$price[k] * mean_share$share[k]
+        alpha_hat * mean_share$price[k] * mean_share$share[k]
       }
     }
   }
   E
 }
-
+E_true <- build_elasticity(alpha_true, mean_share)
 E_ols <- build_elasticity(alpha_ols, mean_share)
 E_iv <- build_elasticity(alpha_iv, mean_share)
-E_true <- build_elasticity(alpha_true, mean_share)
-
-cat("真値alphaでの弾力性行列(対角=自己弾力性):\n")
-round(E_true, 3)
-cat("\nOLSのalphaでの弾力性行列:\n")
-round(E_ols, 3)
-cat("\n2SLSのalphaでの弾力性行列:\n")
-round(E_iv, 3)
+elasticities <- list(
+  "真のalphaで計算した弾力性" = E_true,
+  "OLSのalpha推定値で計算した弾力性" = E_ols,
+  "IVのalpha推定値で計算した弾力性" = E_iv
+)
+for (label in names(elasticities)) {
+  cat(label, "\n", sep = "")
+  print(round(elasticities[[label]], 3))
+  cat("\n")
+}
 ```
 
-OLSベースの弾力性行列は、真値ベースの行列と比べて、対角成分（自己価格弾力性）の絶対値がはっきり小さい。これは「需要が実際より非弾力的に見える」ことの直接的な帰結である。2SLSベースの行列は真値にずっと近い。
+各行が需要の変化を見る商品、各列が価格を変える商品である。OLSの行列は、真値の行列に比べ、対角成分である自己価格弾力性の絶対値が小さい。IVの行列は真値に近い。企業がOLSの結果だけを見れば、「値上げしても客はあまり離れない」と判断してしまう。この誤認は、値付けだけでなく、次回学ぶ合併後の価格上昇の予測にも影響する。
 
-::: {.callout-important}
-## ここが核心
+## nested logitへの拡張と、集計データへの適用
 
-自己価格弾力性を過小評価するということは、企業から見れば「値上げしても客はあまり離れない」という誤ったシグナルを受け取ることを意味する。これは値付けの意思決定だけでなく、次回学ぶ合併分析（合併後にどれだけ値上げが起きるかの予測）にも直結する。**OLSで内生性を無視した弾力性行列を使うと、値付けでも合併審査でも、意思決定を大きく誤る**ことがこのシミュレーションからわかる。
+### nested logitでも、需要ショックを取り出せる
+
+ここまでplain logitで説明した反転は、nested logitにも拡張できる。商品$j$が属するネストを$g$とし、そのネスト内の選択確率を$\bar s_{j|g,t}=s_{jt}/\sum_{k\in g}s_{kt}$と書く。先ほどのnested logitの式から、
+
+$$
+\log s_{jt}-\log s_{0t}
+=x_{jt}'\beta-\alpha p_{jt}
++\rho\log\bar s_{j|g,t}+\xi_{jt}
+$$
+
+が得られる。plain logitの反転式に、within-nest shareの対数が加わった形である。$\rho=0$ならplain logitに戻る。
+
+::: {.callout-note collapse="true"}
+## 導出：nested logitで追加の項が出てくる理由
+
+ネスト$g$の指数和を$D_{gt}=\sum_{k\in g}\exp(\delta_{kt}/(1-\rho))$とする。outsideを平均効用0の単独ネストとすると、
+
+$$
+\frac{s_{jt}}{s_{0t}}
+=\exp\left(\frac{\delta_{jt}}{1-\rho}\right)D_{gt}^{-\rho},
+\qquad
+\log\bar s_{j|g,t}
+=\frac{\delta_{jt}}{1-\rho}-\log D_{gt}.
+$$
+
+したがって、
+
+$$
+\log s_{jt}-\log s_{0t}
+=\frac{\delta_{jt}}{1-\rho}-\rho\log D_{gt}
+=\delta_{jt}+\rho\log\bar s_{j|g,t}
+$$
+
+となる。$\delta_{jt}=x_{jt}'\beta-\alpha p_{jt}+\xi_{jt}$を代入すれば本文の式を得る。
 :::
+
+この式でも、$\xi_{jt}$を取り出してIVの条件を使える。ただし、$\log\bar s_{j|g,t}$も$\xi_{jt}$に反応するので、通常は内生変数である。価格とwithin-nest shareの両方を内生変数として扱う場合、少なくとも2本の除外された操作変数と、両者を区別して動かす十分な変動が必要になる。IVの本数だけでなく、この関連性の条件も確認しなければならない。
+
+### 個票がなくても、選択人数が分かれば使える
+
+今回の説明では、個票を持ったまま、市場ごとの選択人数とシェアを作った。そのため、**同じ市場条件ごとの選択人数が最初から集計されていれば、同じ手順を使える**。outsideを含む市場規模、商品属性、価格、妥当な操作変数がそろえば、個々人の識別番号はこの推定に必要ない。
+
+集計カウントの多項尤度を使うこと自体にも問題はない。先ほど見た通り、市場内で共通の選択確率を持つモデルでは、個票の尤度を人数でまとめても同じ係数を推定できる。Berry反転を導入した理由は、個票の不足を補うためではなく、**需要ショックを取り出し、価格内生性に対してIVの条件を使うため**だった。
+
+観測された個人属性によって選択確率が異なる場合には、その属性と選択の対応も情報を持つ。例えば、所得別のブランド選択をすべて合計すれば、所得と選択の関係は失われる。ここでの集計は、市場内で共通の選択確率を持つという設定に基づくものだと確認しておこう。個人属性を使う場合も、まず個票から商品別の平均効用を推定し、その後に価格・属性へIV回帰する拡張を考えられる（[Berry (1994), p.259](https://www.its.caltech.edu/~mshum/gradio/papers/Berry1994.pdf#page=19)）。
+
+価格内生性への対処で残る重要な判断は、何を操作変数として使い、その外生性をどのように説明するかである。次は、実務・研究で使われる操作変数の候補を見ていこう。
+
 
 ## IVの品揃え：何を操作変数に使うか
 
@@ -1245,15 +1510,15 @@ Berry, Levinsohn and Pakes (1995) の標準的な構成では、自財の外生�
 
 - logitモデルはIIAという強い制約を持ち、ある財の値上げに対する代替が「シェアの比率」だけで機械的に決まってしまう。似た財ほど強く競合するという直感的なパターンを表現できない。
 - nested logitは財をネスト（グループ）に分け、ネスティング・パラメータ$\rho$を導入してこの問題を緩和する。$\rho$は相関そのものではないが相関を単調に動かし、$\rho=0$でplain logitに一致する。
-- Berry (1994) の反転により、logit・nested logitの選択確率式は、市場レベルのシェア・価格データに対する線形回帰式に変換できる。個票データがなくても需要パラメータを推定できる。
+- 個票があっても、価格が共通の未観測需要要因に反応して決まる問題は残る。Berry (1994) の反転は、選択確率から平均効用を取り出し、需要ショックに対するIVの条件を使える形にする。反転だけでは価格内生性は解消しない。
 - 価格は未観測の需要ショック$\xi$と相関しやすい。企業が高い$\xi$を見て高価格をつける典型例、すなわち他の説明変数を条件づけても$\operatorname{Cov}(p,\xi)>0$となる場合、これを無視したOLS推定は価格反応$\alpha$を過小評価する。需要を実際より非弾力的だと誤認し、値付けや合併審査で誤った意思決定につながる危険がある。共分散が負ならバイアスの向きも逆であり、「内生性なら常に過小」とは限らない。
 - コストシフター、Hausman型IV、BLP型IVといった操作変数を使った2SLSで、この内生性に対処できる。ただしどの操作変数も「除外制約」という仮定に依存しており、無条件に信頼できるわけではない。
 :::
 
 ## 宿題
 
-- ブラウザ実験室（[playground3.html](playground3.html)）で、今回のシミュレーションの数値を自分でいじって遊んでみよう。インストール不要、ブラウザだけでRが動く（初回ロードのみ30秒〜1分かかる）。
-- 今回のRシミュ3で、`kappa`（内生性の強さ）の値を0から3まで変化させながら、OLSと2SLSそれぞれのalpha推定値がどう動くか折れ線グラフを描いてみよう。内生性が全くないとき（kappa=0）にOLSと2SLSがほぼ一致することも確認してみるとよい。
+- ブラウザ実験室（[playground3.html](playground3.html)）で、今回の内容に関連する実験の数値を自分でいじって遊んでみよう。インストール不要、ブラウザだけでRが動く（初回ロードのみ30秒〜1分かかる）。
+- 今回のRシミュ3で、`kappa`を0、0.4、0.8、1と変え、OLSと2SLSのalpha推定値を比較しよう。市場の乱数と個人選択の乱数を同じseedで作り直し、価格と需要ショックの相関が変わると結果がどう変わるか説明する。さらに`N_per_market`を増やした場合と市場数`T_mkt`を増やした場合を比べ、どの不確実性が小さくなるか考えよう。
 - ChatGPTなどの対話AIに「nested logitのwithin-nest shareが内生変数になるのはなぜか」と質問し、返ってきた説明が今回学んだ内容と整合的かどうか検討してみよう。
 - coding課題は `assignment3.qmd` を参照。
 
