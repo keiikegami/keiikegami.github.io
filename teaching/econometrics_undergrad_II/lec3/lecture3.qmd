@@ -704,10 +704,141 @@ nested logitの行列では、同じネスト内の交差弾力性（1行2列目
 ::: {.callout-important}
 ## ここが核心
 
-nested logitは「似た財ほど強く競合する」という、多くの実務家にとって自然な直感を、$\rho$ というたった1つの追加パラメータでモデルに組み込む。$\rho \to 0$ でplain logitに戻るので、nested logitはplain logitを特殊ケースとして含む**一般化**になっている。次に学ぶBerry反転でも、$\rho$ の推定は「plain logitで十分か、ネスト構造が必要か」を判定する重要な役割を果たす。
+nested logitは「似た財ほど強く競合する」という、多くの実務家にとって自然な直感を、$\rho$ というたった1つの追加パラメータでモデルに組み込む。$\rho \to 0$ でplain logitに戻るので、nested logitはplain logitを特殊ケースとして含む**一般化**になっている。次に、この$\rho$を価格係数と一緒にデータから推定してみよう。
 
 ただし、**同じネスト内の2財の選択確率の比にはIIAが残る**。その比は$\exp\{(\delta_j-\delta_k)/(1-\rho)\}$で、他の財の属性には依存しない。nested logitは、あらかじめ決めたネスト構造に沿ってIIAを緩和するモデルである。
 :::
+
+### Rシミュ2続き：ネストの強さもデータから推定する
+
+ここまでは$\rho=0.5$と手で与えていたが、**$\rho$も価格係数と同じく、消費者の選択データから推定できる**。第2回で学んだ最尤法を使い、選択確率の式をlogitからnested logitに置き換えればよい。小さな例で、真値をどこまで回収できるか確かめよう。
+
+#### 何を観測して、何を推定するか
+
+先ほどと同じ4商品A・B・C・Dと「買わない」を使う。A・Bがまったり系、C・Dがすっきり系であり、ネストの分け方は既知とする。独立した2,000人に、それぞれ少し異なる価格を提示し、1つだけ選んでもらう仮想的な選択実験を考える。観測するのは、**選んだ商品と、選ばなかった商品も含めた全選択肢の提示価格**である。
+
+消費者$i$に提示する商品$j$の価格を$p_{ij}$、ブランドごとの平均的な魅力を$a_j$とし、共通効用を
+
+$$
+\delta_{ij}=a_j-\alpha p_{ij},\qquad
+\delta_{i0}=0
+$$
+
+と置く。$a_j$は先ほどのコードの`beta_n`に対応する商品別の定数項である。データを作る際の真値は、$a=(2.2,2.0,2.3,2.1)$、$\alpha=1$、$\rho=0.5$とする。今回は価格をランダムに割り当て、未観測の品質$\xi$は入れない。価格の内生性は、後半で改めて扱う。
+
+先ほどのシェア式を各人の提示価格に適用すれば、選択確率$P_{ij}(a,\alpha,\rho)$が計算できる。$d_{ij}$を「$i$が$j$を選んだら1、それ以外は0」とすると、対数尤度は
+
+$$
+\ell(a,\alpha,\rho)
+=\sum_{i=1}^{N}\sum_{j=0}^{4}
+d_{ij}\log P_{ij}(a,\alpha,\rho).
+$$
+
+**実際に選ばれた選択肢に高い確率を与えるように、この式を最大化して$a_1,\ldots,a_4,\alpha,\rho$を同時に推定する**。この目的関数には、真値ではなく候補となるパラメータを代入する。
+
+価格を変えるのは、$\alpha$と$\rho$を区別する情報を作るためである。ネスト内での選択と、別のネスト・「買わない」との間の選択が価格にどう反応するかを、共通のパラメータで説明する。一組の市場シェアだけに自由な商品別定数を当てはめても、$\rho$の違いを定数項で吸収できるため、$\rho$は決まらない。
+
+#### 選択データを作る
+
+価格は、先ほどの基準価格から$-0.8$〜$+0.8$の範囲で独立に動かす。nested logitの確率を計算し、その確率に従って1人につき1つの選択を抽出する。
+
+```{r}
+#| label: nested-mle-data
+set.seed(2026301)
+N_nest <- 2000
+alt_nest <- c("outside", "A", "B", "C", "D")
+
+price_mle <- matrix(runif(N_nest * 4, -0.8, 0.8), nrow = N_nest, ncol = 4)
+price_mle <- sweep(price_mle, 2, price_n, "+")
+
+choice_nest <- integer(N_nest)
+for (i in seq_len(N_nest)) {
+  prob_i <- nested_logit_shares(
+    delta = beta_n - alpha_n * price_mle[i, ], nests = nests4, rho = rho_n
+  )
+  # 1=outside、2=A、3=B、4=C、5=D
+  choice_nest[i] <- sample.int(5, size = 1, prob = c(prob_i$s0, prob_i$s))
+}
+
+# 1人につき5行。選ばなかった選択肢の行も残す。
+choice_df <- data.frame(
+  id = rep(seq_len(N_nest), each = 5),
+  alt = rep(alt_nest, times = N_nest),
+  chosen = rep(choice_nest, each = 5) == rep(seq_len(5), times = N_nest),
+  price = as.vector(t(cbind(0, price_mle)))
+)
+```
+
+最初の1人のデータを見てみよう。`chosen`がTRUEなのは、その人が選んだ1行だけである。outsideの価格は0とし、その共通効用も0に正規化する。
+
+```{r}
+#| label: tbl-nested-mle-data
+#| echo: false
+#| tbl-cap: "推定に使うlong形式のデータ：最初の1人の5選択肢"
+knitr::kable(head(choice_df, 5), digits = 3,
+             col.names = c("消費者id", "選択肢", "chosen", "価格"))
+```
+
+#### mlogitで推定し、講義のrhoに変換する
+
+第2回でも紹介した`mlogit`パッケージを使う。`mlogit.data()`で同じ`id`の5行を1つの選択集合として指定し、`nests`で商品の所属を伝える。`chosen ~ price | 1`の`| 1`は商品別の定数項を入れる指定であり、`reflevel = "outside"`でoutsideの定数項を0にする。**真値の$\alpha$や$\rho$は、推定関数には渡していない**。
+
+```{r}
+#| label: nested-mle-fit
+choice_data <- mlogit::mlogit.data(
+  choice_df, choice = "chosen", shape = "long", alt.var = "alt", chid.var = "id"
+)
+nested_fit <- mlogit::mlogit(
+  chosen ~ price | 1, data = choice_data, reflevel = "outside",
+  nests = list(mellow = c("A", "B"), clear = c("C", "D"), outside = "outside"),
+  un.nest.el = TRUE, unscaled = FALSE
+)
+```
+
+`un.nest.el = TRUE`は、ネストのパラメータを共通にする指定である。`unscaled = FALSE`は、この講義で使った選択確率の式に合わせる指定である。この設定で出力される**`iv`という係数は$\lambda=1-\rho$**なので、そのまま$\rho$として読んではいけない。`iv`はinclusive valueに由来する名前で、後で登場する操作変数（IV）とは別である。パッケージの仕様は[公式解説](https://cran.r-project.org/web/packages/mlogit/vignettes/c4.relaxiid.html)を参照。
+
+価格の係数も$-\alpha$なので、符号を反転して読む。したがって、
+
+$$
+\widehat\alpha=-\widehat b_{\mathrm{price}},
+\qquad
+\widehat\rho=1-\widehat\lambda.
+$$
+
+標準誤差は、符号を反転したり定数から引いたりしても変わらない。商品別定数も同時に推定しているが、ここでは関心のある$\alpha$と$\rho$を取り出し、真値・標準誤差・95%信頼区間と並べる。
+
+```{r}
+#| label: nested-mle-results
+coef_nest <- coef(nested_fit)
+se_nest <- sqrt(diag(vcov(nested_fit)))
+lambda_hat <- unname(coef_nest["iv"])
+alpha_hat_nest <- -unname(coef_nest["price"])
+rho_hat_nest <- 1 - lambda_hat
+
+results_nest <- data.frame(
+  parameter = c("alpha", "rho"),
+  truth = c(alpha_n, rho_n),
+  estimate = c(alpha_hat_nest, rho_hat_nest),
+  std_error = unname(se_nest[c("price", "iv")])
+)
+results_nest$ci95 <- with(results_nest,
+  sprintf("[%.3f, %.3f]", estimate - 1.96 * std_error, estimate + 1.96 * std_error)
+)
+```
+
+```{r}
+#| label: tbl-nested-mle-results
+#| echo: false
+#| tbl-cap: "nested logitの最尤推定：価格係数とネストの強さの回収"
+knitr::kable(results_nest, digits = 3,
+             col.names = c("パラメータ", "真値", "推定値", "標準誤差", "95%信頼区間"))
+```
+
+この標本では、$\widehat\alpha\approx1.135$、$\widehat\rho\approx0.469$となり、真値の1と0.5はいずれも95%信頼区間に含まれる。$\widehat\lambda\approx0.531$も、モデルと整合的な範囲$0<\lambda\leq1$に入っている。**先ほど手で与えていたネストの強さを、今度は選択データから推定できた**。有限の標本なので、推定値が真値にぴったり一致するわけではない。
+
+ここでの標準誤差と信頼区間は、正しく指定されたモデルと独立した選択を前提にしている。また、`summary()`の`iv`行に出る通常のp値は$\lambda=0$に対するもので、plain logitに対応する$\rho=0$、すなわち$\lambda=1$の検定とは異なる。
+
+今回データから推定したのは、**あらかじめ指定したネストの中で、代替がどれほど強いか**である。ネストの分け方自体を自動で発見したわけではない。また、価格は外生的に動かしており、個票を最尤法で推定すれば価格の内生性まで解決する、という意味でもない。この点を踏まえて、次は個票が手に入らず、市場全体の販売数量・シェアが観測される場合へ進もう。
 
 ::: {.callout-tip}
 ## 実証研究コーナー：Trajtenberg (1989) と CTスキャナー市場
@@ -725,7 +856,7 @@ nested logitは「似た財ほど強く競合する」という、多くの実�
 
 ### 問題設定
 
-前回は、個々の消費者がどの財を選んだかという個票データを使ってlogitを推定した。今回ここまでは、パラメータを与えてシェアと代替パターンを計算してきた。では、企業のPOSデータやスキャナーデータのように、「市場$t$・製品$j$ごとの販売数量と価格」が集計されている場合、どのように需要パラメータを推定すればよいだろうか。
+前回は個票データを使ってlogitを推定し、今回はnested logitでも価格係数と$\rho$を最尤法で推定できることを確認した。では、企業のPOSデータやスキャナーデータのように、個々人の選択ではなく「市場$t$・製品$j$ごとの販売数量と価格」が集計されている場合、どのように需要パラメータを推定すればよいだろうか。
 
 個票がなくても、製品別の購入者数 $n_{jt}$ と市場規模 $N_t$（outsideの人数を含む）が分かれば、集計カウントに対する多項尤度 $L_t\propto\prod_{j=0}^J s_{jt}^{n_{jt}}$ は組める。したがって「集計データではMLEが不可能」なのではない。ただし、シェアだけで市場規模や標本抽出過程が分からないと、カウント尤度の情報量や標準誤差は定まらない。ここで便利なのが Berry (1994) の反転である。**logitのシェア式を代数的に反転すると、尤度を直接最大化せずに推定できる回帰式が出てくる**。
 
@@ -827,6 +958,7 @@ $\kappa$（内生性の強さ）を大きくするほど、価格は需要ショ
 
 ```{r}
 #| label: dgp-market-setup
+set.seed(20263)  # このシミュレーションの乱数を、直前の選択実験から独立に固定する
 T_mkt <- 100
 J_mkt <- 4
 alpha_true <- 2.0
