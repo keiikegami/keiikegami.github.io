@@ -3129,15 +3129,14 @@ nested logitの弾力性行列:</code></pre>
 \delta_{ij}=a_j-\alpha p_{ij},\qquad
 \delta_{i0}=0
 \]</span></p>
-<p>と置く。<span class="math inline">\(a_j\)</span>は先ほどのコードの<code>beta_n</code>に対応する商品別の定数項である。データを作る際の真値は、<span class="math inline">\(a=(2.2,2.0,2.3,2.1)\)</span>、<span class="math inline">\(\alpha=1\)</span>、<span class="math inline">\(\rho=0.5\)</span>とする。今回は価格をランダムに割り当て、未観測の品質<span class="math inline">\(\xi\)</span>は入れない。価格の内生性は、後半で改めて扱う。</p>
-<p>先ほどのシェア式を各人の提示価格に適用すれば、選択確率<span class="math inline">\(P_{ij}(a,\alpha,\rho)\)</span>が計算できる。<span class="math inline">\(d_{ij}\)</span>を「<span class="math inline">\(i\)</span>が<span class="math inline">\(j\)</span>を選んだら1、それ以外は0」とすると、対数尤度は</p>
+<p>と置く。<span class="math inline">\(a_j\)</span>は先ほどのコードの<code>beta_n</code>に対応する商品別の定数項である。データを作る際の真値は、<span class="math inline">\(a=(2.2,2.0,2.3,2.1)\)</span>、<span class="math inline">\(\alpha=1\)</span>、<span class="math inline">\(\rho=0.5\)</span>とする。</p>
+<p>先ほどのシェア式から選択確率<span class="math inline">\(P_{ij}(a,\alpha,\rho)\)</span>が計算できる。<span class="math inline">\(d_{ij}\)</span>を「<span class="math inline">\(i\)</span>が<span class="math inline">\(j\)</span>を選んだら1、それ以外は0」とすると、対数尤度は</p>
 <p><span class="math display">\[
 \ell(a,\alpha,\rho)
 =\sum_{i=1}^{N}\sum_{j=0}^{4}
 d_{ij}\log P_{ij}(a,\alpha,\rho).
 \]</span></p>
-<p><strong>実際に選ばれた選択肢に高い確率を与えるように、この式を最大化して<span class="math inline">\(a_1,\ldots,a_4,\alpha,\rho\)</span>を同時に推定する</strong>。この目的関数には、真値ではなく候補となるパラメータを代入する。</p>
-<p>価格を変えるのは、<span class="math inline">\(\alpha\)</span>と<span class="math inline">\(\rho\)</span>を区別する情報を作るためである。ネスト内での選択と、別のネスト・「買わない」との間の選択が価格にどう反応するかを、共通のパラメータで説明する。一組の市場シェアだけに自由な商品別定数を当てはめても、<span class="math inline">\(\rho\)</span>の違いを定数項で吸収できるため、<span class="math inline">\(\rho\)</span>は決まらない。</p>
+<p><strong>この式を最大化して<span class="math inline">\(a_1,\ldots,a_4,\alpha,\rho\)</span>を同時に推定する</strong>。</p>
 </section>
 <section id="選択データを作る" class="level4">
 <h4 class="anchored" data-anchor-id="選択データを作る">選択データを作る</h4>
@@ -3226,7 +3225,7 @@ d_{ij}\log P_{ij}(a,\alpha,\rho).
 </section>
 <section id="mlogitで推定し講義のrhoに変換する" class="level4">
 <h4 class="anchored" data-anchor-id="mlogitで推定し講義のrhoに変換する">mlogitで推定し、講義のrhoに変換する</h4>
-<p>第2回でも紹介した<code>mlogit</code>パッケージを使う。<code>mlogit.data()</code>で同じ<code>id</code>の5行を1つの選択集合として指定し、<code>nests</code>で商品の所属を伝える。<code>chosen ~ price | 1</code>の<code>| 1</code>は商品別の定数項を入れる指定であり、<code>reflevel = &quot;outside&quot;</code>でoutsideの定数項を0にする。<strong>真値の<span class="math inline">\(\alpha\)</span>や<span class="math inline">\(\rho\)</span>は、推定関数には渡していない</strong>。</p>
+<p>第2回でも紹介した<code>mlogit</code>パッケージを使う。<code>mlogit.data()</code>で同じ<code>id</code>の5行を1つの選択集合として指定し、<code>nests</code>で商品の所属を伝える。<code>chosen ~ price | 1</code>の<code>| 1</code>は商品別の定数項を入れる指定であり、<code>reflevel = &quot;outside&quot;</code>でoutsideの定数項を0にする。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>choice_data <span class="ot">&lt;-</span> mlogit<span class="sc">::</span><span class="fu">mlogit.data</span>(</span>
 <span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  choice_df, <span class="at">choice =</span> <span class="st">&quot;chosen&quot;</span>, <span class="at">shape =</span> <span class="st">&quot;long&quot;</span>, <span class="at">alt.var =</span> <span class="st">&quot;alt&quot;</span>, <span class="at">chid.var =</span> <span class="st">&quot;id&quot;</span></span>
@@ -3303,8 +3302,7 @@ d_{ij}\log P_{ij}(a,\alpha,\rho).
 </div>
 </div>
 <p>この標本では、<span class="math inline">\(\widehat\alpha\approx1.135\)</span>、<span class="math inline">\(\widehat\rho\approx0.469\)</span>となり、真値の1と0.5はいずれも95%信頼区間に含まれる。<span class="math inline">\(\widehat\lambda\approx0.531\)</span>も、モデルと整合的な範囲<span class="math inline">\(0&lt;\lambda\leq1\)</span>に入っている。<strong>先ほど手で与えていたネストの強さを、今度は選択データから推定できた</strong>。有限の標本なので、推定値が真値にぴったり一致するわけではない。</p>
-<p>ここでの標準誤差と信頼区間は、正しく指定されたモデルと独立した選択を前提にしている。また、<code>summary()</code>の<code>iv</code>行に出る通常のp値は<span class="math inline">\(\lambda=0\)</span>に対するもので、plain logitに対応する<span class="math inline">\(\rho=0\)</span>、すなわち<span class="math inline">\(\lambda=1\)</span>の検定とは異なる。</p>
-<p>今回データから推定したのは、<strong>あらかじめ指定したネストの中で、代替がどれほど強いか</strong>である。ネストの分け方自体を自動で発見したわけではない。また、価格は外生的に動かしており、個票を最尤法で推定すれば価格の内生性まで解決する、という意味でもない。この点を踏まえて、次は個票が手に入らず、市場全体の販売数量・シェアが観測される場合へ進もう。</p>
+<p>今回データから推定したのは、<strong>あらかじめ指定したネストの中で、代替がどれほど強いか</strong>である。ネストの分け方自体を自動で発見したわけではない。また、価格は外生的に動かしているという点にも注意が必要である。つまり価格についての実験が行われ、顧客個別の選択結果のデータが手元にある、という状況ならできる推定をやった。この点を踏まえて、次は個票が手に入らず、しかも価格が外生的じゃないケースに進む。</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
