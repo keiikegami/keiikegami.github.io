@@ -1,0 +1,712 @@
+---
+title: "Lecture 4 後半：費用関数の推定と費用変化の反実仮想"
+subtitle: "計量経済学II"
+author: "Kei Ikegami"
+lang: ja
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: false
+    embed-resources: true
+    code-copy: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.8
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+set.seed(20264)
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
+knitr::opts_chunk$set(fig.align = "center", dpi = 144)
+options(scipen = 8)
+```
+
+[Lecture 4 前半：異質性のある需要と合併分析](lecture4.html) ／ [講義一覧](../index.html)
+
+::: {.callout-important}
+## この講義で押さえたいこと
+
+- 前半では、推定した需要と企業の価格設定条件から限界費用を逆算し、費用を固定して合併後の価格を計算した。
+- 原材料や輸送の費用が変わったときの価格を予測するには、**限界費用が何によって決まるか**も知る必要がある。そこで費用関数を推定する。
+- 費用関数にも、分析者に見えない費用ショックがある。需要側と同じように、説明変数や操作変数とこのショックの関係を仮定する。
+- 需要と供給のモーメントを一緒に使うと、需要パラメータも追加の条件を満たす必要がある。これは費用を推定することに加えて得られる利点である。
+- 投入価格が下がったとき、限界費用の低下がどれだけ販売価格に反映されるかを計算する。費用が下がった割合と、価格が下がる割合は同じとは限らない。
+:::
+
+## 前半とのつながり・今回のゴール
+
+前半では、消費者ごとに価格への反応が異なる需要モデルを推定し、財1と財2を販売する企業が合併したときの価格を計算した。その際、限界費用は合併前と同じにしていた。変えたのは、どの商品を同じ企業が持つか、という所有関係である。
+
+ここで、合併する企業が「配送網をまとめられるので、商品の供給費用が下がる」と説明してきたらどうだろうか。費用がどれくらい下がり、それによって価格がどれくらい変わるかも考えたい。合併以外でも、原材料価格の上昇、燃料費の低下、輸送距離の短縮など、費用が変わる場面は多い。
+
+前半の方法で分かるのは、観測された市場の限界費用である。それだけでは、原材料価格が変わったときの限界費用までは分からない。今回は、**費用を決める変数と限界費用の関係をモデルに加える**。同じ市場のデータを使って需要と費用を推定し、最後に投入価格が20%下がったときの販売価格、販売数量、利潤、消費者余剰を計算する。
+
+需要だけを推定することも、前半のように費用関数を推定せず合併分析をすることもできる。今回、費用関数を加えるのは、費用を決める条件が変わる問いに答えるためである。その過程で、供給側の情報が需要の推定にも役立つことを見ていこう。
+
+## 1. 今の限界費用と、費用が変わる仕組み
+
+まず、前半の式を振り返る。各企業が自社製品の利潤を最大にするように価格を選ぶと、価格設定の一階条件は
+
+$$
+s_t-\Delta_t(p_t-mc_t)=0,
+\qquad
+\Delta_{jk,t}=-\Omega_{jk,t}\frac{\partial s_{kt}}{\partial p_{jt}}
+$$
+
+だった。$\Omega_{jk,t}$ は、財 $j$ と財 $k$ を同じ企業が販売していれば1、そうでなければ0である。需要のパラメータを $\theta_D$ と書くと、観測価格から逆算した限界費用は
+
+$$
+mc_t(\theta_D)=p_t-\Delta_t(\theta_D)^{-1}s_t
+$$
+
+となる。価格への反応が小さい需要なら、大きなマークアップが必要になる。その分、同じ価格から逆算した限界費用は低くなる。つまり、**逆算した費用は需要の推定結果に依存している**。
+
+しかし、これだけでは「燃料価格が20%下がったら、限界費用はいくらになるか」は分からない。限界費用の全額が燃料費というわけでもないし、商品ごとに輸送への依存度も違う。そこで次の段階では、限界費用を商品の属性や投入価格で説明する。
+
+::: {.callout-note}
+## ビジネスの現場で：配送費の見直し
+
+配送業者との契約を変更し、配送の単価が20%下がるとする。経営会議で知りたいのは、商品価格を20%下げるべきかどうかではない。まず、配送の単価が商品の限界費用をどれだけ動かすか。その上で、競合の反応も考慮したときに、価格と販売数量がどう変わるかである。費用関数と価格設定のモデルは、この2段階を分けて考えるために使う。
+:::
+
+## 2. 限界費用のモデルを加える
+
+前半と同じ3財の市場を使う。需要は
+
+$$
+u_{ijt}=\beta_0+\beta_x x_{jt}-\alpha_i p_{jt}+\xi_{jt}+\varepsilon_{ijt},
+\qquad
+\alpha_i=\exp(a+\sigma\nu_i),\quad \nu_i\sim N(0,1)
+$$
+
+とする。$x_{jt}$ は商品の属性、$\xi_{jt}$ は分析者には見えない需要ショックである。価格係数の対数の平均を $a$、その標準偏差を $\sigma$ と書いている。
+
+これに、次の費用関数を加える。
+
+$$
+\log mc_{jt}=\gamma_0+\gamma_x x_{jt}+\gamma_w w_{jt}+\omega_{jt}.
+$$
+
+$w_{jt}$ は投入価格指数の対数とする。投入価格指数が1なら $w=0$、指数が0.8になれば $w=\log(0.8)$ である。$\omega_{jt}$ は、工場の生産性や個別の調達条件など、式に含めた変数では説明できない費用ショックを表す。
+
+この式では、$x$ は需要と費用の両方に入る。例えば品質を高めれば、消費者の評価も生産費用も上がりうる。一方、$w$ は費用だけに入れ、効用には直接入れない。投入価格が消費者の評価を直接変えない、という除外制約である。
+
+$w$ も $mc$ も対数なので、$\gamma_w$ は投入価格に対する限界費用の弾力性になる。例えば $\gamma_w=0.5$ なら、投入価格が1%上がると限界費用はおよそ0.5%上がる。20%のように大きな変化では、線形の近似をせず、後で指数関数を使って計算する。
+
+需要ショック $\xi$ と費用ショック $\omega$ は別物である。品質が高く見えてよく売れることと、生産に費用がかかることを区別している。現実には両者が相関する場合もあるが、以下のシミュレーションでは独立に発生させる。
+
+::: {.callout-note collapse="true"}
+## 前半と同じデータと関数を用意する
+
+このページだけでも上から順に実行できるように、前半の需要関数、価格の均衡計算、データ生成を再掲する。乱数の種も前半と共通なので、同じ市場が再現される。データを作る際には真の費用を使うが、推定の入力は価格・市場シェア・属性・投入価格・所有関係である。真の需要ショックと費用は答え合わせにしか使わない。
+
+```{r}
+# 個人の価格係数は正。nu はどの計算でも同じ積分点を使う。
+rc_probs <- function(p, quality, a, sigma, nu) {
+  alpha <- exp(a + sigma * nu)
+  v <- sweep(-outer(alpha, p), 2, quality, "+")
+  vmax <- pmax(0, apply(v, 1, max))
+  ev <- exp(v - vmax)
+  ev / (exp(-vmax) + rowSums(ev))
+}
+rc_market <- function(p, quality, a, sigma, nu) {
+  prob <- rc_probs(p, quality, a, sigma, nu)
+  alpha <- exp(a + sigma * nu)
+  jac <- crossprod(prob, prob * alpha) / length(nu)
+  diag(jac) <- diag(jac) - colMeans(prob * alpha)
+  list(s = colMeans(prob), jac = jac)
+}
+owner_matrix <- function(groups) outer(groups, groups, "==") * 1
+markup_at <- function(p, groups, quality, a, sigma, nu) {
+  demand <- rc_market(p, quality, a, sigma, nu)
+  Delta <- -owner_matrix(groups) * t(demand$jac)
+  as.vector(solve(Delta, demand$s))
+}
+solve_prices <- function(mc, groups, quality, a, sigma, nu,
+                         p_init = mc + 1, tol = 1e-10, maxit = 2000) {
+  p <- p_init
+  for (it in seq_len(maxit)) {
+    target <- mc + markup_at(p, groups, quality, a, sigma, nu)
+    err <- max(abs(target - p))
+    if (err < tol) return(list(p = p, iterations = it, error = err))
+    p <- 0.5 * p + 0.5 * target
+  }
+  stop("価格の反復が収束しなかった")
+}
+# 複数市場の確率をまとめて計算。各積分点について市場を並べ、列は商品。
+rc_all <- function(delta, price, a, sigma, nu, slopes = TRUE) {
+  nt <- nrow(price); nj <- ncol(price); nr <- length(nu)
+  mean_alpha <- exp(a + sigma^2 / 2)
+  deviation <- exp(a + sigma * nu) - mean_alpha
+  v <- matrix(0, nt * nr, nj)
+  for (j in seq_len(nj)) {
+    v[, j] <- rep(delta[, j], nr) -
+      rep(price[, j], nr) * rep(deviation, each = nt)
+  }
+  vmax <- pmax(0, v[, 1])
+  for (j in 2:nj) vmax <- pmax(vmax, v[, j])
+  ev <- exp(v - vmax)
+  prob <- ev / (exp(-vmax) + rowSums(ev))
+  share <- matrix(0, nt, nj)
+  own_slope <- matrix(0, nt, nj)
+  alpha <- rep(exp(a + sigma * nu), each = nt)
+  for (j in seq_len(nj)) {
+    share[, j] <- rowMeans(matrix(prob[, j], nt, nr))
+    if (slopes) own_slope[, j] <- -rowMeans(matrix(
+      alpha * prob[, j] * (1 - prob[, j]), nt, nr))
+  }
+  list(share = share, own_slope = own_slope)
+}
+invert_shares <- function(S_obs, price, a, sigma, nu,
+                          tol = 1e-9, maxit = 2000) {
+  delta <- log(S_obs) - log(1 - rowSums(S_obs))
+  for (it in seq_len(maxit)) {
+    predicted <- rc_all(delta, price, a, sigma, nu, slopes = FALSE)$share
+    correction <- log(S_obs) - log(predicted)
+    delta <- delta + correction
+    if (max(abs(correction)) < tol) {
+      return(list(delta = delta, iterations = it,
+                  error = max(abs(correction))))
+    }
+  }
+  stop("シェアの反転が収束しなかった")
+}
+vec <- function(m) as.vector(t(m))
+# その市場の需要を固定したときの1人あたり消費者余剰。
+cs_value <- function(p, quality, a, sigma, nu) {
+  alpha <- exp(a + sigma * nu)
+  v <- sweep(-outer(alpha, p), 2, quality, "+")
+  vmax <- pmax(0, apply(v, 1, max))
+  inclusive <- vmax + log(exp(-vmax) + rowSums(exp(v - vmax)))
+  mean(inclusive / alpha)
+}
+market_outcomes <- function(p, mc, quality, a, sigma, nu, market_size = 10000) {
+  s <- rc_market(p, quality, a, sigma, nu)$s
+  c(quantity = market_size * sum(s),
+    profit = market_size * sum((p - mc) * s),
+    consumer_surplus = market_size * cs_value(p, quality, a, sigma, nu))
+}
+```
+
+```{r}
+set.seed(202604)
+J <- 3
+Tn <- 120
+ns <- 120
+# 等間隔の確率に対応する標準正規分布の分位点。毎回引き直さない。
+nu <- qnorm((seq_len(ns) - 0.5) / ns)
+theta_true <- c(beta0 = 3.5, beta_x = 1.2, a = 0.2, sigma = 0.7,
+                gamma0 = -0.1, gamma_x = 0.15, gamma_w = 0.6)
+x <- matrix(runif(Tn * J, -1, 1), Tn, J)
+w <- matrix(runif(Tn * J, -1.2, 1.2), Tn, J)
+xi_true <- matrix(rnorm(Tn * J, 0, 0.18), Tn, J)
+omega_true <- matrix(rnorm(Tn * J, 0, 0.08), Tn, J)
+quality_true <- theta_true["beta0"] + theta_true["beta_x"] * x + xi_true
+mc_true <- exp(theta_true["gamma0"] + theta_true["gamma_x"] * x +
+                 theta_true["gamma_w"] * w + omega_true)
+groups_pre <- seq_len(J)
+price <- S_obs <- matrix(0, Tn, J)
+for (tt in seq_len(Tn)) {
+  eq <- solve_prices(mc_true[tt, ], groups_pre, quality_true[tt, ],
+                     theta_true["a"], theta_true["sigma"], nu)
+  price[tt, ] <- eq$p
+  S_obs[tt, ] <- rc_market(eq$p, quality_true[tt, ],
+                          theta_true["a"], theta_true["sigma"], nu)$s
+}
+```
+:::
+
+## 3. 費用側では、どの条件を使って推定するのか
+
+### 3.1 需要のIVと費用のIVを区別する
+
+第3回から使っている需要側の条件は、$E[Z^D_{jt}\xi_{jt}]=0$ だった。例えば、投入価格が需要ショックと無相関なら、価格を動かす $w$ を需要推定の操作変数にできる。
+
+費用関数にも同じ考え方を使う。ただし、無相関であってほしい相手が変わる。
+
+$$
+E[Z^S_{jt}\omega_{jt}]=0.
+$$
+
+$Z^S$ は費用側の操作変数である。**需要の操作変数として妥当な変数が、費用側でも自動的に妥当になるわけではない。** 例えば、企業が自分の生産性を見て調達先を選んでいるなら、観測された投入価格と未観測の費用ショックが相関するかもしれない。変数の名前が「コストシフター」だから外生、と考えないようにしよう。
+
+また、費用関数を推定するなら必ず新しい除外変数が必要、というわけでもない。仮に限界費用が観測でき、$x,w$ が $\omega$ に対して外生なら、費用式はOLSで推定できる。今回は限界費用そのものを需要から逆算するので、その値を左右する需要パラメータも一緒に選ぶ。
+
+### 3.2 このシミュレーションで使う条件
+
+以下では、各商品の $x,w$ をすべての $\xi,\omega$ から独立に発生させる。したがって、自財の属性・投入価格に加え、競合商品の属性・投入価格も操作変数に使える。
+
+| 変数 | 需要側での役割 | 費用側での役割 |
+|---|---|---|
+| 自財の属性 $x_j$ | 外生の効用変数 | 外生の費用変数 |
+| 自財の投入価格 $w_j$ | 効用から除外され、価格を動かすIV | 費用関数に直接入る変数 |
+| 他財の属性・投入価格 | 競争を通じて自財の価格を動かすIV | 自財の費用式から除外されるIV |
+
+他財の変数が自財の費用ショックと無相関だという条件も、ここではデータの作り方で成立させている。実データでは、共通の原材料価格、地域の賃金、企業共通の生産性などを通じて相関することがある。こうした場合には、必要な変数や固定効果を加えた上で、どの変動が残るかを考える必要がある。
+
+費用側の追加の条件が需要の推定に効くのは、候補となる需要パラメータを変えると逆算されるマークアップと費用も変わるからである。単に価格設定の一階条件を置くだけなら、商品ごとの費用を自由に選んで式を成立させられる。**費用がこの関数形と外生性の条件を満たすことまで要求して、初めて追加の制約になる。**
+
+## 4. 需要と費用を一緒に推定する
+
+### 4.1 候補となる需要から、2種類の残差を作る
+
+計算の出発点は前半と同じである。価格係数分布のパラメータ $\theta=(a,\sigma)$ を仮に決める。
+
+まず、縮小写像で観測シェアを再現する $\delta(\theta)$ を求める。平均価格係数を $m(\theta)=\exp(a+\sigma^2/2)$ とすると、需要の式は
+
+$$
+\delta_{jt}(\theta)+m(\theta)p_{jt}
+=\beta_0+\beta_x x_{jt}+\xi_{jt}(\theta).
+$$
+
+この式と需要側のモーメントを使って $\beta$ を推定し、$\hat\xi(\theta)$ を取り出す。
+
+次に、同じ需要パラメータでシェアの価格微分を計算し、価格設定の一階条件から $mc(\theta)$ を逆算する。それを費用式に入れて $\gamma$ を推定し、
+
+$$
+\hat\omega_{jt}(\theta)
+=\log mc_{jt}(\theta)-\hat\gamma_0(\theta)
+-\hat\gamma_x(\theta)x_{jt}-\hat\gamma_w(\theta)w_{jt}
+$$
+
+を求める。この例では対数費用を使うので、どれかの商品で $mc(\theta)\leq0$ になる候補は、このモデルと両立しない。
+
+::: {.callout-note}
+## 価格係数を外側で動かす理由
+
+供給側の費用を逆算するには、価格への需要反応が必要である。そのため、価格係数を需要側だけの回帰で決めてしまうと、費用側の条件がその係数に与える情報を使えない。ここでは前半から $a,\sigma$ を外側の最適化で選び、それらを固定した上で外生属性の係数 $\beta$ と費用の係数 $\gamma$ を求める形にしている。[PyBLPの説明](https://pyblp.readthedocs.io/en/stable/background.html#estimation)でも、供給側を加えると価格係数を外側に残す必要があることが説明されている。
+:::
+
+### 4.2 2種類のモーメントをGMMに入れる
+
+需要と費用の残差から、それぞれの標本モーメントを作る。$N=JT$ は商品・市場の観測数である。
+
+$$
+\bar g_D(\theta)=\frac{1}{N}\sum_{j,t}Z^D_{jt}\hat\xi_{jt}(\theta),
+\qquad
+\bar g_S(\theta)=\frac{1}{N}\sum_{j,t}Z^S_{jt}\hat\omega_{jt}(\theta).
+$$
+
+この2つを縦に並べ、まとめてゼロに近づける。
+
+$$
+\hat\theta=\arg\min_\theta
+\begin{bmatrix}\bar g_D(\theta)\\\bar g_S(\theta)\end{bmatrix}'
+W
+\begin{bmatrix}\bar g_D(\theta)\\\bar g_S(\theta)\end{bmatrix}.
+$$
+
+ここでの $W$ は、モーメントにどの重みをつけるかを決める行列である。投入価格の $w$ とは別の記号なので注意しよう。今回は需要・供給のブロックに分けた重み行列を使い、両者の目的関数を足す。そのため、非線形パラメータを固定したときに、$\beta$ と $\gamma$ を別々の線形GMMで求められる。前半で使った需要の条件に、費用側の条件が増えただけで、GMMの考え方自体は変わらない。
+
+計算の順序を言葉でまとめると、**需要パラメータの候補 → シェア反転 → 需要残差と限界費用 → 費用残差 → 2種類のモーメント**となる。これを繰り返し、全体の目的関数が小さくなる候補を探す。
+
+需要側と費用側で残差の単位が違うので、そのまま足すと一方が強く効くことがある。以下では需要だけの推定を先に行い、その需要残差と、そこから逆算した費用の残差の標本二乗平均で、それぞれの目的関数を割る。最適化の途中では重みを固定する。これは簡単なブロック対角の重みであり、市場内相関まで考慮した効率的な重み行列とは区別する。
+
+```{r}
+#| code-fold: true
+#| code-summary: "操作変数・線形GMM・標準誤差の計算"
+# 自財の費用変数と競合財の属性・費用変数を需要側のIVに使う。
+rival_x <- rowSums(x) - x
+rival_w <- rowSums(w) - w
+X_d <- cbind(constant = 1, x = vec(x))
+X_s <- cbind(constant = 1, x = vec(x), w = vec(w))
+Z_d <- cbind(X_d, w = vec(w), w2 = vec(w)^2,
+              rival_x = vec(rival_x), rival_w = vec(rival_w))
+Z_s <- cbind(X_s, rival_x = vec(rival_x), rival_w = vec(rival_w))
+N <- nrow(X_d)
+W_d <- solve(crossprod(Z_d) / N)
+W_s <- solve(crossprod(Z_s) / N)
+# 固定した非線形パラメータの下で線形係数を解く。
+linear_gmm <- function(y, X, Z, W) {
+  ZX <- crossprod(Z, X) / N
+  Zy <- crossprod(Z, y) / N
+  coef <- as.vector(solve(t(ZX) %*% W %*% ZX, t(ZX) %*% W %*% Zy))
+  residual <- as.vector(y - X %*% coef)
+  g <- crossprod(Z, residual) / N
+  list(coef = coef, residual = residual,
+       Q = as.numeric(t(g) %*% W %*% g))
+}
+scale_d <- scale_s <- 1
+# 市場内の誤差の相関を許すGMM標準誤差。
+# betaとgammaを固定したままaとsigmaを動かしたモーメントの微分を使う。
+cluster_se <- function(fit, use_supply = FALSE) {
+  qd <- ncol(Z_d); qs <- if (use_supply) ncol(Z_s) else 0
+  np <- if (use_supply) 7 else 4
+  G <- matrix(0, qd + qs, np)
+  G[seq_len(qd), 1:2] <- -crossprod(Z_d, X_d) / N
+  moment <- Z_d * fit$xi
+  weight <- W_d / scale_d
+  if (use_supply) {
+    G[qd + seq_len(qs), 5:7] <- -crossprod(Z_s, X_s) / N
+    moment <- cbind(moment, Z_s * fit$omega)
+    weight <- matrix(0, qd + qs, qd + qs)
+    weight[seq_len(qd), seq_len(qd)] <- W_d / scale_d
+    weight[qd + seq_len(qs), qd + seq_len(qs)] <- W_s / scale_s
+  }
+  h <- 1e-4
+  for (k in 1:2) {
+    upper <- lower <- fit$par
+    upper[k] <- upper[k] + h; lower[k] <- lower[k] - h
+    fit_upper <- gmm_fit(upper, use_supply)
+    fit_lower <- gmm_fit(lower, use_supply)
+    y_upper <- fit_upper$delta + exp(upper[1] + upper[2]^2 / 2) * price
+    y_lower <- fit_lower$delta + exp(lower[1] + lower[2]^2 / 2) * price
+    G[seq_len(qd), k + 2] <- crossprod(Z_d, vec(y_upper - y_lower)) / (2 * h * N)
+    if (use_supply) {
+      G[qd + seq_len(qs), k + 2] <-
+        crossprod(Z_s, vec(log(fit_upper$mc) - log(fit_lower$mc))) / (2 * h * N)
+    }
+  }
+  cluster_moments <- rowsum(moment, rep(seq_len(Tn), each = J))
+  cluster_moments <- sweep(cluster_moments, 2, colMeans(cluster_moments), "-")
+  Vg <- crossprod(cluster_moments) / N^2 * Tn / (Tn - 1)
+  bread <- solve(t(G) %*% weight %*% G)
+  V <- bread %*% t(G) %*% weight %*% Vg %*% weight %*% G %*% bread
+  list(se = sqrt(diag(V)), vcov = V)
+}
+```
+
+```{r}
+gmm_fit <- function(par, use_supply = FALSE) {
+  a <- par[1]; sigma <- par[2]
+  inverted <- invert_shares(S_obs, price, a, sigma, nu)
+  delta <- inverted$delta
+  mean_alpha <- exp(a + sigma^2 / 2)
+  # delta + E[alpha]*p = beta0 + beta_x*x + xi
+  demand <- linear_gmm(vec(delta + mean_alpha * price), X_d, Z_d, W_d)
+  fit <- list(par = setNames(par, c("a", "sigma")), beta = demand$coef,
+              delta = delta, xi = demand$residual, Qd = demand$Q,
+              Q = demand$Q / scale_d, inversion_error = inverted$error)
+  predicted <- rc_all(delta, price, a, sigma, nu)
+  # 各社が1商品を所有するとき、markup = -s / (ds/dp)。
+  fit$mc <- price + S_obs / predicted$own_slope
+  if (any(fit$mc <= 0)) {
+    if (use_supply) fit$Q <- 1e6 + sum(pmin(fit$mc, 0)^2)
+    return(fit)
+  }
+  supply <- linear_gmm(vec(log(fit$mc)), X_s, Z_s, W_s)
+  fit$gamma <- supply$coef
+  fit$omega <- supply$residual
+  fit$Qs <- supply$Q
+  if (use_supply) fit$Q <- fit$Q + supply$Q / scale_s
+  fit
+}
+# 開始点を複数試し、目的関数が最も小さい結果を使う。
+estimate_model <- function(use_supply = FALSE) {
+  starts <- list(c(0.1, 0.4), c(0.4, 0.9))
+  runs <- lapply(starts, function(initial) {
+    optim(initial, function(par) gmm_fit(par, use_supply)$Q,
+          method = "L-BFGS-B", lower = c(-0.4, 0.05), upper = c(1, 1.3),
+          control = list(factr = 1e7, pgtol = 1e-7))
+  })
+  best <- runs[[which.min(sapply(runs, function(z) z$value))]]
+  result <- gmm_fit(best$par, use_supply)
+  result$convergence <- best$convergence
+  result
+}
+fit_d <- estimate_model(FALSE)
+inference_d <- cluster_se(fit_d)
+mean_alpha_d <- exp(fit_d$par[1] + fit_d$par[2]^2 / 2)
+gradient_mean <- c(0, 0, mean_alpha_d, mean_alpha_d * fit_d$par[2])
+se_mean_alpha <- sqrt(as.numeric(t(gradient_mean) %*% inference_d$vcov %*% gradient_mean))
+demand_parameters <- data.frame(
+  parameter = c("beta0", "beta_x", "a", "sigma", "mean_alpha"),
+  truth = c(theta_true[c("beta0", "beta_x", "a", "sigma")],
+              exp(theta_true["a"] + theta_true["sigma"]^2 / 2)),
+  estimated = c(fit_d$beta, fit_d$par, mean_alpha_d),
+  std_error = c(inference_d$se, se_mean_alpha))
+```
+
+```{r}
+# 需要だけの推定値から誤差分散を見積もり、重みを固定する。
+stopifnot(all(fit_d$mc > 0))
+scale_d <- mean(fit_d$xi^2)
+scale_s <- mean(fit_d$omega^2)
+fit_joint <- estimate_model(TRUE)
+inference_joint <- cluster_se(fit_joint, TRUE)
+joint_parameters <- data.frame(
+  parameter = c("beta0", "beta_x", "a", "sigma", "gamma0", "gamma_x", "gamma_w"),
+  truth = as.vector(theta_true),
+  demand_only = c(fit_d$beta, fit_d$par, NA, NA, NA),
+  joint = c(fit_joint$beta, fit_joint$par, fit_joint$gamma),
+  std_error = inference_joint$se)
+```
+
+以下の表では、需要だけを使った推定と、費用側の条件も加えた推定を比べる。推定値が真値とぴったり一致する必要はない。有限標本では、外生変数とショックの標本相関がちょうどゼロになるわけではないからである。積分の近似と数値最適化による誤差もある。
+
+```{r}
+knitr::kable(joint_parameters, digits = 3,
+  col.names = c("パラメータ", "真値", "需要のみ", "共同推定", "共同推定の標準誤差"),
+  caption = "同じデータによる需要のみの推定と共同推定")
+stopifnot(fit_d$convergence == 0, fit_joint$convergence == 0,
+          all(fit_joint$mc > 0))
+```
+
+標準誤差は前半と同じく、市場を単位にしたクラスタ標準誤差である。需要だけの推定欄には費用係数を載せていない。前半の反実仮想では、費用関数の推定を使わなかったためである。
+```{r}
+#| fig-cap: "破線は真値と推定値が等しい場所。真の費用は推定には使わず、答え合わせに用いている。"
+cost_recovery <- data.frame(truth = vec(mc_true), estimated = vec(fit_joint$mc))
+ggplot(cost_recovery, aes(truth, estimated)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(alpha = 0.45, color = "#1f77b4") +
+  coord_equal() +
+  labs(x = "限界費用の真値", y = "共同推定から逆算した限界費用",
+       title = "限界費用をどれくらい回収できたか")
+```
+
+::: {.callout-tip}
+## 実証研究コーナー：Berry, Levinsohn and Pakes (1995) — 需要と費用の共同推定
+
+Berry, Levinsohn and Pakes (1995)は、1971–1990年の米国自動車市場について、2,217件の車種・年の観測を使い、需要と費用のパラメータを共同推定した。市場シェアと価格、車の属性に、所得分布などの情報を組み合わせた分析である。消費者の好みだけでなく、自動車メーカーの価格設定と費用も説明するモデルになっている。
+
+自財や他財の外生的な属性から作った操作変数を使い、需要ショックと費用ショックについてのモーメントを合わせる。論文では、需要だけを別に推定すると点推定は大きく変わらなかった一方、標準誤差が大きくなったことも報告している。費用を知るために供給側を加えることと、その情報によって需要の推定も助けられることの両方が分かる例である。[原論文 pp.869, 875・脚注29](https://www.its.caltech.edu/~mshum/gradio/papers/BerryLevinsohnPakes1995.pdf)
+:::
+
+
+## 5. 投入価格が下がったら、販売価格はどう変わるか
+
+### 5.1 反実仮想で変えるものを決める
+
+ここからは、需要と費用を一緒に推定した結果を使う。対象は前半と同じ第1市場である。3社がそれぞれ1財を販売する所有関係を保ち、全商品の投入価格指数を20%下げてみよう。商品の属性、需要ショック、消費者の好み、費用ショックは固定する。
+
+投入価格指数を0.8倍にするので、対数で書いた変数の変化は
+
+$$
+w_j^{\mathrm{new}}-w_j^{\mathrm{base}}=\log(0.8)
+$$
+
+である。基準時点で逆算した限界費用を使うと、新しい費用は
+
+$$
+\begin{aligned}
+\log mc_j^{\mathrm{new}}
+&=\hat\gamma_0+\hat\gamma_x x_j
++\hat\gamma_w\{w_j^{\mathrm{base}}+\log(0.8)\}
++\hat\omega_j,\\
+mc_j^{\mathrm{new}}
+&=mc_j^{\mathrm{base}}\exp\{\hat\gamma_w\log(0.8)\}.
+\end{aligned}
+$$
+
+**$\hat\omega_j$ を固定して残す**ところが重要である。これをゼロにすると、投入価格だけでなく、その商品固有の生産性まで同時に変えたことになる。基準時点の費用を再現した上で、今回動かしたい変数だけを変えよう。
+
+この計算には、費用関数の係数が反実仮想でも使えるという仮定がある。投入価格が下がると生産技術や品質まで変わるのであれば、その変化もモデルに加える必要がある。
+
+### 5.2 新しい費用で、価格の均衡を解き直す
+
+費用が決まったら、前半と同じ価格設定の式を使う。
+
+$$
+p^{\mathrm{new}}=mc^{\mathrm{new}}
++\Delta(p^{\mathrm{new}};\hat\theta_D,\Omega^{\mathrm{base}})^{-1}
+ s(p^{\mathrm{new}};\hat\theta_D).
+$$
+
+右辺のマークアップは価格に依存するので、費用の変化を観測価格に足すだけでは終わらない。新しい価格では、購入する消費者の構成も競合商品のシェアも変わる。全社の価格設定条件が再び成立するように、価格を解き直す。
+
+```{r}
+p_pre <- price[1, ]
+a_s <- fit_joint$par[1]; sigma_s <- fit_joint$par[2]
+quality_s <- fit_joint$delta[1, ] + exp(a_s + sigma_s^2 / 2) * p_pre
+mc_base <- p_pre - markup_at(p_pre, groups_pre, quality_s, a_s, sigma_s, nu)
+# w は投入価格指数の対数。元の費用ショックomegaは固定する。
+delta_w <- log(0.8)
+mc_new <- mc_base * exp(fit_joint$gamma[3] * delta_w)
+eq_cost <- solve_prices(mc_new, groups_pre, quality_s, a_s, sigma_s, nu, p_pre)
+p_cost <- eq_cost$p
+s_base <- rc_market(p_pre, quality_s, a_s, sigma_s, nu)$s
+s_cost <- rc_market(p_cost, quality_s, a_s, sigma_s, nu)$s
+cost_tbl <- data.frame(product = paste0("財", seq_len(J)),
+  cost_pre = mc_base, cost_post = mc_new,
+  price_pre = p_pre, price_post = p_cost,
+  pass_through = (p_cost - p_pre) / (mc_new - mc_base),
+  quantity_pre = 10000 * s_base, quantity_post = 10000 * s_cost,
+  profit_pre = 10000 * (p_pre - mc_base) * s_base,
+  profit_post = 10000 * (p_cost - mc_new) * s_cost)
+outcomes_cost <- data.frame(
+  outcome = c("販売数量の合計", "企業利潤の合計", "消費者余剰"),
+  before = market_outcomes(p_pre, mc_base, quality_s, a_s, sigma_s, nu),
+  after = market_outcomes(p_cost, mc_new, quality_s, a_s, sigma_s, nu))
+outcomes_cost$change <- outcomes_cost$after - outcomes_cost$before
+```
+
+```{r}
+knitr::kable(cost_tbl[, c("product", "cost_pre", "cost_post", "price_pre", "price_post")],
+  digits = 3, col.names = c("商品", "元の費用", "新しい費用", "元の価格", "新しい価格"))
+stopifnot(eq_cost$error < 1e-6)
+```
+
+この例の費用弾力性の推定値は約0.60なので、投入価格20%低下による限界費用の低下は約12.5%となった。販売価格も下がるが、その下がり幅は商品によって違う。
+
+
+### 5.3 費用の変化はどれだけ価格に反映されるか
+
+費用が1単位下がったとき価格が何単位下がるかを、**転嫁（pass-through）**として測る。この例では全商品の費用を同時に動かしているので、商品 $j$ の価格変化と費用変化の比を
+
+$$
+\frac{p_j^{\mathrm{new}}-p_j^{\mathrm{base}}}
+{mc_j^{\mathrm{new}}-mc_j^{\mathrm{base}}}
+$$
+
+で計算する。これは今回の有限な費用変更に沿った比率であり、他商品の費用を固定した偏微分 $\partial p_j/\partial mc_j$ とは区別する。費用と価格の両方が下がれば、分子・分母がともに負になるので比率は正になる。
+
+例えば比率が0.6なら、費用が1円下がる変化に対して価格は0.6円下がった、という意味である。需要の形や競争状態によっては1を超えることもあるため、0と1の間の「割合」だと決めつけないようにしよう。
+
+```{r}
+#| fig-cap: "同時に全商品の費用が下がるので、競合の値下げも各社の価格設定に影響する。"
+change_plot <- data.frame(
+  product = rep(cost_tbl$product, 2),
+  series = rep(c("限界費用", "販売価格"), each = J),
+  change = c(mc_new - mc_base, p_cost - p_pre))
+ggplot(change_plot, aes(product, change, fill = series)) +
+  geom_col(position = "dodge", width = 0.65) +
+  scale_fill_manual(values = c("限界費用" = "grey60", "販売価格" = "#1f77b4")) +
+  labs(x = NULL, y = "基準時点からの変化（金額）", fill = NULL,
+       title = "投入価格20%低下による費用と販売価格の変化") +
+  theme(legend.position = "top")
+knitr::kable(cost_tbl[, c("product", "pass_through")], digits = 3,
+  col.names = c("商品", "価格変化／限界費用変化"))
+```
+
+今回の比率はどの商品でも1を超える。これを「自社の費用が1円下がれば、常に1円以上値下げする」と読むことはできない。競合の費用も一緒に変わっているからである。異なる投入価格の水準でも均衡を計算して、価格がどう動くかを見てみよう。
+
+```{r}
+#| fig-cap: "各点で全商品の限界費用を更新し、価格の均衡を解き直している。"
+input_ratios <- seq(0.6, 1.2, by = 0.05)
+price_path <- do.call(rbind, lapply(input_ratios, function(ratio) {
+  cost_try <- mc_base * exp(fit_joint$gamma[3] * log(ratio))
+  solved <- solve_prices(cost_try, groups_pre, quality_s, a_s, sigma_s, nu, p_pre)
+  data.frame(input_ratio = ratio, product = cost_tbl$product, price = solved$p)
+}))
+ggplot(price_path, aes(input_ratio, price, color = product)) +
+  geom_line(linewidth = 0.9) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey60") +
+  labs(x = "投入価格指数（基準時点を1とする）", y = "均衡価格", color = NULL,
+       title = "投入価格を動かしたときの販売価格") +
+  theme(legend.position = "top")
+```
+
+販売数量は市場の人数 $M$ にシェアを掛けた $q_j=Ms_j$、利潤は $(p_j-mc_j)q_j$ として計算する。ここでの利潤には固定費を含めていない。消費者余剰の変化は前半と同じく、各消費者のlogsumの差をその人の価格係数 $\alpha_i$ で割り、平均して1人あたりの変化を求める。表ではこれに市場の人数 $M$ を掛け、市場全体の値を示す。費用の低下が企業と消費者にどのように配分されるかを、価格だけでなく数量と余剰も見ながら確認しよう。
+
+```{r}
+knitr::kable(cost_tbl[, c("product", "quantity_pre", "quantity_post", "profit_pre", "profit_post")],
+  digits = 1, col.names = c("商品", "元の数量", "新しい数量", "元の利潤", "新しい利潤"))
+knitr::kable(outcomes_cost, row.names = FALSE, digits = 1,
+  col.names = c("指標", "変更前", "変更後", "変化"))
+```
+
+合計の販売数量と消費者余剰は増えているが、財2の販売数量と利潤は減っている。自分の商品が値下がりしても、他の商品も値下がりするため、自分の需要が必ず増えるとは限らない。
+
+```{r}
+#| fig-cap: "全商品の費用が下がっても、各商品の数量と利潤が同じ方向に動くとは限らない。"
+outcome_changes <- data.frame(
+  product = rep(cost_tbl$product, 2),
+  measure = rep(c("販売数量", "利潤"), each = J),
+  change_pct = c(100 * (s_cost / s_base - 1),
+    100 * (cost_tbl$profit_post / cost_tbl$profit_pre - 1)))
+ggplot(outcome_changes, aes(product, change_pct)) +
+  geom_hline(yintercept = 0, color = "grey60") +
+  geom_col(fill = "#1f77b4", width = 0.6) +
+  facet_wrap(~measure) +
+  labs(x = NULL, y = "変化率（%）", title = "数量と利潤の変化を商品別に見る")
+```
+
+::: {.callout-note}
+## ビジネスの現場で：合併による費用削減と値上げ圧力
+
+前半では所有関係だけを変え、今回は費用だけを変えた。合併によって配送網も統合されるなら、この2つを同時に変えることになる。所有関係の変化は値上げの誘因を生む一方、限界費用の低下は値下げにつながりうる。どちらが大きいかは数値を入れて計算する必要がある。ただし、「合併で費用が何%下がる」という数字そのものを、需要推定が教えてくれるわけではない。配送距離がどう変わるかなど、費用削減の根拠となる情報を別に用意する必要がある。
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Nakamura and Zerom (2010) — コーヒー豆が高くなると、商品価格はどれだけ上がるか
+
+Nakamura and Zerom (2010)は、コーヒー豆の原料費の変化が、卸価格と小売価格にどれだけ反映されるかを分析した。米国のコーヒー市場の価格・販売数量と原料費の時系列を使い、需要と企業の価格設定をモデル化している。長期の価格反応を推定すると、原料費が1%上がったとき、小売価格は約0.25%、卸価格は約0.26%上がるという結果だった。
+
+長期の転嫁が不完全なのは、原料以外の費用やマークアップの調整による。価格改定の遅れは、費用変化が価格に反映されるまでの時間にも関わる。今回の静学モデルは同論文のすべての要素を扱うものではないが、原料費の変化と限界費用の変化を分け、その後に販売価格を計算する必要性を示している。[論文 p.1199, Table 1](https://eminakamura.com/papers/passthrough_dynamic.pdf)
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Ashenfelter, Hosken and Weinberg (2015) — 合併と輸送費の削減
+
+MillerとCoorsの事業統合では、市場集中が進む一方、近くの醸造所を利用して輸送費を削減できる可能性もあった。Ashenfelter, Hosken and Weinberg (2015)は、地域による集中度と輸送距離の変化の違いを使い、この2つの影響を調べた。
+
+平均的な集中度の上昇には約2%の値上げ効果があり、平均ではそれとほぼ同程度の効率化による値下げ効果が相殺したと報告している。すべての地域で両者が同じ大きさだった、という意味ではない。この研究は今回の共同GMMをそのまま実施した例ではなく、費用削減の根拠をデータから調べる例である。所有関係と費用の両方が動く場合に、どちらの変化も無視できないことを示している。[掲載論文](https://onlinelibrary.wiley.com/doi/abs/10.1111/1756-2171.12092)
+:::
+
+
+## 6. 供給側の情報は、需要の推定にも使える
+
+今回、費用関数を推定した主な目的は、投入価格が変わる反実仮想を行うことだった。もう一つの利点は、供給側の条件が需要のパラメータにも制約を加えることである。
+
+例えば、需要だけのモーメントでは、価格への反応が弱い候補と強い候補を十分に区別できないとする。弱い反応を仮定すれば、観測価格を説明するマークアップは大きくなり、逆算した費用は低くなる。その費用が投入価格と整合的に動かず、費用残差が操作変数と相関するなら、その候補は供給側の条件に合わない。
+
+前半の最後に見たmicro BLPでは、「どんな人が何を買ったか」を追加の情報にした。ここでは「どんな需要なら、企業の価格設定と費用の変動を同時に説明できるか」を追加の情報にしている。どちらも需要の推定を助けうるが、使っているデータと仮定は異なる。
+
+```{r}
+#| fig-cap: "同じ標本での比較。追加した条件が正しいという仮定のもとで解釈する。"
+se_comparison <- data.frame(
+  parameter = rep(c("beta0", "beta_x", "a", "sigma"), 2),
+  method = rep(c("需要のみ", "需要＋供給"), each = 4),
+  estimate = c(fit_d$beta, fit_d$par, fit_joint$beta, fit_joint$par),
+  se = c(inference_d$se, inference_joint$se[1:4]))
+ggplot(se_comparison, aes(method, estimate, color = method)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = estimate - 1.96 * se, ymax = estimate + 1.96 * se), width = 0.15) +
+  facet_wrap(~parameter, scales = "free_y") +
+  labs(x = NULL, y = "推定値と近似95%信頼区間", color = NULL,
+       title = "供給側の条件を加えたときの需要推定") +
+  theme(legend.position = "none")
+```
+
+この標本では、供給側を加えた推定の標準誤差は小さくなった。
+
+供給側の条件を加えれば、どんな標本でも推定値が真値に近づく、というわけではない。また、計算が収束したことは、企業行動の仮定が正しいことの証明にはならない。企業が価格を協調して決めているのに独立した価格設定を仮定したり、費用関数から重要な変数を落としたりすると、その誤りが需要の推定にも伝わる。需要だけの推定と比較することにも意味がある。
+
+::: {.callout-important}
+## まとめ
+
+- 推定した需要と価格設定条件から、現在の限界費用を逆算できる。費用の決まり方を推定することは、さらに一歩先の作業である。
+- 費用関数を加えると、投入価格や輸送条件が変わったときの限界費用を予測できる。
+- 需要側の条件は $E[Z^D\xi]=0$、費用側の条件は $E[Z^S\omega]=0$ である。何に対して外生と仮定しているかを区別する。
+- 同時推定では、同じ需要パラメータを使ってシェアとマークアップを計算し、需要と費用の両方のモーメントを合わせる。
+- 反実仮想では、投入価格から費用への変化を求め、その費用で価格の均衡を解き直す。基準時点の需要・費用ショックは保持する。
+- 供給側の情報は需要パラメータの絞り込みにも役立つ。ただし、追加する企業行動と費用の仮定の妥当性も必要になる。
+:::
+
+## 宿題
+
+1. 投入価格指数の変化を20%低下から10%低下に変えてみよう。費用の変化、価格の変化、転嫁の比率はどう違うか。
+2. 全商品の投入価格を下げる代わりに、財1だけ下げてみよう。財2・財3の費用は変わらなくても、価格は変わるだろうか。
+3. 財1と財2が合併する場合について、費用削減なしの場合と、当事者の投入価格が下がる場合を比べよう。非当事者の価格と消費者余剰にも注目する。
+4. 自分の関心のある産業で、需要ショック $\xi$ と費用ショック $\omega$ の例を1つずつ挙げよう。需要側では外生でも、費用側では外生と考えにくい変数はあるだろうか。
+
+需要推定と合併分析のcoding課題は [課題4](assignment4.html)を参照。上の費用変化の実験は、このノートのコードを使った追加の復習課題である。
+
+## 次回予告
+
+第5回は、公正取引委員会の方をお招きするゲスト講義である。Lecture 4では、企業結合による所有関係の変化と、投入価格による費用の変化を分けて計算した。実際の合併審査では、需要の推定、競争の仮定、効率化の根拠がどのように評価されるのかを考えながら聞いてみよう。その後の第6回では、選好を測るためのデータを自分で設計するコンジョイント分析を扱う。
+
+[Lecture 4 前半へ戻る](lecture4.html) ／ [講義一覧](../index.html)
+
+## 参考文献
+
+- Berry, S., Levinsohn, J., and Pakes, A. (1995). "Automobile Prices in Market Equilibrium." *Econometrica*, 63(4), 841–890.
+- Conlon, C. and Gortmaker, J. (2020). "Best Practices for Differentiated Products Demand Estimation with PyBLP." *The RAND Journal of Economics*, 51(4), 1108–1161. [著者の資料](https://chrisconlon.github.io/site/pyblp.pdf)
+- Conlon, C. "Graduate Industrial Organization." [講義資料一覧](https://chrisconlon.github.io/gradio.html)
+- PyBLP documentation. [Background: Supply and Estimation](https://pyblp.readthedocs.io/en/stable/background.html), [均衡価格の計算](https://pyblp.readthedocs.io/en/stable/_api/pyblp.ProblemResults.compute_prices.html).
+- Nakamura, E. and Zerom, D. (2010). "Accounting for Incomplete Pass-Through." *The Review of Economic Studies*, 77(3), 1192–1230. [著者版](https://eminakamura.com/papers/passthrough_dynamic.pdf)
+- Ashenfelter, O. C., Hosken, D. S., and Weinberg, M. C. (2015). "Efficiencies Brewed: Pricing and Consolidation in the US Beer Industry." *The RAND Journal of Economics*, 46(2), 328–361. [論文](https://onlinelibrary.wiley.com/doi/abs/10.1111/1756-2171.12092)
