@@ -1,5 +1,5 @@
 ---
-title: "Playground 10：顧客ベース分析の実験室"
+title: "Playground 10：個人の不確実性とクーポン配分"
 subtitle: "計量経済学II（ブラウザ上でRが動きます）"
 author: "Kei Ikegami"
 lang: ja
@@ -25,275 +25,102 @@ webr:
 ::: {.callout-important}
 ## このページの使い方
 
-- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
-- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
-- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
-- 元ネタは講義ノート（`lecture10.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+コードの数字を変えて実行すると、グラフや表が変わる。ここでは計算を軽くするため、個人の $\theta_i$ の事後分布を正規分布で近似した例を入力する。実際に履歴から推定するコードと結果は[講義ノート](lecture10.html)にある。このページの入力分布は、講義のMCMC結果そのものではない。
+
+最初の共通コードを実行した後、各実験の数字を変えてみよう。
 :::
 
 ```{webr}
-#| edit: false
-#| output: false
+#| label: targeting-tools
 #| autorun: true
-#| timelimit: 120
-# ---- 共通の道具箱（講義ノートと同じ関数群。編集不可・自動実行）----
-
-# BG/NBDのDGP：1顧客の購買イベント時刻を生成する
-# 生きている間はrate=lambdaのPoisson過程で購買し、各購買の直後に確率p_dropで離脱する
-simulate_customer_events <- function(lambda, p_drop, T) {
-  t <- 0
-  events <- c()
-  repeat {
-    wait <- rexp(1, rate = lambda)
-    t_next <- t + wait
-    if (t_next > T) break
-    t <- t_next
-    events <- c(events, t)
-    if (runif(1) < p_drop) break
-  }
-  events
-}
-
-# N人の顧客ベースを生成し、(x, t_x) に要約する
-simulate_customer_base <- function(N, r, alpha, a, b, T) {
-  lambda <- rgamma(N, shape = r, rate = alpha)
-  p <- rbeta(N, a, b)
-  x <- numeric(N); tx <- numeric(N)
-  for (i in 1:N) {
-    ev <- simulate_customer_events(lambda[i], p[i], T)
-    x[i] <- length(ev)
-    tx[i] <- if (length(ev) == 0) 0 else max(ev)
-  }
-  data.frame(x = x, tx = tx, lambda = lambda, p = p)
-}
-
-# logsumexp: log(exp(a) + exp(b)) を数値的に安定に計算する
-logsumexp2 <- function(log_a, log_b) {
-  m <- pmax(log_a, log_b)
-  m + log(exp(log_a - m) + exp(log_b - m))
-}
-
-# BG/NBDの対数尤度（ベクトル化。x, tx, Tは同じ長さのベクトル）
-# 第1項 = Tまで生きている経路、第2項 = t_xで離脱していた経路（x>0のときだけ）
-bgnbd_loglik <- function(r, alpha, a, b, x, tx, T) {
-  ln_Bab <- lbeta(a, b)
-  ln_A0 <- lbeta(a, b + x) - ln_Bab +
-    lgamma(r + x) - lgamma(r) +
-    r * log(alpha) - (r + x) * log(alpha + T)
-  ln_A1 <- rep(-Inf, length(x))
-  idx <- x > 0
-  ln_A1[idx] <- lbeta(a + 1, b + x[idx] - 1) - ln_Bab +
-    lgamma(r + x[idx]) - lgamma(r) +
-    r * log(alpha) - (r + x[idx]) * log(alpha + tx[idx])
-  logsumexp2(ln_A0, ln_A1)
-}
-
-# optimに渡す負の対数尤度。log変換した(r, alpha, a, b)を受け取る（正値制約を外すため）
-neg_loglik_bgnbd <- function(theta_log, x, tx, T) {
-  params <- exp(theta_log)
-  -sum(bgnbd_loglik(params[1], params[2], params[3], params[4], x, tx, T))
-}
-
-# P(alive)の閉形式（x=0のときは常に1）
-palive_bgnbd <- function(r, alpha, a, b, x, tx, T) {
-  ratio <- (alpha + T) / (alpha + tx)
-  term <- ifelse(x > 0, (a / (b + x - 1)) * ratio^(r + x), 0)
-  1 / (1 + term)
-}
-
-theme_set(theme_minimal(base_size = 13))
-```
-
-## 実験1：BG/NBDの4つのツマミ — 顧客ベースの形を決める
-
-BG/NBDは、顧客ベース全体の姿をたった4つの数で記述する。$r, \alpha$ が個人の購買率 $\lambda_i$ のGamma分布を、$a, b$ が離脱確率 $p_i$ のBeta分布を決める。
-
-$$
-x_i \mid \lambda_i \sim \text{Poisson}(\lambda_i T), \qquad \lambda_i \sim \text{Gamma}(r, \alpha), \qquad p_i \sim \text{Beta}(a, b)
-$$
-
-なお、この回の $\alpha$ はGamma分布の**rateパラメータ（scaleではない）**であり、第2〜4回の需要推定で使った価格係数 $\alpha$ とは無関係である。4つのツマミを回して、購買回数の分布がどう変形するかを体感しよう。
-
-```{webr}
-#| timelimit: 90
-# ---- いじるのはここ ----
-r     <- 0.8   # 購買率lambdaのGamma分布：形状（講義の真値）
-alpha <- 6     # 購買率lambdaのGamma分布：rate（大きいほど購買率が低い）
-a     <- 0.7   # 離脱確率pのBeta分布
-b     <- 2.5   # 離脱確率pのBeta分布
-# -----------------------
-
+#| echo: false
+library(ggplot2)
 set.seed(202610)
-N <- 2000      # 顧客数
-T_obs <- 52    # 観測期間（週）
-base <- simulate_customer_base(N, r, alpha, a, b, T_obs)
-
-cat("平均購買率 E[lambda] = r/alpha =", round(r / alpha, 4), "回/週\n")
-cat("平均離脱確率 E[p] = a/(a+b) =", round(a / (a + b), 4), "\n")
-cat("購買回数xの平均 =", round(mean(base$x), 2),
-    "/ x=0の顧客の割合 =", round(mean(base$x == 0), 3), "\n")
-
-ggplot(base, aes(x = x)) +
-  geom_histogram(binwidth = 1, center = 0, fill = "#4C72B0", color = "white") +
-  labs(x = "purchases in the observation window (x)", y = "number of customers")
-```
-
-::: {.callout-note}
-## やってみよう
-
-- `alpha <- 1.5; r <- 0.2` にしてみよう。平均購買率 $r/\alpha$ はほぼ元のまま（約0.133）なのに、x=0の山と右の尻尾が**同時に**膨らむ。平均が同じでも、異質性の大きさが分布の形を決める——これが過分散の正体。
-- `a <- 2; b <- 1`（平均離脱確率 $a/(a+b) = 2/3$ の「離脱が早い市場」）にすると、分布のどこが削れるか。元の値と見比べよう。
-- 問い：ヘビーユーザーの尻尾を最も素直に伸ばすツマミは4つのうちどれか。仮説を立ててから、1つずつ動かして検証しよう。
-:::
-
-## 実験2：P(alive)の直感 — 沈黙は何のシグナルか
-
-パラメータが手に入れば、顧客ごとの $(x, t_x, T)$ という3つの数字だけから「この顧客はまだ生きているか」の確率が閉形式で計算できる。$x > 0$ のとき
-
-$$
-P(\text{alive} \mid x, t_x, T) = \left[ 1 + \frac{a}{b+x-1} \left( \frac{\alpha+T}{\alpha+t_x} \right)^{r+x} \right]^{-1}
-$$
-
-であり、$x = 0$ のときは常に1とする（一度も買っていない顧客に「離脱した」という証拠は存在しない）。1人の顧客のプロフィールをいじって、判定がどう動くかを見よう。
-
-```{webr}
-#| timelimit: 90
-# ---- いじるのはここ ----
-x     <- 5    # 観測期間中の購買回数
-tx    <- 40   # 最終購買時点（週）
-T_obs <- 52   # 観測期間の長さ（週）
-r <- 0.8; alpha <- 6; a <- 0.7; b <- 2.5  # モデルのパラメータ（実験3の推定値を貼ってもよい）
-# -----------------------
-
-p_alive <- palive_bgnbd(r, alpha, a, b, x, tx, T_obs)
-cat("この顧客：購買", x, "回 / 最終購買", tx, "週 / 観測", T_obs,
-    "週（沈黙", T_obs - tx, "週間）\n")
-cat("P(alive) =", round(p_alive, 4), "\n")
-
-tx_grid <- seq(0, T_obs, by = 0.5)
-curve_df <- data.frame(tx_val = tx_grid,
-                       palive = palive_bgnbd(r, alpha, a, b, x, tx_grid, T_obs))
-
-ggplot(curve_df, aes(tx_val, palive)) +
-  geom_line(color = "#4C72B0", linewidth = 1) +
-  geom_point(data = data.frame(tx_val = tx, palive = p_alive),
-             color = "#C44E52", size = 3) +
-  annotate("text", x = tx, y = p_alive, label = "this customer",
-           vjust = -1.2, color = "#C44E52") +
-  ylim(0, 1) +
-  labs(x = "time of last purchase t_x (weeks)", y = "P(alive)")
-```
-
-::: {.callout-note}
-## やってみよう
-
-- `tx <- 40` のまま、`x <- 2` と `x <- 20` でP(alive)を比べよう。同じ12週間の沈黙が、ライトユーザーには「いつも通り」、ヘビーユーザーには「ほぼ死亡宣告」になることを数値で確認する。「たくさん買っていた顧客ほど、沈黙が続くと死亡判定が早い」のである。
-- `x <- 20` のまま `tx <- 52`（観測終了の直前に購買）にすると、P(alive)はほぼ1に戻るか。曲線の右端の跳ね上がり方を、xを変えながら見比べよう。
-- 問い：なぜ頻繁に買う顧客ほど同じ長さの沈黙が強い離脱シグナルになりうるのか。多い購買回数が$\lambda$と$p$の事後分布をそれぞれどう更新し、「生存したまま沈黙」と「最後の購買後に離脱」の相対尤度をどう変えるか説明してみよう。
-:::
-
-## 実験3：自作MLEの真値回収 — 観測期間はどれだけ必要か
-
-講義の核心手順の再演。自分で決めた真値から顧客ベースを生成し、自作の対数尤度を`optim()`で最大化して、真値が戻ってくるかを確かめる。尤度は「Tまで生きている経路」と「$t_x$ で死んでいた経路」の確率の和で、$(x, t_x, T)$ だけで書ける。ここでは$T$が全顧客で共通なので、顧客間で変わる十分な要約はRFMのRとFになる、という講義の主張をコードで確認する場面でもある。
-
-```{webr}
-#| timelimit: 90
-# ---- いじるのはここ ----
-r_true <- 0.8; alpha_true <- 6; a_true <- 0.7; b_true <- 2.5  # 真値（講義と同じ）
-N     <- 1000   # 顧客数（2000までにしておこう）
-T_cal <- 52     # 観測期間（週）。26に半分にすると？
-# -----------------------
-
-set.seed(202610)
-base <- simulate_customer_base(N, r_true, alpha_true, a_true, b_true, T_cal)
-
-opt <- optim(
-  par = log(c(r = 1, alpha = 1, a = 1, b = 1)),
-  fn = neg_loglik_bgnbd,
-  x = base$x, tx = base$tx, T = rep(T_cal, N),
-  method = "L-BFGS-B",
-  hessian = TRUE
-)
-
-theta_hat <- exp(opt$par)
-se <- theta_hat * sqrt(diag(solve(opt$hessian)))  # delta法：logスケールのSEを元のスケールへ
-
-data.frame(
-  parameter = c("r", "alpha", "a", "b"),
-  true_value = c(r_true, alpha_true, a_true, b_true),
-  estimate = round(theta_hat, 4),
-  se = round(se, 4),
-  ci_low = round(theta_hat - 1.96 * se, 4),
-  ci_high = round(theta_hat + 1.96 * se, 4)
-)
-```
-
-::: {.callout-note}
-## やってみよう
-
-- `T_cal <- 26` に半分にしてみよう。4つのパラメータのうち、SEの膨らみ方が一番激しいのはどれか。真値が信頼区間から外れる場面も出てくるはずだ。
-- `N <- 2000` に倍増するとSEはおよそ $1/\sqrt{2}$ 倍に縮むか。あわせて `set.seed(1)` などseedを変えて、推定値のブレ幅も体感しよう。
-- 問い：この設定で離脱パラメータ $a, b$ の推定が購買率パラメータ $r, \alpha$ より難しくなりやすいのはなぜか。離脱は直接観測されず、最終購買後の沈黙から間接的に推定していることを手がかりに考えよう。
-:::
-
-## 実験4：将来予測のevent tree — 購買のたびに離脱判定する
-
-calibration終了時点で生存している経路では、
-
-$$
-\lambda\mid x,T,\mathrm{alive}\sim\mathrm{Gamma}(r+x,\mathrm{rate}=\alpha+T),\qquad
-p\mid x,\mathrm{alive}\sim\mathrm{Beta}(a,b+x)
-$$
-
-となる。1本の将来パスは「T時点で死亡なら0、生存なら待ち時間を引く → 期間内なら購買 → 購買直後に離脱判定 → 生存なら次の待ち時間」という小さなevent treeである。
-
-```{webr}
-#| timelimit: 90
-# ---- いじるのはここ ----
-x <- 5; tx <- 40; T_obs <- 52
-H <- 26; S <- 1000                # 予測期間Hも週
-r <- 0.8; alpha <- 6; a <- 0.7; b <- 2.5
-# -----------------------
-
-set.seed(202610)
-p_alive <- palive_bgnbd(r, alpha, a, b, x, tx, T_obs)
-lambda_post <- rgamma(S, shape = r + x, rate = alpha + T_obs)
-p_post <- rbeta(S, shape1 = a, shape2 = b + x)
-alive_at_T <- runif(S) < p_alive
-
-correct_counts <- numeric(S)
-for (s in seq_len(S)) {
-  if (!alive_at_T[s]) next
-  # 共通道具箱の関数は、各購買直後に確率p_post[s]で離脱させる
-  correct_counts[s] <- length(simulate_customer_events(lambda_post[s], p_post[s], H))
+# 正規分布の等確率点で積分する。乱数による揺れを避ける。
+nodes <- qnorm((seq_len(1000)-.5)/1000)
+qA <- function(theta,coupon,pA=12,pB=12) {
+ vA <- 1.6-exp(theta)*(pA-coupon)
+ vB <- .8-exp(theta)*pB
+ vmax <- pmax(0,vA,vB)
+ exp(vA-vmax)/(exp(-vmax)+exp(vA-vmax)+exp(vB-vmax))
 }
-
-# 比較用の誤った近似：Tで生存ならH週ずっと生存すると仮定
-no_future_dropout <- ifelse(alive_at_T, rpois(S, lambda_post * H), 0)
-
-cat("P(alive at T) =", round(p_alive, 3), "\n")
-cat("追加離脱ありの予測平均 =", round(mean(correct_counts), 3), "回\n")
-cat("追加離脱を無視した平均 =", round(mean(no_future_dropout), 3), "回\n")
-
-plot_df <- rbind(
-  data.frame(count = correct_counts, model = "BG/NBD: future dropout included"),
-  data.frame(count = no_future_dropout, model = "incorrect: alive forever after T")
-)
-ggplot(plot_df, aes(count, fill = model)) +
-  geom_histogram(binwidth = 1, position = "identity", alpha = 0.55) +
-  coord_cartesian(xlim = c(0, quantile(plot_df$count, 0.99))) +
-  labs(x = "purchases in next 26 weeks", y = "simulation paths", fill = "")
+evaluate_customer <- function(mu,sigma,cost=1,send_cost=0) {
+ theta <- mu+sigma*nodes
+ coupon <- 0:3
+ q <- sapply(coupon,function(c) mean(qA(theta,c)))
+ profit <- (12-coupon-cost)*q-ifelse(coupon>0,send_cost,0)
+ data.frame(coupon=coupon,probability=q,profit=profit,gain=profit-profit[1])
+}
 ```
 
-::: {.callout-note}
-## やってみよう
+## 実験1：係数を平均して代入すると同じか
 
-- `H <- 104`にすると、追加離脱を無視する誤差がどう広がるか確認しよう。
-- `a <- 0.2; b <- 5`のように離脱確率を下げると、2つの予測は近づくか。
-- `alpha + T_obs`で足してよいのは、$\lambda$が回/週、$T$が週だからである。日単位へ直すなら$\lambda,\alpha,T,H$を整合的に変換する必要がある。
-:::
+```{webr}
+#| label: posterior-integration
+mu <- log(.18)
+sigma <- .5
+coupon <- 0:3
+integrated <- sapply(coupon,function(c) mean(qA(mu+sigma*nodes,c)))
+plugin <- sapply(coupon,function(c) qA(mu,c))
+result <- data.frame(coupon=coupon,integrated=integrated,plugin=plugin)
+print(result)
+ggplot(result,aes(coupon,integrated))+geom_line(color="#4C72B0")+geom_point()+
+ geom_line(aes(y=plugin),color="#C44E52",linetype=2)+
+ labs(x="coupon (thousand yen)",y="purchase probability",
+      subtitle="blue: posterior integration; red: posterior mean plug-in")
+```
+
+`sigma` を0にすると、2つは一致するだろうか。`sigma` を大きくすると、どのように変わるか。ここで平均している係数は $\theta$ であり、価格係数自体は $\exp(\theta)$ である。
+
+## 実験2：よく買う人とクーポンが効く人
+
+```{webr}
+#| label: customers-and-profit
+customer_low <- evaluate_customer(log(.06),.25,cost=1)
+customer_high <- evaluate_customer(log(.22),.25,cost=1)
+customer_low$customer <- "less price sensitive"
+customer_high$customer <- "more price sensitive"
+z <- rbind(customer_low,customer_high)
+print(z)
+ggplot(z,aes(coupon,gain,color=customer))+geom_line()+geom_point()+
+ geom_hline(yintercept=0,linetype=2)+labs(x="coupon (thousand yen)",y="incremental profit")
+```
+
+通常価格で買う確率と、増分利益が最大になる値引きを比べよう。どちらも「価格感応度が低いほどよい」という同じ順位になるだろうか。
+
+## 実験3：原価と配信費用を入れる
+
+```{webr}
+#| label: cost-and-offer
+cost <- 3
+send_cost <- .1  # 千円。購入しなくても、提示すると発生する。
+z <- evaluate_customer(log(.22),.35,cost=cost,send_cost=send_cost)
+print(z)
+cat("best coupon:",z$coupon[which.max(z$profit)],"thousand yen\n")
+ggplot(z,aes(factor(coupon),profit))+geom_col(fill="#4C72B0")+
+ labs(x="coupon (thousand yen)",y="expected profit")
+```
+
+原価を1〜6千円、配信費用を0〜0.5千円で変えてみよう。同じ需要でも選ぶクーポンが変わることを確かめる。
+
+## 実験4：一律と個人別を比べる
+
+```{webr}
+#| label: uniform-personalized
+means <- log(c(.05,.08,.12,.18,.24,.30))
+sigma <- .35
+cost <- 1
+profits <- t(sapply(means,function(m) evaluate_customer(m,sigma,cost)$profit))
+uniform <- which.max(colMeans(profits))
+individual <- max.col(profits,ties.method="first")
+print(data.frame(customer=seq_along(means),coupon=individual-1))
+print(c(no_coupon=mean(profits[,1]),uniform=mean(profits[,uniform]),
+        personalized=mean(profits[cbind(seq_along(means),individual)])))
+```
+
+ここで個別化が一律以上になるのは、同じ期待利益を目的にして、選べるルールを増やしたからである。実際の購買でも必ず改善するとは限らない。個別化の運用費用を引くと、どこまで改善が残るだろうか。
 
 ## 次に読むもの
 
-- 講義ノート本体：`lecture10.html`（尤度の導出・P(alive)ヒートマップ・holdout検証・CLVの完全版）
-- coding課題：`assignment10.qmd`（ネットスーパーの顧客ベースを題材に、真値回収からCLV試算までを自分で実装する）
+- [講義ノート](lecture10.html)：同じHB推定結果からの施策比較とRCT。
+- [課題10](assignment10.html)：別の個人差・原価で推定から施策まで実装する。

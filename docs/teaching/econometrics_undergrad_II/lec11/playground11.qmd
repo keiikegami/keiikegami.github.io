@@ -1,5 +1,5 @@
 ---
-title: "Playground 11：ターゲティングの実験室"
+title: "Playground 11：顧客ベース分析の実験室"
 subtitle: "計量経済学II（ブラウザ上でRが動きます）"
 author: "Kei Ikegami"
 lang: ja
@@ -29,7 +29,6 @@ webr:
 - **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
 - 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
 - 元ネタは講義ノート（`lecture11.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
-- 講義ノートのCATE推定はcausal forest（`grf`）を使ったが、webRで読み込むには重すぎるため、このページではT-learner（`lm`を2本推定して差を取る）で代用する。考え方は同じである。
 :::
 
 ```{webr}
@@ -37,244 +36,270 @@ webr:
 #| output: false
 #| autorun: true
 #| timelimit: 120
-# ---- 共通の道具箱（講義ノートと同じ発想の関数群。編集不可・自動実行）----
+# ---- 共通の道具箱 ----
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+set.seed(202611)
 
-# 通信キャリアの「解約引き留めクーポンRCT」データを生成する
-# risk_slope: 解約リスクが高い人ほどクーポン効果が下がる強さ（プラスでAscarzaの世界）
-make_retention_data <- function(n, risk_slope, base_effect = 0.08) {
-  usage_hours       <- rgamma(n, shape = 2, scale = 3)   # 週あたり利用時間
-  billing_trouble   <- rbinom(n, 1, 0.2)                 # 請求トラブルの有無
-  price_sensitivity <- rnorm(n)                          # 価格感応度
-  logit0 <- -0.8 - 0.06 * usage_hours + 0.9 * billing_trouble +
-    0.35 * price_sensitivity
-  p_churn0 <- 1 / (1 + exp(-logit0))       # クーポンなしの解約確率
-  risk_score <- pmin(pmax(p_churn0 + rnorm(n, 0, 0.02), 0.001), 0.999)
-
-  # クーポン効果（解約確率を下げる量）はリスクに対して線形に下がる。
-  # 解約確率は0未満にならないので、低リスク層（もともと解約しない鉄板層）の
-  # 効果は自動的に頭打ちになり、「中リスクで最大・高リスクでマイナス」の山型になる。
-  tau_raw <- base_effect - risk_slope * (p_churn0 - 0.30)
-  p0 <- pmin(pmax(p_churn0, 0.005), 0.995)
-  p1 <- pmin(pmax(p_churn0 - tau_raw, 0.005), 0.995)
-  tau_true <- p0 - p1                      # 真のCATE（継続確率の増分）
-
-  D <- rbinom(n, 1, 0.5)                   # クーポンを50%にランダム配布
-  stay0 <- rbinom(n, 1, 1 - p0)
-  stay1 <- rbinom(n, 1, 1 - p1)
-  principal_stratum <- ifelse(stay0 == 0 & stay1 == 1, "persuadable",
-    ifelse(stay0 == 1 & stay1 == 1, "sure thing",
-      ifelse(stay0 == 0 & stay1 == 0, "lost cause", "sleeping dog")))
-  stay <- ifelse(D == 1, stay1, stay0)     # 観測される継続（1 = 継続）
-  data.frame(usage_hours, billing_trouble, price_sensitivity,
-             risk_score, D, stay, tau_true, stay0, stay1, principal_stratum)
+# BG/NBDのDGP：1顧客の購買イベント時刻を生成する
+# 生きている間はrate=lambdaのPoisson過程で購買し、各購買の直後に確率p_dropで離脱する
+simulate_customer_events <- function(lambda, p_drop, T) {
+  t <- 0
+  events <- c()
+  repeat {
+    wait <- rexp(1, rate = lambda)
+    t_next <- t + wait
+    if (t_next > T) break
+    t <- t_next
+    events <- c(events, t)
+    if (runif(1) < p_drop) break
+  }
+  events
 }
 
-# T-learner：処置群・対照群で別々にlmを推定し、予測値の差をCATE推定値とする
-fit_tlearner <- function(train_df, newdata) {
-  f <- stay ~ usage_hours + billing_trouble + price_sensitivity
-  mu1 <- lm(f, data = train_df[train_df$D == 1, ])
-  mu0 <- lm(f, data = train_df[train_df$D == 0, ])
-  predict(mu1, newdata = newdata) - predict(mu0, newdata = newdata)
+# N人の顧客ベースを生成し、(x, t_x) に要約する
+simulate_customer_base <- function(N, r, alpha, a, b, T) {
+  lambda <- rgamma(N, shape = r, rate = alpha)
+  p <- rbeta(N, a, b)
+  x <- numeric(N); tx <- numeric(N)
+  for (i in 1:N) {
+    ev <- simulate_customer_events(lambda[i], p[i], T)
+    x[i] <- length(ev)
+    tx[i] <- if (length(ev) == 0) 0 else max(ev)
+  }
+  data.frame(x = x, tx = tx, lambda = lambda, p = p)
 }
 
-# Qini曲線：並び順order_idxで上位k人に配ったときの累積増分継続者数
-qini_curve <- function(order_idx, D, Y, fracs = seq(0.05, 1, by = 0.05)) {
-  do.call(rbind, lapply(fracs, function(f) {
-    k <- floor(f * length(D))
-    idx <- order_idx[1:k]
-    d <- D[idx]; y <- Y[idx]
-    data.frame(frac = f,
-               incremental = (mean(y[d == 1]) - mean(y[d == 0])) * k)
-  }))
+# logsumexp: log(exp(a) + exp(b)) を数値的に安定に計算する
+logsumexp2 <- function(log_a, log_b) {
+  m <- pmax(log_a, log_b)
+  m + log(exp(log_a - m) + exp(log_b - m))
 }
 
-# IPWによる政策価値：treat_ruleはTRUE/FALSEのベクトル（配る/配らない）
-ipw_value <- function(treat_rule, D, Y, e = 0.5) {
-  p_realized <- ifelse(D == 1, e, 1 - e)
-  matched <- (D == 1) == treat_rule
-  contrib <- ifelse(matched, Y / p_realized, 0)
-  v <- mean(contrib)
-  se <- sd(contrib) / sqrt(length(Y))
-  data.frame(value = v, se = se,
-             ci_low = v - 1.96 * se, ci_high = v + 1.96 * se)
+# BG/NBDの対数尤度（ベクトル化。x, tx, Tは同じ長さのベクトル）
+# 第1項 = Tまで生きている経路、第2項 = t_xで離脱していた経路（x>0のときだけ）
+bgnbd_loglik <- function(r, alpha, a, b, x, tx, T) {
+  ln_Bab <- lbeta(a, b)
+  ln_A0 <- lbeta(a, b + x) - ln_Bab +
+    lgamma(r + x) - lgamma(r) +
+    r * log(alpha) - (r + x) * log(alpha + T)
+  ln_A1 <- rep(-Inf, length(x))
+  idx <- x > 0
+  ln_A1[idx] <- lbeta(a + 1, b + x[idx] - 1) - ln_Bab +
+    lgamma(r + x[idx]) - lgamma(r) +
+    r * log(alpha) - (r + x[idx]) * log(alpha + tx[idx])
+  logsumexp2(ln_A0, ln_A1)
+}
+
+# optimに渡す負の対数尤度。log変換した(r, alpha, a, b)を受け取る（正値制約を外すため）
+neg_loglik_bgnbd <- function(theta_log, x, tx, T) {
+  params <- exp(theta_log)
+  -sum(bgnbd_loglik(params[1], params[2], params[3], params[4], x, tx, T))
+}
+
+# P(alive)の閉形式（x=0のときは常に1）
+palive_bgnbd <- function(r, alpha, a, b, x, tx, T) {
+  ratio <- (alpha + T) / (alpha + tx)
+  term <- ifelse(x > 0, (a / (b + x - 1)) * ratio^(r + x), 0)
+  1 / (1 + term)
 }
 
 theme_set(theme_minimal(base_size = 13))
 ```
 
-## 実験1：「解約しそうな人に施策」は正しいか
+## 実験1：BG/NBDの4つのパラメータ
 
-「解約しそうな顧客にこそ引き留めクーポンを配るべきだ」。誰もが思いつくこの方針が失敗しうることを、Ascarza (2018) は実際のRCTで示した。鍵は、解約リスクの高さと、施策への感応度（CATE）
+初回購買直後を時点0とし、その時点では全員が活動中とする。ここで数えるのは、その後の反復購買である。離脱は反復購買の直後にだけ起きる。
+
+BG/NBDは、顧客ベース全体の姿をたった4つの数で記述する。$r, \alpha$ が個人の購買率 $\lambda_i$ のGamma分布を、$a, b$ が離脱確率 $p_i$ のBeta分布を決める。
 
 $$
-\tau(x) = E[Y(1) - Y(0) \mid X = x]
+x_i \mid \lambda_i \sim \text{Poisson}(\lambda_i T), \qquad \lambda_i \sim \text{Gamma}(r, \alpha), \qquad p_i \sim \text{Beta}(a, b)
 $$
 
-が**まったく別の量**だという点にある。ここでは通信キャリアのクーポンRCTをシミュレートし、60%を学習、40%を独立評価に使う。`risk_slope` が「リスクが高い人ほど効果が下がる」構造の強さを決める。`true_total_effect` と`est_incremental_stays`はどちらも学習に使っていない評価標本で計算する。
+なお、この回の $\alpha$ はGamma分布の**rateパラメータ（scaleではない）**であり、第2〜4回の需要推定で使った価格係数 $\alpha$ とは無関係である。4つのツマミを回して、購買回数の分布がどう変形するかを体感しよう。
 
 ```{webr}
-#| timelimit: 60
+#| timelimit: 90
 # ---- いじるのはここ ----
-risk_slope  <- 0.6    # リスクが高い人ほど効果が下がる強さ。0.6がAscarza (2018)の世界
-                      # 0なら効果はほぼ一定、-0.4なら「リスクが高い人ほど効く」世界
-budget_frac <- 0.25   # クーポンを配れるのは全体の上位25%まで
+r     <- 0.8   # 購買率lambdaのGamma分布：形状（講義の真値）
+alpha <- 6     # 購買率lambdaのGamma分布：rate（大きいほど購買率が低い）
+a     <- 0.7   # 離脱確率pのBeta分布
+b     <- 2.5   # 離脱確率pのBeta分布
 # -----------------------
 
-set.seed(111)
-N <- 10000
-df <- make_retention_data(N, risk_slope)
-train_id <- sample(seq_len(N), floor(0.60 * N))
-train_df <- df[train_id, ]
-eval_df <- df[-train_id, ]
-eval_df$tau_hat <- fit_tlearner(train_df, eval_df)
+set.seed(202610)
+N <- 2000      # 顧客数
+T_obs <- 52    # 観測期間（週）
+base <- simulate_customer_base(N, r, alpha, a, b, T_obs)
 
-cat("evaluation cor(risk_score, tau_true) =",
-    round(cor(eval_df$risk_score, eval_df$tau_true), 3), "\n")
+cat("平均購買率 E[lambda] = r/alpha =", round(r / alpha, 4), "回/週\n")
+cat("平均離脱確率 E[p] = a/(a+b) =", round(a / (a + b), 4), "\n")
+cat("購買回数xの平均 =", round(mean(base$x), 2),
+    "/ x=0の顧客の割合 =", round(mean(base$x == 0), 3), "\n")
 
-n_eval <- nrow(eval_df)
-k <- floor(budget_frac * n_eval)
-target_risk   <- order(-eval_df$risk_score)[1:k]
-target_uplift <- order(-eval_df$tau_hat)[1:k]
-target_random <- sample(seq_len(n_eval), k)
-
-policy_row <- function(name, idx) {
-  d <- eval_df$D[idx]; y <- eval_df$stay[idx]
-  data.frame(policy = name,
-             true_total_effect = round(sum(eval_df$tau_true[idx]), 1),
-             est_incremental_stays = round((mean(y[d == 1]) - mean(y[d == 0])) * length(idx), 1))
-}
-rbind(policy_row("(a) risk top", target_risk),
-      policy_row("(b) uplift top", target_uplift),
-      policy_row("(c) random", target_random))
-
-cat("\nPrincipal-strata shares within negative-CATE evaluation rows:\n")
-neg_tab <- prop.table(table(eval_df$principal_stratum[eval_df$tau_true < 0]))
-round(neg_tab, 3)
-```
-
-このDGPではリスク上位を狙う (a) がランダムに負けうる。ただし、表が示す通り負のCATE層にも4類型が混在する。principal stratumは個人の $(Y(0),Y(1))$、CATEは条件付き平均であり、負のCATEは「その人がsleeping dog」という意味ではない。
-
-::: {.callout-note}
-## やってみよう
-
-- `risk_slope <- -0.4`（CATEとリスクが**正相関**する世界）にすると、(a)と(b)の差はどうなるか。予想してから実行しよう。このときリスクスコアはupliftの良い代理変数になる。
-- `budget_frac` を0.05と0.5に変えて、(b)と(c)の差（ターゲティングの賢さの価値）が予算のどの水準で最も大きく出るか確かめよう。
-- `risk_slope <- 0`（効果が誰でもほぼ同じ世界）でも、(b)が(c)に少し勝ったり負けたりする。これは本物の差か、推定ノイズか。`set.seed` を変えて何度か回すとどう確かめられるか。
-:::
-
-## 実験2：Qini曲線 — 膨らみの源泉は効果の異質性
-
-ターゲティングの良し悪しを1枚で見る道具がQini曲線である。横軸は「上位何%に配ったか」、縦軸は「累積の増分継続者数」。並べ方が賢いほど曲線は上に膨らみ、ランダムに配ればほぼ直線（対角線）になる。膨らみを生むのは**効果の異質性**そのものだ。異質性の強さ `hetero` をいじって、uplift順・リスクスコア順・ランダムの3本の形がどう変わるかを見よう。
-
-```{webr}
-#| timelimit: 60
-# ---- いじるのはここ ----
-hetero <- 1.0   # 効果の異質性の強さ。0で「誰に配っても同じ」、2で極端な異質性
-# -----------------------
-
-set.seed(222)
-N <- 10000
-df <- make_retention_data(N, risk_slope = 0.6 * hetero)
-train_id <- sample(seq_len(N), floor(0.60 * N))
-train_df <- df[train_id, ]
-eval_df <- df[-train_id, ]
-eval_df$tau_hat <- fit_tlearner(train_df, eval_df)
-
-q_uplift <- qini_curve(order(-eval_df$tau_hat), eval_df$D, eval_df$stay) %>%
-  mutate(policy = "uplift order (T-learner)")
-q_risk <- qini_curve(order(-eval_df$risk_score), eval_df$D, eval_df$stay) %>%
-  mutate(policy = "churn-risk order")
-ate <- mean(eval_df$stay[eval_df$D == 1]) - mean(eval_df$stay[eval_df$D == 0])
-q_random <- data.frame(frac = q_uplift$frac,
-                       incremental = ate * floor(q_uplift$frac * nrow(eval_df)),
-                       policy = "random")
-
-qini_all <- bind_rows(q_uplift, q_risk, q_random)
-ggplot(qini_all, aes(frac, incremental, color = policy, linetype = policy)) +
-  geom_line(linewidth = 1) +
-  geom_hline(yintercept = 0, linetype = "dotted", color = "gray50") +
-  labs(x = "fraction targeted", y = "cumulative incremental stays",
-       color = NULL, linetype = NULL) +
-  theme(legend.position = "top")
+ggplot(base, aes(x = x)) +
+  geom_histogram(binwidth = 1, center = 0, fill = "#4C72B0", color = "white") +
+  labs(x = "purchases in the observation window (x)", y = "number of customers")
 ```
 
 ::: {.callout-note}
 ## やってみよう
 
-- `hetero <- 0` にして、3本の線がほぼ1本の直線に重なることを確かめよう。効果が誰でも同じなら、賢く並べても意味がない。ターゲティングの価値は異質性の強さで決まる。
-- `hetero <- 2` にすると、uplift順の膨らみと、リスクスコア順の「谷」（途中でマイナスに沈む区間）はどれだけ極端になるか。
-- 配布割合1.0（右端）では、どの並べ方でも3本の線が同じ点に戻る。なぜか。
+- `alpha <- 1.5; r <- 0.2` にしてみよう。平均購買率 $r/\alpha$ はほぼ元のまま（約0.133）なのに、x=0の山と右の尻尾が**同時に**膨らむ。平均が同じでも、異質性の大きさが分布の形を決める——これが過分散の正体。
+- `a <- 2; b <- 1`（平均離脱確率 $a/(a+b) = 2/3$ の「離脱が早い市場」）にすると、分布のどこが削れるか。元の値と見比べよう。
+- 問い：ヘビーユーザーの尻尾を最も素直に伸ばすツマミは4つのうちどれか。仮説を立ててから、1つずつ動かして検証しよう。
 :::
 
-## 実験3：IPWで施策ルールをオフライン評価する
+## 実験2：P(alive)の直感 — 沈黙は何のシグナルか
 
-新しい配分ルールを思いつくたびにA/Bテストをやり直すのはコストが高い。ただし、一つのRCTログで閾値を探し、同じログで最良値を報告すると評価に過適合する。そこでここでは、**trainでCATEを学習 → validationで閾値を選択 → testで固定ルールを1回評価**という3ステップを実装する。
+パラメータが手に入れば、顧客ごとの $(x, t_x, T)$ という3つの数字だけから「この顧客はまだ生きているか」の確率が閉形式で計算できる。$x > 0$ のとき
 
 $$
-\hat{V}(\pi) = \frac{1}{n} \sum_{i=1}^{n} \frac{\mathrm{1}\{D_i = \pi(X_i)\} \, Y_i}{P(D_i \mid X_i)}
+P(\text{alive} \mid x, t_x, T) = \left[ 1 + \frac{a}{b+x-1} \left( \frac{\alpha+T}{\alpha+t_x} \right)^{r+x} \right]^{-1}
 $$
 
-ログの中で「たまたまルールと同じ割り当てを受けた人」だけを取り出し、割り当て確率（ここでは0.5）の逆数で重み付けする。validationでは、平均継続率からクーポンコストを引いた`net_value`を最大化する閾値を選ぶ。
+であり、$x = 0$ のときは常に1とする（一度も買っていない顧客に「離脱した」という証拠は存在しない）。1人の顧客のプロフィールをいじって、判定がどう動くかを見よう。
 
 ```{webr}
-#| timelimit: 60
+#| timelimit: 90
 # ---- いじるのはここ ----
-threshold_grid <- seq(-0.05, 0.10, by = 0.01)
-coupon_cost <- 0.02   # 継続率換算の1枚あたりコスト
+x     <- 5    # 観測期間中の購買回数
+tx    <- 40   # 最終購買時点（週）
+T_obs <- 52   # 観測期間の長さ（週）
+r <- 0.8; alpha <- 6; a <- 0.7; b <- 2.5  # モデルのパラメータ（実験3の推定値を貼ってもよい）
 # -----------------------
 
-set.seed(333)
-N <- 10000
-df <- make_retention_data(N, risk_slope = 0.6)
+p_alive <- palive_bgnbd(r, alpha, a, b, x, tx, T_obs)
+cat("この顧客：購買", x, "回 / 最終購買", tx, "週 / 観測", T_obs,
+    "週（沈黙", T_obs - tx, "週間）\n")
+cat("P(alive) =", round(p_alive, 4), "\n")
 
-ids <- sample(seq_len(N))
-train_id <- ids[1:floor(0.50 * N)]
-valid_id <- ids[(floor(0.50 * N) + 1):floor(0.75 * N)]
-test_id <- ids[(floor(0.75 * N) + 1):N]
-train_df <- df[train_id, ]
-valid_df <- df[valid_id, ]
-test_df <- df[test_id, ]
-valid_df$tau_hat <- fit_tlearner(train_df, valid_df)
-test_df$tau_hat <- fit_tlearner(train_df, test_df)
+tx_grid <- seq(0, T_obs, by = 0.5)
+curve_df <- data.frame(tx_val = tx_grid,
+                       palive = palive_bgnbd(r, alpha, a, b, x, tx_grid, T_obs))
 
-validation_search <- do.call(rbind, lapply(threshold_grid, function(th) {
-  rule <- valid_df$tau_hat >= th
-  val <- ipw_value(rule, valid_df$D, valid_df$stay)$value
-  data.frame(threshold = th, frac_treated = mean(rule),
-             value = val, net_value = val - coupon_cost * mean(rule))
-}))
-best_threshold <- validation_search$threshold[which.max(validation_search$net_value)]
+ggplot(curve_df, aes(tx_val, palive)) +
+  geom_line(color = "#4C72B0", linewidth = 1) +
+  geom_point(data = data.frame(tx_val = tx, palive = p_alive),
+             color = "#C44E52", size = 3) +
+  annotate("text", x = tx, y = p_alive, label = "this customer",
+           vjust = -1.2, color = "#C44E52") +
+  ylim(0, 1) +
+  labs(x = "time of last purchase t_x (weeks)", y = "P(alive)")
+```
 
-cat("Best threshold chosen only on validation =", best_threshold, "\n")
-validation_search[order(-validation_search$net_value), ][1:5, ]
+::: {.callout-note}
+## やってみよう
 
-policies <- list(
-  "treat all"                     = rep(TRUE, nrow(test_df)),
-  "treat none"                    = rep(FALSE, nrow(test_df)),
-  "validation-chosen uplift rule" = test_df$tau_hat >= best_threshold
+- `tx <- 40` のまま、`x <- 2` と `x <- 20` でP(alive)を比べよう。同じ12週間の沈黙が、ライトユーザーには「いつも通り」、ヘビーユーザーには「離脱の可能性が高い状態」になることを数値で確認する。「たくさん買っていた顧客ほど、沈黙が続くと離脱の判定が早い」のである。
+- `x <- 20` のまま `tx <- 52`（観測終了の直前に購買）にすると、P(alive)はほぼ1に戻るか。曲線の右端の跳ね上がり方を、xを変えながら見比べよう。
+- 問い：なぜ頻繁に買う顧客ほど同じ長さの沈黙が強い離脱シグナルになりうるのか。多い購買回数が$\lambda$と$p$の事後分布をそれぞれどう更新し、「生存したまま沈黙」と「最後の購買後に離脱」の相対尤度をどう変えるか説明してみよう。
+:::
+
+## 実験3：自作MLEの真値回収 — 観測期間はどれだけ必要か
+
+講義と同じ推定手順を試そう。自分で決めた真値から顧客ベースを生成し、自作の対数尤度を`optim()`で最大化して、真値が戻ってくるかを確かめる。尤度は「Tまで活動している経路」と「$t_x$ で離脱していた経路」の確率の和で、$(x, t_x, T)$ だけで書ける。ここでは$T$が全顧客で共通なので、顧客間で変わる十分な要約はRFMのRとFになる、という講義の主張をコードで確認する場面でもある。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+r_true <- 0.8; alpha_true <- 6; a_true <- 0.7; b_true <- 2.5  # 真値（講義と同じ）
+N     <- 1000   # 顧客数（2000までにしておこう）
+T_cal <- 52     # 観測期間（週）。26に半分にすると？
+# -----------------------
+
+set.seed(202610)
+base <- simulate_customer_base(N, r_true, alpha_true, a_true, b_true, T_cal)
+
+opt <- optim(
+  par = log(c(r = 1, alpha = 1, a = 1, b = 1)),
+  fn = neg_loglik_bgnbd,
+  x = base$x, tx = base$tx, T = rep(T_cal, N),
+  method = "L-BFGS-B",
+  hessian = TRUE
 )
 
-res <- do.call(rbind, lapply(names(policies), function(nm) {
-  cbind(data.frame(policy = nm, frac_treated = mean(policies[[nm]])),
-        ipw_value(policies[[nm]], test_df$D, test_df$stay))
-}))
-res$net_value <- res$value - coupon_cost * res$frac_treated
-numeric_cols <- vapply(res, is.numeric, logical(1))
-res[numeric_cols] <- lapply(res[numeric_cols], round, 4)
-res
-```
+theta_hat <- exp(opt$par)
+se <- theta_hat * sqrt(diag(solve(opt$hessian)))  # delta法：logスケールのSEを元のスケールへ
 
-最後の表は、validationで一度固定した閾値を、手を触れていないtestで評価したものだ。通常のSE・CIは、このように政策がtestから独立に固定され、i.i.d.・overlap・有限分散などが成り立つ場合の近似である。
+data.frame(
+  parameter = c("r", "alpha", "a", "b"),
+  true_value = c(r_true, alpha_true, a_true, b_true),
+  estimate = round(theta_hat, 4),
+  se = round(se, 4),
+  ci_low = round(theta_hat - 1.96 * se, 4),
+  ci_high = round(theta_hat + 1.96 * se, 4)
+)
+```
 
 ::: {.callout-note}
 ## やってみよう
 
-- `threshold_grid`の間隔を0.02、0.005に変えると、validationの最良値とtestの値はどう変わるか。候補が多いほどvalidationに過適合しやすいことも確認しよう。
-- `coupon_cost` を0、0.01、0.04に変えると、選ばれる閾値と配布割合はどう動くか。
-- test結果を見た後にグリッドやコストを変え続ければ、testもvalidation化する。最終testは一度だけ使う。限られたデータをより効率的に使う方法がnested cross-fittingである。
+- `T_cal <- 26` に半分にしてみよう。4つのパラメータのうち、SEの膨らみ方が一番激しいのはどれか。真値が信頼区間から外れる場面も出てくるはずだ。
+- `N <- 2000` に倍増するとSEはおよそ $1/\sqrt{2}$ 倍に縮むか。あわせて `set.seed(1)` などseedを変えて、推定値のブレ幅も体感しよう。
+- 問い：この設定で離脱パラメータ $a, b$ の推定が購買率パラメータ $r, \alpha$ より難しくなりやすいのはなぜか。離脱は直接観測されず、最終購買後の沈黙から間接的に推定していることを手がかりに考えよう。
+:::
+
+## 実験4：将来予測のevent tree — 購買のたびに離脱判定する
+
+calibration終了時点で生存している経路では、
+
+$$
+\lambda\mid x,T,\mathrm{alive}\sim\mathrm{Gamma}(r+x,\mathrm{rate}=\alpha+T),\qquad
+p\mid x,\mathrm{alive}\sim\mathrm{Beta}(a,b+x)
+$$
+
+となる。1本の将来パスは「T時点で離脱済みなら0、生存なら待ち時間を引く → 期間内なら購買 → 購買直後に離脱判定 → 生存なら次の待ち時間」という小さなevent treeである。
+
+```{webr}
+#| timelimit: 90
+# ---- いじるのはここ ----
+x <- 5; tx <- 40; T_obs <- 52
+H <- 26; S <- 1000                # 予測期間Hも週
+r <- 0.8; alpha <- 6; a <- 0.7; b <- 2.5
+# -----------------------
+
+set.seed(202610)
+p_alive <- palive_bgnbd(r, alpha, a, b, x, tx, T_obs)
+lambda_post <- rgamma(S, shape = r + x, rate = alpha + T_obs)
+p_post <- rbeta(S, shape1 = a, shape2 = b + x)
+alive_at_T <- runif(S) < p_alive
+
+correct_counts <- numeric(S)
+for (s in seq_len(S)) {
+  if (!alive_at_T[s]) next
+  # 共通道具箱の関数は、各購買直後に確率p_post[s]で離脱させる
+  correct_counts[s] <- length(simulate_customer_events(lambda_post[s], p_post[s], H))
+}
+
+# 比較用の誤った近似：Tで生存ならH週ずっと生存すると仮定
+no_future_dropout <- ifelse(alive_at_T, rpois(S, lambda_post * H), 0)
+
+cat("P(alive at T) =", round(p_alive, 3), "\n")
+cat("追加離脱ありの予測平均 =", round(mean(correct_counts), 3), "回\n")
+cat("追加離脱を無視した平均 =", round(mean(no_future_dropout), 3), "回\n")
+
+plot_df <- rbind(
+  data.frame(count = correct_counts, model = "BG/NBD: future dropout included"),
+  data.frame(count = no_future_dropout, model = "incorrect: alive forever after T")
+)
+ggplot(plot_df, aes(count, fill = model)) +
+  geom_histogram(binwidth = 1, position = "identity", alpha = 0.55) +
+  coord_cartesian(xlim = c(0, quantile(plot_df$count, 0.99))) +
+  labs(x = "purchases in next 26 weeks", y = "simulation paths", fill = "")
+```
+
+::: {.callout-note}
+## やってみよう
+
+- `H <- 104`にすると、追加離脱を無視する誤差がどう広がるか確認しよう。
+- `a <- 0.2; b <- 5`のように離脱確率を下げると、2つの予測は近づくか。
+- `alpha + T_obs`で足してよいのは、$\lambda$が回/週、$T$が週だからである。日単位へ直すなら$\lambda,\alpha,T,H$を整合的に変換する必要がある。
 :::
 
 ## 次に読むもの
 
-- 講義ノート本体：`lecture11.html`（顧客の4類型、causal forest、Qini曲線、IPW、policy learningの完全版）
-- coding課題：`assignment11.qmd`（動画サブスクリプションの解約引き留めクーポンRCTを題材に、今日の手順をゼロから自分で実装する）
+- 講義ノート本体：`lecture11.html`（尤度の導出・P(alive)ヒートマップ・holdout検証・CLVの完全版）
+- coding課題：`assignment11.qmd`（ネットスーパーの顧客ベースを題材に、真値回収からCLV試算までを自分で実装する）

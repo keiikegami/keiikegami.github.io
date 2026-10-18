@@ -8,7 +8,7 @@
 
 <meta name="author" content="Kei Ikegami">
 
-<title>Playground 7：A/Bテストの実験室</title>
+<title>Playground 7：コンジョイントと個人の好み</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -41,35 +41,6 @@ ul.task-list li input[type="checkbox"] {
 <script type="module" src="playground7_files/libs/quarto-ojs/quarto-ojs-runtime.js"></script>
 <link href="playground7_files/libs/quarto-ojs/quarto-ojs.css" rel="stylesheet">
 
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
-
-<script type="text/javascript">
-const typesetMath = (el) => {
-  if (window.MathJax) {
-    // MathJax Typeset
-    window.MathJax.typeset([el]);
-  } else if (window.katex) {
-    // KaTeX Render
-    var mathElements = el.getElementsByClassName("math");
-    var macros = [];
-    for (var i = 0; i < mathElements.length; i++) {
-      var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
-        window.katex.render(texText.data, mathElements[i], {
-          displayMode: mathElements[i].classList.contains('display'),
-          throwOnError: false,
-          macros: macros,
-          fleqn: false
-        });
-      }
-    }
-  }
-}
-window.Quarto = {
-  typesetMath
-};
-</script>
 
 </head>
 
@@ -81,11 +52,11 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul class="collapse">
-  <li><a href="#実験1検出力シミュレーター-見つけられる確率を測る" id="toc-実験1検出力シミュレーター-見つけられる確率を測る" class="nav-link active" data-scroll-target="#実験1検出力シミュレーター-見つけられる確率を測る">実験1：検出力シミュレーター — 「見つけられる確率」を測る</a></li>
-  <li><a href="#実験2peekingの罠-覗くほどtype-i-errorが膨らむ" id="toc-実験2peekingの罠-覗くほどtype-i-errorが膨らむ" class="nav-link" data-scroll-target="#実験2peekingの罠-覗くほどtype-i-errorが膨らむ">実験2：peekingの罠 — 覗くほどType I errorが膨らむ</a></li>
-  <li><a href="#実験3ittとtot-配る効果と使う効果は別物" id="toc-実験3ittとtot-配る効果と使う効果は別物" class="nav-link" data-scroll-target="#実験3ittとtot-配る効果と使う効果は別物">実験3：ITTとTOT — 「配る効果」と「使う効果」は別物</a></li>
-  <li><a href="#実験4cuped-実験前データで分散を削る" id="toc-実験4cuped-実験前データで分散を削る" class="nav-link" data-scroll-target="#実験4cuped-実験前データで分散を削る">実験4：CUPED — 実験前データで分散を削る</a></li>
-  <li><a href="#次に読むもの" id="toc-次に読むもの" class="nav-link" data-scroll-target="#次に読むもの">次に読むもの</a></li>
+  <li><a href="#使い方" id="toc-使い方" class="nav-link active" data-scroll-target="#使い方">使い方</a></li>
+  <li><a href="#価格への反応が違う人" id="toc-価格への反応が違う人" class="nav-link" data-scroll-target="#価格への反応が違う人">1. 価格への反応が違う人</a></li>
+  <li><a href="#回答者数とamceの精度" id="toc-回答者数とamceの精度" class="nav-link" data-scroll-target="#回答者数とamceの精度">2. 回答者数とAMCEの精度</a></li>
+  <li><a href="#wtpの平均と平均係数の比" id="toc-wtpの平均と平均係数の比" class="nav-link" data-scroll-target="#wtpの平均と平均係数の比">3. WTPの平均と、平均係数の比</a></li>
+  <li><a href="#問で一人の好みを決められるか" id="toc-問で一人の好みを決められるか" class="nav-link" data-scroll-target="#問で一人の好みを決められるか">4. 8問で一人の好みを決められるか</a></li>
   </ul>
 </nav>
 </div>
@@ -93,7 +64,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Playground 7：A/Bテストの実験室</h1>
+<h1 class="title">Playground 7：コンジョイントと個人の好み</h1>
 <p class="subtitle lead">計量経済学II（ブラウザ上でRが動きます）</p>
 </div>
 
@@ -117,176 +88,76 @@ window.Quarto = {
 </header>
 
 
-<div class="callout callout-style-default callout-important callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">重要</span>このページの使い方
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li>このページのRコードは、<strong>あなたのブラウザの中で</strong>動いている（WebAssembly + webR）。インストールは一切不要。</li>
-<li><strong>初回だけ、ページ読み込みに30秒〜1分かかる</strong>（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。</li>
-<li>各セルのコードは自由に書き換えて「Run Code」で実行できる。<strong>何をどう壊しても誰にも迷惑はかからない</strong>。おかしくなったらページを再読み込みすれば元に戻る。</li>
-<li>元ネタは講義ノート（<code>lecture7.html</code>）。ここでは「数値をいじって挙動を体感する」ことに集中する。</li>
-</ul>
-</div>
-</div>
+<section id="使い方" class="level2">
+<h2 class="anchored" data-anchor-id="使い方">使い方</h2>
+<p>セルを上から実行する。価格や回答者数を書き換えて「Run Code」を押すと結果が変わる。<a href="lecture7.html">講義ノート</a>と同じイヤホンのモデルを使う。標準誤差は、ブラウザ版でも回答者単位のクラスター分散を計算する。</p>
 <div class="cell" data-edit="false" data-autorun="true" data-timelimit="120">
 <div>
 <div id="webr-1" class="exercise-cell">
 
 </div>
 <script type="webr-1-contents">
-eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVkaXQiOmZhbHNlLCJldmFsIjp0cnVlLCJvdXRwdXQiOmZhbHNlLCJ0aW1lbGltaXQiOjEyMH0sImNvZGUiOiIjIC0tLS0g5YWx6YCa44Gu6YGT5YW3566x77yI57eo6ZuG5LiN5Y+v44O76Ieq5YuV5a6f6KGM77yJLS0tLVxuXG4jIDLnvqTjga7lubPlnYfmr5TovIPvvIjkuKHlgbQ1JeaknOWumu+8ieOBruaknOWHuuWKm+OCkuato+imj+i/keS8vOOBp+i/lOOBmemWouaVsFxucG93ZXJfdHdvX21lYW4gPC0gZnVuY3Rpb24odGF1LCBzZCwgbl9wZXJfYXJtKSB7XG4gIHNlIDwtIHNkICogc3FydCgyIC8gbl9wZXJfYXJtKVxuICB6IDwtIGFicyh0YXUpIC8gc2VcbiAgcG5vcm0oeiAtIHFub3JtKDAuOTc1KSkgKyBwbm9ybSgteiAtIHFub3JtKDAuOTc1KSlcbn1cblxudGhlbWVfc2V0KHRoZW1lX21pbmltYWwoYmFzZV9zaXplID0gMTMpKSJ9
+eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVkaXQiOmZhbHNlLCJldmFsIjp0cnVlLCJvdXRwdXQiOmZhbHNlLCJ0aW1lbGltaXQiOjEyMH0sImNvZGUiOiIjID09PSBDQkNfREdQID09PVxuY2hvaWNlX3Byb2IgPC0gZnVuY3Rpb24ocXVhbGl0eSwgcHJpY2UsIGFscGhhKSB7XG4gIHYgPC0gcXVhbGl0eSAtIHByaWNlICogYWxwaGFcbiAgdm1heCA8LSBwbWF4KDAsIHZbLCAxXSwgdlssIDJdKVxuICBldiA8LSBleHAodiAtIHZtYXgpXG4gIGNiaW5kKG91dHNpZGUgPSBleHAoLXZtYXgpLCBldikgLyAoZXhwKC12bWF4KSArIHJvd1N1bXMoZXYpKVxufVxuc2ltdWxhdGVfY2JjIDwtIGZ1bmN0aW9uKHNlZWQgPSAyMDI2MDcsIE4gPSAzMDAsIFR0cmFpbiA9IDgsIFRob2xkID0gOCkge1xuICBzZXQuc2VlZChzZWVkKVxuICBiZXRhX2tub3duIDwtIGMoYmF0dGVyeTEyID0gMC41LCBuYyA9IDAuOCwgbWFqb3JfYnJhbmQgPSAwLjMpXG4gIG11X3RydWUgPC0gbG9nKDAuMTIpIC0gMC42XjIgLyAyXG4gIHRhdV90cnVlIDwtIDAuNlxuICB0aGV0YV90cnVlIDwtIHJub3JtKE4sIG11X3RydWUsIHRhdV90cnVlKVxuICBtYWtlX3Rhc2tzIDwtIGZ1bmN0aW9uKFQpIHtcbiAgICBpZCA8LSByZXAoc2VxX2xlbihOKSwgZWFjaCA9IFQpXG4gICAgbnIgPC0gbGVuZ3RoKGlkKVxuICAgIHByaWNlIDwtIG1hdHJpeChzYW1wbGUoYyg4LCAxMiwgMTYpLCBuciAqIDIsIHJlcGxhY2UgPSBUUlVFKSwgbnIsIDIpXG4gICAgYmF0dGVyeTEyIDwtIG1hdHJpeChyYmlub20obnIgKiAyLCAxLCAwLjUpLCBuciwgMilcbiAgICBuYyA8LSBtYXRyaXgocmJpbm9tKG5yICogMiwgMSwgMC41KSwgbnIsIDIpXG4gICAgbWFqb3JfYnJhbmQgPC0gbWF0cml4KHJiaW5vbShuciAqIDIsIDEsIDAuNSksIG5yLCAyKVxuICAgIHF1YWxpdHkgPC0gYmV0YV9rbm93blsxXSAqIGJhdHRlcnkxMiArIGJldGFfa25vd25bMl0gKiBuYyArIGJldGFfa25vd25bM10gKiBtYWpvcl9icmFuZFxuICAgIHByb2IgPC0gY2hvaWNlX3Byb2IocXVhbGl0eSwgcHJpY2UsIGV4cCh0aGV0YV90cnVlW2lkXSkpXG4gICAgY2hvaWNlIDwtIHZhcHBseShzZXFfbGVuKG5yKSwgZnVuY3Rpb24ocikgc2FtcGxlKDA6MiwgMSwgcHJvYiA9IHByb2JbciwgXSksIGludGVnZXIoMSkpXG4gICAgbGlzdChpZCA9IGlkLCBwcmljZSA9IHByaWNlLCBiYXR0ZXJ5MTIgPSBiYXR0ZXJ5MTIsIG5jID0gbmMsXG4gICAgICAgICBtYWpvcl9icmFuZCA9IG1ham9yX2JyYW5kLCBxdWFsaXR5ID0gcXVhbGl0eSwgY2hvaWNlID0gY2hvaWNlLCBUID0gVClcbiAgfVxuICBsaXN0KHRyYWluID0gbWFrZV90YXNrcyhUdHJhaW4pLCB0ZXN0ID0gbWFrZV90YXNrcyhUaG9sZCksIE4gPSBOLFxuICAgICAgIGJldGFfa25vd24gPSBiZXRhX2tub3duLCB0aGV0YV90cnVlID0gdGhldGFfdHJ1ZSwgbXVfdHJ1ZSA9IG11X3RydWUsIHRhdV90cnVlID0gdGF1X3RydWUpXG59XG5cbnRvX2xvbmcgPC0gZnVuY3Rpb24odGFza3MpIHtcbiAgZG8uY2FsbChyYmluZCwgbGFwcGx5KDE6MiwgZnVuY3Rpb24oaikgZGF0YS5mcmFtZShcbiAgICBpZCA9IHRhc2tzJGlkLCBwcm9maWxlID0gaiwgcHJpY2UgPSB0YXNrcyRwcmljZVssIGpdLFxuICAgIGJhdHRlcnkxMiA9IHRhc2tzJGJhdHRlcnkxMlssIGpdLCBuYyA9IHRhc2tzJG5jWywgal0sXG4gICAgbWFqb3JfYnJhbmQgPSB0YXNrcyRtYWpvcl9icmFuZFssIGpdLCBjaG9zZW4gPSBhcy5pbnRlZ2VyKHRhc2tzJGNob2ljZSA9PSBqKSkpKVxufVxuXG5jbHVzdGVyX2xtIDwtIGZ1bmN0aW9uKGQpIHtcbiAgZCRwcmljZTEyIDwtIGFzLmludGVnZXIoZCRwcmljZSA9PSAxMik7IGQkcHJpY2UxNiA8LSBhcy5pbnRlZ2VyKGQkcHJpY2UgPT0gMTYpXG4gIGZpdCA8LSBsbShjaG9zZW4gfiBwcmljZTEyICsgcHJpY2UxNiArIGJhdHRlcnkxMiArIG5jICsgbWFqb3JfYnJhbmQsIGRhdGEgPSBkKVxuICBYIDwtIG1vZGVsLm1hdHJpeChmaXQpOyBTIDwtIHJvd3N1bShYICogcmVzaWR1YWxzKGZpdCksIGQkaWQpXG4gIEcgPC0gbnJvdyhTKTsgYnJlYWQgPC0gc29sdmUoY3Jvc3Nwcm9kKFgpKVxuICBWIDwtIEcgLyAoRyAtIDEpICogKG5yb3coWCkgLSAxKSAvIChucm93KFgpIC0gbmNvbChYKSkgKiBicmVhZCAlKiUgY3Jvc3Nwcm9kKFMpICUqJSBicmVhZFxuICBkYXRhLmZyYW1lKHRlcm0gPSBuYW1lcyhjb2VmKGZpdCkpLCBlc3RpbWF0ZSA9IGNvZWYoZml0KSwgc2UgPSBzcXJ0KGRpYWcoVikpKVxufSJ9
 </script>
 </div>
 </div>
-<section id="実験1検出力シミュレーター-見つけられる確率を測る" class="level2">
-<h2 class="anchored" data-anchor-id="実験1検出力シミュレーター-見つけられる確率を測る">実験1：検出力シミュレーター — 「見つけられる確率」を測る</h2>
-<p>真に効果がある施策でも、<span class="math inline">\(N\)</span>が足りなければ検定は「有意」と言ってくれない。ここでは真の効果量・サンプルサイズ・アウトカムのばらつきを自分で決め、その世界でA/Bテストを200回繰り返して、p &lt; 0.05になった割合（= 検出力）を数える。2群の平均比較で検出力<span class="math inline">\(1-\beta\)</span>を達成するのに必要な片群サンプルサイズは</p>
-<p><span class="math display">\[
-n = \frac{2 \sigma^2 (z_{1-\alpha/2} + z_{1-\beta})^2}{\tau^2}
-\]</span></p>
-<p>で近似できる（<span class="math inline">\(\tau\)</span>は真の効果、<span class="math inline">\(\sigma\)</span>はアウトカムのSD）。シミュレーションの検出力がこの公式とどれくらい一致するかも見る。</p>
-<div class="cell" data-timelimit="60">
+</section>
+<section id="価格への反応が違う人" class="level2">
+<h2 class="anchored" data-anchor-id="価格への反応が違う人">1. 価格への反応が違う人</h2>
+<p>Aはバッテリー12時間、ノイズキャンセリングあり、新興ブランド。Bはすべて基準の機能で、価格12千円とする。<code>alpha</code> を変えると、同じAの値上げに対する反応がどう変わるだろうか。</p>
+<div class="cell">
 <div>
 <div id="webr-2" class="exercise-cell">
 
 </div>
 <script type="webr-2-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG50cnVlX2VmZmVjdCA8LSAzMDAgICAgIyDmlr3nrZbjga7nnJ/jga7lirnmnpzvvIjlhobvvIlcbm5fcGVyX2FybSAgIDwtIDUwMCAgICAjIOeJh+e+pOOBguOBn+OCiuOBruOCteODs+ODl+ODq+OCteOCpOOCulxuc2Rfb3V0Y29tZSAgPC0gMzAwMCAgICMg44Ki44Km44OI44Kr44Og77yI6LO86LK36aGN77yJ44GuU0TvvIjlhobvvIlcbiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cblxuc2V0LnNlZWQoMjAyNjcpXG5uX21jIDwtIDIwMFxucHZhbHMgPC0gbnVtZXJpYyhuX21jKVxuZm9yIChzIGluIDE6bl9tYykge1xuICB5MCA8LSBybm9ybShuX3Blcl9hcm0sIG1lYW4gPSA1MDAwLCBzZCA9IHNkX291dGNvbWUpXG4gIHkxIDwtIHJub3JtKG5fcGVyX2FybSwgbWVhbiA9IDUwMDAgKyB0cnVlX2VmZmVjdCwgc2QgPSBzZF9vdXRjb21lKVxuICBwdmFsc1tzXSA8LSB0LnRlc3QoeTEsIHkwKSRwLnZhbHVlXG59XG5wb3dlcl9tYyA8LSBtZWFuKHB2YWxzIDwgMC4wNSlcblxucG93ZXJfdGhlb3J5IDwtIHBvd2VyX3R3b19tZWFuKHRydWVfZWZmZWN0LCBzZF9vdXRjb21lLCBuX3Blcl9hcm0pXG5uX25lZWRlZCA8LSBjZWlsaW5nKDIgKiAocW5vcm0oMC45NzUpICsgcW5vcm0oMC44MCkpXjIgKiAoc2Rfb3V0Y29tZSAvIHRydWVfZWZmZWN0KV4yKVxuXG5jYXQoXCLmpJzlh7rlipvvvIhNQyAyMDDlm57vvIk6XCIsIHJvdW5kKHBvd2VyX21jLCAzKSwgXCJcXG5cIilcbmNhdChcIuaknOWHuuWKm++8iOWFrOW8j++8iTpcIiwgcm91bmQocG93ZXJfdGhlb3J5LCAzKSwgXCJcXG5cIilcbmNhdChcIuaknOWHuuWKmzgwJeOBq+W/heimgeOBqk7vvIjniYfnvqTvvIk6XCIsIG5fbmVlZGVkLCBcIlxcblwiKVxuXG5uX2dyaWQgPC0gc2VxKDUwLCBtYXgoMiAqIG5fcGVyX2FybSwgcm91bmQoMS42ICogbl9uZWVkZWQpKSwgbGVuZ3RoLm91dCA9IDIwMClcbmN1cnZlX2RmIDwtIGRhdGEuZnJhbWUobiA9IG5fZ3JpZCwgcG93ZXIgPSBwb3dlcl90d29fbWVhbih0cnVlX2VmZmVjdCwgc2Rfb3V0Y29tZSwgbl9ncmlkKSlcbmdncGxvdChjdXJ2ZV9kZiwgYWVzKG4sIHBvd2VyKSkgK1xuICBnZW9tX2xpbmUoY29sb3IgPSBcInN0ZWVsYmx1ZVwiLCBsaW5ld2lkdGggPSAxKSArXG4gIGdlb21faGxpbmUoeWludGVyY2VwdCA9IDAuOCwgbGluZXR5cGUgPSBcImRhc2hlZFwiLCBjb2xvciA9IFwiZ3JheTQwXCIpICtcbiAgZ2VvbV92bGluZSh4aW50ZXJjZXB0ID0gbl9uZWVkZWQsIGxpbmV0eXBlID0gXCJkYXNoZWRcIiwgY29sb3IgPSBcImdyYXk0MFwiKSArXG4gIGFubm90YXRlKFwicG9pbnRcIiwgeCA9IG5fcGVyX2FybSwgeSA9IHBvd2VyX21jLCBjb2xvciA9IFwiZmlyZWJyaWNrXCIsIHNpemUgPSAzKSArXG4gIGFubm90YXRlKFwidGV4dFwiLCB4ID0gbl9wZXJfYXJtLCB5ID0gcG93ZXJfbWMsIGxhYmVsID0gXCJNQyBlc3RpbWF0ZVwiLFxuICAgICAgICAgICB2anVzdCA9IC0xLCBjb2xvciA9IFwiZmlyZWJyaWNrXCIpICtcbiAgbGFicyh4ID0gXCJzYW1wbGUgc2l6ZSBwZXIgYXJtXCIsIHkgPSBcInBvd2VyXCIsXG4gICAgICAgdGl0bGUgPSBwYXN0ZTAoXCJwb3dlciBjdXJ2ZSAoZWZmZWN0ID0gXCIsIHRydWVfZWZmZWN0LCBcIiwgc2QgPSBcIiwgc2Rfb3V0Y29tZSwgXCIpXCIpKSJ9
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWV9LCJjb2RlIjoiYWxwaGEgPC0gMC4xMlxucHJpY2VfYSA8LSBzZXEoOCwgMTYsIC41KVxucXVhbGl0eSA8LSBjYmluZChyZXAoLjUgKyAuOCwgbGVuZ3RoKHByaWNlX2EpKSwgcmVwKDAsIGxlbmd0aChwcmljZV9hKSkpXG5wcmljZSA8LSBjYmluZChwcmljZV9hLCByZXAoMTIsIGxlbmd0aChwcmljZV9hKSkpXG5wcm9iIDwtIGNob2ljZV9wcm9iKHF1YWxpdHksIHByaWNlLCBhbHBoYSlcbm1hdHBsb3QocHJpY2VfYSwgcHJvYiwgdHlwZSA9IFwibFwiLCBsdHkgPSAxLCBjb2wgPSBjKFwiZ3JheTQwXCIsIFwiYmx1ZVwiLCBcInJlZFwiKSxcbiAgICAgICAgeGxhYiA9IFwiQeOBruS+oeagvO+8iOWNg+WGhu+8iVwiLCB5bGFiID0gXCLpgbjmip7norrnjodcIiwgeWxpbSA9IGMoMCwgMSkpXG5sZWdlbmQoXCJ0b3ByaWdodFwiLCBjKFwi6LK344KP44Gq44GEXCIsIFwiQVwiLCBcIkJcIiksIGNvbCA9IGMoXCJncmF5NDBcIiwgXCJibHVlXCIsIFwicmVkXCIpLCBsdHkgPSAxKSJ9
 </script>
 </div>
 </div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>やってみよう
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><code>true_effect &lt;- 150</code>（効果を半分）にすると、「検出力80%に必要なN」は何倍になるか。予想してから実行しよう。</li>
-<li><code>sd_outcome &lt;- 6000</code>（ばらつき2倍。売上のように分散の大きい指標を想像しよう）にすると、必要Nは何倍になるか。</li>
-<li>上の2つが同じ倍率になったのは偶然だろうか。公式の中で<span class="math inline">\(\tau\)</span>と<span class="math inline">\(\sigma\)</span>がどういう形で入っているかから説明できるか？</li>
-</ul>
-</div>
-</div>
 </section>
-<section id="実験2peekingの罠-覗くほどtype-i-errorが膨らむ" class="level2">
-<h2 class="anchored" data-anchor-id="実験2peekingの罠-覗くほどtype-i-errorが膨らむ">実験2：peekingの罠 — 覗くほどType I errorが膨らむ</h2>
-<p>真の効果がゼロの実験を200回行い、「途中経過を<span class="math inline">\(k\)</span>回チェックして、一度でも有意なら『効果あり』と宣言して止める」という運用の誤検出率（Type I error）を<span class="math inline">\(k\)</span>ごとに数える。最後に1回だけ検定する<span class="math inline">\(k=1\)</span>なら、誤検出率は設計通り5%前後になるはずだ（MC 200回なので数ポイントはぶれる）。毎日ダッシュボードを眺めて「有意になった瞬間に展開」する運用が何を壊すかを見よう。</p>
-<div class="cell" data-timelimit="60">
+<section id="回答者数とamceの精度" class="level2">
+<h2 class="anchored" data-anchor-id="回答者数とamceの精度">2. 回答者数とAMCEの精度</h2>
+<p><code>N</code> を100、300、1000に変える。<code>Ttrain</code> は一人の回答数である。推定に使うのは学習用だけであり、<code>test</code> の選択を混ぜない。</p>
+<div class="cell" data-timelimit="120">
 <div>
 <div id="webr-3" class="exercise-cell">
 
 </div>
 <script type="webr-3-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5uX3RvdGFsIDwtIDIwMDAgICAgICAgICAgICAgICAgICMg5a6f6aiT57WC5LqG5pmC44Gu57eP44K144Oz44OX44Or44K144Kk44K677yI5Lih576k5ZCI6KiI77yJXG5rX2xpc3QgIDwtIGMoMSwgMiwgNSwgMTAsIDIwKSAgICMg6YCU5Lit57WM6YGO44KS44OB44Kn44OD44Kv44GZ44KL5Zue5pWw77yIbl9jaGVja3NfZmluZeOBrue0hOaVsOOBq+OBmeOCi++8iVxuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2Nylcbm5fbWMgPC0gMjAwXG5uX2NoZWNrc19maW5lIDwtIDIwICAgICAgICAgICAgICMg5YaF6YOo44Gn6KiI566X44GZ44KL5pyA44KC57Sw44GL44GE44OB44Kn44OD44Kv5Zue5pWwXG5zdGVwIDwtIG5fdG90YWwgJS8lIG5fY2hlY2tzX2ZpbmVcblxucmVqZWN0IDwtIG1hdHJpeChGQUxTRSwgbl9tYywgbGVuZ3RoKGtfbGlzdCkpXG5mb3IgKHMgaW4gMTpuX21jKSB7XG4gIGQgPC0gcmJpbm9tKG5fdG90YWwsIDEsIDAuNSkgICAgICAgICAgICAgICAgICAjIOWJsuS7mO+8iOODqeODs+ODgOODoOWMlu+8iVxuICB5IDwtIHJub3JtKG5fdG90YWwsIG1lYW4gPSA1MDAwLCBzZCA9IDMwMDApICAgIyDnnJ/jga7lirnmnpzjgrzjg63vvJrlibLku5jjgajnhKHplqLkv4LjgavnlJ/miJBcbiAgel9hdCA8LSBudW1lcmljKG5fY2hlY2tzX2ZpbmUpXG4gIGZvciAoaiBpbiAxOm5fY2hlY2tzX2ZpbmUpIHtcbiAgICBpZHggPC0gMTooaiAqIHN0ZXApXG4gICAgeTEgPC0geVtpZHhdW2RbaWR4XSA9PSAxXVxuICAgIHkwIDwtIHlbaWR4XVtkW2lkeF0gPT0gMF1cbiAgICB6X2F0W2pdIDwtIChtZWFuKHkxKSAtIG1lYW4oeTApKSAvXG4gICAgICBzcXJ0KHZhcih5MSkgLyBsZW5ndGgoeTEpICsgdmFyKHkwKSAvIGxlbmd0aCh5MCkpXG4gIH1cbiAgZm9yIChtIGluIHNlcV9hbG9uZyhrX2xpc3QpKSB7XG4gICAgY2hlY2tzIDwtIHNlcShuX2NoZWNrc19maW5lICUvJSBrX2xpc3RbbV0sIG5fY2hlY2tzX2ZpbmUsXG4gICAgICAgICAgICAgICAgICBieSA9IG5fY2hlY2tzX2ZpbmUgJS8lIGtfbGlzdFttXSlcbiAgICAjIOS4gOW6puOBp+OCgnx6fCA+IDEuOTbjgavjgarjgaPjgZ/jgonjgIzlirnmnpzjgYLjgorjgI3jgajlrqPoqIDjgZnjgovpgYvnlKhcbiAgICByZWplY3RbcywgbV0gPC0gYW55KGFicyh6X2F0W2NoZWNrc10pID4gMS45NiwgbmEucm0gPSBUUlVFKVxuICB9XG59XG5cbnJlc19wZWVrIDwtIGRhdGEuZnJhbWUoayA9IGtfbGlzdCwgdHlwZTFfZXJyb3IgPSByb3VuZChjb2xNZWFucyhyZWplY3QpLCAzKSlcbnJlc19wZWVrXG5cbmdncGxvdChyZXNfcGVlaywgYWVzKGssIHR5cGUxX2Vycm9yKSkgK1xuICBnZW9tX2xpbmUoY29sb3IgPSBcImZpcmVicmlja1wiLCBsaW5ld2lkdGggPSAxKSArXG4gIGdlb21fcG9pbnQoY29sb3IgPSBcImZpcmVicmlja1wiLCBzaXplID0gMi41KSArXG4gIGdlb21faGxpbmUoeWludGVyY2VwdCA9IDAuMDUsIGxpbmV0eXBlID0gXCJkYXNoZWRcIiwgY29sb3IgPSBcImdyYXk0MFwiKSArXG4gIGxhYnMoeCA9IFwibnVtYmVyIG9mIGludGVyaW0gY2hlY2tzIChrKVwiLCB5ID0gXCJUeXBlIEkgZXJyb3IgcmF0ZVwiLFxuICAgICAgIHRpdGxlID0gXCJ0cnVlIGVmZmVjdCA9IDA6IHN0b3AgYXQgZmlyc3Qgc2lnbmlmaWNhbnQgcGVla1wiKSJ9
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6MTIwfSwiY29kZSI6Ik4gPC0gMzAwXG5UdHJhaW4gPC0gOFxuZGF0IDwtIHNpbXVsYXRlX2NiYyhOID0gTiwgVHRyYWluID0gVHRyYWluKVxuZCA8LSB0b19sb25nKGRhdCR0cmFpbilcbnJlc3VsdCA8LSBjbHVzdGVyX2xtKGQpXG5yb3VuZChyZXN1bHRbLCBjKFwiZXN0aW1hdGVcIiwgXCJzZVwiKV0sIDMpXG5yIDwtIHJlc3VsdFtyZXN1bHQkdGVybSAhPSBcIihJbnRlcmNlcHQpXCIsIF1cbnBsb3Qoc2VxX2xlbihucm93KHIpKSwgciRlc3RpbWF0ZSwgeGF4dCA9IFwiblwiLCB4bGFiID0gXCJcIiwgeWxhYiA9IFwiQU1DRVwiLFxuICAgICB5bGltID0gcmFuZ2UociRlc3RpbWF0ZSArIDEuOTYgKiByJHNlLCByJGVzdGltYXRlIC0gMS45NiAqIHIkc2UpLCBwY2ggPSAxOSlcbmF4aXMoMSwgc2VxX2xlbihucm93KHIpKSwgbGFiZWxzID0gciR0ZXJtKVxuYXJyb3dzKHNlcV9sZW4obnJvdyhyKSksIHIkZXN0aW1hdGUgLSAxLjk2ICogciRzZSwgc2VxX2xlbihucm93KHIpKSwgciRlc3RpbWF0ZSArIDEuOTYgKiByJHNlLFxuICAgICAgIGFuZ2xlID0gOTAsIGNvZGUgPSAzLCBsZW5ndGggPSAuMDUpXG5hYmxpbmUoaCA9IDAsIGx0eSA9IDIpIn0=
 </script>
 </div>
 </div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>やってみよう
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><code>n_checks_fine &lt;- 40</code>、<code>k_list &lt;- c(1, 2, 5, 10, 20, 40)</code> にして、40回覗くと誤検出率がどこまで膨らむか確認しよう。</li>
-<li><code>n_total &lt;- 10000</code> に増やしても膨張は消えないことを確認しよう。これはサンプルサイズの問題ではなく、検定を繰り返すという運用の問題である。</li>
-<li>このコードで誤検出を膨らませている「犯人」はどの行だろうか。<code>any(...)</code> の行を「最後のチェックだけで判定」に書き換えたら、<span class="math inline">\(k\)</span>によらず5%前後に戻るだろうか？</li>
-</ul>
-</div>
-</div>
 </section>
-<section id="実験3ittとtot-配る効果と使う効果は別物" class="level2">
-<h2 class="anchored" data-anchor-id="実験3ittとtot-配る効果と使う効果は別物">実験3：ITTとTOT — 「配る効果」と「使う効果」は別物</h2>
-<p>クーポンは配っても全員が使うわけではない。配信<span class="math inline">\(Z\)</span>はランダムだが、使用<span class="math inline">\(X\)</span>は顧客の自己選択で決まる（購買意欲の高い人ほど使う）。このとき配信の効果（ITT）と使用の効果（TOT）は別の量である。ランダム割り当て・first stage・排除制約・monotonicityに加え、one-sided noncompliance（配られない人は使えない）が成立すれば、実際の使用者はcomplierなので</p>
-<p><span class="math display">\[
-\text{TOT} = \frac{\text{ITT}}{P(X = 1 \mid Z = 1)}
-\]</span></p>
-<p>というWald推定量で結ばれる（分母は配信群の使用率）。一方、実務で頻出の「使用者vs非使用者」の単純比較はセレクションで汚染される。3つの数字を並べて見比べよう。</p>
-<div class="cell" data-timelimit="60">
+<section id="wtpの平均と平均係数の比" class="level2">
+<h2 class="anchored" data-anchor-id="wtpの平均と平均係数の比">3. WTPの平均と、平均係数の比</h2>
+<p>平均価格係数を0.12に保って、ばらつき <code>tau</code> を変える。平均係数の比が変わらないのに、個人WTPの平均が変わる理由を考えよう。</p>
+<div class="cell">
 <div>
 <div id="webr-4" class="exercise-cell">
 
 </div>
 <script type="webr-4-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5jb21wbGlhbmNlIDwtIDAuNCAgICAjIOmFjeS/oee+pOOBruOBhuOBoeWun+mam+OBq+OCr+ODvOODneODs+OCkuS9v+OBhuWJsuWQiO+8iOW5s+Wdh+eahOOBquS9v+eUqOeOh++8iVxudHJ1ZV90b3QgICA8LSA4MDAgICAgIyDjgq/jg7zjg53jg7PjgpLjgIzkvb/jgaPjgZ/jgI3jgZPjgajjga7nnJ/jga7lirnmnpzvvIjlhobvvIlcbk4gICAgICAgICAgPC0gNDAwMFxuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2NylcblogPC0gcmJpbm9tKE4sIDEsIDAuNSkgICAgICAgICAgICAgICAgICAgICMg6YWN5L+h77yI44Op44Oz44OA44Og5YyW77yJXG5hYmlsaXR5IDwtIHJub3JtKE4pICAgICAgICAgICAgICAgICAgICAgICAjIOims+a4rOOBleOCjOOBquOBhOizvOiyt+aEj+asslxudXNlX3Byb2IgPC0gcG1pbihwbWF4KGNvbXBsaWFuY2UgKyAwLjI1ICogYWJpbGl0eSwgMC4wMiksIDAuOTgpXG5YIDwtIGlmZWxzZShaID09IDEsIHJiaW5vbShOLCAxLCB1c2VfcHJvYiksIDApICAgIyDkvb/nlKjvvIjphY3kv6HjgZXjgozjgarjgYTjgajkvb/jgYjjgarjgYTvvIlcblkwIDwtIHBtYXgoNTAwMCArIDE1MDAgKiBhYmlsaXR5ICsgcm5vcm0oTiwgbWVhbiA9IDAsIHNkID0gMjAwMCksIDApXG5ZIDwtIFkwICsgdHJ1ZV90b3QgKiBYICAjIOWAi+S6uuOBlOOBqOOBruWKueaenOOCkuWOs+WvhuOBq3RydWVfdG9044G45Zu65a6aXG5hYl9kZiA8LSBkYXRhLmZyYW1lKFosIFgsIFkpXG5cbml0dF9oYXQgICA8LSBjb2VmKGxtKFkgfiBaLCBkYXRhID0gYWJfZGYpKVtcIlpcIl1cbnVzYWdlICAgICA8LSBtZWFuKGFiX2RmJFhbYWJfZGYkWiA9PSAxXSlcbm5haXZlX2hhdCA8LSBjb2VmKGxtKFkgfiBYLCBkYXRhID0gc3Vic2V0KGFiX2RmLCBaID09IDEpKSlbXCJYXCJdXG53YWxkX2hhdCAgPC0gaXR0X2hhdCAvIHVzYWdlXG5cbmNhdChcIuS9v+eUqOeOh++8iOmFjeS/oee+pOOBruOBhuOBoeS9v+OBo+OBn+WJsuWQiO+8iTpcIiwgcm91bmQodXNhZ2UsIDMpLCBcIlxcblwiKVxuY2F0KFwi55yf44GuSVRU77yIPSDnnJ/jga5UT1QgeCDkvb/nlKjnjofvvIk6IOe0hFwiLCByb3VuZCh0cnVlX3RvdCAqIHVzYWdlLCAxKSwgXCLlhoZcXG5cIilcblxucmVzX3RvdCA8LSBkYXRhLmZyYW1lKFxuICBtZXRob2QgPSBjKFwiSVRUIChkZWxpdmVyZWQgdnMgbm90KVwiLCBcIm5haXZlICh1c2VycyB2cyBub24tdXNlcnMpXCIsXG4gICAgICAgICAgICAgXCJXYWxkIChJVFQgLyB1c2FnZSByYXRlKVwiLCBcInRydWUgVE9UXCIpLFxuICBlc3RpbWF0ZSA9IHJvdW5kKGFzLm51bWVyaWMoYyhpdHRfaGF0LCBuYWl2ZV9oYXQsIHdhbGRfaGF0LCB0cnVlX3RvdCkpLCAxKVxuKVxucmVzX3RvdFxuXG5nZ3Bsb3QocmVzX3RvdCwgYWVzKHggPSByZW9yZGVyKG1ldGhvZCwgZXN0aW1hdGUpLCB5ID0gZXN0aW1hdGUpKSArXG4gIGdlb21fY29sKGZpbGwgPSBcInN0ZWVsYmx1ZVwiLCB3aWR0aCA9IDAuNikgK1xuICBnZW9tX2hsaW5lKHlpbnRlcmNlcHQgPSB0cnVlX3RvdCwgbGluZXR5cGUgPSBcImRhc2hlZFwiLCBjb2xvciA9IFwiZmlyZWJyaWNrXCIpICtcbiAgY29vcmRfZmxpcCgpICtcbiAgbGFicyh4ID0gTlVMTCwgeSA9IFwiZXN0aW1hdGUgKHllbilcIiwgdGl0bGUgPSBcImRhc2hlZCBsaW5lID0gdHJ1ZSBUT1RcIikifQ==
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWV9LCJjb2RlIjoic2V0LnNlZWQoMjAyNjA3MylcbnRhdSA8LSAwLjZcbm11IDwtIGxvZyguMTIpIC0gdGF1XjIgLyAyXG5hbHBoYSA8LSBleHAocm5vcm0oMTAwMDAsIG11LCB0YXUpKVxud3RwIDwtIC44IC8gYWxwaGFcbmMobWVhbl9pbmRpdmlkdWFsX3d0cCA9IG1lYW4od3RwKSwgcmF0aW9fb2ZfbWVhbnMgPSAuOCAvIG1lYW4oYWxwaGEpLCBtZWRpYW5fd3RwID0gbWVkaWFuKHd0cCkpXG5oaXN0KHd0cCwgYnJlYWtzID0gNDAsIHhsYWIgPSBcIuWAi+S6uldUUO+8iOWNg+WGhu+8iVwiLCBtYWluID0gXCLjg47jgqTjgrrjgq3jg6Pjg7Pjgrvjg6rjg7PjgrDjga5XVFBcIilcbmFibGluZSh2ID0gLjggLyAuMTIsIGNvbCA9IFwicmVkXCIsIGx3ZCA9IDIpIn0=
 </script>
 </div>
 </div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>やってみよう
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><code>compliance</code> を0.8、0.4、0.2と下げて、ITTとWald（TOT）の乖離がどう開くかを見よう。ITTはおおよそ「TOT × 使用率」で縮んでいく。使用率が下がるとWald推定量のぶれも大きくなることに注意。</li>
-<li><code>1500 * ability</code> の1500を0にして（セレクションを消して）、単純比較が真のTOTにほぼ一致することを確かめよう。単純比較のバイアスの正体は施策ではなく「使う人はもともと違う」ことにある。</li>
-<li>1500を-1500（購買意欲の低い人ほどクーポンを使う世界）にしたら、単純比較は過大評価と過小評価のどちらになるか。予想してから実行しよう。</li>
-</ul>
-</div>
-</div>
 </section>
-<section id="実験4cuped-実験前データで分散を削る" class="level2">
-<h2 class="anchored" data-anchor-id="実験4cuped-実験前データで分散を削る">実験4：CUPED — 実験前データで分散を削る</h2>
-<p>実験1で見た通り、検出力は<span class="math inline">\(N\)</span>だけでなくアウトカムの分散でも決まる。CUPEDは、実験前の同じ指標<span class="math inline">\(X\)</span>（例：実験前30日の購買額）を使ってアウトカムを<span class="math inline">\(Y_i - \theta (X_i - \bar X)\)</span>と調整する（<span class="math inline">\(\theta\)</span>は<span class="math inline">\(Y\)</span>を<span class="math inline">\(X\)</span>に回帰した係数）。<span class="math inline">\(X\)</span>と<span class="math inline">\(Y\)</span>の相関を<span class="math inline">\(\rho\)</span>とすると、調整後の分散は</p>
-<p><span class="math display">\[
-\text{Var}(Y^{c}) = \text{Var}(Y) (1 - \rho^2)
-\]</span></p>
-<p>になる（母集団の最適係数を使う理論式）。つまりSEは<span class="math inline">\(\sqrt{1 - \rho^2}\)</span>倍に縮む。有限標本で<span class="math inline">\(\theta\)</span>も推定する場合は毎回の保証ではないので、調整後SEを実際に確認する。</p>
-<div class="cell" data-timelimit="60">
+<section id="問で一人の好みを決められるか" class="level2">
+<h2 class="anchored" data-anchor-id="問で一人の好みを決められるか">4. 8問で一人の好みを決められるか</h2>
+<p>最初の8問を使い、回答者1の価格係数を変えたときの対数尤度を描く。山が狭いか広いか、端まで増え続けるかを確認しよう。今回は他の属性係数を既知としているので、実際に全係数を一人ずつ推定する場合より簡単な問題である。</p>
+<div class="cell">
 <div>
 <div id="webr-5" class="exercise-cell">
 
 </div>
 <script type="webr-5-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6NjB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5yaG8gICAgICA8LSAwLjYgICAgIyDlrp/pqJPliY3mjIfmqJnjgajlrp/pqJPmnJ/plpPjgqLjgqbjg4jjgqvjg6Djga7nm7jplqJcbnRydWVfYXRlIDwtIDI1MCAgICAjIOaWveetluOBruecn+OBruWKueaenO+8iOWGhu+8iVxuTiAgICAgICAgPC0gMjAwMFxuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2NylcbnoxIDwtIHJub3JtKE4pXG56MiA8LSBybm9ybShOKVxucHJlIDwtIDUwMDAgKyAxODAwICogejEgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAjIOWun+mok+WJjTMw5pel44Gu6LO86LK36aGNXG5EIDwtIHJiaW5vbShOLCAxLCAwLjUpXG5ZIDwtIDUyMDAgKyAxODAwICogKHJobyAqIHoxICsgc3FydCgxIC0gcmhvXjIpICogejIpICsgdHJ1ZV9hdGUgKiBEXG5cbmZpdF9yYXcgPC0gbG0oWSB+IEQpXG50aGV0YSA8LSBjb2VmKGxtKFkgfiBwcmUpKVtcInByZVwiXSAgICAgICAgIyBDVVBFROOBruiqv+aVtOS/guaVsO+8iOWbnuW4sOOBp+aOqOWumu+8iVxuWV9jdXBlZCA8LSBZIC0gdGhldGEgKiAocHJlIC0gbWVhbihwcmUpKVxuZml0X2N1cGVkIDwtIGxtKFlfY3VwZWQgfiBEKVxuXG5lc3QgPC0gYyhjb2VmKGZpdF9yYXcpW1wiRFwiXSwgY29lZihmaXRfY3VwZWQpW1wiRFwiXSlcbnNlICA8LSBjKHN1bW1hcnkoZml0X3JhdykkY29lZmZpY2llbnRzW1wiRFwiLCAyXSxcbiAgICAgICAgIHN1bW1hcnkoZml0X2N1cGVkKSRjb2VmZmljaWVudHNbXCJEXCIsIDJdKVxucmhvX2FjdHVhbCA8LSBjb3IocHJlLCBZKVxuXG5yZXNfY3VwZWQgPC0gZGF0YS5mcmFtZShtZXRob2QgPSBjKFwicmF3IGRpZmZlcmVuY2VcIiwgXCJDVVBFRFwiKSxcbiAgICAgICAgICAgICAgICAgICAgICAgIGVzdGltYXRlID0gcm91bmQoYXMubnVtZXJpYyhlc3QpLCAxKSxcbiAgICAgICAgICAgICAgICAgICAgICAgIHNlID0gcm91bmQoYXMubnVtZXJpYyhzZSksIDEpKVxucmVzX2N1cGVkXG5cbmNhdChcIuWun+mam+OBruebuOmWojpcIiwgcm91bmQocmhvX2FjdHVhbCwgMyksIFwiXFxuXCIpXG5jYXQoXCLliIbmlaPliYrmuJvnjofvvIjoprPmuKzvvIk6XCIsIHJvdW5kKDEgLSAoc2VbMl0gLyBzZVsxXSleMiwgMyksXG4gICAgXCIg55CG6KuW5YCkIHJob14yOlwiLCByb3VuZChyaG9fYWN0dWFsXjIsIDMpLCBcIlxcblwiKVxuXG5jdXJ2ZV9kZiA8LSBkYXRhLmZyYW1lKHIgPSBzZXEoMCwgMC45OSwgYnkgPSAwLjAxKSlcbmN1cnZlX2RmJHNlX3JhdGlvIDwtIHNxcnQoMSAtIGN1cnZlX2RmJHJeMilcbm9ic19kZiA8LSBkYXRhLmZyYW1lKHIgPSBhYnMocmhvX2FjdHVhbCksIHNlX3JhdGlvID0gc2VbMl0gLyBzZVsxXSlcbmdncGxvdChjdXJ2ZV9kZiwgYWVzKHIsIHNlX3JhdGlvKSkgK1xuICBnZW9tX2xpbmUoY29sb3IgPSBcInN0ZWVsYmx1ZVwiLCBsaW5ld2lkdGggPSAxKSArXG4gIGdlb21fcG9pbnQoZGF0YSA9IG9ic19kZiwgY29sb3IgPSBcImZpcmVicmlja1wiLCBzaXplID0gMykgK1xuICBhbm5vdGF0ZShcInRleHRcIiwgeCA9IG9ic19kZiRyLCB5ID0gb2JzX2RmJHNlX3JhdGlvLCBsYWJlbCA9IFwidGhpcyBleHBlcmltZW50XCIsXG4gICAgICAgICAgIHZqdXN0ID0gLTEsIGNvbG9yID0gXCJmaXJlYnJpY2tcIikgK1xuICBsYWJzKHggPSBcImNvcnJlbGF0aW9uIHdpdGggcHJlLXBlcmlvZCBtZXRyaWMgKHJobylcIixcbiAgICAgICB5ID0gXCJTRSByYXRpbyAoQ1VQRUQgLyByYXcpXCIsXG4gICAgICAgdGl0bGUgPSBcIlNFIHNocmlua3MgYnkgZmFjdG9yIHNxcnQoMSAtIHJob14yKVwiKSJ9
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWV9LCJjb2RlIjoiY3VzdG9tZXIgPC0gMVxucm93cyA8LSB3aGljaChkYXQkdHJhaW4kaWQgPT0gY3VzdG9tZXIpXG50aGV0YV9ncmlkIDwtIHNlcShsb2coLjAxKSwgbG9nKDEpLCBsZW5ndGgub3V0ID0gMjAwKVxubG9nbGlrIDwtIHNhcHBseSh0aGV0YV9ncmlkLCBmdW5jdGlvbih0aGV0YSkge1xuICBwIDwtIGNob2ljZV9wcm9iKGRhdCR0cmFpbiRxdWFsaXR5W3Jvd3MsICwgZHJvcCA9IEZBTFNFXSwgZGF0JHRyYWluJHByaWNlW3Jvd3MsICwgZHJvcCA9IEZBTFNFXSwgZXhwKHRoZXRhKSlcbiAgc3VtKGxvZyhwW2NiaW5kKHNlcV9hbG9uZyhyb3dzKSwgZGF0JHRyYWluJGNob2ljZVtyb3dzXSArIDEpXSkpXG59KVxucGxvdChleHAodGhldGFfZ3JpZCksIGxvZ2xpaywgdHlwZSA9IFwibFwiLCB4bGFiID0gXCLkvqHmoLzkv4LmlbAgYWxwaGFcIiwgeWxhYiA9IFwi5pys5Lq644Gu5Zue562U44Gu5a++5pWw5bCk5bqmXCIpIn0=
 </script>
 </div>
 </div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>やってみよう
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><code>rho</code> を0.3と0.9にして、SEの縮み方を比べよう。削減率は<span class="math inline">\(\rho^2\)</span>で効くので、0.3ではほとんど削れないが、0.9では劇的に縮む。実験前指標の「予測力」がすべてを決める。</li>
-<li><code>true_ate &lt;- 0</code> にしても、推定値が0付近のままSEだけが縮むことを確認しよう。CUPEDは効果を作り出さない。見つけやすくするだけである。</li>
-<li><span class="math inline">\(\rho = 0.6\)</span> のCUPEDは、<span class="math inline">\(N\)</span>を何%増やしたのと同じ価値があるか。実験1の公式（必要Nは分散に比例する）とつなげて考えてみよう。</li>
-</ul>
-</div>
-</div>
-</section>
-<section id="次に読むもの" class="level2">
-<h2 class="anchored" data-anchor-id="次に読むもの">次に読むもの</h2>
-<ul>
-<li>講義ノート本体：<code>lecture7.html</code>（ランダム化推論・MDE公式・大規模実験の落とし穴集の完全版）</li>
-<li>coding課題：<code>assignment7.qmd</code>（ECサイトのメールクーポン実験を題材に、ITT/TOT・CUPED・peeking診断を今日の手順でゼロから実装する）</li>
-</ul>
+<p>この曲線に、母集団でどの係数がどれくらいありそうかという情報を組み合わせる。その計算を第8・9回で扱う。</p>
 <script type="webr-data">
 eyJvcHRpb25zIjp7ImJhc2VVcmwiOiJodHRwczovL3dlYnIuci13YXNtLm9yZy92MC42LjAvIn0sInBhY2thZ2VzIjp7InBrZ3MiOlsiZXZhbHVhdGUiLCJrbml0ciIsImh0bWx0b29scyIsImdncGxvdDIiLCJkcGx5ciIsInRpZHlyIl0sInJlcG9zIjpbImh0dHBzOi8vcmVwby5yLXdhc20ub3JnIiwiaHR0cHM6Ly9jcmFuLnItdW5pdmVyc2UuZGV2Il19LCJyZW5kZXJfZGYiOiJkZWZhdWx0In0=
 </script>

@@ -1,22 +1,19 @@
 ---
-title: "Lecture 11：予測から意思決定へ"
-subtitle: "ターゲティングと離散的施策最適化｜計量経済学II"
+title: "Lecture 11：購買履歴から顧客の長期価値を予測する"
+subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
 format:
   revealjs:
     theme: [default, ../slides_theme.scss]
     slide-number: c/t
-    incremental: true
     embed-resources: true
     transition: none
     center: false
     width: 1180
     height: 700
-    margin: 0.08
     fig-width: 8
-    fig-height: 4.2
-    code-line-numbers: false
+    fig-height: 4.5
 execute:
   echo: false
   warning: false
@@ -28,1046 +25,550 @@ execute:
 library(ggplot2)
 library(dplyr)
 library(tidyr)
-library(fixest)
-library(grf)
+library(knitr)
 
-set.seed(20261)
+set.seed(202610)
 
-theme_slide <- function() {
+theme_lecture <- function() {
   fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
-  theme_minimal(base_size = 15, base_family = fam)
+  theme_minimal(base_size = 13, base_family = fam)
 }
-theme_set(theme_slide())
+theme_set(theme_lecture())
 knitr::opts_chunk$set(fig.align = "center", dpi = 144)
 options(scipen = 8)
-```
 
-## 今日の流れ（90分）
 
-| 時間 | 内容 |
-|---|---|
-| 10分 | Quiz（解答5分 + 解説5分） |
-| 10分 | Ascarzaの教訓とpredict-then-actの罠 |
-| 8分 | 顧客の4類型 |
-| 20分 | CATEの推定：T-learnerとcausal forest |
-| 13分 | Qini曲線でターゲティングを評価する |
-| 14分 | IPWによる政策評価 |
-| 10分 | 予算制約・policy learning・観察データ |
-| 5分 | まとめ・宿題・次回予告 |
 
-::: {.notes}
-- 今日のメイン: 「churnスコア順に配る」の失敗 → CATE推定 → Qini曲線 → IPW政策評価、という一本道。
-- 第1回の「予測 vs 因果」の対比を、意思決定の場面で最終回収する回だと最初に宣言する。
-:::
-
-## Quiz（前回の復習・10分）
-
-::: {.nonincremental}
-
-- 配布した Quiz 11 に解答する（**5分**、メモ・ノート参照可）
-- そのあと解説（**5分**）
-- 採点はしない。前回の内容のセルフチェックとして使うこと
-:::
-
-
-::: {.notes}
-- 解答5分 → 解説5分。解説は別資料 quiz11_solution を使う（スライドには載せない）。
-- 3問とも第10回の核心（離脱が観測されない問題、recencyとfrequencyの交互作用、CLVは予測であり因果ではない）に対応。
-- 設問2（CLVと因果の区別）がそのまま今日の主役になる、という伏線を解説時に一言。
-:::
-
-# Ascarzaの教訓：その直感、疑ってかかれ {background-color="#1f3552"}
-
-::: {.notes}
-- ここから本編75分。この節は10分。
-:::
-
-## 前回とのつながり
-
-- 第10回：BG/NBDで **P(alive)・将来購買・CLVを予測**できるようになった
-- 最後に警告を出した：**CLVは予測であって因果ではない**
-- 「予測リストの正しい使い方」はまだ説明していなかった → 今日その宿題を回収する
-
-::: {.keybox .fragment}
-今日のゴール：第9-10回の「顧客ごとの予測」と、今日学ぶ「施策の因果効果」を組み合わせて、**誰にどの施策を配るべきか**という意思決定に答える。
-:::
-
-::: {.notes}
-- 第1回で立てた「予測 vs 因果 vs 反実仮想」の対比の、最終的な実務的回収でもある。
-- 第7回のRCT（A/Bテスト）のログデータを、今日は最も徹底的に使い倒す。
-:::
-
-## 今日押さえたいこと
-
-1. 「解約リスクが高い顧客に施策を打つ」という直感が**しばしば間違っている**理由（Ascarza 2018）
-2. 顧客の4類型（persuadables / sure things / lost causes / sleeping dogs）
-3. **CATE**をT-learnerとcausal forestで推定する方法と、honesty・sample splittingの直感
-4. **Qini曲線**を自作し、「churnスコア順」が「ランダム」に負ける場面を自分の目で見る
-5. **IPW政策評価**：新しい配分ルールを、過去のRCTログから**再実験せずに**評価する
-6. 予算制約下の配分（top-k）、policy learning、観察データでのDMLの位置づけ
-
-::: {.notes}
-- 4と5が今日の手を動かす山場。3はそのための道具。
-- 6は概念の紹介にとどめる（実装はしない）。
-:::
-
-## 誰もがやりそうな発想
-
-第10回でP(alive)・churnスコアのランキングを作った。次に自然に浮かぶのは：
-
-> 「解約しそうな顧客（スコア上位）に、引き留め施策（クーポン・電話・割引）を優先的に打とう」
-
-- 実務でもっともよく見る打ち手
-- 「困っている人を助ける」という直感とも親和的
-
-. . .
-
-**この発想、本当に正しいか？**
-
-::: {.notes}
-- ここで受講者に「自分ならどうするか」を一度考えさせる。ほぼ全員がこの発想に賛成するはず。
-- その直感を次のスライドで崩す、という構成。
-:::
-
-## Retention Futility（Ascarza 2018）
-
-Ascarza (2018) は、通信会社とメディア企業の**実際のRCTデータ**で示した：
-
-- 解約リスクが**最も高い**セグメントでは、引き留め施策の効果が**ほぼゼロ**
-- むしろ**中位リスク**の顧客の方が施策に反応した
-- 論文タイトルはそのものずばり "Retention Futility"（引き留めの徒労）
-
-::: {.warnbox .fragment}
-**解約リスクの高さ**（churn予測スコア）と、**施策への感応度**（treatment effect）は、まったく別の量である。
-:::
-
-::: {.notes}
-- リスクが非常に高い顧客は「もう決めている」顧客。クーポン1枚で気持ちは変わらない。
-- 迷っている中間層にこそ施策が効く余地がある。
-- 今日の後半で、この現象をシミュレーションで自分の手で再現する。
-:::
-
-## predict-then-actの罠
-
-「予測してから行動する」フローは、暗黙に次を仮定している：
-
-- 予測スコアが高い → 施策の効果も大きい（はず）
-
-この前提が成り立つ保証は**どこにもない**。
-
-- スコアと効果は無関係なことも、**逆相関**することすらある
-- churn予測が答えるのは「この人は離脱しますか」（予測）
-- 意思決定に必要なのは「施策を打てば離脱を防げますか」（因果）
-
-::: {.keybox .fragment}
-この2つの問いに答えるモデルは**原理的に別物**。これが今日の講義全体を貫く中心メッセージ。
-:::
-
-::: {.notes}
-- 第1回の「予測と因果は別タスク」が、施策配分という最も実務的な場面で牙をむく。
-- 「同じデータ・同じ予測モデルから自動的に後者が手に入るわけではない」を強調。
-:::
-
-## レビュー会議で聞くべき質問
-
-「解約予測AUC 0.85のモデルができました。上位20%に施策を打ちましょう」という提案への質問リスト：
-
-- そのスコアと**介入効果の相関**を、ランダム化実験データで検証したか？
-- スコア上位に**施策を打たないholdout群**を残す設計になっているか？
-- スコア上位は、施策なしでも残る人（sure things）や、打っても去る人（lost causes）ではないか？
-- 過去のランダム化ログで**upliftモデル**を作れないか？
-
-::: {.notes}
-- 答えられないプロジェクトはpredict-then-actの罠に陥っている可能性が高い。
-- sure things / lost causesという言葉が出たので、次の節で4類型を正式に導入する。
-:::
-
-# 顧客の4類型 {background-color="#1f3552"}
-
-::: {.notes}
-- この節は8分。uplift modelingの古典的な整理。
-:::
-
-## 顧客を4つに分ける
-
-施策あり／なしで行動（解約するか）がどう変わるかで分類：
-
-| タイプ | 施策なし | 施策あり | 効果 |
-|---|---|---|---|
-| 説得可能（persuadables） | 解約する | 解約しない | プラス |
-| 鉄板（sure things） | 解約しない | 解約しない | なし |
-| 見込みなし（lost causes） | 解約する | 解約する | なし |
-| 寝た子を起こす（sleeping dogs） | 解約しない | 解約する | **マイナス** |
-
-::: {.notes}
-- 潜在アウトカムの言葉そのもの：Y(1)とY(0)の組み合わせで4通り。
-- 同一人物について両方は観測できない（因果推論の根本問題）ので、個人を確実に分類することはできない。だからこそCATEという「条件付き平均」を狙う、という次節への伏線。
-:::
-
-## 4類型とCATEを混ぜない
-
-- 4類型は個人の $(Y(0),Y(1))$ で決まる **principal strata**
-- 一人の2つの潜在アウトカムは同時に観測できず、通常は個人の類型を特定できない
-- CATEは**集団の条件付き平均**：
-
-$$
-\tau(x)=P(\text{persuadable}\mid x)-P(\text{sleeping dog}\mid x)
-$$
-
-. . .
-
-$\tau(x)<0$ は「その層の大半がsleeping dogs」を意味しない。
-
-::: {.warnbox .fragment}
-継続者数を増やすのはpersuadables、減らすのはsleeping dogs。利益にはさらに価値とコストが要る。
-:::
-
-::: {.notes}
-- スコアは「状態」の予測であって「反応」の予測ではない、を4類型の言葉で言い直しただけ。
-- 高リスクと高い効果は同義でない。principal stratumとCATEの区別を口頭で再確認する。
-:::
-
-## 負の効果が生じうるメカニズム
-
-例えば、次の仮説的な経路が考えられる：
-
-- **引き留め電話**：「解約をお考えでは？」がかえって解約という選択肢を思い出させる
-- **掘り起こしメール**：「まだ契約していたのか。この機会に解約しよう」のきっかけに
-- **値引きオファー**：不満のない顧客に「値引きが必要なほどの価値なのか」と疑念を持たせる
-
-. . .
-
-個別事例から存在や割合は断定できない。確認にはRCTと十分な標本が必要である。
-
-::: {.notes}
-- 「施策にはコストだけでなく、負の効果までありうる」という点が、単なる無駄打ち以上に深刻。
-- 後半で、カタログ郵送RCTを使ったHitsch et al. (2024)の政策評価を紹介する。
-:::
-
-# CATEの推定：T-learnerとcausal forest {background-color="#1f3552"}
-
-::: {.notes}
-- この節は20分。今日の理論と実装の山場。
-- Athey and Imbens (2019) の見取り図：機械学習は予測に強いが、sample splitting等の工夫と組み合わせて初めて因果推論の道具になる。
-:::
-
-## CATEの定義とRCTでの識別
-
-処置 $D_i \in \{0,1\}$、潜在アウトカム $Y_i(1), Y_i(0)$。**条件付き平均処置効果（CATE）**：
-
-$$
-\tau(x) = E[Y_i(1) - Y_i(0) \mid X_i = x]
-$$
-
-. . .
-
-RCTなら（$D_i$ がランダム割り当てなら）、群間平均差で識別できる：
-
-$$
-\tau(x) = E[Y_i \mid X_i = x, D_i = 1] - E[Y_i \mid X_i = x, D_i = 0]
-$$
-
-::: {.notes}
-- 記法は第7・9回と同じ。ATEはτ、CATEはτ(x)、傾向スコアはe(x)。
-- 「X=xの近傍にいる人々の処置群・対照群の平均の差」という読み方。
-:::
-
-## 「近傍」が薄くなる問題
-
-- $x$ が連続・高次元だと、「$X = x$ の近傍」のサンプルはどんどん小さくなる
-- 小さいセグメントの効果推定は暴れる —— **第9回の教訓そのもの**
-- CATE推定には、機械学習的な「柔軟だが規律のある」関数近似が必要になる
-
-. . .
-
-これから見る **T-learner** と **causal forest** がその具体例。
-
-::: {.notes}
-- 第9回のshrinkageの問題意識と直結していることを強調。
-- 「機械学習をそのまま使う」のではなく「工夫して使う」のが今日のポイント。
-:::
-
-## シミュレーション設定：解約引き留めクーポンRCT
-
-通信キャリアの契約者8,000人に、割引クーポンを**50%の確率でランダム配布**し、翌月の解約を観測。
-
-共変量 $X$ は5つ：
-
-- `tenure_months`（契約継続月数）、`usage_hours`（週あたり利用時間）
-- `billing_trouble`（過去の請求トラブルの有無）
-- `price_sensitivity`（価格感応度スコア）、`num_devices`（契約デバイス数）
-
-アウトカムは `stay`（1 = 継続）。
-
-::: {.notes}
-- ノートでは2万人だが、スライドでは計算時間の都合で8,000人に落としてある（結果の質は変わらない）。
-- risk_scoreは「企業が実際に作るような解約リスクスコア」として、真の解約確率にノイズを乗せて生成。
-:::
-
-## DGPの設計：効果はリスクと単調でない
-
-真のクーポン効果 $\tau(x)$（解約確率を何ポイント下げるか）を、意図的に非単調に作る：
-
-- 解約リスク**中位**の層で効果が大きい（persuadablesが多い層）
-- リスクが**非常に高い**層では効果ほぼゼロ（lost causes寄り）
-- **請求トラブル層**では平均効果が**負**になりやすい（層の全員がsleeping dogsという意味ではない）
-
-```{r}
-#| label: dgp-coupon
-#| include: false
-n <- 8000
-
-tenure_months <- runif(n, 1, 60)
-usage_hours <- rgamma(n, shape = 2.0, scale = 3.0)
-price_sensitivity <- rnorm(n, 0, 1)
-num_devices <- sample(1:4, n, replace = TRUE)
-
-logit_billing <- -1.6 + 0.25 * price_sensitivity - 0.03 * usage_hours
-p_billing <- 1 / (1 + exp(-logit_billing))
-billing_trouble <- rbinom(n, 1, pmin(pmax(p_billing, 0.02), 0.75))
-
-logit_churn0 <- -1.0 - 0.05 * usage_hours - 0.012 * tenure_months +
-  0.9 * billing_trouble + 0.35 * price_sensitivity
-p_churn0 <- 1 / (1 + exp(-logit_churn0))
-
-risk_score <- pmin(pmax(p_churn0 + rnorm(n, 0, 0.02), 0.001), 0.999)
-
-D <- rbinom(n, 1, 0.5)
-
-mid_risk_bump <- exp(-0.5 * ((p_churn0 - 0.25) / 0.09)^2)
-tau_index <- 0.16 * mid_risk_bump -
-  0.22 * billing_trouble -
-  0.05 * (p_churn0 > 0.5)
-
-p_churn0_clipped <- pmin(pmax(p_churn0, 0.001), 0.999)
-p_churn1 <- pmin(pmax(p_churn0_clipped - tau_index, 0.001), 0.999)
-tau_true <- p_churn0_clipped - p_churn1
-
-churn_potential_0 <- rbinom(n, 1, p_churn0_clipped)
-churn_potential_1 <- rbinom(n, 1, p_churn1)
-stay_potential_0 <- 1 - churn_potential_0
-stay_potential_1 <- 1 - churn_potential_1
-principal_stratum <- case_when(
-  stay_potential_0 == 0 & stay_potential_1 == 1 ~ "persuadable",
-  stay_potential_0 == 1 & stay_potential_1 == 1 ~ "sure thing",
-  stay_potential_0 == 0 & stay_potential_1 == 0 ~ "lost cause",
-  stay_potential_0 == 1 & stay_potential_1 == 0 ~ "sleeping dog"
-)
-churn_obs <- ifelse(D == 1, churn_potential_1, churn_potential_0)
-stay_obs <- 1 - churn_obs
-
-set.seed(202611)
-train_idx <- sample(seq_len(n), floor(0.60 * n))
-sample_role <- ifelse(seq_len(n) %in% train_idx, "train", "test")
-
-coupon_df <- data.frame(
-  tenure_months = tenure_months,
-  usage_hours = usage_hours,
-  billing_trouble = billing_trouble,
-  price_sensitivity = price_sensitivity,
-  num_devices = num_devices,
-  risk_score = risk_score,
-  D = D,
-  churn = churn_obs,
-  stay = stay_obs,
-  principal_stratum = principal_stratum,
-  tau_true = tau_true,
-  p_churn0 = p_churn0_clipped,
-  sample_role = sample_role
-)
-
-train_df <- coupon_df %>% filter(sample_role == "train")
-test_df <- coupon_df %>% filter(sample_role == "test")
-```
-
-::: {.notes}
-- billing_troubleは解約確率を押し上げ、同時にCATEを押し下げる。負のCATE層にも4類型が混在する。
-- DGPの完全なコードはノート参照。
-:::
-
-## リスクが高いほど効くわけではない
-
-```{r}
-#| label: fig-risk-tau
-#| fig-height: 3.9
-ggplot(coupon_df, aes(x = risk_score, y = tau_true)) +
-  geom_point(alpha = 0.15, color = "steelblue", size = 0.8) +
-  geom_smooth(se = FALSE, color = "firebrick", linewidth = 1) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-  labs(x = "解約リスクスコア（risk_score）", y = "真のクーポン効果 tau(x)",
-       title = "解約リスクが高いほど効果が大きい、わけではない")
-```
-
-::: {.fragment}
-```{r}
-#| label: cor-risk-tau
-cat("リスクスコアと真の効果の相関:", round(cor(coupon_df$risk_score, coupon_df$tau_true), 3))
-```
-:::
-
-::: {.notes}
-- 中位リスクで山、高リスクで急落、請求トラブル層でマイナスまで落ちる。
-- 相関係数は負。「リスクが高いほど効く」という直感はこのDGPでは真逆に近い。
-- これがAscarzaの発見のシミュレーション版。
-:::
-
-## 請求トラブル層のCATEは負側
-
-```{r}
-#| label: fig-tau-billing
-#| fig-height: 3.9
-ggplot(coupon_df, aes(x = tau_true, fill = factor(billing_trouble))) +
-  geom_histogram(alpha = 0.6, position = "identity", bins = 40) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "gray30") +
-  scale_fill_manual(values = c("steelblue", "firebrick"),
-                    labels = c("請求トラブルなし", "請求トラブルあり")) +
-  labs(x = "真のクーポン効果 tau(x)", y = "顧客数", fill = NULL,
-       title = "請求トラブルの有無で、効果の分布がまったく異なる")
-```
-
-- トラブルの有無でCATE分布が大きくずれる
-- 負のCATEは「個人がsleeping dog」というラベルではない
-
-::: {.notes}
-- 料金で揉めた顧客に割引クーポンを送ると逆効果になりうる、というシナリオ。
-- 図はCATEを描き、個人類型を描いていないことを強調。
-:::
-
-## 負のCATE層にも4類型は混在する
-
-```{r}
-#| label: strata-table
-#| echo: false
-coupon_df %>%
-  mutate(cate_group = if_else(tau_true < 0, "tau(x)<0", "tau(x)>=0")) %>%
-  count(cate_group, principal_stratum) %>%
-  group_by(cate_group) %>%
-  mutate(share = n / sum(n)) %>%
-  knitr::kable(digits = 2)
-```
-
-::: {.notes}
-- 人工データだから両潜在アウトカムを見られる。現実データでこの表は直接作れない。
-- 表の層内比率を実際に読み上げ、「mostly sleeping dogs」ではないことを確認。
-:::
-
-## 今日の作業は5ステップ
-
-1. 解約リスクとCATEを区別
-2. **train** でCATEを学習
-3. 価値・コスト・制約を入れてルールを固定
-4. **独立test** でQini型曲線・IPW政策価値を評価
-5. 導入後もランダムholdoutで監視
-
-::: {.warnbox .fragment}
-閾値やモデルを評価データで選ばない。選択にはvalidationかnested cross-fittingを使う。
-:::
-
-## T-learner：2つのモデルの差を取る
-
-CATE推定のもっとも素朴な方法。「T」はtwo-modelのT。
-
-1. 処置群（$D=1$）だけで $Y$ を $X$ に回帰 → $\hat\mu_1(x)$
-2. 対照群（$D=0$）だけで同様に → $\hat\mu_0(x)$
-3. 差を取る：
-
-. . .
-
-$$
-\hat\tau(x) = \hat\mu_1(x) - \hat\mu_0(x)
-$$
-
-RCTなら各群内の回帰は通常の予測問題と同じ。ここでは `feols()`（線形確率モデル）を使う。
-
-```{r}
-#| label: tlearner-fit
-#| include: false
-mu1_fit <- feols(stay ~ tenure_months + usage_hours + billing_trouble +
-                   price_sensitivity + num_devices,
-                 data = train_df %>% filter(D == 1))
-mu0_fit <- feols(stay ~ tenure_months + usage_hours + billing_trouble +
-                   price_sensitivity + num_devices,
-                 data = train_df %>% filter(D == 0))
-
-test_df$mu1_hat <- predict(mu1_fit, newdata = test_df)
-test_df$mu0_hat <- predict(mu0_fit, newdata = test_df)
-test_df$tau_hat_tlearner <- test_df$mu1_hat - test_df$mu0_hat
-```
-
-::: {.notes}
-- 考え方は単純明快：予測モデルを2つ作って引き算するだけ。
-- このDGPは線形ではない。ベースライン解約確率はロジスティック、効果にはGaussian型の山・閾値・クリッピングが入る。
-- それでも大標本で、効果を作る観測変数がそろい、支配的な低次のsignalをLPMが拾うため、ここでは相関が高くなりやすい。
-:::
-
-## T-learnerの結果：真値との対応
-
-```{r}
-#| label: fig-tlearner
-#| fig-height: 3.9
-ggplot(test_df, aes(x = tau_true, y = tau_hat_tlearner)) +
-  geom_point(alpha = 0.1, color = "steelblue", size = 0.6) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
-  labs(x = "真のtau(x)", y = "T-learnerによる推定値",
-       title = "T-learner：真値との対応関係")
-```
-
-```{r}
-#| label: cor-tlearner
-cat("T-learner推定値と真値の相関:", round(cor(test_df$tau_hat_tlearner, test_df$tau_true), 3))
-```
-
-- 高相関でも、LPMが山の局所的な曲率・閾値・クリッピング境界まで再現したわけではない
-
-::: {.notes}
-- 概ね対角線上に乗る。真値回収の確認は毎回の作法。
-- 高相関の理由は「DGPが線形だから」ではなく、大標本と、観測済みsignalの支配的な低次部分をLPMが拾える今回の設定にある。
-- LPMはGaussian型の山や閾値を正確には表現しない。次のスライドで、ミススペシフィケーションと2本の推定誤差という構造的な弱点を指摘する。
-:::
-
-## T-learnerの弱点：2本の誤差が蓄積する
-
-$\hat\tau(x) = \hat\mu_1(x) - \hat\mu_0(x)$ は**差**なので、両方の推定誤差が乗る：
-
-$$
-\mathrm{Var}(\hat\tau(x)) = \mathrm{Var}(\hat\mu_1(x))
-+ \mathrm{Var}(\hat\mu_0(x))-2\mathrm{Cov}(\hat\mu_1(x),\hat\mu_0(x))
-$$
-
-- 各モデルは**学習標本の各処置群**しか使っていない（50/50 RCTならそれぞれ約半分）
-- 柔軟なモデル（深い決定木など）は、各群で**別々に過学習**する
-- 分散が「2倍」なのは、共分散0・両方の分散が等しいなどの追加条件の下だけ
-
-::: {.notes}
-- 「Yの予測」より「差の推定」は本質的にノイズに弱いタスク。
-- 「良い予測モデルを2つ作ればよい」では解決しない、CATE推定特有の困難さ。
-:::
-
-## 処方箋：sample splittingとhonesty
-
-- **sample splitting**：モデルの構造（分岐点）を決めるデータと、効果を推定するデータを**分ける**
-  - 「効果が大きく見えたから分岐を選び、同じデータで効果を測る」という循環を断つ
-- **honesty（正直な木）**：各木の内部でこの役割を分ける
-  - 各葉の効果推定値が、その葉を作る決定に使われていないデータに基づく
-  - 同じ観測が別の木で別の役割を担うことはある
-- 推論にはhonestyだけでなく、subsampling・overlap・正則条件も必要
-
-::: {.notes}
-- 過学習の温床は「選択と評価に同じデータを使い回すこと」。分ければよい、という単純だが強力な発想。
-- 第2回以来の「推定値だけでなく不確実性まで」という作法を、機械学習の世界でも守るための工夫。
-:::
-
-## causal forest：分割基準を変える
-
-**causal forest**（Wager and Athey 2018）＝ランダムフォレストのCATE版。
-
-- 通常のフォレスト：$Y$ の**予測誤差**を最小化するように分割
-- causal forest：分割の前後で**処置効果の異質性**が最大になるように分割
-- 各木にhonesty（構造決定用と効果推定用に標本を分離）を組み込む
-- 多数の木の平均で安定化し、所定の条件下で漸近的な推論が可能
-
-::: {.notes}
-- 「Yが予測しやすい方向」ではなく「効果の違いが見える方向」に木を切る、が核心。
-- Wager and Athey (2018) は理論的な基礎。grfはそれと密接に関連するgeneralized random forestの実装。
-:::
-
-## causal forestを回す
-
-```{r}
-#| label: cf-fit
-#| echo: true
-#| output-location: fragment
-X_train <- as.matrix(train_df %>%
-  select(tenure_months, usage_hours, billing_trouble,
-         price_sensitivity, num_devices))
-X_test <- as.matrix(test_df %>%
-  select(tenure_months, usage_hours, billing_trouble,
-         price_sensitivity, num_devices))
-
-cf <- causal_forest(X_train, train_df$stay, train_df$D,
-                    W.hat = rep(0.5, nrow(train_df)), num.trees = 1000)
-test_df$tau_hat_cf <- predict(cf, X_test)$predictions
-
-round(cor(test_df$tau_hat_cf, test_df$tau_true), 3)
-```
-
-- `grf::causal_forest(X, Y, W)`：共変量・アウトカム・処置を渡すだけ
-- RCTなので傾向スコアは0.5で既知（既知として渡すことも可能）
-
-::: {.notes}
-- 木の本数はスライド用に1000本に抑えてある（ノートはデフォルト設定）。
-- 記法の対応：grfではWが処置（この講義のD）、e(x)が傾向スコア。
-:::
-
-## T-learner vs causal forest
-
-```{r}
-#| label: fig-cf-compare
-#| fig-height: 3.9
-compare_df <- test_df %>%
-  select(tau_true, tau_hat_tlearner, tau_hat_cf) %>%
-  pivot_longer(cols = c(tau_hat_tlearner, tau_hat_cf),
-               names_to = "method", values_to = "tau_hat") %>%
-  mutate(method = recode(method,
-                         tau_hat_tlearner = "T-learner",
-                         tau_hat_cf = "causal forest"))
-
-ggplot(compare_df, aes(x = tau_true, y = tau_hat)) +
-  geom_point(alpha = 0.08, color = "steelblue", size = 0.5) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
-  facet_wrap(~ method) +
-  labs(x = "真のtau(x)", y = "推定値",
-       title = "T-learnerとcausal forestの推定値 vs 真値")
-```
-
-- どちらも $\tau(x)$ の傾向を捉える。平滑さ・極端な領域の扱いに違い
-
-::: {.notes}
-- ATEはtrain RCT内の単純な群間差でも不偏に推定できる。causal forestは「個人効果」ではなく、条件付き平均効果τ(x)を柔軟に推定する。
-- grfのaverage_treatment_effect()、train内の群間差、train内の真値を同じ標本で比べると、ほぼ一致する（ノート参照）。full sampleの群間差を混ぜると、手法差と標本差を分離できない。
-:::
-
-# Qini曲線：ターゲティングを評価する {background-color="#1f3552"}
-
-::: {.notes}
-- この節は13分。今日の「見せ場」の図がここにある。
-:::
-
-## 3つのターゲティング方針を比べる
-
-$\hat\tau(x)$ が手に入った。**誰に配ると利益が最大か**を評価する。
-
-1. **churnスコア順**：解約リスクが高い順に配る（誰もがやりそうな方針）
-2. **uplift順**：推定CATE $\hat\tau(x)$ が大きい順に配る
-3. **ランダム**：誰彼構わず配る（ベンチマーク）
-
-. . .
-
-評価の道具＝**Qini型の累積uplift曲線**：
-
-- 横軸：配布割合（上位何%に配ったか）
-- 縦軸：累積の増分効果（incremental gain）
-
-::: {.notes}
-- 「ランダムに負けたら失格」という最低ラインをベンチマークに置くのがポイント。
-- churnスコア順がこの最低ラインを下回る、というのがこの後の衝撃。
-:::
-
-## なぜRCTログで因果的に評価できるか
-
-並べ方は学習標本で作り、独立testの $D,Y$ を見る前に固定する。するとtestの上位 $k$ 人の中でも、処置群と対照群がランダムに混ざる。
-
-. . .
-
-→ 上位 $k$ 人の中での群間平均差は、**その集団への平均処置効果**をそのまま推定する（第7回のRCTの識別論理の応用）。
-
-$$
-\mathrm{Gain}(k) = \left( \bar{Y}_{1,k} - \bar{Y}_{0,k} \right) \times k
-$$
-
-- $\bar{Y}_{1,k}$：上位 $k$ 人のうち処置群の平均アウトカム、$\bar{Y}_{0,k}$：同じく対照群
-- ランダム配布ならこの量は $k$ に比例（直線）→ これがベンチマーク
-
-::: {.notes}
-- 評価アウトカムを見ながら順序を選ぶとこの論理は崩れる。トレーニングとtestの分離が鍵。
-- 良いターゲティングルールは直線より急に増分を積み上げる。
-:::
-
-## Qini曲線の作り方
-
-```{r}
-#| label: qini-def
-#| echo: true
-#| output-location: fragment
-qini_curve <- function(order_idx, D, Y, n, fracs = seq(0.02, 1, by = 0.02)) {
-  rows <- lapply(fracs, function(f) {
-    k <- floor(f * n)
-    idx_k <- order_idx[1:k]
-    Dk <- D[idx_k]
-    Yk <- Y[idx_k]
-    incremental <- (mean(Yk[Dk == 1]) - mean(Yk[Dk == 0])) * k
-    data.frame(frac = f, k = k, incremental = incremental)
-  })
-  do.call(rbind, rows)
+simulate_customer_events <- function(lambda, p_drop, T) {
+  t <- 0
+  events <- c()
+  repeat {
+    wait <- rexp(1, rate = lambda)
+    t_next <- t + wait
+    if (t_next > T) break
+    t <- t_next
+    events <- c(events, t)
+    if (runif(1) < p_drop) break   # 購買直後に確率p_dropで離脱
+  }
+  events
 }
-```
 
-- 並び順 `order_idx` を受け取り、上位 $k$ 人での群間差 × $k$ を積み上げるだけ
+n_demo <- 20
+T_demo <- 52
+r_demo <- 0.8; alpha_demo <- 6; a_demo <- 0.7; b_demo <- 2.5
 
-```{r}
-#| label: qini-run
-#| include: false
-n_eval <- nrow(test_df)
-order_by_score <- order(-test_df$risk_score)
-order_by_uplift <- order(-test_df$tau_hat_cf)
+lambda_demo <- rgamma(n_demo, shape = r_demo, rate = alpha_demo)
+p_demo <- rbeta(n_demo, a_demo, b_demo)
 
-qini_score <- qini_curve(order_by_score, test_df$D, test_df$stay, n_eval) %>%
-  mutate(policy = "churnスコア順")
-qini_uplift <- qini_curve(order_by_uplift, test_df$D, test_df$stay, n_eval) %>%
-  mutate(policy = "uplift順（causal forest）")
+timeline_list <- lapply(1:n_demo, function(i) {
+  ev <- simulate_customer_events(lambda_demo[i], p_demo[i], T_demo)
+  # 購買0回の顧客は rep(i, 0) が長さ0になり、0行のdata.frameになる（安全）
+  data.frame(customer = rep(i, length(ev)), event_time = ev)
+})
+timeline_df <- do.call(rbind, timeline_list)
 
-ate_eval <- mean(test_df$stay[test_df$D == 1]) - mean(test_df$stay[test_df$D == 0])
-qini_random <- data.frame(
-  frac = seq(0.02, 1, by = 0.02),
-  incremental = ate_eval * floor(seq(0.02, 1, by = 0.02) * n_eval),
-  policy = "ランダム"
-) %>% select(frac, incremental, policy)
+ggplot(timeline_df, aes(x = event_time, y = customer)) +
+  annotate("segment", x = 0, xend = T_demo, y = 1:n_demo, yend = 1:n_demo,
+           color = "gray85", linewidth = 3) +
+  geom_point(color = "#4C72B0", size = 2.2) +
+  labs(x = "週", y = "顧客ID", title = "20人の購買タイムライン（観測期間52週）") +
+  scale_y_continuous(breaks = 1:n_demo)
 
-qini_all <- bind_rows(
-  qini_score %>% select(frac, incremental, policy),
-  qini_uplift %>% select(frac, incremental, policy),
-  qini_random
+
+
+N <- 2000
+T_cal <- 52     # calibration期間（週）
+T_holdout <- 26 # holdout期間（週）
+T_total <- T_cal + T_holdout
+
+r_true <- 0.8; alpha_true <- 6; a_true <- 0.7; b_true <- 2.5
+
+lambda_true <- rgamma(N, shape = r_true, rate = alpha_true)
+p_true <- rbeta(N, a_true, b_true)
+
+# 各顧客の購買イベントを観測期間全体(calibration+holdout)でシミュレーションする
+simulate_full_history <- function(lambda, p_drop, T) {
+  t <- 0
+  events <- c()
+  repeat {
+    wait <- rexp(1, rate = lambda)
+    t_next <- t + wait
+    if (t_next > T) break
+    t <- t_next
+    events <- c(events, t)
+    if (runif(1) < p_drop) break
+  }
+  events
+}
+
+all_events <- vector("list", N)
+for (i in 1:N) {
+  all_events[[i]] <- simulate_full_history(lambda_true[i], p_true[i], T_total)
+}
+
+# calibration期間(52週)だけを見て (x, t_x) を作る(holdoutの情報は使わない)
+x_cal  <- sapply(all_events, function(ev) sum(ev <= T_cal))
+tx_cal <- sapply(all_events, function(ev) {
+  ev_cal <- ev[ev <= T_cal]
+  if (length(ev_cal) == 0) 0 else max(ev_cal)
+})
+
+cat("calibration期間の購買回数xの分布:\n")
+table(cut(x_cal, breaks = c(-1, 0, 1, 2, 3, 5, 10, Inf),
+          labels = c("0", "1", "2", "3", "4-5", "6-10", "11+")))
+
+
+
+scatter_df <- data.frame(x = x_cal, tx = tx_cal)
+ggplot(scatter_df, aes(x = tx, y = x)) +
+  geom_jitter(alpha = 0.3, width = 0.5, height = 0.15, color = "#4C72B0") +
+  labs(x = "t_x（最終購買時点、週）", y = "x（購買回数）",
+       title = "顧客ごとの (t_x, x) 散布図")
+
+
+
+# logsumexp: log(exp(a) + exp(b)) を数値的に安定に計算する
+logsumexp2 <- function(log_a, log_b) {
+  m <- pmax(log_a, log_b)
+  m + log(exp(log_a - m) + exp(log_b - m))
+}
+
+# BG/NBDの対数尤度（ベクトル化: x, tx, Tは同じ長さのベクトル）
+bgnbd_loglik <- function(r, alpha, a, b, x, tx, T) {
+  ln_Bab <- lbeta(a, b)  # 定数(全顧客共通)
+
+  # 第1項(常に生きている経路)
+  ln_A0 <- lbeta(a, b + x) - ln_Bab +
+    lgamma(r + x) - lgamma(r) +
+    r * log(alpha) - (r + x) * log(alpha + T)
+
+  # 第2項(t_xで離脱していた経路)。x=0の行では式自体を評価しない
+  ln_A1 <- rep(-Inf, length(x))
+  idx <- x > 0
+  ln_A1[idx] <- lbeta(a + 1, b + x[idx] - 1) - ln_Bab +
+    lgamma(r + x[idx]) - lgamma(r) +
+    r * log(alpha) - (r + x[idx]) * log(alpha + tx[idx])
+
+  logsumexp2(ln_A0, ln_A1)
+}
+
+# optimに渡す負の対数尤度。thetaはlog変換した(r,alpha,a,b)を受け取る(正値制約を外すため)
+neg_loglik_bgnbd <- function(theta_log, x, tx, T) {
+  params <- exp(theta_log)
+  r <- params[1]; alpha <- params[2]; a <- params[3]; b <- params[4]
+  -sum(bgnbd_loglik(r, alpha, a, b, x, tx, T))
+}
+
+
+
+theta_init <- log(c(r = 1, alpha = 1, a = 1, b = 1))
+
+opt_result <- optim(
+  par = theta_init,
+  fn = neg_loglik_bgnbd,
+  x = x_cal, tx = tx_cal, T = rep(T_cal, N),
+  method = "L-BFGS-B",
+  hessian = TRUE
 )
-```
 
-::: {.notes}
-- 数式Gain(k)をそのままコードにしただけ、という点を強調。
-- churnスコア順・uplift順・ランダムの3本をこの関数で計算する。
-:::
+theta_hat <- exp(opt_result$par)
+names(theta_hat) <- c("r", "alpha", "a", "b")
+theta_hat
 
-## 今日の見せ場：Qini曲線
 
-```{r}
-#| label: fig-qini
-#| fig-height: 4.0
-ggplot(qini_all, aes(x = frac, y = incremental, color = policy, linetype = policy)) +
+
+true_params <- c(r = r_true, alpha = alpha_true, a = a_true, b = b_true)
+
+recovery_df <- data.frame(
+  parameter = names(true_params),
+  true_value = true_params,
+  estimate = round(theta_hat, 4)
+)
+kable(recovery_df, caption = "真値とMLE推定値の比較（N=2,000、calibration 52週）")
+
+
+
+# Hessianはlog-scaleのthetaについてのものなので、delta法で元のスケールのSEに変換する
+vcov_log <- solve(opt_result$hessian)
+se_log <- sqrt(diag(vcov_log))
+
+# delta法: g(theta) = exp(theta) のとき se(g(theta)) ~ g(theta) * se(theta)
+se_orig <- theta_hat * se_log
+
+ci_lower <- theta_hat - 1.96 * se_orig
+ci_upper <- theta_hat + 1.96 * se_orig
+
+inference_df <- data.frame(
+  parameter = names(true_params),
+  true_value = true_params,
+  estimate = round(theta_hat, 4),
+  se = round(se_orig, 4),
+  ci_lower = round(ci_lower, 4),
+  ci_upper = round(ci_upper, 4)
+)
+kable(inference_df, caption = "推定値・標準誤差・95%信頼区間（真値との比較）")
+
+
+
+palive_bgnbd <- function(r, alpha, a, b, x, tx, T) {
+  ratio <- (alpha + T) / (alpha + tx)
+  term <- ifelse(x > 0, (a / (b + x - 1)) * ratio^(r + x), 0)
+  1 / (1 + term)
+}
+
+# 全顧客にP(alive)を付与する
+palive_all <- palive_bgnbd(theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+                           x_cal, tx_cal, T_cal)
+
+cat("P(alive)の要約統計:\n")
+summary(palive_all)
+
+
+
+ggplot(data.frame(palive = palive_all), aes(x = palive)) +
+  geom_histogram(bins = 30, fill = "#4C72B0", alpha = 0.8) +
+  labs(x = "P(alive)", y = "顧客数", title = "生存確率P(alive)の分布")
+
+
+
+x_grid  <- 0:20
+tx_grid <- seq(0, 52, by = 2)
+
+heatmap_df <- expand.grid(x = x_grid, tx = tx_grid)
+# t_x > T になる組み合わせ、あるいは x=0なのにtx>0という不可能な組み合わせは除く
+heatmap_df <- heatmap_df[heatmap_df$tx <= T_cal & !(heatmap_df$x == 0 & heatmap_df$tx > 0), ]
+
+heatmap_df$palive <- palive_bgnbd(
+  theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+  heatmap_df$x, heatmap_df$tx, T_cal
+)
+
+ggplot(heatmap_df, aes(x = tx, y = x, fill = palive)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "#C44E52", mid = "white", high = "#4C72B0",
+                        midpoint = 0.5, limits = c(0, 1)) +
+  labs(x = "t_x（最終購買時点、週）", y = "x（購買回数）", fill = "P(alive)",
+       title = "P(alive)ヒートマップ：recencyとfrequencyの交互作用（T=52週）")
+
+
+
+# T=52週、最終購買が44週目(=最後の購買から8週間の沈黙)で固定し、xを変える
+tx_fixed <- 44
+example_df <- data.frame(x = c(1, 2, 3, 5, 8, 12, 20))
+example_df$palive <- palive_bgnbd(
+  theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+  example_df$x, tx_fixed, T_cal
+)
+kable(example_df, digits = 4,
+      caption = "recency固定(最終購買から8週間沈黙)でも、frequencyでP(alive)が変わる")
+
+
+
+# 生存している1顧客を、予測開始時点0からhorizon_weeks週だけ前向きに走らせる
+simulate_future_path <- function(lambda, p_drop, horizon_weeks) {
+  t <- 0
+  events <- numeric(0)
+  repeat {
+    t_next <- t + rexp(1, rate = lambda)
+    if (t_next > horizon_weeks) break
+    t <- t_next
+    events <- c(events, t)
+    if (runif(1) < p_drop) break  # 将来の各購買直後にも離脱判定
+  }
+  events
+}
+
+# 1顧客の予測期間合計購買数をS本の将来パスで近似する
+simulate_future_purchases <- function(r_hat, alpha_hat, a_hat, b_hat,
+                                      x, T_cal, p_alive, H, S = 30) {
+  lambda_post <- rgamma(S, shape = r_hat + x, rate = alpha_hat + T_cal)
+  p_post <- rbeta(S, shape1 = a_hat, shape2 = b_hat + x)
+  is_alive <- runif(S) < p_alive
+  n_events <- numeric(S)
+  for (s in seq_len(S)) {
+    if (!is_alive[s]) next
+    n_events[s] <- length(simulate_future_path(lambda_post[s], p_post[s], H))
+  }
+  mean(n_events)
+}
+
+
+
+# holdout期間を連続時間（単位=週）で前向きに走らせ、(w-1,w]ごとに集計する
+simulate_holdout_weekly <- function(r_hat, alpha_hat, a_hat, b_hat,
+                                    x, T_cal, p_alive, n_weeks, S = 20) {
+  lambda_post <- rgamma(S, shape = r_hat + x, rate = alpha_hat + T_cal)
+  p_post <- rbeta(S, shape1 = a_hat, shape2 = b_hat + x)
+  is_alive <- runif(S) < p_alive
+  weekly_counts <- matrix(0, nrow = S, ncol = n_weeks)
+  for (s in seq_len(S)) {
+    if (!is_alive[s]) next
+    event_times <- simulate_future_path(lambda_post[s], p_post[s], n_weeks)
+    if (length(event_times) > 0) {
+      # ceiling(t)により、時刻tを実績と同じ区間(w-1,w]へ割り当てる
+      weekly_counts[s, ] <- tabulate(ceiling(event_times), nbins = n_weeks)
+    }
+  }
+  colMeans(weekly_counts)
+}
+
+# 全顧客についてholdoutの週次予測購買数を積み上げる(計算量を抑えるためS=20)
+pred_weekly_matrix <- matrix(0, nrow = N, ncol = T_holdout)
+for (i in 1:N) {
+  pred_weekly_matrix[i, ] <- simulate_holdout_weekly(
+    theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+    x_cal[i], T_cal, palive_all[i], T_holdout, S = 20
+  )
+}
+pred_weekly_total <- colSums(pred_weekly_matrix)
+pred_indiv_total  <- rowSums(pred_weekly_matrix)   # 個人ごとの予測合計(デシル分析用)
+
+# 実測: holdout期間(52-78週)の週次購買数
+actual_weekly_total <- sapply(1:T_holdout, function(w) {
+  sum(sapply(all_events, function(ev) sum(ev > T_cal + w - 1 & ev <= T_cal + w)))
+})
+actual_indiv_total <- sapply(all_events, function(ev) sum(ev > T_cal))
+
+tracking_summary <- data.frame(
+  series = c("実績", "BG/NBD予測"),
+  purchases_26_weeks = c(sum(actual_weekly_total), sum(pred_weekly_total))
+)
+kable(tracking_summary, digits = 1, caption = "holdout 26週の総購買数（再計算結果）")
+
+
+
+tracking_df <- data.frame(
+  week = 1:T_holdout,
+  actual_cum = cumsum(actual_weekly_total),
+  predicted_cum = cumsum(pred_weekly_total)
+) %>%
+  pivot_longer(cols = c(actual_cum, predicted_cum), names_to = "type", values_to = "cum_purchases")
+
+ggplot(tracking_df, aes(x = week, y = cum_purchases, color = type, linetype = type)) +
   geom_line(linewidth = 1) +
-  geom_hline(yintercept = 0, linetype = "dotted", color = "gray50") +
-  labs(x = "配布割合（上位何%に配ったか）", y = "累積の増分継続者数",
-       color = NULL, linetype = NULL,
-       title = "churnスコア順 vs uplift順 vs ランダム") +
-  theme(legend.position = "bottom")
-```
+  scale_color_manual(values = c("actual_cum" = "black", "predicted_cum" = "#C44E52"),
+                      labels = c("実績", "予測")) +
+  scale_linetype_manual(values = c("actual_cum" = "solid", "predicted_cum" = "dashed"),
+                         labels = c("実績", "予測")) +
+  labs(x = "holdout期間の週", y = "累積購買数（全顧客合計）", color = "", linetype = "",
+       title = "累積購買数のトラッキング：実績 vs BG/NBD予測")
 
-. . .
 
-**churnスコア順は、広い範囲でランダムにすら負ける。** uplift順ははるかに効率的。
 
-::: {.notes}
-- このDGPでは高リスク層の平均効果が負なので、序盤はマイナス方向に沈みうる。層の全員がsleeping dogsという意味ではない。
-- Ascarzaの数値の複製ではなく、「リスクと処置効果は別」という教訓を強調した人工例。
-- 1分ほど図を見せて、学生に「なぜ序盤に沈むのか」を考えさせてよい。
-:::
+decile_df <- data.frame(pred = pred_indiv_total, actual = actual_indiv_total) %>%
+  mutate(decile = ntile(pred, 10)) %>%
+  group_by(decile) %>%
+  summarise(pred_mean = mean(pred), actual_mean = mean(actual), n = n())
 
-## 25%予算時点での比較
+decile_long <- decile_df %>%
+  select(decile, pred_mean, actual_mean) %>%
+  pivot_longer(cols = c(pred_mean, actual_mean), names_to = "type", values_to = "value")
 
-::: {.fragment}
-```{r}
-#| label: budget25-table
-k25 <- floor(0.25 * n_eval)
+ggplot(decile_long, aes(x = decile, y = value, fill = type)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  scale_fill_manual(values = c("pred_mean" = "#4C72B0", "actual_mean" = "#DD8452"),
+                     labels = c("実績平均", "予測平均")) +
+  scale_x_continuous(breaks = 1:10) +
+  labs(x = "予測購買数デシル（1=最も低い予測、10=最も高い予測）",
+       y = "holdout期間の購買数（平均）", fill = "",
+       title = "予測デシル別の実績平均：校正確認")
 
-incremental_at_k <- function(order_idx, D, Y, k) {
-  idx_k <- order_idx[1:k]
-  Dk <- D[idx_k]; Yk <- Y[idx_k]
-  (mean(Yk[Dk == 1]) - mean(Yk[Dk == 0])) * k
+
+
+margin <- 1500          # 1回の購買あたりの粗利(円)
+annual_discount <- 0.10 # 実効年率
+weekly_discount <- (1 + annual_discount)^(1 / 52) - 1 # 実効週率へ変換
+horizon_weeks <- 104    # 2年先まで
+
+compute_clv <- function(r_hat, alpha_hat, a_hat, b_hat, x, T_cal, p_alive,
+                        horizon_weeks, weekly_d, margin, S = 200) {
+  lambda_post <- rgamma(S, shape = r_hat + x, rate = alpha_hat + T_cal)
+  p_post <- rbeta(S, shape1 = a_hat, shape2 = b_hat + x)
+  is_alive <- runif(S) < p_alive
+  path_value <- numeric(S)
+  for (s in seq_len(S)) {
+    if (!is_alive[s]) next
+    event_times <- simulate_future_path(lambda_post[s], p_post[s], horizon_weeks)
+    if (length(event_times) > 0) {
+      event_weeks <- ceiling(event_times)
+      path_value[s] <- sum(margin / (1 + weekly_d)^event_weeks)
+    }
+  }
+  mean(path_value)
 }
 
-inc_score_25 <- incremental_at_k(order_by_score, test_df$D, test_df$stay, k25)
-inc_uplift_25 <- incremental_at_k(order_by_uplift, test_df$D, test_df$stay, k25)
-inc_random_25 <- ate_eval * k25
+# 上位顧客の例(頻繁に買い、最近も購買がある)と平均的顧客の例を比較する
+clv_top <- compute_clv(theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+                       x = 15, T_cal = T_cal,
+                       p_alive = palive_bgnbd(theta_hat["r"], theta_hat["alpha"],
+                                             theta_hat["a"], theta_hat["b"], 15, 50, T_cal),
+                       horizon_weeks = horizon_weeks, weekly_d = weekly_discount, margin = margin)
 
-budget_comparison <- data.frame(
-  policy = c("churnスコア順", "uplift順（causal forest）", "ランダム"),
-  incremental_stays_at_25pct = c(inc_score_25, inc_uplift_25, inc_random_25)
-)
-knitr::kable(budget_comparison, digits = 1,
-             col.names = c("ターゲティング方針", "25%配布時点の累積増分継続者数"))
+clv_avg <- compute_clv(theta_hat["r"], theta_hat["alpha"], theta_hat["a"], theta_hat["b"],
+                       x = 3, T_cal = T_cal,
+                       p_alive = palive_bgnbd(theta_hat["r"], theta_hat["alpha"],
+                                             theta_hat["a"], theta_hat["b"], 3, 30, T_cal),
+                       horizon_weeks = horizon_weeks, weekly_d = weekly_discount, margin = margin)
+
+cat("上位顧客例(x=15,t_x=50)のCLV:", round(clv_top), "円\n")
+cat("平均的顧客例(x=3,t_x=30)のCLV:", round(clv_avg), "円\n")
+cat("CLV比(上位/平均):", round(clv_top / clv_avg, 2), "倍\n")
+
 ```
-:::
 
-- churnスコア順は増分がほぼゼロ〜マイナス：**コストをかけて、何もしないのと同等以下**
+## 前回から今回へ
 
-::: {.notes}
-- 「25%の予算」という実務的な制約で切り取ると、方針間の差が金額の話として一気にリアルになる。
-- 増分継続者数に1人あたりのCLV（第10回）を掛ければ、そのまま金額換算できる。
-:::
+- 第9回：個人の価格感応度を事後分布で表す。
+- 第10回：1回の購買機会での期待増分利益を比較する。
+- 第11回：その先に何回買ってくれるかを予測する。
 
-# IPWによる政策評価 {background-color="#1f3552"}
+今日の問い：購買履歴から、将来の利益をどれくらい見込めるか。
 
-::: {.notes}
-- この節は14分。実務のキラー技術。
-:::
+## 復習
 
-## 新しいルールを、再実験せずに評価したい
+1. クーポンの増分利益には、どの2つの利益が必要か。
+2. 事後平均の係数を代入することと、確率を平均することは同じか。
+3. 推定に使ったデータだけで施策ルールを評価してよいか。
 
-ここまでは「並び順」の比較だった。もっと一般に：
+[Quiz 11](quiz11.html)
 
-> 学習データで固定した配分ルール $\pi(x)$ の価値を、**独立なRCT testログ**で評価できないか？
+## 3か月買っていない顧客
 
-- 新ルールを思いつくたびに数週間のA/Bテストを回すのはコストが高すぎる
-- 答え：**IPW（逆確率重み付け）による政策評価**（off-policy evaluation）
+- 月に1回買う人の3か月と、年に2回買う人の3か月は違う。
+- ECでは、利用をやめたことが直接観測されない。
+- 購買頻度の個人差と、離脱の可能性を合わせて考える。
 
-::: {.notes}
-- 候補探索はvalidation、最終報告は未使用test。同じログで探索し続けると評価に過適合する。
-:::
+## まず購買率の個人差
 
-## 政策価値の定義
+$$x_i\mid\lambda_i\sim\mathrm{Poisson}(\lambda_i T_i),\qquad
+\lambda_i\sim\mathrm{Gamma}(r,\alpha).$$
 
-配分ルール $\pi: X \to \{0, 1\}$ の**政策価値（policy value）**：
+$\alpha$ はrateであり、この回では価格係数ではない。
 
-$$
-V(\pi) = E[Y(\pi(X))]
-$$
+$$E[\lambda_i\mid x_i,T_i]=\frac{r+x_i}{\alpha+T_i}.$$
 
-- 「全員に $\pi$ というルールで施策を割り当てたら、平均アウトカムはどうなるか」
-- これは**反実仮想量**：実際のログでは別のルール（ランダム配布）が動いていた
+集団の情報と本人の履歴を合わせる。第8・9回のpartial poolingと同じ構造である。
 
-::: {.notes}
-- 第1回の「反実仮想」がここでも主役。構造モデルなしで、ランダム化の力だけで反実仮想に答えるのがIPW。
-:::
+## BG/NBD：離脱も個人で違う
 
-## IPW推定量
+- 活動中はPoisson過程で購買。
+- 各購買の直後、確率 $p_i$ で離脱し、戻らない。
+- $p_i\sim\mathrm{Beta}(a,b)$、$\lambda_i$ と独立。
+- ここでは全員が時点0で活動中。初回購買は回数に含めない。
 
-過去のRCTログ（$D_i$、$Y_i$、割り当て確率 $P(D_i \mid X_i)$ が既知）から：
+第1回の反復購買より前には離脱しないというモデル上の仮定がある。
 
-$$
-\hat{V}(\pi) = \frac{1}{n} \sum_{i=1}^{n} \frac{\mathrm{1}\{D_i = \pi(X_i)\} Y_i}{P(D_i \mid X_i)}
-$$
+## 履歴を3つの数字にまとめる
 
-- $\mathrm{1}\{D_i = \pi(X_i)\}$：ログでの実際の割り当てが、新ルール $\pi$ と**たまたま一致した**人だけ拾う
-- 拾った人の $Y_i$ を、割り当て確率の**逆数**で重み付けする
+| 記号 | 内容 |
+|---|---|
+| $x_i$ | 反復購買回数 |
+| $t_{x,i}$ | 最後の反復購買時点 |
+| $T_i$ | 観測期間 |
 
-::: {.notes}
-- RCTで50/50なら、重みは単純に2倍。「一致した人のYを2倍して平均する」だけ。
-- 不偏性の証明はノートのcallout参照（割り当て確率が分母分子で打ち消し合う）。
-:::
+このモデルでは、尤度のパラメータ依存部分はこの3つで書ける。
 
-## 不偏性の直感
+## 尤度は2つの経路の和
 
-- $\pi$ ならクーポンをもらうべき人のうち、実際にもらった人（$D_i = 1$）は「**$\pi$ が実行された世界からのサンプル**」とみなせる
-- ただしその人たちは確率 $P(D_i = 1 \mid X_i)$ でしか観測されない
-- **観測されにくい人ほど大きな重みで「代表」させる** → 母集団全体を復元できる
+1. 観測終了まで活動している。
+2. 最後の購買の直後に離脱している。
 
-::: {.keybox .fragment}
-RCTの一部でしか実現していない状況を、重み付けで「全員に $\pi$ を適用した世界」に復元する。これがIPWの心臓部。
-:::
+離脱を観測していないので、両方の寄与を足す。
+$x=0$ では第2の経路がない。対数の和はlogsumexpで計算する。
 
-::: {.notes}
-- 「アンケートの回収率補正」と同じ発想だと言うと通じやすい。
-- 数式での不偏性の導出はノートの折りたたみcalloutにある。
-:::
-
-## 実装：IPW政策価値とSE
+## 自作MLEで真値を確かめる
 
 ```{r}
-#| label: ipw-def
-#| echo: true
-#| output-location: fragment
-ipw_policy_value <- function(policy_mask, D, Y, e = 0.5) {
-  p_realized <- ifelse(D == 1, e, 1 - e)
-  matched <- (D == 1) == policy_mask
-  contrib <- ifelse(matched, Y / p_realized, 0)
-  n <- length(Y)
-  v_hat <- mean(contrib)
-  se_hat <- sd(contrib) / sqrt(n)
-  data.frame(v_hat = v_hat, se = se_hat,
-             ci_low = v_hat - 1.96 * se_hat, ci_high = v_hat + 1.96 * se_hat)
-}
+knitr::kable(inference_df, digits=3)
 ```
 
-- 数式をそのまま書いただけ。SE・95%CIまで数行で出る
-- 推定値だけでなく**不確実性まで報告する**——いつもの作法
+正のパラメータはlogに変換して最適化。Hessian標準誤差はモデルの正しい特定と顧客間独立を前提とする。
+
+## 活動確率 P(alive)
+
+活動中の経路の重みを、2つの経路の重みの合計で割る。
 
 ```{r}
-#| label: ipw-run
-#| include: false
-policy_treat_all <- rep(TRUE, n_eval)
-policy_top25_score <- seq_len(n_eval) %in% order_by_score[1:k25]
-policy_uplift_positive <- test_df$tau_hat_cf > 0
-
-policy_list <- list(
-  "全員に配布" = policy_treat_all,
-  "churnスコア上位25%" = policy_top25_score,
-  "uplift推定値>0" = policy_uplift_positive
-)
-
-ipw_results <- do.call(rbind, lapply(names(policy_list), function(nm) {
-  res <- ipw_policy_value(policy_list[[nm]], test_df$D, test_df$stay)
-  res$policy <- nm
-  res$frac_treated <- mean(policy_list[[nm]])
-  res
-}))
+ggplot(data.frame(palive=palive_all),aes(palive))+geom_histogram(bins=25,fill="#4C72B0")+
+  labs(x="P(alive)",y="顧客数")
 ```
 
-::: {.notes}
-- contrib（各人の寄与）の標本平均と標本SEを取るだけ、という透明な構造。
-- 候補ポリシーは3つ：全員配布、churnスコア上位25%、uplift推定値が正の人。
-:::
-
-## 3つの候補ポリシーをIPWで評価
-
-::: {.fragment}
-```{r}
-#| label: ipw-table
-knitr::kable(ipw_results[, c("policy", "frac_treated", "v_hat", "se", "ci_low", "ci_high")],
-             digits = 4,
-             col.names = c("ポリシー", "配布割合", "IPW政策価値", "SE", "CI下限", "CI上限"))
-```
-:::
-
-- 学習で固定したルールを、独立testのIPW政策価値で比較
-- 継続率の価値にクーポンコストを引いて、最終的な利益を比べる
-
-::: {.notes}
-- 政策価値の単位は継続率。配布割合の列がコストの代理。
-- 「同じ価値をより安く」達成できるのが個別化の本来の価値。
-:::
-
-## 信頼区間つきで比較する
+## 同じ沈黙でも履歴で意味が変わる
 
 ```{r}
-#| label: fig-ipw
-#| fig-height: 3.9
-ggplot(ipw_results, aes(x = policy, y = v_hat)) +
-  geom_point(size = 3, color = "steelblue") +
-  geom_errorbar(aes(ymin = ci_low, ymax = ci_high), width = 0.15, color = "steelblue") +
-  labs(x = NULL, y = "IPW政策価値（継続率）",
-       title = "3つの候補ポリシーの政策価値比較（95%CI）")
+ggplot(heatmap_df,aes(tx,x,fill=palive))+geom_tile()+
+  scale_fill_gradient(low="#C44E52",high="#4C72B0")+
+  labs(x="最後の購買時点",y="購買回数",fill="P(alive)")
 ```
 
-::: {.notes}
-- 通常のSEは、testから独立に固定した政策、i.i.d.、overlapなどを条件とする。
-- OOB予測だけで選択後CIが保証されるわけではない。閾値選択にはvalidationかnested cross-fittingが必要。
-:::
+活動状態を観測したわけではなく、仮定のもとで計算した確率である。
 
-## ここが核心：off-policy evaluation
+## 個人の条件付き分布から予測する
 
-::: {.keybox .fragment}
-**overlapと運搬可能性があれば、RCTの独立testログで固定ルールをoff-policy評価できる。**
+活動しているという条件のもとでは
 
-- 候補選択と最終評価を分ける
-- 導入後もランダムholdoutを残し、環境変化を監視する
-:::
+$$\lambda_i\mid D_i,\mathrm{alive}\sim\mathrm{Gamma}(r+x_i,\alpha+T_i),$$
+$$p_i\mid D_i,\mathrm{alive}\sim\mathrm{Beta}(a,b+x_i).$$
 
-::: {.notes}
-- 実務での含意：ログは「使い捨ての実験結果」ではなく「政策評価の資産」。
-- ランダム化holdoutを残す文化を組織に根付かせることが、データ分析チームの長期的な競争力になる。
-:::
+まずP(alive)で現在の活動状態を引く。活動中なら上の分布を使い、待ち時間→購買→離脱判定を繰り返す。
 
-# 予算制約・policy learning・観察データ {background-color="#1f3552"}
+## holdoutで確かめる
 
-::: {.notes}
-- この節は10分。概念の紹介パート（実装はしない）。
-:::
+```{r}
+ggplot(tracking_df,aes(week,cum_purchases,color=type))+geom_line(linewidth=1)+
+  labs(x="holdoutの週",y="累積購買数",color="系列")
+```
 
-## 予算制約下のtop-kルール
+将来を予測する時点までの履歴だけで推定する。
 
-クーポン原資が全顧客の25%分しかないとき：
+## 個人を順位付けできるだけでは十分でない
 
-$$
-\hat\tau(x_i) \times v - c
-$$
+```{r}
+ggplot(decile_long,aes(decile,value,fill=type))+geom_col(position="dodge")+
+  labs(x="予測デシル",y="平均購買回数",fill="系列")
+```
 
-- $v$：継続1件あたりの価値（**第10回のCLVがここで接続**）、$c$：クーポンコスト
-- この**純便益**が大きい順に並べ、予算が尽きるところで足切り
-- コストが全員一定なら $\hat\tau(x_i)$ 順と同じ並び。コストが顧客ごとに違うとき補正が効く
-- ただし、安定なCATE、SUTVA、既知の価値・コストなどの下での局所的な最適化。在庫・混雑・競合反応は別途必要
+各グループの予測水準と実績水準も比較する。
 
-::: {.notes}
-- 高額プラン顧客への値引きは金額として大きいコスト、という例。
-- 予測（CLV）と因果（CATE）が1つの意思決定式の中で役割分担する、という美しい構図。
-:::
+## 将来購買を利益に変える
 
-## policy learning（Kitagawa and Tetenov 2018）
+$$\mathrm{CLV}_i(H)=\sum_{w=1}^H\frac{m\,E[N_{iw}\mid D_i]}{(1+d)^w}.$$
 
-ここまでは「効果を推定 → ルールを作る」の2段階。さらに一歩進むと：
+- $m$：1購買のマージン、$d$：週の割引率。
+- 本例では $H=104$ 週。無限の将来を足した値ではない。
+- 年率10%なら週の割引率は $(1.1)^{1/52}-1$。
 
-- **解釈可能なルールのクラス**（例：利用時間の閾値ルール）をあらかじめ決める
-- そのクラスの中で、**経験的な政策価値（IPW推定量）を直接最大化**するルールを探す
-- ＝ empirical welfare maximization（EWM）
+## CLVが高い顧客にクーポンを配るべきか
 
-. . .
+CLVは、現在の環境が続く場合の将来利益の予測。
 
-利点：(1) 現場に説明できる単純なルールが得られる、(2) 条件のもとで、事前に定めたルールクラス内の最適ルールとの差（regret）に有限標本上界がある。
+施策の配分に必要なのは
 
-::: {.notes}
-- overlap、有界な厚生、ルールクラスの複雑さなどの条件下で、regretの上界は代表的な設定で平方根オーダーで縮む（Kitagawa and Tetenov 2018, *Econometrica*）。比較対象はクラス内最適。
-- 実装には立ち入らない。「目的（厚生）から直接ルールを学習する発想がある」を持ち帰ってもらえば十分。
-:::
+$$E[\mathrm{CLV}_i(施策あり)-\mathrm{CLV}_i(施策なし)]-施策費用.$$
 
-## 実データでは最適政策が一律政策を上回った
+第10回と同じく、価値の水準と施策による増分を区別する。
 
-Hitsch, Misra, and Zhang (2024)：ランダム割当のカタログ郵送キャンペーンで、最適ターゲティングと**一律政策**を比較。
+## 実証研究との接点
 
-- **すべての推定最適政策が、全員処置・全員非処置より高い利潤**
-- 処置効果を直接学習する方法が、処置別アウトカムを予測する間接法を大きく上回った
-- 約1年離れた2キャンペーンで運搬可能性も検証
+- Fader et al. (2005)：CDNOWの2,357人、39週間で推定し後半39週間で予測。
+- Abe (2009)：階層ベイズで個人パラメータの分布を得る。百貨店400人、52週間など。
+- Donkers et al. (2007)：保険の4年間のCLV予測。複雑化が精度改善につながるとは限らない。
 
-::: {.warnbox .fragment}
-この結果を一般化しすぎない。別の企業・時期では、独立testで一律政策と比べ、実装コストも差し引く。
-:::
+出典リンクと限定は[講義ノート](lecture11.html)参照。
 
-::: {.notes}
-- 原論文の結果は「個別化が一律政策に勝てない」ではない。この点を反対に説明しないこと。
-:::
+## まとめと宿題
 
-## 観察データなら：DML
+- 購買頻度と観測されない離脱をモデル化した。
+- 個人の履歴で分布を更新し、将来購買を予測した。
+- holdoutで予測を確かめ、有限期間のCLVを計算した。
+- CLVの水準だけでは施策の効果は分からない。
 
-今日はすべて**RCTデータ**が前提。観察データでCATEを識別するには、SUTVAに加えて
+[Playground 11](playground11.html) / [課題11](assignment11.html)
 
-$$
-(Y(0),Y(1))\perp D\mid X,\qquad \varepsilon<e(X)<1-\varepsilon
-$$
+## この先：消費者自身も将来を考える
 
-という非交絡・overlapが必要。
+第12回はゲスト講義。
 
-. . .
-
-現代の標準：**DML**（double/debiased machine learning, Chernozhukov et al. 2018）
-
-- 傾向スコア $e(x)$ やアウトカムモデルを機械学習で柔軟に推定
-- **直交化**＋**cross-fitting**（sample splittingの一般化）で、機械学習の推定誤差が因果パラメータに一次の影響を与えないようにする
-- 所定の条件下で、ATEや低次元係数などに $\sqrt n$ 推論。高次元CATE曲面全体への保証ではない
-- **DMLは未観測交絡を治さず、識別を作らない**
-
-::: {.notes}
-- cross-fittingはT-learnerで議論したsample splittingの一般化、honestyとも地続き。
-- 「DMLを使えば交絡が消える」と誤解させない。非交絡はデータから自動的に検証できない。
-:::
-
-## ここが核心
-
-::: {.keybox .fragment}
-- **解約リスクの高さと施策への感応度は別の量**（Ascarza 2018）。churnスコア順の配布はランダム以下になりうる
-- 4類型はprincipal strata、CATEは条件付き平均。負のCATEと個人のsleeping-dogラベルは別
-- T-learnerの差の分散は必ず2倍ではない。honestyは有用だが、推論には他の条件も要る
-- 学習／validationと独立testを分け、Qini型曲線・IPWで固定政策を評価
-- Hitsch et al. (2024)では最適政策が全員処置・全員非処置より高利潤
-- 観察データのDMLにも非交絡とoverlapが必要。未観測交絡は治さない
-:::
-
-::: {.notes}
-- 1枚で今日を振り返る。ここまでで85分目安。
-:::
-
-# まとめ {background-color="#1f3552"}
-
-::: {.notes}
-- この節は5分。
-:::
-
-## 宿題
-
-::: {.nonincremental}
-
-- 生成AIに「uplift modelingとpropensity modelingの違い」を聞いて、今日の「churnスコア vs uplift」の区別と比べる
-- 身近な「解約予測モデル」「レコメンドスコア」を1つ思い出し、それが**予測**なのか**感応度（uplift）**なのかを考える。予測がそのまま配分に使われていたら、predict-then-actの罠を疑う
-- 今日のDGPで `mid_risk_bump` や効果indexを変え、負のCATE層の4類型比率とQini型曲線の変化を比べる
-- **coding課題は `assignment11.qmd`**：動画サブスクの解約引き留めクーポンRCTを題材に、T-learner・causal forest・Qini曲線・IPW政策評価を一通り実装
-:::
-
-
-::: {.notes}
-- 課題は手を動かせば2〜4時間の分量。ヒントcalloutも用意してある。
-:::
-
-## 次回予告
-
-- 次回（第12回）は**ゲスト講義**：企業エコノミストから、大規模実験・需要予測・価格・広告・レコメンドの実務での使われ方を直接聞く
-- 第13回からは最終パート「**動学**」へ：消費者や企業が将来を見据えて行動する状況を、動的計画法とBellman方程式で定式化する。Rustのバスエンジン交換モデルが題材
-
-**Reading**：Ascarza (2018), Wager and Athey (2018), Kitagawa and Tetenov (2018)
-
-::: {.notes}
-- 「今この瞬間の意思決定」から「将来を見据えた意思決定」へ、というコース全体の最後の展開を予告して締める。
-:::
+第13回からは、今日の行動が将来の状態を変える動学的選択へ。
+今回のモデルは分析者が将来を予測した。
+次は、消費者も将来を考えて今日の行動を選ぶ。

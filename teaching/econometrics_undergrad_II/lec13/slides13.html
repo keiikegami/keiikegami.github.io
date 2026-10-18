@@ -1079,8 +1079,8 @@ Kei Ikegami
 <td>Quiz（解答5分 + 解説5分）</td>
 </tr>
 <tr class="even">
-<td>5分</td>
-<td>導入：静学から動学へ</td>
+<td>10分</td>
+<td>導入：将来購買の予測から、将来を考えた選択へ</td>
 </tr>
 <tr class="odd">
 <td>5分</td>
@@ -1142,14 +1142,14 @@ display:block!important;
 <ul>
 <li>配布した Quiz 13 に解答する（<strong>5分</strong>、メモ・ノート参照可）</li>
 <li>そのあと解説（<strong>5分</strong>）</li>
-<li><strong>前回（第12回）はゲスト講義だったため、出題範囲は第11回</strong>（ターゲティングとuplift）</li>
+<li><strong>前回（第12回）はゲスト講義だったため、出題範囲は第11回</strong>（購買頻度・離脱・顧客価値）</li>
 <li>採点はしない。セルフチェックとして使うこと</li>
 </ul>
 <aside class="notes">
 <ul>
 <li>解答5分 → 解説5分。解説は別資料 quiz13_solution を使う（スライドには載せない）。</li>
-<li>3問とも第11回の核心（predict-then-actの罠、IPWによる政策評価、upliftの定義）に対応。</li>
-<li>解説の締めに一言：「予測モデルをそのまま意思決定に使うと外す」という第11回の教訓は、今日の「myopicモデルで反実仮想を外す」話と同じ精神。</li>
+<li>Poisson–Gammaの更新、観測されない離脱、将来予測と先読み行動の違いを復習する。</li>
+<li>第11回の将来購買の予測から、意思決定者自身が将来を考えるモデルへ進む。</li>
 </ul>
 <style type="text/css">
 span.MJX_Assistive_MathML {
@@ -1185,18 +1185,16 @@ display:block!important;
 <section id="前回までとのつながり" class="slide level2">
 <h2>前回までとのつながり</h2>
 <ul>
-<li class="fragment">第9〜11回：顧客の「状態」（alive か、施策が効くか）と異質性を扱ってきた</li>
-<li class="fragment">前回（第12回）はゲスト講義：これらの技術の実務での使われ方を聞いた</li>
-<li class="fragment">しかし、これまでの選択モデルはすべて<strong>静学</strong>：今日の効用だけで今日の選択を決める</li>
-<li class="fragment">今日からコース最終パート「動学」：<strong>forward-looking</strong> な意思決定を扱う</li>
+<li class="fragment">第6〜9回：母集団の情報と本人の履歴から、個人の好みを学ぶ</li>
+<li class="fragment">第10回：個人別需要を使ってクーポンの期待増分利益を比べる</li>
+<li class="fragment">第11回：購買率と離脱の異質性から、将来購買と顧客価値を予測する</li>
+<li class="fragment">今回：意思決定者自身が将来を考えて、今の行動を選ぶ</li>
 </ul>
-<div class="keybox fragment">
-<p>今日のゴール：Rust (1987) の<strong>バスエンジン交換モデル</strong>を、定式化 → DPで解く → 推定（NFXPとCCP）→ 反実仮想、まで一気通貫で体感する。</p>
+<div class="keybox">
+<p>分析者が将来を予測することと、消費者が将来を考えて選ぶことは別である。</p>
 </div>
 <aside class="notes">
-<ul>
-<li>第10回のBG/NBDで「顧客の観測できない状態」を扱った。「消費者には状態がある」という発想はもう手に馴染んでいる。今日はそれに「先読み」を足す。</li>
-</ul>
+<p>BG/NBDは購買・離脱の確率モデルだった。値下げを予想して購入を待つ行動を説明するには、消費者が比較する将来価値をモデルに入れる。</p>
 <style type="text/css">
 span.MJX_Assistive_MathML {
 position:absolute!important;
@@ -1243,13 +1241,13 @@ display:block!important;
 <ol type="1">
 <li class="fragment">状態・行動・状態遷移・価値関数・Bellman 方程式という<strong>動学の部品</strong>を組み立てられる</li>
 <li class="fragment">T1EVショックなら、動学でも選択確率は<strong>logit</strong>（Emax = logsum が再登場）</li>
-<li class="fragment"><strong>価値関数反復</strong>は縮小写像（第4回のBLP contractionと同じ数学）</li>
+<li class="fragment"><strong>価値関数反復</strong>の収束を縮小写像で説明する（第4回のBLPでも使った考え方）</li>
 <li class="fragment"><strong>NFXP</strong> と <strong>CCP</strong> の2つの推定法を実装し、「速さと精度のトレードオフ」を整理できる</li>
 <li class="fragment"><strong>myopic</strong>（近視眼的）モデルで推定すると、反実仮想を大きく外すことを数値で確認する</li>
 </ol>
 <aside class="notes">
 <ul>
-<li>2が理論の背骨、4が今日の見せ場。5は第11回の「予測をそのまま意思決定に使うな」の動学版。</li>
+<li>2が理論の背骨、4が今日の数値例。5では、将来価値の指定が反実仮想に影響することを確認する。</li>
 </ul>
 <style type="text/css">
 span.MJX_Assistive_MathML {
@@ -1501,11 +1499,11 @@ display:block!important;
 <li class="fragment">交換（<span class="math inline">\(a = 1\)</span>）：<span class="math inline">\(x&#39; = \min(0 + j, K - 1)\)</span> —— <strong><span class="math inline">\(x = 0\)</span> にリセットしてから進む</strong></li>
 </ul>
 <div class="keybox fragment">
-<p>交換後の分布は<strong>現在の <span class="math inline">\(x\)</span> に一切依存しない</strong>（遷移行列 <span class="math inline">\(P_1\)</span> の全行が同じ）。この性質が、後半の Hotz-Miller を「魔法のように簡単」にする鍵になる。</p>
+<p>交換後の分布は<strong>現在の <span class="math inline">\(x\)</span> に一切依存しない</strong>（遷移行列 <span class="math inline">\(P_1\)</span> の全行が同じ）。この性質が、後半で、CCPを使う推定式を簡単にする。</p>
 </div>
 <aside class="notes">
 <ul>
-<li>「renewal action（更新行動）」という名前は後で付ける。ここでは伏線として強調だけ。</li>
+<li>「renewal action（更新行動）」という名前は後で付ける。ここでは遷移行列の性質を確認する。</li>
 <li>P0, P1 はともに K×K 行列。行が現在状態、列が次期状態。</li>
 </ul>
 <style type="text/css">
@@ -1550,7 +1548,7 @@ display:block!important;
 <h1>Bellman 方程式と logsum</h1>
 <aside class="notes">
 <ul>
-<li>この節は10分。今日の理論の山場。第2回の遺産の回収。</li>
+<li>この節は10分。今日の理論の山場。第2回のlogitとの関係。</li>
 </ul>
 <style type="text/css">
 span.MJX_Assistive_MathML {
@@ -1596,8 +1594,8 @@ display:block!important;
 }</style></aside>
 </div>
 </section>
-<section id="第2回の遺産emax-は-logsum-になる" class="slide level2">
-<h2>第2回の遺産：Emax は logsum になる</h2>
+<section id="第2回のlogitemax-は-logsum-になる" class="slide level2">
+<h2>第2回のlogit：Emax は logsum になる</h2>
 <p><span class="math inline">\(\varepsilon_a\)</span> が T1EV なら、Emax は閉じた形で書ける：</p>
 <p><span class="math display">\[
 V(x) = \log\left( \exp(v(x, 0)) + \exp(v(x, 1)) \right) + \gamma
@@ -1651,8 +1649,8 @@ overflow: hidden!important;
 display:block!important;
 }</style></aside>
 </section>
-<section id="ここが核心デルタの座に-vxa-が座るだけ" class="slide level2">
-<h2>ここが核心：デルタの座に v(x,a) が座るだけ</h2>
+<section id="デルタの座に-vxa-が座るだけ" class="slide level2">
+<h2>デルタの座に v(x,a) が座るだけ</h2>
 <div class="keybox fragment">
 <ul>
 <li class="fragment">第2回（静学）：<span class="math inline">\(s_j = \exp(\delta_j) / \sum_k \exp(\delta_k)\)</span>。<span class="math inline">\(\delta_j\)</span> は「今日の平均効用」</li>
@@ -1705,7 +1703,7 @@ display:block!important;
 <li class="fragment">Bellman 作用素は係数 <span class="math inline">\(\beta\)</span> の<strong>縮小写像</strong> → 初期値によらず一意の <span class="math inline">\(V\)</span> に収束</li>
 </ul>
 <div class="keybox fragment">
-<p>第4回の BLP で <span class="math inline">\(\delta\)</span> を解いた縮小写像（contraction mapping）と<strong>まったく同じ数学</strong>。誤差は幾何的に縮む（縮小係数 = <span class="math inline">\(\beta\)</span>）。</p>
+<p>第4回の BLP と同様、縮小写像の性質を使って収束を説明する。今回のBellman作用素の縮小係数は <span class="math inline">\(\beta\)</span> であり、誤差は幾何的に縮む。</p>
 </div>
 <aside class="notes">
 <ul>
@@ -1898,8 +1896,8 @@ display:block!important;
 </ul>
 <aside class="notes">
 <ul>
-<li>x=0 は観測が多いが交換はほぼ起きない（頻度ほぼ0）→ log を取ると発散する、という後半の伏線。</li>
-<li>高走行距離の薄さも後半のadd-half平滑化・WLSの伏線。</li>
+<li>x=0 は観測が多いが交換はほぼ起きない（頻度ほぼ0）→ log を取ると発散する、点に後で対処する。</li>
+<li>高走行距離の薄さも後半で平滑化・WLSを使う理由になる。</li>
 </ul>
 <style type="text/css">
 span.MJX_Assistive_MathML {
@@ -2088,7 +2086,7 @@ display:block!important;
 <li class="fragment">外側の評価1回ごとに、内側で価値関数反復が丸ごと1回走る</li>
 </ul>
 <div class="warnbox fragment">
-<p>現実の問題では状態が（走行距離 × ブランド × 在庫 × 競合価格 × ……）と多次元になり、<strong>状態空間が爆発する</strong>。価値関数反復1回が莫大な計算になり、それを最適化のたびに繰り返すと推定に何時間・何日もかかる。これが「<strong>状態空間の呪い（curse of dimensionality）</strong>」——次の Hotz-Miller が生まれた最大の動機。</p>
+<p>現実の問題で走行距離、ブランド、在庫、競合価格などを状態に含めると、その組合せが増えて計算負担が大きくなる。これを「<strong>状態空間の呪い（curse of dimensionality）</strong>」という。次のCCPアプローチは、推定のたびに価値関数を解く負担を減らす方法である。</p>
 </div>
 <aside class="notes">
 <ul>
@@ -2112,7 +2110,7 @@ display:block!important;
 <h1>推定2：Hotz-Miller の CCP</h1>
 <aside class="notes">
 <ul>
-<li>この節は13分。今日の見せ場。</li>
+<li>この節は13分。今日の数値例。</li>
 </ul>
 <style type="text/css">
 span.MJX_Assistive_MathML {
@@ -2159,8 +2157,8 @@ display:block!important;
 }</style></aside>
 </div>
 </section>
-<section id="救世主交換は-renewal-action" class="slide level2">
-<h2>救世主：交換は renewal action</h2>
+<section id="交換は-renewal-action" class="slide level2">
+<h2>交換は renewal action</h2>
 <p>思い出そう：<strong>交換すると、状態は現在の <span class="math inline">\(x\)</span> によらず <span class="math inline">\(x = 0\)</span> にリセットされる</strong>（<span class="math inline">\(P_1\)</span> の全行が同じ）</p>
 <ul>
 <li class="fragment">これを <strong>renewal action（更新行動）</strong> と呼ぶ</li>
@@ -2170,7 +2168,7 @@ display:block!important;
 </ul>
 <aside class="notes">
 <ul>
-<li>モデルの部品のスライドで張った伏線（P1の全行が同じ）をここで回収。</li>
+<li>先ほど確認した、P1の全行が同じという性質を使う。</li>
 <li>「将来が有限ステップで共通化する」から finite dependence という名前。</li>
 </ul>
 <style type="text/css">
@@ -2230,7 +2228,7 @@ y(x) = \theta_1 x - RC
 <aside class="notes">
 <ul>
 <li>定数が消える理由：E[・|x,1] と E[・|x,0] のどちらでも「確率の和=1」なので、定数の期待値の差はゼロ。</li>
-<li>遷移確率は既知（今日の設定）。実データでは遷移も頻度で推定するが、それも簡単。</li>
+<li>遷移確率は既知（今日の設定）。実データでは遷移も推定する必要があり、各状態・行動の観測数が推定精度に影響する。</li>
 </ul>
 <style type="text/css">
 span.MJX_Assistive_MathML {
@@ -2275,11 +2273,11 @@ display:block!important;
 </div>
 </div>
 <div class="fragment">
-<p>恒等式はほぼ機械精度で成立し、真値をぴたり復元。<strong>導出は正しい。</strong></p>
+<p>今回の設定で恒等式の数値誤差はほぼ機械精度に収まり、真値が復元された。導出した式と実装が整合している。</p>
 <aside class="notes">
 <ul>
-<li>「導出を信じられなくても、シミュレーションが正しさを教えてくれる」——第2回のGumbelシミュレーションと同じ精神。</li>
-<li>ここまでは真のCCPを使ったチート。次のスライドで頻度推定に切り替える。</li>
+<li>数値的な検算は実装と導出の整合を確かめるもの。一般的な証明は前の式変形に対応する。</li>
+<li>ここまでは真のCCPを使った検算。次のスライドではデータから推定した頻度へ切り替える。</li>
 </ul>
 <style type="text/css">
 span.MJX_Assistive_MathML {
@@ -2358,14 +2356,14 @@ display:block!important;
 <td style="text-align: left;">NFXP (Rust)</td>
 <td style="text-align: right;">0.1414</td>
 <td style="text-align: right;">7.6128</td>
-<td style="text-align: right;">0.328</td>
+<td style="text-align: right;">0.342</td>
 <td style="text-align: left;">毎評価で解き切る</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">CCP (Hotz-Miller)</td>
 <td style="text-align: right;">0.1181</td>
 <td style="text-align: right;">6.8942</td>
-<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.000</td>
 <td style="text-align: left;">一度も解かない</td>
 </tr>
 </tbody>
@@ -2373,7 +2371,7 @@ display:block!important;
 </div>
 </div>
 <div class="fragment">
-<p>CCP は NFXP のおよそ 328 分の1の時間で、近い答えを出す。</p>
+<p>CCP は NFXP のおよそ 3,420 分の1の時間で、近い答えを出す。</p>
 <aside class="notes">
 <ul>
 <li>回帰1本 vs DPを何十回も解き直す、の差。状態空間が大きくなるほどこの差は開く。</li>
@@ -2392,12 +2390,12 @@ display:block!important;
 }</style></aside>
 </div>
 </section>
-<section id="ここが核心速さと精度のトレードオフ" class="slide level2">
-<h2>ここが核心：速さと精度のトレードオフ</h2>
+<section id="速さと精度のトレードオフ" class="slide level2">
+<h2>速さと精度のトレードオフ</h2>
 <div class="keybox fragment">
 <ul>
 <li class="fragment"><strong>NFXP</strong>：外側の最適化 × 内側の価値関数反復。正しく指定されたfull-solution MLEだが、状態空間が大きいと重い</li>
-<li class="fragment"><strong>CCP</strong>：頻度 CCP → finite dependence で将来項を消す → 回帰1本。<strong>DP を一度も解かない</strong>。桁違いに速い</li>
+<li class="fragment"><strong>CCP</strong>：今回のrenewal構造では、頻度CCPと遷移確率から将来項を消去し、回帰で推定できる。推定時にDPを解かないため計算負担が小さい</li>
 <li class="fragment">Hotz–Millerは条件下で一致性・漸近正規性。NFXPと同じ推定量・同じ漸近分散という意味ではない</li>
 <li class="fragment">単純2段階は第一段階ノイズを受ける。NPLなどの反復で改善できる</li>
 </ul>
@@ -2578,7 +2576,7 @@ display:block!important;
 </div>
 </div>
 <ul>
-<li class="fragment">myopic は <span class="math inline">\(\theta_1\)</span> を<strong>3倍近くに過大推定</strong>する</li>
+<li class="fragment">この数値例では、myopic は <span class="math inline">\(\theta_1\)</span> を<strong>3倍近くに過大推定</strong>する</li>
 <li class="fragment">「将来の維持費を恐れて早めに交換」の分まで、<strong>flow utility の傾きに押し付ける</strong>しかないから</li>
 </ul>
 <aside class="notes">
@@ -2638,13 +2636,13 @@ display:block!important;
 </div>
 </div>
 <ul>
-<li class="fragment">正しい動学は「交換率が約+18%」と予測。myopic は効果をおよそ<strong>2倍</strong>に過大評価する</li>
+<li class="fragment">この数値例では、正しい動学モデルは交換率が約18%増えると予測し、myopicはその効果をおよそ2倍に過大評価する</li>
 <li class="fragment"><strong>深層パラメータを間違えれば、その先の政策予測も間違える</strong></li>
 </ul>
 <aside class="notes">
 <ul>
 <li>RCの水準を過小・θ1を過大に誤ったせいで、補助の感応度まで狂う。</li>
-<li>第11回の「予測モデルをそのまま意思決定に使うと外す」と同じ精神が、時間の軸で再登場している。</li>
+<li>第10回と同じく、施策を変えたときにも維持されるモデルの部分を確かめる必要がある。</li>
 </ul>
 <style type="text/css">
 span.MJX_Assistive_MathML {
@@ -2706,15 +2704,15 @@ overflow: hidden!important;
 display:block!important;
 }</style></aside>
 </section>
-<section id="ここが核心" class="slide level2">
-<h2>ここが核心</h2>
+<section id="この回の要点" class="slide level2">
+<h2>この回の要点</h2>
 <div class="keybox fragment">
 <ul>
 <li class="fragment">動学的離散選択の部品：状態 <span class="math inline">\(x\)</span>・行動 <span class="math inline">\(a\)</span>・遷移 <span class="math inline">\(P(x&#39; \mid x, a)\)</span>・<span class="math inline">\(v(x, a)\)</span>・<span class="math inline">\(V(x)\)</span>・Bellman 方程式</li>
 <li class="fragment">T1EV なら動学でも <strong>Emax = logsum、選択確率 = logit</strong>。静学の <span class="math inline">\(\delta\)</span> の座に <span class="math inline">\(v(x, a)\)</span> が座るだけ</li>
-<li class="fragment">価値関数反復は <span class="math inline">\(\beta\)</span> を縮小係数とする<strong>縮小写像</strong>（BLP contraction と同じ数学）</li>
+<li class="fragment">今回のBellman作用素は <span class="math inline">\(\beta\)</span> を縮小係数とする<strong>縮小写像</strong>であり、価値関数反復が収束する</li>
 <li class="fragment"><strong>NFXP</strong>：外側最適化 × 内側 VFIのfull-solution MLE。<strong>CCP</strong>：Hotz–Millerの反転 + renewal actionのfinite dependenceで回帰1本。条件下で一致・漸近正規だが、単純2段階には第一段階ノイズ</li>
-<li class="fragment">反実仮想：交換費20%補助 → 交換率 約+18%。<strong>myopic で推定すると <span class="math inline">\(\theta_1\)</span> が3倍歪み、効果を約2倍に過大評価</strong></li>
+<li class="fragment">この例の反実仮想：交換費20%補助で交換率は約18%増える。myopic推定では <span class="math inline">\(\theta_1\)</span> が約3倍となり、補助の効果を約2倍に過大評価する</li>
 </ul>
 </div>
 <aside class="notes">
@@ -2760,7 +2758,7 @@ display:block!important;
 <section id="次回予告動学を消費者パネルへ" class="slide level2">
 <h2>次回予告：動学を消費者パネルへ</h2>
 <ul>
-<li class="fragment">今日は「一人の意思決定者（Zurcher）」。次回は<strong>多数の消費者の購買履歴</strong>を動学で料理する</li>
+<li class="fragment">今日は「一人の意思決定者（Zurcher）」。次回は<strong>多数の消費者の購買履歴</strong>を異質性と状態依存に分けて考える</li>
 <li class="fragment"><strong>state dependence</strong>：過去に買ったブランドを今日も選びやすい（ロイヤルティ・習慣）</li>
 <li class="fragment"><strong>買いだめ（stockpiling）</strong>：特売のまとめ買いで「在庫」という状態が上がり、しばらく買わなくなる</li>
 <li class="fragment">「特売で売上が増えた」の一部は、実は<strong>将来需要の先食い</strong>かもしれない——それを見抜く道具が今日の DP</li>
@@ -2769,7 +2767,7 @@ display:block!important;
 <aside class="notes">
 <ul>
 <li>バスの走行距離が、消費者の家の在庫に置き換わる、という橋の架け方。</li>
-<li>第15回は視点を企業側に移して dynamic pricing。DPが売り手の頭の中で再演される。</li>
+<li>第15回は企業側へ視点を移し、在庫と販売期限を考えた価格設定を扱う。</li>
 </ul>
 <style type="text/css">
 span.MJX_Assistive_MathML {

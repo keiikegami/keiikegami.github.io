@@ -1,5 +1,5 @@
 ---
-title: "Lecture 8：マーケティングの因果推論2 — 観察データで施策効果を読む"
+title: "Lecture 8：ベイズ推定の基礎と部分プーリング"
 subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -24,18 +24,9 @@ execute:
 library(ggplot2)
 library(dplyr)
 library(tidyr)
-library(scales)
-library(knitr)
-library(fixest)
-library(rdrobust)
-
-set.seed(20268)
-
-theme_lecture <- function() {
-  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
-  theme_minimal(base_size = 13, base_family = fam)
-}
-theme_set(theme_lecture())
+set.seed(202608)
+font_family <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+theme_set(theme_minimal(base_size = 13, base_family = font_family))
 knitr::opts_chunk$set(fig.align = "center", dpi = 144)
 options(scipen = 8)
 ```
@@ -43,901 +34,381 @@ options(scipen = 8)
 ::: {.callout-important}
 ## この講義で押さえたいこと
 
-1. 「広告接触者は非接触者より購買率が高い」という単純比較が、なぜそのまま効果測定にならないのかを、activity bias（観測・未観測の活動量が広告接触と購買の両方を動かす交絡）というマーケティング特有の言葉で理解する。
-2. DiD・IV・RDD・panel fixed effectsという計量経済学Iで習った識別戦略を、価格変更・広告出稿・キャンペーン・ポイント施策というマーケティング施策の効果測定に応用する型を身につける。
-3. **staggered adoption**（施策の導入時期が単位ごとにバラバラ）に動学的・コホート別の効果異質性が重なると、素朴な static TWFE（two-way fixed effects）推定がどれほど深刻に歪みうるか——符号の逆転すら起こりうる——を自分の手でシミュレーションして確認する。
-4. `fixest::sunab`（Sun and Abraham (2021) のinteraction-weighted event study）を実装し、Callaway and Sant'Anna (2021) の群×時点別ATT推定との共通点と相違点を区別する。
-5. 会員ランク・送料無料・クーポンの閾値にRDDを応用できる条件と、閾値ゲーミング（bunching）という重要な診断上の論点を知る。
+- 尤度は「このパラメータなら、このデータがどれくらい出やすいか」を表す。事前分布と組み合わせると、データを見た後の事後分布になる。
+- 事後分布を平均や区間で要約することと、次の観測を予測することを区別する。
+- 個人ごとのデータが少ないとき、全員を同じとする方法と、一人ずつ別々に推定する方法には、それぞれ難しさがある。
+- 階層モデルは、個人差を残しながら情報を共有する。経験ベイズとフルベイズでは、母集団パラメータの不確実性の扱いが違う。
 :::
 
 ## 前回とのつながり・今回のゴール
 
-第7回では、因果推論の**ゴールドスタンダード（最も信頼できる基準）**であるA/Bテスト（ランダム化実験）を扱った。割当後の選択的欠測や群間干渉がなく、割当どおりに分析すれば、処置群と対照群は潜在アウトカムについて期待値上比較可能になる。この対称性により、単純な平均差が割当の平均因果効果（ITT）の不偏推定量になる——これが実験の強さだった。検出力の設計、CUPEDによる分散削減など、実験を「正しくやる」ための技術も一通り身につけたはずだ。
+前回は、商品の属性や価格を変えた選択課題を作り、回答から需要を推定した。ただし、一人の回答者に何百問も答えてもらうのは難しい。8問の回答からその人の好みを知りたい、と言われると、全員をまとめて推定したモデルだけでは物足りない。一方で、8問だけを使って一人ずつ推定すると、たまたまの回答に強く左右される。
 
-しかし実務では、実験が難しい場面も少なくない。全国一斉値上げ、テレビCM、店舗の大規模改装、そもそも法律や社内政治の都合で一部の顧客だけ差別的に扱えない施策——第1回のイントロで挙げたリストを思い出してほしい。こうした状況で「効果はあったのか」と聞かれたとき、我々は観察データ（observational data）から、仮定を明示した比較を組み立てる必要がある。
+そこで今回は、**個人ごとの推定に、他の人のデータをどう使うか**を考える。そのためにベイズ推定を導入する。いきなり選択モデルと一緒に扱うと、何が新しいのか分かりにくいので、まずは正規分布の簡単なモデルで仕組みを確認しよう。次回、この仕組みを前回の選択データに戻す。
 
-今回のゴールは、**第7回の実験をベンチマークにしながら、実験がない状況でどう識別戦略を組み立てるか**を学ぶことである。技術そのもの（DiD、IV、RDD、固定効果）は計量経済学Iで一通り習っているはずなので、本講義では「今さらDiDとは何か」から始めることはしない。代わりに、(a) マーケティング施策特有の識別の失敗パターン、(b) staggered adoptionやevent studyという、この10年で計量経済学の実務標準が大きく塗り替わった論点、の2つに踏み込む。DiD・IV・RDD・固定効果という一見バラバラな道具が、実は「無作為化ができない状況で、観察データの中にある変動を使ってどう反実仮想を近似するか」という1つの問題への異なる答えであることは、Imbens and Wooldridge (2009)がプログラム評価の計量経済学として体系的に整理している。本講義はこのサーベイが描く地図の上を、マーケティングの具体例で歩く回だと思ってもらえばよい。
+## 1. 尤度の復習：データを固定し、パラメータを動かす
 
-次回（第9回）からは、「平均的にいくら効いたか」という話を離れ、「誰に効いたか」という消費者ごとの異質性の推定（階層モデル）に進んでいく。今回学ぶ識別戦略は、その異質性を測るための土台にもなる。
+計量経済学IのOLSでは、回帰係数を変えたときに残差平方和がどう変わるかを見た。第2回の最尤法では、観測された選択が出る確率を、係数の関数として比較した。この「データを固定して係数を動かす」という見方が、尤度だった。
 
-## 1. 単純比較の解剖：「広告接触者は非接触者より購買率が3倍」の正体
-
-### よくある社内レポート
-
-マーケティング部門から、次のようなレポートが上がってきたとしよう。
-
-> 「先月、アプリ内広告に接触した顧客の購買率は8.2%でした。接触しなかった顧客の購買率は3.5%でした。広告は購買率を2倍以上に押し上げています。」
-
-一見もっともらしい。しかしこの数字だけで「広告の効果は2倍以上」と結論づけてよいだろうか。答えは、当然だがノーである。広告に接触するかどうかは、ランダムに決まっているわけではない。
-
-### activity bias：そもそもよく動く人ほど広告にも当たる
-
-ここで登場するのが**activity bias**と呼ばれる交絡構造である。アプリをよく開く人、ECサイトを頻繁に訪問する人（=活動量が高い人）は、単純に「広告の表示回数（インプレッション機会）が多い」という理由だけで広告に接触しやすい。そして活動量が高い人は、広告があろうがなかろうが、そもそも購買率も高い。つまり「活動量」という変数が、広告接触と購買の両方に正の影響を与える交絡因子になっている。
-
-これは第1回のイントロで見た「地力の強い店舗ほど広告費も多く配分される」という交絡と全く同じロジックである。今回はそれを個人レベルの広告接触に置き換えただけだ。
-
-::: {.callout-important}
-## ここが核心
-
-「広告に接触した人」と「接触しなかった人」を比べる単純比較は、暗黙のうちに「両群は広告以外の点で同じ」と仮定している。しかし広告配信は、多くの場合アルゴリズムによって「反応しそうな（＝もともと活動的でよく買う）人」に優先的に表示される。この選択メカニズムを無視すると、広告の効果を大きく過大評価することになる。
-:::
-
-### Rシミュ1：activity biasのDGP
-
-観測される活動量（`obs_activity`：アプリのログイン頻度など、企業が実際に記録しているデータ）と、観測されない活動量（`unobs_activity`：外出頻度、可処分時間など、企業のデータには現れない潜在的な「動きやすさ」）の両方が、広告接触確率（ロジスティックモデル）と購買率の両方に正の影響を与える、というDGPを組む。
-
-```{r}
-#| label: dgp-activity-bias
-n_cust <- 10000
-
-# 観測される活動量・観測されない活動量（両方とも「動きやすさ」の一部）
-obs_activity   <- rnorm(n_cust, mean = 0, sd = 1)
-unobs_activity <- rnorm(n_cust, mean = 0, sd = 1)
-
-# 広告接触確率：活動量が高い人ほど接触しやすい（ロジスティックモデル）
-logit_exposure <- -0.3 + 0.9 * obs_activity + 0.9 * unobs_activity
-prob_exposure  <- 1 / (1 + exp(-logit_exposure))
-exposed <- rbinom(n_cust, size = 1, prob = prob_exposure)
-
-# 真の平均リスク差を5%ポイントに較正する
-target_ad_ate <- 0.05
-logit_purchase_0 <- -2.2 + 0.5 * obs_activity + 0.5 * unobs_activity
-ad_logit_shift <- uniroot(
-  function(delta) mean(plogis(logit_purchase_0 + delta) - plogis(logit_purchase_0)) - target_ad_ate,
-  interval = c(0, 5)
-)$root
-
-# 購買確率：広告効果 + 観測活動量 + 未観測活動量の影響
-logit_purchase <- logit_purchase_0 + ad_logit_shift * exposed
-prob_purchase <- plogis(logit_purchase)
-purchased <- rbinom(n_cust, size = 1, prob = prob_purchase)
-
-cust_df <- data.frame(
-  cust_id = 1:n_cust,
-  obs_activity = obs_activity,
-  unobs_activity = unobs_activity,
-  exposed = exposed,
-  purchased = purchased
-)
-
-head(cust_df)
-```
-
-ここで「ロジット係数」と「購買確率の効果」を分ける。ロジット係数はlog-oddsの変化であり、0.05を代入しても5%ポイントの効果にはならない。上では、同じ顧客の共変量を固定した潜在確率差の平均がちょうど0.05になるよう、logit shiftを`uniroot()`で較正した。
-
-```{r}
-#| label: activity-bias-true-effect
-# 真の効果を潜在アウトカムのシミュレーションで確認する
-logit_purchase_1 <- logit_purchase_0 + ad_logit_shift
-true_effect_check <- mean(plogis(logit_purchase_1) - plogis(logit_purchase_0))
-cat("較正された真の広告効果（購買率ポイント）:", round(true_effect_check, 3), "\n")
-```
-
-### 単純比較・共変量調整・真値を並べる
-
-まず単純比較（接触者と非接触者の購買率の差）を計算する。
-
-```{r}
-#| label: naive-comparison
-naive_diff <- mean(cust_df$purchased[cust_df$exposed == 1]) -
-  mean(cust_df$purchased[cust_df$exposed == 0])
-cat("単純比較（接触者-非接触者）:", round(naive_diff, 4), "\n")
-cat("真の効果:", round(true_effect_check, 4), "\n")
-cat("過大評価の倍率:", round(naive_diff / true_effect_check, 2), "倍\n")
-```
-
-次に、企業が実際に観測できる`obs_activity`だけを共変量としてlogit回帰し、各顧客を全員接触／全員非接触に置き換えて予測確率差を平均する（標準化、g-computation）。二値アウトカムで線形確率モデルの`exposed`係数をそのまま「真の平均リスク差」と比べると、交絡だけでなく関数形の差も混ざるためである。
-
-```{r}
-#| label: adjusted-comparison
-standardized_risk_diff <- function(fit, data) {
-  data1 <- data; data1$exposed <- 1
-  data0 <- data; data0$exposed <- 0
-  mean(predict(fit, newdata = data1, type = "response") -
-         predict(fit, newdata = data0, type = "response"))
-}
-
-fit_adjusted <- glm(purchased ~ exposed + obs_activity,
-                    family = binomial(), data = cust_df)
-adjusted_effect <- standardized_risk_diff(fit_adjusted, cust_df)
-cat("共変量調整後（observed activityのみ）:", round(adjusted_effect, 4), "\n")
-cat("真値の倍率:", round(adjusted_effect / true_effect_check, 2), "倍\n")
-```
-
-参考までに、実務では不可能だが、`unobs_activity`まで（もし観測できたら）調整した場合も見ておこう。
-
-```{r}
-#| label: full-adjusted-comparison
-fit_full <- glm(purchased ~ exposed + obs_activity + unobs_activity,
-                family = binomial(), data = cust_df)
-full_adjusted_effect <- standardized_risk_diff(fit_full, cust_df)
-cat("参考：観測+未観測を両方調整（実務では不可能）:", round(full_adjusted_effect, 4), "\n")
-```
-
-3つの推定値を並べてみる。
-
-```{r}
-#| label: tbl-activity-bias-comparison
-comparison_df <- data.frame(
-  method = c("単純比較", "共変量調整（観測活動量のみ）", "参考：観測+未観測を両方調整", "真の効果"),
-  estimate = c(naive_diff, adjusted_effect, full_adjusted_effect, true_effect_check)
-)
-knitr::kable(comparison_df, digits = 4,
-             col.names = c("手法", "推定された広告効果（購買率ポイント）"))
-```
-
-```{r}
-#| label: fig-activity-bias
-#| fig-cap: "activity biasの解剖：調整してもなお残る過大評価"
-comparison_df$method <- factor(comparison_df$method, levels = comparison_df$method)
-ggplot(comparison_df, aes(x = method, y = estimate, fill = method)) +
-  geom_col(width = 0.6, show.legend = FALSE) +
-  geom_hline(yintercept = true_effect_check, linetype = "dashed", color = "firebrick") +
-  labs(x = NULL, y = "推定された広告効果（購買率ポイント）",
-       title = "単純比較は真値の2倍超、観測共変量の調整だけではまだ残る") +
-  scale_y_continuous(labels = scales::percent) +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1))
-```
-
-::: {.callout-warning}
-## この分析、どこがまずい？
-
-単純比較は真の効果を大きく過大評価する。倍率は標本の乱数で動くので、本文では実行結果から計算された値を読む。「広告接触者は非接触者より購買率が高い」という事実だけでは、広告効果とactivity biasを分けられない。
-
-さらに、**観測できる活動量（`obs_activity`）だけを標準化してもバイアスが残る**。一方、シミュレーションでのみ観測できる`unobs_activity`まで正しいlogit関数形に入れると真値の近くへ戻る。この比較で、未観測交絡と関数形の誤指定を混同せずにactivity biasだけを示せる。
-:::
-
-::: {.callout-note}
-## ビジネスの現場で：「広告接触者は優良顧客が多い」を疑う
-
-広告配信プラットフォームのアルゴリズムは、多くの場合「反応しそうな人」に優先的に広告を出すように最適化されている。つまり広告主が意図しなくても、配信システム自体が「もともと買いそうな人」を選んで広告を当てている。この状況で単純比較をすれば、広告効果ではなく「配信アルゴリズムがどれだけ優良顧客を見分けるのがうまいか」を測ってしまう。これは広告効果測定における最も基本的で、しかも最も頻繁に見過ごされる罠である。次のセクション以降で見るDiD・IV・RDDは、いずれもこの「誰が選ばれて処置を受けたか」という選択メカニズムに正面から対処するための道具である。
-:::
-
-## 2. DiDのマーケ応用：地域限定キャンペーン
-
-### 舞台設定
-
-全国チェーンの小売企業が、一部の県だけでテレビCMキャンペーンを実施したとする。キャンペーンを実施した県（処置群）と、しなかった県（対照群）の売上を、キャンペーン前後で比較する——これが最も基本的なDiD（difference-in-differences）の応用場面である。
-
-### 並行トレンドの意味と検証不能性
-
-DiDが効果を正しく識別するための鍵となる仮定は**並行トレンド（parallel trends）**である。「もしキャンペーンが実施されなかったら、処置群と対照群の売上は同じトレンドで動いていたはずだ」という仮定であり、これは定義上、**反実仮想についての仮定なので直接検証することはできない**。
-
-実務・研究で行われるのは、処置前の期間で両群のトレンドが似ていたかを確認する**pre-trendの検証**である。ただしこれはあくまで補助証拠にすぎない。処置前にトレンドが並行していたからといって、処置がなければ処置後も並行し続けたという保証にはならない。さらに、リード係数の検定は標本が小さいと検出力が低い。したがって「棄却できない」は「並行トレンドが証明された」を意味しない。
-
-計量Iの記法で書き直すと、見通しがよくなる。ここでは2群・共通処置時点の基本形に限り、処置群指標 $D_i \in \{0,1\}$、潜在アウトカム $Y_{it}(1)$・$Y_{it}(0)$ とすると、並行トレンド仮定は
+今回は、顧客の評価を標準化したスコアで考える。顧客の平均的な評価を $\theta$、観測した平均スコアを $y$ として、
 
 $$
-E[Y_{it}(0) - Y_{i,t-1}(0) \mid D_i = 1] = E[Y_{it}(0) - Y_{i,t-1}(0) \mid D_i = 0]
+y\mid\theta\sim N(\theta,s^2)
 $$
 
-と書ける。「処置群が処置を受けなかった場合の変化」と「対照群の変化」が等しいという仮定である。左辺に出てくる$Y_{it}(0)$（処置群が、もし処置を受けなかったとしたら得られたはずのアウトカム）は、処置群では$D_i=1$なので実際には観測できない（計量Iで学んだ因果推論の根本問題そのものである）。DiD推定量は、この観測できない潜在アウトカムの変化分を、並行トレンド仮定のもとで対照群の実際の変化（右辺）で代用する。個体固定効果 $\mu_i$・時間固定効果 $\lambda_t$ を使った回帰式 $y_{it} = \mu_i + \lambda_t + \tau D_{it} + \varepsilon_{it}$ の$\tau$を因果効果と読めるのは、この基本形の並行トレンドと共通効果などの条件が妥当な場合であり、固定効果そのものが因果性を保証するわけではない。
-
-### その前に、2×2の数値で手計算
-
-処置群の平均が10から16、対照群の平均が8から11に変化したとする。まず群内の変化を作ると、処置群は$16-10=6$、対照群は$11-8=3$である。その差をもう1回取るので、
+とする。$s$ は平均スコアの標準誤差で、ここでは既知とする。例えば $y=1.5,s=0.8$ が観測されたら、尤度は
 
 $$
-\widehat{\tau}_{\mathrm{DiD}}=(16-10)-(11-8)=6-3=3.
+L(\theta;y)=\frac{1}{\sqrt{2\pi s^2}}
+\exp\left[-\frac{(y-\theta)^2}{2s^2}\right]
 $$
 
-この「変化の差」が回帰の$\tau$と対応する。この1段を振り返り、それからevent studyに進む。
+である。$\theta=1.5$ の近くで大きくなる。最尤推定値は $y$ そのものだ。ただし、尤度はパラメータについての確率分布として定義したものではない。この区別をつけてから、次に進もう。
 
-### event study（リード・ラグ）の標準的な描き方
+## 2. 事前分布と事後分布
 
-DiDの効果を、単一の「処置後 vs 処置前」の平均差としてではなく、処置からの経過期間ごとに分解して見るのが**event study**である。処置前の期間（リード）にはプラセボ的な検証（効果がゼロに近いはずという予想）ができ、処置後の期間（ラグ）には効果の時間的な推移が見える。
+データを見る前に、$\theta$ についてどの範囲を考えていたかを、**事前分布**で表す。例えば
 
-`fixest::feols`の`i()`構文を使うと、この「時間からの相対距離」でのダミー変数一式を簡単に作れる。標準形は次の通りである。
+$$
+\theta\sim N(m_0,v_0)
+$$
 
-```r
-feols(y ~ i(time_to_treat, ref = -1) | unit + time,
-      data = df, vcov = ~unit)
-```
+とする。$m_0$ は中心、$v_0$ は事前の不確実性である。過去の調査や別のデータを参考に決めることもあれば、意味のある広い範囲を覆うように決めることもある。どちらの場合も、観測単位を変えれば妥当な値は変わる。
 
-`time_to_treat`は「処置時点からの相対期間」（処置1期前なら-1、処置当期なら0、処置2期後なら2、など）を表す変数であり、`ref = -1`は「処置1期前をベースライン（参照点）にする」ことを指定している。
+観測した $y$ を使って更新した分布が**事後分布**である。ベイズの公式は
 
-### Rシミュ：単一処置時点のシンプルなDiD + event study
+$$
+p(\theta\mid y)=\frac{L(\theta;y)p(\theta)}
+{\int L(a;y)p(a)\,da}
+\quad\Longleftrightarrow\quad
+p(\theta\mid y)\propto L(\theta;y)p(\theta).
+$$
 
-まずはstaggered問題が起きる前の、素直なケースを見ておく。処置県はすべて同時点（第12期）で処置され、残りは観測期間中ずっと未処置となる設定を考える。
+分子は尤度と事前分布の積、分母は全体の面積を1にするための定数である。ここまでで使っているのは、条件付き確率の公式である。
+
+正規分布どうしを組み合わせると、事後分布も正規になる。
+
+$$
+\theta\mid y\sim N(m_1,v_1),\qquad
+v_1=\left(\frac1{s^2}+\frac1{v_0}\right)^{-1},\qquad
+m_1=v_1\left(\frac{y}{s^2}+\frac{m_0}{v_0}\right).
+$$
+
+分散の逆数を**精度**と呼ぶ。事後平均は、データと事前の中心を精度で重みづけした平均になっている。
 
 ```{r}
-#| label: dgp-simple-did
-G_simple <- 40
-T_simple <- 24
-treat_time_simple <- 12
-never_frac_simple <- 0.3
-
-n_treated_simple <- round(G_simple * (1 - never_frac_simple))
-treat_group <- c(rep(1, n_treated_simple), rep(0, G_simple - n_treated_simple))
-
-unit_fe_simple <- rnorm(G_simple, mean = 0, sd = 1)
-time_fe_simple <- rnorm(T_simple, mean = 0, sd = 0.3)
-
-simple_true_effect <- 0.4  # 処置後の一定の真の効果
-
-simple_df <- expand.grid(unit = 1:G_simple, time = 1:T_simple) %>%
-  mutate(
-    treat_group = treat_group[unit],
-    post = as.numeric(time >= treat_time_simple),
-    treated_now = treat_group * post,
-    # 対照群（treat_group == 0）には、基準期間(-1)と同じ値を割り当てておく。
-    # i()構文はNAを含む行ごと回帰から除外してしまうため、NAにはせず「常にref期間にいる」
-    # 扱いにすることで、対照群も固定効果込みの回帰にそのまま使われるようにする。
-    time_to_treat = ifelse(treat_group == 1, time - treat_time_simple, -1),
-    y = unit_fe_simple[unit] + time_fe_simple[time] + 0.01 * time +
-      simple_true_effect * treated_now + rnorm(n(), mean = 0, sd = 0.3)
-  )
-
-head(simple_df)
-```
-
-まずは処置群・対照群それぞれの平均推移を図示する。
-
-```{r}
-#| label: fig-simple-did-trends
-#| fig-cap: "処置群と対照群の平均推移：処置時点(破線)以降に差が開く"
-trend_df <- simple_df %>%
-  group_by(time, treat_group) %>%
-  summarise(y_mean = mean(y), .groups = "drop") %>%
-  mutate(group_label = ifelse(treat_group == 1, "処置群（キャンペーン実施県）", "対照群（非実施県）"))
-
-ggplot(trend_df, aes(x = time, y = y_mean, color = group_label)) +
-  geom_line(linewidth = 1) +
-  geom_vline(xintercept = treat_time_simple - 0.5, linetype = "dashed", color = "gray40") +
-  labs(x = "期", y = "平均売上（指数）", color = NULL,
-       title = "処置群と対照群の平均推移") +
+#| fig-cap: "事前分布と、観測によって更新した事後分布。尤度は形を比較するため面積を1に調整している。"
+y_one <- 1.5; s_one <- 0.8
+m0 <- 0; v0 <- 1
+v1 <- 1 / (1 / s_one^2 + 1 / v0)
+m1 <- v1 * (y_one / s_one^2 + m0 / v0)
+grid <- seq(-3, 4, length.out = 400)
+update_plot <- data.frame(theta = rep(grid, 3),
+  density = c(dnorm(grid, m0, sqrt(v0)), dnorm(grid, y_one, s_one),
+              dnorm(grid, m1, sqrt(v1))),
+  distribution = rep(c("事前", "尤度の形（面積を1に調整）", "事後"), each = length(grid)))
+ggplot(update_plot, aes(theta, density, color = distribution)) +
+  geom_line(linewidth = 0.9) + labs(x = expression(theta), y = "密度", color = NULL) +
   theme(legend.position = "bottom")
+knitr::kable(data.frame(posterior_mean = m1, posterior_sd = sqrt(v1)), digits = 3,
+  col.names = c("事後平均", "事後標準偏差"))
 ```
 
-静的DiD（処置後ダミー1本）を推定する。
+図では、尤度の形を比較しやすくするために面積を1に調整している。一般のモデルで、尤度をそのまま事後分布と呼んでよいわけではない。
+
+### 事前分布を変えると、どれくらい変わるか
+
+事前分布を入れた以上、その選び方が結果に影響する。影響があること自体を隠すより、妥当だと考えられる別の事前分布でも結果を比べよう。
 
 ```{r}
-#| label: static-did-simple
-static_did_fit <- feols(y ~ treated_now | unit + time,
-                        data = simple_df, vcov = ~unit)
-summary(static_did_fit)
+#| fig-cap: "事前の中心を固定し、その幅を変えたときの事後分布。"
+prior_sd <- c(0.3, 1, 3)
+sensitivity <- do.call(rbind, lapply(prior_sd, function(sd0) {
+  vv <- 1 / (1 / s_one^2 + 1 / sd0^2)
+  mm <- vv * y_one / s_one^2
+  data.frame(theta = grid, density = dnorm(grid, mm, sqrt(vv)),
+             prior = paste0("事前SD = ", sd0))
+}))
+ggplot(sensitivity, aes(theta, density, color = prior)) +
+  geom_line(linewidth = 0.9) + labs(x = expression(theta), y = "事後密度", color = NULL)
 ```
 
-真の効果0.4に近い値が推定されているはずである。次にevent studyを描く。
-
-```{r}
-#| label: event-study-simple
-es_fit <- feols(y ~ i(time_to_treat, ref = -1) | unit + time,
-                data = simple_df, vcov = ~unit)
-summary(es_fit)
-```
-
-```{r}
-#| label: fig-event-study-simple
-#| fig-cap: "event study：処置前はゼロ近辺、処置後は真の効果0.4付近で安定"
-iplot(es_fit, main = "単一処置時点のevent study（i()構文）", xlab = "処置からの相対期間")
-```
-
-処置前（リード）の係数はおおむねゼロ付近に散らばり（並行トレンドの補助的な支持証拠）、処置後（ラグ）の係数は真の効果0.4に近い水準で安定していることが確認できる。これが「教科書通りに振る舞う」単一処置時点のDiDの姿である。
-
-同じ県の誤差は時系列的に相関しうるため、上の標準誤差は処置割当の単位である県（`unit`）でクラスタリングしている。実証では「どの単位で処置が決まったか」を基準にクラスタ単位を決める。
+事前分布を0の近くに強く集中させると、事後平均も0に寄る。データが少ない状況では、極端に狭い事前分布の影響をデータだけで打ち消すことは難しい。
 
 ::: {.callout-note}
-## ビジネスの現場で：プラセボ検定という保険
+## ビジネスの現場で：新しい顧客のスコア
 
-実務でDiDを報告するとき、「処置前の期間に、あたかも処置が起きたかのように架空の処置時点を設定して同じ分析をする」というプラセボ検定を添えると説得力が増す。もし架空の処置時点でも「効果がある」という結果が出てしまうなら、それは並行トレンドが崩れているか、他の交絡要因が存在する強いシグナルである。event studyのリード係数（処置前の係数）がほぼゼロに集まっていることは、まさにこの簡易プラセボ検定を兼ねている。
+登録したばかりの顧客が、最初の商品を高く評価したとする。その1回だけで「この人は何でも高く評価する」と決めてしまうのは早い。過去の顧客では評価がどれくらいばらついていたかと、今の顧客について何件観測したかを、一緒に考えたい。この後の階層モデルでは、過去の顧客についての情報もデータから学ぶ。
 :::
 
-次のセクションでは、この「全員が同時に処置される」という単純化を外し、実務でよくある「導入時期が単位ごとにバラバラ」という状況（staggered adoption）に踏み込む。ここからが今回の核心である。
+## 3. パラメータの区間と、次の観測の区間
 
-## 3. staggered adoption：現代DiDの核心
+事後分布の中央95%を取った区間を、**95%信用区間**と呼ぶ。置いたモデルと事前分布のもとで、データを条件にした事後確率が95%になる区間である。計量Iで学んだ信頼区間の「同じ手続きを繰り返したとき、真値を含む割合」という定義とは異なる。
 
-### なぜ「同時処置」は非現実的なのか
+次に知りたいのが、同じ顧客の次のスコア $y^{\mathrm{new}}$ なら、$\theta$ の不確実性に、新しい観測のノイズも加える。
 
-新機能のロールアウト、ポイント制度の刷新、新しい物流網の導入——実務でよくある施策の多くは、全国一斉に始まるのではなく、**県ごと・店舗ごとに導入時期がバラバラ**である。予算やシステムの都合上、段階的にロールアウトするのが普通だからだ。これを**staggered adoption**（時差導入）と呼ぶ。
+$$
+p(y^{\mathrm{new}}\mid y)
+=\int p(y^{\mathrm{new}}\mid\theta)p(\theta\mid y)\,d\theta.
+$$
 
-問題は、この「時差」に動学的・コホート別の効果異質性が重なると、素朴に固定効果を入れた静的DiD回帰（static two-way fixed effects, 静的TWFE）が、深刻に——ときには符号すら間違えるほどに——歪みうることである。効果が全セルで一定なら静的TWFEはその一定効果を回収するので、時差だけが問題なのではない。この点を整理した近年の研究（Goodman-Bacon (2021), Callaway and Sant'Anna (2021), Sun and Abraham (2021)など）が今回の核心である。
-
-### Rシミュ2：動的・異質効果DGPでの静的TWFEの歪み
-
-舞台設定を次のように組む。47都道府県（`G = 47`）、24ヶ月（`T = 24`）のパネルを考える。ある新しいアプリ機能が、都道府県ごとに時差を持って導入される。約15%の県（およそ7県）は観測期間中ずっと未導入（never-treated）のままとする。
-
-ここが今回の設計の要である。導入後の効果は**動的**（導入後の経過期間とともに線形に成長する）かつ、その成長の傾き自体が**コホート間で異質**である。具体的には、**早く導入した県ほど効果の伸びが大きく、遅く導入した県ほど効果の伸びが小さい（むしろわずかにマイナス）**という設計にする。これは実務的にもありそうな話で、「早期に踏み切った県は、店舗側の運用も先に習熟し、効果がどんどん伸びていく」一方、「後から仕方なく追随した県では、そもそも効果が薄い、あるいは運用が定着しない」といった状況を表現している。
+同じ測定分散 $s^2$ なら、この例では $y^{\mathrm{new}}\mid y\sim N(m_1,v_1+s^2)$ となる。事後平均だけを代入して $N(m_1,s^2)$ とするのでは、パラメータの不確実性を落としてしまう。
 
 ```{r}
-#| label: dgp-staggered-setup
-G <- 47
-Tt <- 24
-never_treated_frac <- 0.15
-adopt_lo <- 4
-adopt_hi <- 19
-
-n_never <- round(G * never_treated_frac)
-n_treated_units <- G - n_never
-
-adoption_time_treated <- sample(adopt_lo:adopt_hi, size = n_treated_units, replace = TRUE)
-# never-treatedの県は、観測期間を大きく超える「事実上導入されない」時点を割り当てる
-adoption_time <- c(adoption_time_treated, rep(Tt + 1000, n_never))
-adoption_time <- sample(adoption_time)  # 県IDにランダムに割り当て直す
-
-theta_early <- 0.15
-theta_late  <- -0.08
-
-theta_g <- ifelse(
-  adoption_time > Tt,
-  0,
-  theta_early + ((adoption_time - adopt_lo) / (adopt_hi - adopt_lo)) * (theta_late - theta_early)
-)
-
-unit_fe <- rnorm(G, mean = 0, sd = 1)
-time_fe <- rnorm(Tt, mean = 0, sd = 0.4)
-
-cat("never-treated県数:", n_never, "\n")
-cat("導入時点の範囲（処置群）:", range(adoption_time_treated), "\n")
-cat("theta_gの範囲:", round(range(theta_g[adoption_time <= Tt]), 3), "\n")
+#| fig-cap: "次の観測には新しいノイズが加わるため、パラメータの事後分布より広くなる。"
+prediction_plot <- data.frame(value = rep(grid, 2),
+  density = c(dnorm(grid, m1, sqrt(v1)), dnorm(grid, m1, sqrt(v1 + s_one^2))),
+  target = rep(c("平均的評価 theta", "次の観測 y_new"), each = length(grid)))
+ggplot(prediction_plot, aes(value, density, color = target)) + geom_line(linewidth = 0.9) +
+  labs(x = "評価スコア", y = "密度", color = NULL)
 ```
 
-このパラメータでパネルデータを組み立てる。処置効果は「導入後の経過期間 $e = t - \text{adoption\_time}$」に対して、コホート固有の傾き $\theta_g$ で線形に成長する。
+## 4. 全員同じ、一人ずつ、部分的に共有する
 
-```{r}
-#| label: dgp-staggered-panel
-staggered_df <- expand.grid(unit = 1:G, time = 1:Tt) %>%
-  mutate(
-    adopt_t = adoption_time[unit],
-    theta_unit = theta_g[unit],
-    treated = as.numeric(time >= adopt_t),
-    e = ifelse(treated == 1, time - adopt_t, NA_real_),
-    true_effect = ifelse(treated == 1, theta_unit * e, 0),
-    y = unit_fe[unit] + time_fe[time] + 0.015 * time + true_effect +
-      rnorm(n(), mean = 0, sd = 0.25)
-  )
+一人の更新が分かったので、顧客が何人もいる場合を考えよう。顧客 $i$ の平均評価を $\theta_i$、その人の観測平均を $y_i$ とする。
 
-head(staggered_df)
-```
+$$
+y_i\mid\theta_i\sim N(\theta_i,s_i^2),\qquad
+\theta_i\mid\mu,\tau^2\sim N(\mu,\tau^2).
+$$
 
-真のATT（処置を受けているセルでの効果の平均）を確認しておく。
+$\tau^2$ は顧客間の本当の違い、$s_i^2$ はその人の平均を測るときのノイズである。1回の観測の分散が $\sigma^2$、観測回数が $n_i$ なら、$s_i^2=\sigma^2/n_i$ となる。
 
-```{r}
-#| label: staggered-true-att
-true_att <- mean(staggered_df$true_effect[staggered_df$treated == 1])
-cat("真のATT（処置セルの効果平均）:", round(true_att, 3), "\n")
-```
-
-真のATTはプラスであり、施策全体としては効果があることになっている。これを覚えておいてほしい。
-
-### (i) 静的TWFEの歪み
-
-まず、素直に静的TWFE（処置ダミー1本、単位固定効果・時間固定効果込み）を推定してみる。
-
-```{r}
-#| label: static-twfe-staggered
-static_twfe_fit <- feols(y ~ treated | unit + time,
-                         data = staggered_df, vcov = ~unit)
-summary(static_twfe_fit)
-```
-
-```{r}
-#| label: static-twfe-coef
-static_twfe_coef <- coef(static_twfe_fit)["treated"]
-cat("真のATT:", round(true_att, 3), "\n")
-cat("静的TWFE推定値:", round(static_twfe_coef, 3), "\n")
-```
-
-```{r}
-#| label: tbl-static-twfe-vs-true
-twfe_comparison <- data.frame(
-  method = c("真のATT", "静的TWFE"),
-  estimate = c(true_att, static_twfe_coef)
-)
-knitr::kable(twfe_comparison, digits = 3, col.names = c("手法", "推定値"))
-```
-
-驚くべきことに、**静的TWFEの推定値は符号がマイナスになっている**。真のATTは明確にプラス（施策には効果がある）なのに、静的TWFEは「施策には負の効果がある」という、正反対の結論を出してしまっている。
-
-::: {.callout-important}
-## ここが核心
-
-静的TWFEは単なる「バイアスが少しある」というレベルではなく、**符号そのものを取り違えている**。ただし、このDGPは仕組みを見やすくするため、動学的・コホート別の異質性を意図的に強くしている。符号反転がすべてのstaggered designで起こるわけではない。ここでの教訓は、効果が時点やコホートで異なると、静的TWFEは一般にATTそのものを狙わず、この例のように符号まで逆転しうるという点である。次に、なぜこんなことが起きるのかを見ていく。
-:::
-
-### (ii) 「禁じられた比較」の直感（Goodman-Bacon分解）
-
-なぜ静的TWFEはこれほど歪むのか。Goodman-Bacon (2021)の分解では、バランスパネルの静的TWFE推定量を2群・2時点DiDの加重平均として書き直せる。この**2×2 DiD成分に付くウェイト自体は非負で、合計は1**である。問題はウェイトの符号ではなく、その中に「すでに処置されている群」を対照に使う汚染された成分が含まれることにある。
-
-| 2×2の比較 | 対照として使う群 | 読み方 |
+| 方法 | 個人差の扱い | 少ないデータをどう扱うか |
 |---|---|---|
-| 処置コホート vs never-treated | 一度も処置されない群 | 比較的クリーン |
-| 早期 vs 後期（後期群の処置前） | まだ処置されていない後期群 | 比較的クリーン |
-| 後期 vs 早期（早期群の処置後） | すでに処置された早期群 | 効果が時間で変わると汚染 |
+| complete pooling | 全員が同じパラメータ | 全員の観測をまとめる |
+| no pooling | 全員を別々に推定 | 他の人の情報を使わない |
+| partial pooling | 共通の分布から個人差が生じる | 個人の情報と母集団の情報を合わせる |
 
-最後の行は、文献で**forbidden comparison（「禁じられた比較」）**と呼ばれる比較である。後期群の処置前後の変化から、すでに処置されている早期群の同期間の変化を差し引く。早期群の効果がその間も伸びていれば、その伸びが後期群の効果から差し引かれ、2×2 DiD成分自体が小さく、ときに負になる。その汚染成分に正のウェイトが付き、全体のTWFEを下に引っ張る。
+$\mu,\tau^2$ を固定したとき、先ほどの正規分布の更新をそのまま使える。
 
-なお、TWFEをコホート×時点の処置効果の加重平均として別の方法で書くと、負のウェイトが現れることがある。この「セル別効果への負のウェイト」と、Goodman-Bacon分解の「非負のウェイトが付いた汚染2×2 DiD」は、同じ異質効果問題の異なる表現だが、ウェイトの対象が異なるので混同しない。
+$$
+E[\theta_i\mid y_i,\mu,\tau^2]
+=B_i\mu+(1-B_i)y_i,\qquad
+B_i=\frac{s_i^2}{s_i^2+\tau^2}.
+$$
 
-::: {.callout-warning}
-## この分析、どこがまずい？
+$B_i$ が大きいほど母集団平均へ寄せる。この動きを**縮小（shrinkage）**と呼ぶ。観測が少なく $s_i^2$ が大きい人ほど強く寄せる一方、本人のデータが豊富なら $y_i$ を重く使う。
 
-「固定効果さえ入れておけばDiDは安全」というのはstaggered adoptionの下では成り立たない。処置タイミングが異なり、効果が経過時間で変わるだけで汚染が生じうる。コホート間の異質性があると問題はさらに悪化しうる。「うちの施策はロールアウトが時差だったし、効果は導入後じわじわ効いてくるタイプだった」と思い当たるなら、静的TWFEの結果を鵜呑みにしてはいけない。
+```{r}
+#| fig-cap: "本人の観測が多いほど母集団平均への縮小は弱くなる。"
+weights <- expand.grid(n = 1:60, tau = c(0.3, 0.7, 1.5))
+weights$B <- (4 / weights$n) / (4 / weights$n + weights$tau^2)
+ggplot(weights, aes(n, B, color = factor(tau))) + geom_line(linewidth = 0.9) +
+  labs(x = "個人の観測回数", y = "母集団平均にかける重み B", color = "個人差のSD")
+```
+
+個人差が大きいと分かっている場合は、同じデータ量でもあまり寄せない。全員を平均へ寄せるほどよい、という方法ではない。
+
+::: {.callout-tip}
+## 実証研究コーナー：18人の打率を予測する
+
+EfronとMorrisの野球の例では、18人の選手について、シーズン初めの45打数の成績から残りの期間の打率を予測する。早い時期の打率には本当の能力差と偶然の両方が含まれる。Efronによる紹介では、Clementeの最初の打率は0.400、残りの期間では0.346だった。全員を別々に扱う推定と、選手間で情報を共有する推定を比べる例である。ただし、縮小で全選手の誤差が必ず改善する、という主張ではない。[著者による解説とデータ](https://pmc.ncbi.nlm.nih.gov/articles/PMC3019763/)
 :::
 
-### (iii) fixest::sunabで異質性に頑健なevent studyを推定する
+## 5. 経験ベイズ：母集団の分布をデータから推定する
 
-この問題への現代的な対処法の一つが、Sun and Abraham (2021)のinteraction-weighted event-study推定量であり、`fixest::sunab()`として実装されている。コホート×相対時間の係数を飽和的に推定してから集計することで、通常のTWFE event studyで起きる「他の時点の効果が係数に混ざる」問題を避ける。
+現実には $\mu,\tau^2$ も分からない。そこで、まず全員のデータからこの2つを推定し、その推定値を固定して個人の分布を計算する方法が**経験ベイズ**である。
 
-`sunab()`の標準的な使い方は次の形である。
+このモデルでは $y_i\sim N(\mu,\tau^2+s_i^2)$ なので、この周辺尤度を最大にする $\mu,\tau$ を求めればよい。ここで「周辺」と呼んでいるのは、観測できない $\theta_i$ を積分して取り除いたためである。
 
-```r
-feols(y ~ sunab(cohort, period) | unit + time,
-      data = df, vcov = ~unit)
-```
-
-`cohort`は「その個体が処置される期」を表す変数（never-treated群には、観測期間を超える大きな値、または0を割り当てる）、`period`は時間変数である。今回のデータでは、`adopt_t`列がまさにこの`cohort`の役割を果たしている（never-treated県には`Tt + 1000`という十分大きな値を割り当ててある）。
+60人のデータを作る。評価スコアを正規分布で近似する練習であり、購入の有無をこの正規モデルで推定しているわけではない。測定分散 $\sigma^2=4$ は既知とする。
 
 ```{r}
-#| label: sunab-fit
-sunab_fit <- feols(y ~ sunab(adopt_t, time) | unit + time,
-                   data = staggered_df, vcov = ~unit)
-summary(sunab_fit)
-```
-
-`iplot()`でevent studyを描画する。
-
-```{r}
-#| label: fig-sunab-eventstudy
-#| fig-cap: "Sun-Abraham型event study：処置前はおおむねゼロ、処置後は緩やかに増加"
-iplot(sunab_fit, main = "Sun-Abraham event study（sunab）", xlab = "処置からの相対期間")
-```
-
-静的TWFEでは符号すら怪しかったのに対し、sunabのevent studyは「処置前はおおむねゼロ、処置後は徐々に効果が立ち上がる」というDGPの方向を捉えている。ただし、処置前係数は次の図と同時検定で評価し、「ゼロらしい」を並行トレンドの証明とは読まない。
-
-静的TWFEとsunabを並べて対比してみよう。
-
-```{r}
-#| label: sunab-vs-twfe-summary
-# agg = "att" は、コホート×期間ごとの係数を全体で1つのATTに集計したオブジェクトを返す。
-# この集計オブジェクトの係数はふつう1個だけなので、以下ではその1個目を取り出している。
-sunab_att <- summary(sunab_fit, agg = "att")
-sunab_overall_att <- as.numeric(coef(sunab_att))[1]
-
-final_comparison <- data.frame(
-  method = c("真のATT", "静的TWFE", "sunab（全体ATT集計値）"),
-  estimate = c(true_att, static_twfe_coef, sunab_overall_att)
-)
-knitr::kable(final_comparison, digits = 3, col.names = c("手法", "推定値"))
+set.seed(202608)
+N <- 60
+n_i <- sample(c(3, 8, 20, 50), N, replace = TRUE)
+mu_true <- 1; tau_true <- 0.7; sigma <- 2
+s2 <- sigma^2 / n_i
+truth <- rnorm(N, mu_true, tau_true)
+y <- rnorm(N, truth, sqrt(s2))
+y_test <- rnorm(N, truth, sqrt(s2))
+# 経験ベイズでは、周辺尤度で母集団パラメータを推定する。
+neg_marginal <- function(par) {
+  -sum(dnorm(y, par[1], sqrt(exp(2 * par[2]) + s2), log = TRUE))
+}
+eb_fit <- optim(c(mean(y), log(0.5)), neg_marginal, method = "L-BFGS-B",
+  lower = c(-5, -5), upper = c(5, 2))
+mu_eb <- eb_fit$par[1]; tau_eb <- exp(eb_fit$par[2])
+B <- s2 / (s2 + tau_eb^2)
+eb_mean <- B * mu_eb + (1 - B) * y
+complete <- rep(weighted.mean(y, 1 / s2), N)
+knitr::kable(data.frame(parameter = c("母集団平均", "個人差のSD"),
+  truth = c(mu_true, tau_true), empirical_bayes = c(mu_eb, tau_eb)), digits = 3,
+  col.names = c("パラメータ", "真値", "経験ベイズ"))
 ```
 
 ```{r}
-#| label: fig-twfe-vs-sunab-bar
-#| fig-cap: "静的TWFEとsunabの全体ATT比較：静的TWFEは符号すら逆転、sunabは正しい方向を捉える"
-final_comparison$method <- factor(final_comparison$method, levels = final_comparison$method)
-ggplot(final_comparison, aes(x = method, y = estimate, fill = method)) +
-  geom_col(width = 0.5, show.legend = FALSE) +
-  geom_hline(yintercept = 0, linewidth = 0.3) +
-  labs(x = NULL, y = "推定されたATT", title = "静的TWFE vs sunab：符号から違う") +
-  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+#| fig-cap: "真値との比較。partial poolingは個人差を残しながら、ノイズによる散らばりを抑える。"
+pooling <- data.frame(truth = rep(truth, 3), estimate = c(complete, y, eb_mean),
+  method = rep(c("complete pooling", "no pooling", "partial pooling：EB"), each = N))
+ggplot(pooling, aes(truth, estimate)) + geom_abline(slope = 1, intercept = 0, color = "grey60") +
+  geom_point(alpha = 0.7, color = "#1f77b4") + facet_wrap(~method) +
+  labs(x = "個人の真値", y = "推定値")
+comparison <- data.frame(method = c("complete", "no pooling", "EB partial"),
+  parameter_mse = c(mean((complete - truth)^2), mean((y - truth)^2), mean((eb_mean - truth)^2)),
+  future_mse = c(mean((complete - y_test)^2), mean((y - y_test)^2), mean((eb_mean - y_test)^2)))
+knitr::kable(comparison, digits = 3,
+  col.names = c("方法", "真の個人パラメータに対するMSE", "別の観測平均に対するMSE"))
 ```
 
-sunabによる全体ATTの集計値は、静的TWFEの負の値とは対照的に、真値と同じプラスの方向を正しく捉えている（数値としての近似誤差は残るが、符号とスケール感が正しい方向を向いていることが重要である）。
+真値に対する誤差はシミュレーションだから計算できる。実データでは、推定に使わなかった後の観測に対する予測誤差を確認する。観測の予測には測定ノイズも入るため、2つのMSEを同じものと考えないようにしよう。
 
-pre-trend（処置前の係数）についても確認しておく。点推定の大きさを見るだけでなく、複数のリードが同時にゼロかをクラスタ頑健なWald検定で確かめる。遠いリードは寄与するコホートが少ないため、ここでは事前に決めた$e=-5,-4,-3,-2$に絞る。
+## 6. フルベイズ：母集団パラメータにも事前分布を置く
+
+経験ベイズでは $\hat\mu,\hat\tau^2$ を固定した。この2つも有限のデータから推定しているので、本当は不確実である。**フルベイズ**では、その不確実性も事後分布に含める。
+
+ここでは
+
+$$
+\mu\sim N(0,2^2),\qquad \tau^2\sim IG(2,1)
+$$
+
+とする。$IG(a,b)$ は密度が $(\tau^2)^{-a-1}\exp(-b/\tau^2)$ に比例する逆ガンマ分布である。以下では、形状 $a$、rate $b$ のガンマ乱数の逆数として生成する。この事前分布を「何も仮定していない」と解釈してはいけない。
+
+全員のパラメータと母集団パラメータの事後分布は
+
+$$
+p(\theta_1,\ldots,\theta_N,\mu,\tau^2\mid y)
+\propto \left\{\prod_i p(y_i\mid\theta_i)p(\theta_i\mid\mu,\tau^2)\right\}
+ p(\mu)p(\tau^2).
+$$
+
+この分布から値を多数取り出せれば、個人ごとの平均や区間も、$\mu,\tau$ の区間も計算できる。そのための方法として、今回は**Gibbsサンプリング**を使う。他のパラメータを仮に固定し、$\theta$、$\mu$、$\tau^2$ を順番に条件付き分布から引き直す方法である。点推定値へ収束させる計算ではなく、事後分布の中を動き回る計算だ。
+
+::: {.callout-note collapse="true"}
+## 条件付き分布と実装
+
+$\theta_i$ の更新には、すでに導いた正規分布を使う。$\mu$ も正規分布、$\tau^2$ も逆ガンマ分布になる。例えば $\tau^2$ の条件付き分布は、形状が $2+N/2$、rateが $1+\sum_i(\theta_i-\mu)^2/2$ である。
 
 ```{r}
-#| label: define-sunab-pretrend-wald
-#| include: false
-# sunabが表示する「相対期間別の集計係数」に対する同時Wald検定。
-# fixest::wald(fit, keep = ...)は内部のコホート×相対期間係数を
-# 直接検定するため、表示される集計リードと同じ対象にする。
-sunab_pretrend_wald <- function(fit, periods, n_clusters) {
-  beta <- fit$coefficients
-  beta_names <- names(beta)
-  V_raw <- vcov(fit)[beta_names, beta_names, drop = FALSE]
-  X_raw <- model.matrix(fit)[, beta_names, drop = FALSE]
-  period_name <- sub("::.*$", "", rownames(aggregate(fit, "period"))[1])
-  targets <- paste0(period_name, "::", periods)
-  targets <- targets[vapply(
-    targets,
-    function(z) any(startsWith(beta_names, paste0(z, ":cohort::"))),
-    logical(1)
-  )]
-
-  A <- matrix(0, nrow = length(targets), ncol = length(beta),
-              dimnames = list(targets, beta_names))
-  for (j in seq_along(targets)) {
-    idx <- startsWith(beta_names, paste0(targets[j], ":cohort::"))
-    shares <- colSums(sign(X_raw[, idx, drop = FALSE]))
-    A[j, idx] <- shares / sum(shares)
+normal_hb <- function(y, s2, seed = 202608, mu0 = 0, mu_sd = 2,
+                      shape0 = 2, rate0 = 1, iterations = 5000, burn = 1000) {
+  set.seed(seed)
+  N <- length(y); theta <- y; mu <- mean(y); tau2 <- 1
+  draws <- matrix(0, iterations - burn, N + 2)
+  for (iteration in seq_len(iterations)) {
+    variance <- 1 / (1 / s2 + 1 / tau2)
+    mean_theta <- variance * (y / s2 + mu / tau2)
+    theta <- rnorm(N, mean_theta, sqrt(variance))
+    variance_mu <- 1 / (N / tau2 + 1 / mu_sd^2)
+    mu <- rnorm(1, variance_mu * (sum(theta) / tau2 + mu0 / mu_sd^2),
+                sqrt(variance_mu))
+    tau2 <- 1 / rgamma(1, shape0 + N / 2, rate0 + sum((theta - mu)^2) / 2)
+    if (iteration > burn) draws[iteration - burn, ] <- c(mu, sqrt(tau2), theta)
   }
-
-  b <- drop(A %*% beta)
-  V <- A %*% V_raw %*% t(A)
-  eig <- eigen(V, symmetric = TRUE)
-  keep <- eig$values > max(eig$values) * 1e-8
-  V_inv <- eig$vectors[, keep, drop = FALSE] %*%
-    diag(1 / eig$values[keep], nrow = sum(keep)) %*%
-    t(eig$vectors[, keep, drop = FALSE])
-  df1 <- sum(keep)
-  F_stat <- drop(t(b) %*% V_inv %*% b) / df1
-
-  data.frame(
-    tested_periods = paste(periods, collapse = ", "),
-    F_statistic = F_stat,
-    df1 = df1,
-    df2 = n_clusters - 1,
-    p_value = pf(F_stat, df1, n_clusters - 1, lower.tail = FALSE)
-  )
+  colnames(draws) <- c("mu", "tau", paste0("theta", seq_len(N)))
+  draws
 }
+chain1 <- normal_hb(y, s2, seed = 202608)
+chain2 <- normal_hb(y, s2, seed = 202609)
+posterior <- rbind(chain1, chain2)
+post_theta <- posterior[, -(1:2)]
+full_mean <- colMeans(post_theta)
+intervals <- t(apply(post_theta, 2, quantile, c(0.025, 0.975)))
 ```
+:::
 
 ```{r}
-#| label: sunab-pretrend-check
-pre_periods <- -5:-2
-period_table <- aggregate(sunab_fit, "period")
-pre_names <- paste0("time::", pre_periods)
-pre_period_coefs <- period_table[pre_names, "Estimate"]
-cat("直近4期の処置前係数の平均絶対値:\n")
-cat(round(mean(abs(pre_period_coefs), na.rm = TRUE), 3), "\n\n")
-sunab_pretrend_wald(sunab_fit, pre_periods, n_clusters = G)
+#| fig-cap: "観測が少ない15人の事後平均と95%信用区間。赤い印はシミュレーションの真値。"
+posterior_summary <- data.frame(parameter = c("mu", "tau"), truth = c(mu_true, tau_true),
+  mean = colMeans(posterior[, 1:2]),
+  lower = apply(posterior[, 1:2], 2, quantile, 0.025),
+  upper = apply(posterior[, 1:2], 2, quantile, 0.975))
+knitr::kable(posterior_summary, digits = 3,
+  col.names = c("パラメータ", "真値", "事後平均", "2.5%点", "97.5%点"))
+show_i <- order(n_i)[1:15]
+interval_plot <- data.frame(id = factor(show_i, levels = show_i),
+  mean = full_mean[show_i], lower = intervals[show_i, 1], upper = intervals[show_i, 2],
+  truth = truth[show_i])
+ggplot(interval_plot, aes(id, mean)) + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  geom_point(color = "#1f77b4") + geom_point(aes(y = truth), shape = 4, color = "#d62728") +
+  labs(x = "観測が少ない顧客15人", y = "個人パラメータと95%信用区間")
 ```
 
-シミュレーションの真の処置前効果は0である。Wald検定で棄却できなければこのDGPと整合的な補助証拠にはなるが、これは並行トレンドの証明ではない。検定は小さな違反を見逃すことがあり、処置後の反実仮想は観測できないからである。
+赤い印は真値で、実データでは見えない。点推定では順位がついていても、区間は大きく重なることがある。「推定値が一番高い人」と「確実に一番高い人」は違う。
 
-::: {.callout-note collapse="true"}
-## 補足：Callaway-Sant'Annaとsunabの関係
+### 計算が動いたことと、十分な標本が得られたこと
 
-| | Sun and Abraham / `sunab` | Callaway and Sant'Anna |
-|---|---|---|
-| まず推定するもの | コホート×相対時間のinteraction係数 | コホート$g$×カレンダー時点$t$の$\mathrm{ATT}(g,t)$ |
-| 対照群 | 基準コホート（例：never-treated）と基準相対期間 | never-treatedまたはnot-yet-treatedを明示的に選択 |
-| 集計 | 相対時間別のinteraction-weighted集計 | $\mathrm{ATT}(g,t)$から動学別・コホート別・全体へ集計 |
+乱数を出せばよいわけではない。異なる乱数列で動かした2本の計算が、似た範囲を探索しているか確認する。最初の1,000回を捨て、残りを使っているが、この回数で常に十分になるわけではない。
 
-両者は、通常のTWFE event studyが異質な効果を混ぜる問題を避け、コホート別の効果を推定してから解釈可能な形に集計する点で共通する。しかし、**`sunab()`はCallaway-Sant'Anna推定量の実装ではない**。対照群の選び方、識別仮定、重み、推論は異なる。Callaway-Sant'Anna法を使う場合は、Rパッケージ`did`などで別に実装する。
-:::
+```{r}
+#| fig-cap: "異なる乱数seedから得た2列の母集団平均の抽出値。"
+trace_plot <- data.frame(iteration = rep(seq_len(nrow(chain1)), 2),
+  mu = c(chain1[, "mu"], chain2[, "mu"]), chain = rep(c("1", "2"), each = nrow(chain1)))
+ggplot(trace_plot, aes(iteration, mu, color = chain)) + geom_line(alpha = 0.45, linewidth = 0.3) +
+  labs(x = "保存した反復", y = expression(mu), color = "chain")
+chain_comparison <- data.frame(chain = c("1", "2"),
+  mu_mean = c(mean(chain1[, "mu"]), mean(chain2[, "mu"])),
+  tau_mean = c(mean(chain1[, "tau"]), mean(chain2[, "tau"])))
+knitr::kable(chain_comparison, digits = 3)
+```
+
+連続した抽出値は相関する。保存した数が、そのまま独立な標本数になるわけではない。次回は、複数の計算列の比較を数値で調べる診断も使う。
 
 ::: {.callout-tip}
-## 実証研究コーナー：Callaway and Sant'Anna (2021)
+## 実証研究コーナー：8校の実験をまとめる
 
-**研究の問い**：処置のタイミングが単位ごとに異なる（staggered）パネルデータにおいて、動的・異質的な処置効果をどう識別・推定すればよいか。
-
-**データ・アプローチ**：特定のデータセットに基づく応用論文ではなく、識別・推定理論を扱う方法論論文である。*Journal of Econometrics*に掲載された。
-
-**識別戦略・モデル**：コホート（処置開始時点）$g$と時点$t$の組ごとに、$\text{ATT}(g,t)$という群×時点別の平均処置効果を定義し、これをnever-treated群（または「まだ処置されていない」群）を対照とした2×2 DiDの集合として識別する。個別の$\text{ATT}(g,t)$を推定した後、経過期間ごと・コホートごと・全体、といった複数の粒度で集計する方法を提案している。
-
-**主要な貢献**：異なる時点で処置される群の$\mathrm{ATT}(g,t)$を識別・推定し、効果の異質性を保ったまま目的に応じて集計する方法と推論法を提示した。これにより、異質な効果の下で通常のTWFEを一つのATTと読む危険を避けられる。
-
-**このトピックとの関係**：本講義のRシミュ2は、通常のTWFEの危険と「異質性を保ったまま推定して集計する」という現代DiDの問題意識を実演する。ただし実装しているのはSun-Abraham法であり、Callaway-Sant'Anna法そのものではない。
+Rubin (1981)の例では、8校で行われたSAT対策指導の無作為化実験をまとめる。学校ごとの効果推定値には、その学校の真の効果と推定誤差の両方が含まれる。階層モデルを使うと、各校を完全に別々に扱う方法と、すべて同じ効果とする方法の間で情報を共有できる。Rubin (1984)は、この例で同じ8校の実験を再び行ったときのデータを事後予測する考え方も説明している。因果効果を識別する実験の役割と、推定誤差を扱う階層モデルの役割は別である。[原著者の解説 §5.5](https://www.cs.columbia.edu/~blei/fogm/2020F/readings/Rubin1984.pdf)
 :::
 
-## 4. IV再訪：マーケ文脈での操作変数
+## 7. 事後分布を使って予測する
 
-### 広告出稿のIVの難しさ
+既存の顧客なら、その人の $\theta_i$ の事後抽出値を使う。新しい顧客なら、各反復の $\mu,\tau$ から新しい $\theta_{\mathrm{new}}$ を発生させる。どちらも、最後に観測のノイズを加える。
 
-第3回では、価格の内生性に対処するために、コストシフター・Hausman型IV・BLP型IVという3種類の操作変数を紹介した。広告出稿の効果を測る場面でも、発想は同じである——**「広告出稿を動かすが、購買行動には広告を経由する以外の経路で影響しない」外生変動を探す**、というゲームだ。
+```{r}
+#| fig-cap: "既存顧客と新規顧客の、次の1回の評価の事後予測分布。"
+set.seed(2026081)
+i <- which.min(n_i)
+future_existing <- rnorm(nrow(posterior), post_theta[, i], sigma)
+theta_new <- rnorm(nrow(posterior), posterior[, "mu"], posterior[, "tau"])
+future_new <- rnorm(nrow(posterior), theta_new, sigma)
+predictive <- data.frame(value = c(future_existing, future_new),
+  customer = rep(c("既存顧客", "新規顧客"), each = nrow(posterior)))
+ggplot(predictive, aes(value, color = customer)) + geom_density(linewidth = 0.9) +
+  labs(x = "次の1回の評価スコア", y = "事後予測密度", color = NULL)
+```
 
-広告文脈でよく使われてきた変動の候補を、もっともらしさとセットで吟味してみよう。
-
-- **他地域での在庫・出稿都合**：全国企業がテレビCM枠を地域ブロック単位でしか買えない場合、ある地域の出稿量が「その地域の需要」ではなく「別の地域向けの予算配分の都合」で偶然決まることがある。この「巻き添え変動」を操作変数として使う発想は、広告研究で使われてきた。ただし、企業の予算配分ルール自体が地域需要の予測値に基づいている場合、この仮定は崩れる。
-- **プラットフォームの配信アルゴリズム変更**：検索広告やSNS広告のプラットフォーム側で、オークション方式やランキングアルゴリズムが変更されると、特定の広告主の掲載順位・表示頻度が、広告主自身の行動とは無関係に変動することがある。この「アルゴリズム変更ショック」は、広告主にとって外生的な変動源になりうる。ただし、プラットフォーム側が同時に他のマッチング要因（ユーザーの興味関心の変化など）も動かしている場合は、除外制約が怪しくなる。
-- **天候による来店変動**：実店舗への来店数は天候に左右される。広告の効果がオンライン経由の購買なのか、来店を通じた購買なのかを切り分ける際に、天候変動を操作変数的に使うアイデアがある。ただし天候が需要そのもの（衣料品の季節需要など）にも直接影響する場合は、除外制約に注意が必要である。
-
-### 統一視点：内生変数を動かす外生変動を探すゲーム
-
-第3回で価格の内生性に対処した発想と、ここでの広告出稿の内生性に対処する発想は、本質的に同じゲームである。
-
-> 「知りたい変数（価格でも広告でも）を動かすが、アウトカムには知りたい変数を経由する以外の経路で影響しない」外生的な変動を探す。
-
-このゲームでは、**候補となる操作変数を見つけたら、まず「なぜこの変数がアウトカムに直接効かないと言えるのか」を、データの構造や制度的背景に照らして具体的に説明できるかどうか**が勝負を分ける。ただし、関連性（first stage）と外生性・除外制約はどちらも必要であり、一方の強さが他方の弱さを埋め合わせるわけではない。統計的に強くても除外制約が怪しいIVは因果効果を識別せず、理論的にもっともらしくても弱いIVは有限標本バイアスや通常の近似推論の不安定さを招く。したがって、制度的根拠とfirst-stage診断を別々に提示する必要がある。
+新規顧客については、個人データがない分、母集団の情報に頼る。既存顧客の予測分布には、その人自身の履歴が反映される。ただし、次の観測に固有のノイズは、履歴を増やしてもなくならない。
 
 ::: {.callout-note}
-## ビジネスの現場で：「たまたま広告が止まった」を利用する
+## ビジネスの現場で：誰の情報を共有してよいか
 
-広告予算の急な削減、システム障害による広告配信の一時停止、法務上の理由での特定クリエイティブの差し止めなど、企業の広告出稿には「意図せず起きた変動」がしばしば紛れ込んでいる。こうした「準実験的な出来事」は、広告効果を測る貴重な機会になる。次の実証研究コーナーで紹介するBlake, Nosko, and Tadelis (2015)のeBayの事例は、ブランド語広告の停止という準実験的な契機と、その後の地域単位のランダム化停止実験を含む一連の大規模フィールド実験から、観察データでは見えにくかった広告の増分効果を明らかにした例である。
-:::
-
-## 5. マーケティングの閾値とRDD
-
-### RDDを応用できる閾値
-
-RDD（回帰不連続デザイン）は、「ある変数がある閾値を超えるかどうかで、処置の有無が不連続に切り替わる」状況を利用する識別戦略である。マーケティングの現場にも、この設計を検討できる閾値が多くある。
-
-- **会員ランク**：年間購入額が一定額を超えると、ゴールド会員・プラチナ会員に昇格する。
-- **送料無料閾値**：カート合計金額が一定額を超えると送料が無料になる。
-- **クーポン配布閾値**：購買頻度や累計購入額がある基準を超えると、特別なクーポンが自動配布される。
-
-これらでは、適切な連続性仮定の下で、「閾値のすぐ下にいる顧客」と「閾値のすぐ上にいる顧客」を比べられる。閾値近傍で潜在アウトカムが滑らかに変化するのに、処置だけが不連続に切り替わるなら、アウトカムのジャンプを処置の局所的な因果効果として読める。
-
-::: {.callout-note}
-## RDDを因果効果として読むための5段階チェック
-
-1. 閾値で処置確率が実際に不連続に変わる。
-2. 処置がなければ、潜在アウトカムの条件付き期待値は閾値をまたいで連続である。
-3. 同じ閾値で、別の制度や施策が同時に切り替わらない。
-4. 個体が処置を得るために走行変数を精密に操作していないと考えられる。
-5. 得られる効果は原則として**カットオフ近傍の局所効果**であり、全顧客への平均効果ではない。
-
-「直下と直上はほぼ同じ」は前提なしに保証される事実ではなく、2〜4を制度・図・補助検定で吟味した後に使える比較の直感である。
-:::
-
-### Rシミュ3：会員ランクRDD
-
-年間購入額を走行変数（running variable）に、5万円以上になるとゴールド会員になり、翌年の購買額にどれだけ効果があるかを推定する。
-
-```{r}
-#| label: dgp-rdd-membership
-n_rdd <- 3000
-cutoff_rdd <- 5.0  # 万円
-
-running_x <- rgamma(n_rdd, shape = 3.0, scale = 1.8)
-running_x <- pmin(pmax(running_x, 0.1), 20)
-
-true_jump <- 1.2  # ゴールド昇格による翌年購買額への真の効果（万円）
-
-baseline_y <- function(x) {
-  3.0 + 0.6 * (x - cutoff_rdd) - 0.03 * (x - cutoff_rdd)^2
-}
-
-gold_status <- as.numeric(running_x >= cutoff_rdd)
-y_rdd <- baseline_y(running_x) + true_jump * gold_status + rnorm(n_rdd, mean = 0, sd = 0.8)
-
-rdd_df <- data.frame(
-  cust_id = 1:n_rdd,
-  annual_purchase = running_x,
-  gold_status = gold_status,
-  next_year_purchase = y_rdd
-)
-
-head(rdd_df)
-```
-
-まず散布図でジャンプの様子を確認する。
-
-```{r}
-#| label: fig-rdd-scatter
-#| fig-cap: "会員ランクRDD：カットオフ(5万円)で翌年購買額にジャンプが見える"
-ggplot(rdd_df, aes(x = annual_purchase, y = next_year_purchase, color = factor(gold_status))) +
-  geom_point(alpha = 0.25, size = 1) +
-  geom_vline(xintercept = cutoff_rdd, linetype = "dashed", color = "gray30") +
-  geom_smooth(method = "loess", se = FALSE) +
-  labs(x = "年間購入額（万円）", y = "翌年購買額（万円）", color = "ゴールド会員",
-       title = "カットオフ付近でのジャンプ") +
-  scale_color_manual(values = c("steelblue", "firebrick"), labels = c("非ゴールド", "ゴールド"))
-```
-
-`rdrobust`でジャンプの大きさを推定する。
-
-```{r}
-#| label: rdd-rdrobust-fit
-rdd_fit <- rdrobust(y = rdd_df$next_year_purchase, x = rdd_df$annual_purchase, c = cutoff_rdd)
-summary(rdd_fit)
-```
-
-`summary()`では、`Conventional`行の局所線形推定値を点推定として読み、`Robust`行のp値と信頼区間をバイアス補正済みの頑健な推論として併記する。本シミュレーションでは点推定値が真値1.2万円の近くになるはずである。一般にバンド幅を狭めると局所近似のバイアスは減りやすい一方、観測数が減って分散が増える。したがって、一つの標本でバンド幅を狭めれば推定値が単調に真値へ近づくとは限らない。
-
-```{r}
-#| label: rdd-rdplot
-#| fig-cap: "rdplotによるビン分割散布図：カットオフ付近のジャンプを視覚的に確認"
-rdplot(y = rdd_df$next_year_purchase, x = rdd_df$annual_purchase, c = cutoff_rdd,
-       title = "会員ランクRDD：rdplot", x.label = "年間購入額（万円）", y.label = "翌年購買額（万円）")
-```
-
-::: {.callout-note collapse="true"}
-## 補足：`rdrobust`の出力構造
-
-`rdrobust()`の返り値には`Conventional`、`Bias-Corrected`、`Robust`の行がある。標準的な報告は、MSE-optimal bandwidthで得た通常の局所多項式**点推定値**（`Conventional`）と、robust bias-corrected (RBC) の**p値・信頼区間**（`Robust`）を組み合わせる。`Robust`行の係数欄はバイアス補正後の中心を示すが、それを点推定値に置き換えて報告するという意味ではない。内部フィールド名はバージョンで異なりうるので、まず`summary()`の表示を確認する。
-:::
-
-### 閾値ゲーミング（bunching）：顧客が閾値を狙って買い増しする
-
-RDDが機能するための鍵となる仮定は、「走行変数（この場合は年間購入額）を、顧客が処置の有無を意図して精密に操作できない」という点にある。しかし会員ランクのような**顧客自身にとって閾値が明確に見えている**制度では、この仮定が崩れやすい。
-
-年末が近づくと「あと少しでゴールド会員」という顧客が、閾値を超えるためだけに追加の買い物をする——いわゆる**駆け込み購入**である。これが起きると、走行変数の分布がカットオフ付近で不自然に歪みうる。**McCrary検定**は、カットオフ左右の走行変数の密度を推定し、その対数差がゼロかを検定する古典的な方法である。ヒストグラムはこの発想をつかむための図示だが、ビン幅に左右される直上・直下の単純な個数比そのものがMcCrary検定なのではない。
-
-```{r}
-#| label: dgp-bunching-illustration
-#| fig-cap: "bunchingの概念図：操作前は滑らか、操作後はカットオフ直下が減り直上が急増"
-n_bunch <- 3000
-x_no_manip <- rgamma(n_bunch, shape = 3.0, scale = 1.8)
-x_no_manip <- pmin(pmax(x_no_manip, 0.1), 20)
-
-# 駆け込み購入：cutoff-1.0からcutoffのゾーンの顧客の50%が、cutoff~cutoff+0.3に押し上げられる
-in_pushup_zone <- x_no_manip >= (cutoff_rdd - 1.0) & x_no_manip < cutoff_rdd
-pushed <- in_pushup_zone & (runif(n_bunch) < 0.5)
-x_manip <- x_no_manip
-x_manip[pushed] <- cutoff_rdd + runif(sum(pushed), min = 0, max = 0.3)
-
-bunch_compare_df <- data.frame(
-  annual_purchase = c(x_no_manip, x_manip),
-  scenario = rep(c("操作なし（滑らか）", "操作あり（駆け込み購入）"), each = n_bunch)
-)
-
-ggplot(bunch_compare_df, aes(x = annual_purchase, fill = scenario)) +
-  geom_histogram(binwidth = 0.5, alpha = 0.7, position = "identity") +
-  geom_vline(xintercept = cutoff_rdd, linetype = "dashed", color = "black") +
-  facet_wrap(~scenario, ncol = 1) +
-  labs(x = "年間購入額（万円）", y = "顧客数", title = "走行変数のヒストグラム：操作の有無による違い") +
-  theme(legend.position = "none")
-```
-
-カットオフ直下・直上のカウント比を数値で確認しておく。
-
-```{r}
-#| label: bunching-count-ratio
-count_below_no_manip <- sum(x_no_manip >= cutoff_rdd - 0.5 & x_no_manip < cutoff_rdd)
-count_above_no_manip <- sum(x_no_manip >= cutoff_rdd & x_no_manip < cutoff_rdd + 0.5)
-count_below_manip <- sum(x_manip >= cutoff_rdd - 0.5 & x_manip < cutoff_rdd)
-count_above_manip <- sum(x_manip >= cutoff_rdd & x_manip < cutoff_rdd + 0.5)
-
-bunching_tbl <- data.frame(
-  scenario = c("操作なし", "操作あり"),
-  count_below = c(count_below_no_manip, count_below_manip),
-  count_above = c(count_above_no_manip, count_above_manip),
-  ratio_above_below = c(count_above_no_manip / count_below_no_manip,
-                         count_above_manip / count_below_manip)
-)
-knitr::kable(bunching_tbl, digits = 2,
-             col.names = c("シナリオ", "直下カウント(-0.5〜0)", "直上カウント(0〜+0.5)", "直上/直下比"))
-```
-
-この標本では、操作なしの直上/直下比はおおむね1に近く、駆け込み購入を加えた場合は直下が減って直上が増える。これは密度不連続の直感的な診断にすぎず、比が1に近いことは「操作がない」ことやRDDの妥当性を証明しない。また、密度の不連続は精密操作への警告になるが、それだけでRDDが必ず無効になるとも限らず、制度の仕組みと合わせて判断する。本講義のRシミュ3は、潜在アウトカムの連続性、他制度の同時変更なし、操作なしをDGPとして置いた「きれいな」例である。
-
-::: {.callout-tip}
-## 実証研究コーナー：閾値ゲーミングという反転の視点
-
-閾値ゲーミング（bunching）は、RDDにとっては識別の脅威だが、マーケティングの意思決定にとっては**それ自体が興味深い現象**でもある。「顧客がどれだけ閾値を強く意識して行動を変えるか」は、送料無料閾値や会員ランクの設計を考えるための一つの入力になる。ただし、bunchingの大きさだけから最適な閾値は決まらない。追加購買の反実仮想、特典コスト、将来購買への効果などを組み込んだ行動・収益モデルがあって初めて、閾値変更の便益と費用を比較できる。「操作されると分析が困る」という見方に加え、「適切なモデルと組み合わせれば操作行動自体も情報になる」という反転の視点を持っておくとよい。
-:::
-
-## 6. 識別の失敗例ギャラリー
-
-マーケティング施策の効果検証で繰り返し起きる、識別の失敗パターンをいくつか並べておく。
-
-::: {.callout-warning}
-## 価格変更の効果を季節と混同する
-
-年末セールで値下げをして売上が伸びたとき、その伸びが「値下げの効果」なのか「そもそも年末は買い物が増える季節性」なのかを区別できていないケースは非常に多い。前年同時期との比較（year-over-year）だけでは、その年固有の需要ショック（景気、天候、競合の動向）と施策の効果を分離できない。DiDの発想（対照群として、値下げをしなかった類似商品・地域を用意する）が最低限必要になる。
-:::
-
-::: {.callout-warning}
-## キャンペーンをセールと同時実施して分離不能にする
-
-ポイント2倍キャンペーンと季節セールを同じ週に重ねて実施してしまうと、後から「ポイント施策の効果」と「セール自体の効果」を分離することは、よほど工夫したデザインでない限り不可能になる。施策効果を測りたいなら、**測りたい施策だけを動かし、他の施策のタイミングをずらす**という、実験計画法の基本を観察データの収集段階から意識しておく必要がある。
-:::
-
-::: {.callout-warning}
-## ポイント施策で都合のよい対象だけを選ぶ（cream skimming）
-
-「休眠顧客の掘り起こし」を目的にしたポイント施策のはずが、実際には対象条件（過去の購入実績など）の設定によって、もともと再購買しやすい優良顧客ばかりが対象に選ばれてしまうことがある。この場合、施策後の購買率上昇のほとんどは「もともと戻ってきやすい顧客を選んでいた」ことの反映であり、施策そのものの因果効果ではない。これは第9〜11回で扱う「誰をターゲティングするか」という問題とも表裏一体の論点である。
-:::
-
-::: {.callout-warning}
-## 「効果が出た地域だけ報告」（出版バイアスの社内版）
-
-複数店舗・複数地域で同時多発的に似た施策を試したとき、たまたま良い数字が出た地域だけを「成功事例」として社内報告に載せ、効果が出なかった（あるいは悪化した）地域は報告から外れる、ということが起きがちである。これは学術界で問題になる出版バイアス（publication bias）の企業版であり、統計的には**多重検定の問題**（多数の地域・多数の指標を試せば、真の効果がゼロでも「たまたま良い数字」が出る地域が一定確率で現れる）そのものである。施策の効果を正しく評価するには、あらかじめ定めた評価指標・評価地域の全体を、選択的にではなく報告する規律が必要になる。
-:::
-
-## 7. 実証研究コーナー
-
-::: {.callout-tip}
-## 実証研究コーナー：Blake, Nosko, and Tadelis (2015)
-
-**研究の問い**：ブランド検索連動広告（自社ブランド名で検索された際に表示する広告）は、本当に売上を増やしているのか。それとも、広告がなくても同じ客が同じように来店・購買していたのか。
-
-**データ・アプローチ**：eBayにおけるブランド語広告の一時停止という準実験的な契機と、その後の地域単位のランダム化停止実験を含む、一連の大規模フィールド実験を分析した研究で、*Econometrica*に掲載された。
-
-**識別戦略・モデル**：単純な観察データの相関分析ではなく、実際に検索広告を停止し、停止地域と継続地域の来訪・購買行動を比較した。実験では地域単位の割当を用いるため、個々の広告接触者と非接触者を比べるactivity biasを避けられる。
-
-**主要な発見**：ブランド語広告には短期的に測定可能な便益がほとんどなく、非ブランド語広告の効果は新規・購買頻度の低い顧客に集中していた。全顧客平均の収益は負で、観察データによる相関分析は増分効果を大きく過大評価していた。
-
-**このトピックとの関係**：これは、第7回で学んだ「実験の力」が、観察データに基づく素朴な効果測定をどれだけ覆しうるかを示した象徴的な事例である。ブランド検索広告のクリック数と売上の相関だけを見ていれば、「広告は大きな効果がある」と結論づけてしまっただろう。実際に広告を止めるという実験があって初めて、その相関の大部分が「広告がなくても来ていた客」による見せかけであることが判明した。今回学んだactivity biasの議論とも直結する——広告に「接触した」客の多くは、そもそも広告がなくても行動していた客だったのである。
+同じ母集団から来た人だと扱うことは、モデルの仮定である。法人顧客と個人顧客、初回購入と長年の利用者などで体系的な違いがあるなら、母集団平均を属性で説明したり、分布を分けたりする必要がある。何でも一つの分布にまとめれば、意味のある差まで縮めることになる。
 :::
 
 ::: {.callout-tip}
-## 実証研究コーナー：Shapiro (2018)
+## 実証研究コーナー：短い質問票から個人の好みを推定する
 
-**研究の問い**：抗うつ薬のテレビ広告は、広告されたブランドだけでなく、競合ブランドの需要も増やすのか。その正の外部性は、企業のフリーライドと広告投資にどう影響するのか。
-
-**データ・識別戦略**：Bradley T. Shapiroの論文、“Positive Spillovers and Free Riding in Advertising of Prescription Pharmaceuticals: The Case of Antidepressants”は、テレビ市場の境界で広告量が不連続に変わることを利用する。境界の近くにある地域を比べ、地域固有の需要と広告出稿の内生性を切り分ける。その識別を抗うつ薬需要モデルに組み込む。
-
-**主要な発見**：自社のテレビ広告は競合薬の需要にも有意で持続的な正のスピルオーバーをもたらし、その主なメカニズムは製品間の単なる顧客奪取ではなく、抗うつ薬カテゴリー全体の需要拡大であった。供給側のシミュレーションでは、企業が競合の広告にフリーライドする分散的な市場に比べ、カテゴリー共同の広告組織は総広告量を増やすと示唆される。
-
-**このトピックとの関係**：メディア市場境界の不連続という準実験的な変動を使い、広告の内生性に対処する例である。加えて、広告の効果を「自社売上への直接効果」だけで評価すると、競合への外部性を見落とすことを示す。
+Lenk, DeSarbo, Green and Young (1996)は、パソコンの13属性を使ったコンジョイント調査を分析した。分析対象は179人で、各人に16個の推定用プロファイルと4個の検証用プロファイルがある。回答の一部を取り除き、階層ベイズが短い質問票でどこまで個人差を推定できるかを調べた。元の分析は評価値に対するモデルであり、次回のlogitと同じモデルではない。少ない個人データと母集団の情報を組み合わせ、別の回答で検証するという問題は共通している。[原論文 pp.179–180](https://ucsf-idl-dataset.s3.us-east-1.amazonaws.com/k/z/l/j/kzlj0191/kzlj0191.pdf)
 :::
-
-::: {.callout-tip}
-## 実証研究コーナー：Lewis and Rao (2015)
-
-**研究の問い**：広告の効果を統計的に検出するには、そもそもどれだけのサンプルサイズが必要なのか。
-
-**データ・アプローチ**：*Quarterly Journal of Economics*に掲載されたこの論文は、複数の大規模なオンライン広告実験のデータを分析し、広告効果の検出力（statistical power）がどれほど低いかを定量的に示した。
-
-**識別戦略・モデル**：実験デザインそのものは単純なA/Bテストだが、この論文の貢献は「広告の真の効果の大きさ」と「売上・購買データの持つばらつき（分散）」を比較し、通常の実験サンプルサイズでは、実務的に意味のある大きさの広告効果ですら検出できないことが多い、という統計的な事実を突きつけた点にある。
-
-**主要な発見**：広告の売上への効果は、多くの場合、個人レベルの売上の自然なばらつきに比べて非常に小さい。そのため、非常に大規模な実験でもROIの信頼区間が広くなりうるという、広告効果測定の厳しい精度上の制約を報告した。
-
-**このトピックとの関係**：この論文は、第7回で学んだ検出力の議論の広告版であり、同時に「なぜ実験ではなく観察データに頼りたくなるのか」という誘惑の背景を説明してもいる。検出力が低いと分かっているのに、無理に観察データから精密な効果を読み取ろうとすると、本講義で見てきたような識別の失敗（activity bias、静的TWFEの歪みなど）にさらに脆弱になる。実験でも観察データでも、「そもそもこの効果の大きさは検出可能なのか」を最初に考える姿勢が欠かせない。
-:::
-
-::: {.callout-tip}
-## 実証研究コーナー：Goldfarb, Tucker, and Wang (2022)
-
-**研究の問い**：マーケティング分野の研究で、準実験（quasi-experiment）はどのように使われてきたのか。研究者はどのような識別戦略を、どのような場面で選んできたのか。
-
-**データ・アプローチ**：*Journal of Marketing*に掲載されたこの論文は、特定の1つのデータセットを分析するのではなく、マーケティング分野で行われてきた準実験研究を広くレビューし、体系的に整理したものである。
-
-**識別戦略・モデル**：DiD、IV、RDD、断続的な政策変化の利用など、マーケティング研究で使われてきた代表的な準実験デザインをカタログ的に紹介し、それぞれの識別の仮定・適用条件・落とし穴を整理している。
-
-**主要な貢献**：実験が難しい意思決定（価格変更、規制変化、プラットフォームポリシーの変更など）を分析するための準実験を、変動の出所と識別仮定に沿って整理し、研究者がデザインを評価・選択するための指針を示している。staggered DiDの具体的な推定法は、本講義ではCallaway–Sant'AnnaとSun–Abrahamの原論文から補う。
-
-**このトピックとの関係**：本講義全体で扱った内容（DiD・IV・RDDのマーケ応用、staggered adoption問題）を俯瞰する「地図」としての位置づけを持つ文献である。個別の技術を学んだ後にこの論文を読むと、それぞれの技術がマーケティング研究全体の中でどう位置づけられるかが整理しやすくなる。
-:::
-
-## 8. ビジネスの現場で
-
-::: {.callout-note}
-## ビジネスの現場で：意図的staggered rollout設計という実験的発想
-
-「全国一斉導入」をやめて、意図的に導入時期を店舗・地域ごとにずらす**ランダム化ロールアウト設計**を提案する、という考え方がある。ただし今回学んだ通り、時差を作るだけでは識別は改善しない。重要なのは、**導入順序をランダム化する**ことである。「どの店舗を先に導入するか」を事前にランダムに決めれば、導入順序と店舗特性（地力、規模、担当者の意欲など）の系統的な関連を断てる。分析では割当手続き、時点別の比較可能性、割当単位での推論を反映させる必要があるが、大規模な機能展開・制度変更で検討する価値の高い実験デザインである。
-:::
-
-::: {.callout-note}
-## ビジネスの現場で：効果検証の社内チェックリスト
-
-施策の効果検証レポートが社内で回ってきたとき、次の3つの問いを最低限確認する習慣をつけるとよい。
-
-1. **比較対象は誰か**：処置を受けた人・受けなかった人は、どうやって決まったのか。ランダムか、それとも何らかの選択（活動量、優良顧客度、地域特性）によって分かれているか。
-2. **いつと比べているか**：前後比較なら、季節性・トレンド・他の同時実施施策と効果を混同していないか。DiDなら、並行トレンドは補助的にでも確認されているか。
-3. **誰が選ばれているか**：施策の対象条件そのものが、もともと反応しやすい・購買しやすい人を選んでいないか（cream skimming）。
-
-この3点は、本講義で扱った識別の失敗例のほとんどをカバーする最小限のチェックリストである。「効果がありました」というレポートを受け取ったら、まずこの3つを尋ねてみる習慣が、データ分析担当者としての信頼を積み上げる第一歩になる。
-:::
-
-## まとめ
 
 ::: {.callout-important}
 ## まとめ
 
-- 「広告接触者は非接触者より購買率が高い」という単純比較は、activity bias（観測・未観測の活動量が広告接触と購買の両方を動かす交絡）によって大きく歪む。観測できる活動量だけを調整しても、未観測の活動量による過大評価はかなりの部分残ってしまう。
-- DiD・IV・RDD・panel fixed effectsは、計量経済学Iで習った基礎技術をそのままマーケティング施策の効果測定に応用できる。ただし並行トレンドの検証不能性、除外制約の吟味など、識別の仮定を具体的な制度・データ構造に照らして検討する姿勢が欠かせない。
-- **staggered adoption**の下で効果が経過時間やコホートで異なると、静的TWFEは符号すら逆転しうる。Goodman-Bacon分解では、2×2 DiD成分へのウェイトは非負だが、すでに処置された群を対照にする成分自体が動学効果で汚染される。
-- `fixest::sunab`はSun-Abrahamのinteraction-weighted event studyを実装する。Callaway-Sant'Annaの$\mathrm{ATT}(g,t)$法とは「コホート別に推定してから集計する」点は共通するが、同じ推定量ではない。効果の図とともに、単位クラスタ標準誤差、リードの同時検定、その低い検出力も報告する。
-- RDDを使える閾値はマーケティングの現場に多い（会員ランク、送料無料閾値、クーポン閾値）。ただしbunchingや精密操作が疑われると、閾値近傍の比較可能性を慎重に再検討する必要がある。密度の不連続は重要な警告だが、それだけで妥当・無効の判定はできない。
-- 価格変更と季節性の混同、キャンペーンとセールの同時実施、cream skimming、成功事例だけの選択的報告——これらは実務で繰り返し起きる識別の失敗パターンであり、「比較対象は誰か・いつと比べているか・誰が選ばれているか」という3点チェックで多くを予防できる。
+- 尤度と事前分布を組み合わせて、事後分布を求める。
+- 事後分布の幅と、新しい観測の予測分布の幅を区別する。
+- partial poolingは、個人差と測定ノイズを区別しながら情報を共有する。
+- 経験ベイズは母集団パラメータを推定して固定し、フルベイズはその不確実性も積分する。
+- 推定に使っていないデータで予測を評価し、事前分布や共有する母集団の仮定も確認する。
 :::
 
 ## 宿題
 
-- ブラウザ実験室（[playground8.html](playground8.html)）で、今回のシミュレーションの数値を自分でいじって遊んでみよう。インストール不要、ブラウザだけでRが動く（初回ロードのみ30秒〜1分かかる）。
-- Rシミュ2を2段階で変更する。まず`theta_early`と`theta_late`を同じ正の値にし、コホート間の傾きの異質性だけを消す。効果はまだ経過期間で成長するので、静的TWFEの歪みが残りうることを確かめる。次にDGPを`true_effect = tau_const * treated`と書き換え、すべての処置セルで効果を一定にする。並行トレンドの下で静的TWFEがその一定効果を回収するか比較しよう。
-- ChatGPT（または他の対話型AI）に「Goodman-Bacon分解とは何か、なぜstaggered DiDで問題になるのか」と聞いてみて、本ノートの説明と比べてどちらが分かりやすいか、どこが補足として役立つかを考えてみよう。
-- 自分の勤務先（または身近な企業）で、staggered rolloutが行われた施策を1つ思い浮かべ、その導入順序が「ランダムだったか」「何らかの理由で意図的に決まっていたか」を考えてみよう。もし意図的だったなら、それが後々の効果検証にどう影響しうるかを考えてみるとよい。
-- coding課題は `assignment8.qmd` を参照。今回のRシミュ2の設計を、店舗・エリアという別の文脈に置き換えて再現し、静的TWFEとsunabの違いを自分の手で確認する。
+1. 観測回数を全員50回にしたら、complete/no/partial poolingの差はどうなるか。
+2. 本当の個人差を $\tau=0.1$ と $\tau=1.5$ に変え、どの推定が有利になるか比べよう。
+3. 「事後平均の予測」と「次の観測の予測」の違いを、式を使わずに説明してみよう。
+
+coding課題は [assignment8.qmd](assignment8.qmd) を参照。ブラウザで試す場合は [Playground 8](playground8.html) を使ってほしい。
 
 ## 次回予告
 
-次回（第9回）では、今回まで扱ってきた「平均的にいくら効いたか」という視点を離れ、「**誰に効いたか**」という消費者ごとの異質性の推定に進む。同じ広告・同じ価格・同じ商品属性に対して、消費者ごとに反応がどれだけ異なるかを、階層モデル（hierarchical model）とshrinkageという道具を使って推定する。今回学んだCATE的な発想（コホートごとの効果の違い）は、次回の「個人ごとの効果の違い」という、より細かい粒度の異質性推定への自然な橋渡しになる。
+次回は、第7回のイヤホンの選択課題に戻る。今回は連続的な評価スコアを観測したが、次回はどの商品を選んだか、あるいは何も買わなかったかを観測し、選択確率に入る個人の係数を推定する。個人ごとの選択履歴から事後分布を求め、次に何を選ぶかを予測する。
 
 ## 参考文献
 
-- Goldfarb, Avi, Catherine E. Tucker, and Yanwen Wang (2022) "Conducting Research in Marketing with Quasi-Experiments," *Journal of Marketing*, 86(3), 1-20.
-- Blake, Thomas, Chris Nosko, and Steven Tadelis (2015) "Consumer Heterogeneity and Paid Search Effectiveness: A Large-Scale Field Experiment," *Econometrica*, 83(1), 155-174.
-- Lewis, Randall A. and Justin M. Rao (2015) "The Unfavorable Economics of Measuring the Returns to Advertising," *Quarterly Journal of Economics*, 130(4), 1941-1973.
-- Imbens, Guido W. and Jeffrey M. Wooldridge (2009) "Recent Developments in the Econometrics of Program Evaluation," *Journal of Economic Literature*, 47(1), 5-86.
-- Callaway, Brantly and Pedro H. C. Sant'Anna (2021) "Difference-in-Differences with Multiple Time Periods," *Journal of Econometrics*, 225(2), 200-230.
-- Goodman-Bacon, Andrew (2021) "Difference-in-Differences with Variation in Treatment Timing," *Journal of Econometrics*, 225(2), 254-277.
-- Sun, Liyang and Sarah Abraham (2021) "Estimating Dynamic Treatment Effects in Event Studies with Heterogeneous Treatment Effects," *Journal of Econometrics*, 225(2), 175-199.
-- Shapiro, Bradley T. (2018) "[Positive Spillovers and Free Riding in Advertising of Prescription Pharmaceuticals: The Case of Antidepressants](https://doi.org/10.1086/695475)," *Journal of Political Economy*, 126(1), 381–437.
-- McCrary, Justin (2008) "Manipulation of the Running Variable in the Regression Discontinuity Design: A Density Test," *Journal of Econometrics*, 142(2), 698–714.
-- 上武康亮・遠山祐太・若森直樹・渡辺安虎『実証ビジネス・エコノミクス』日本評論社、2025年。
+- Efron, B. (2010). “The Future of Indirect Evidence.” *Statistical Science*, 25(2), 145–157.
+- Rubin, D. B. (1981). “Estimation in Parallel Randomized Experiments.” *Journal of Educational Statistics*, 6(4), 377–401.
+- Rubin, D. B. (1984). “Bayesianly Justifiable and Relevant Frequency Calculations for the Applied Statistician.” *Annals of Statistics*, 12(4), 1151–1172.
+- Lenk, P. J., DeSarbo, W. S., Green, P. E., and Young, M. R. (1996). “Hierarchical Bayes Conjoint Analysis.” *Marketing Science*, 15(2), 173–191.
+- Train, K. E. (2009). *Discrete Choice Methods with Simulation*, 2nd ed., Chapter 12.

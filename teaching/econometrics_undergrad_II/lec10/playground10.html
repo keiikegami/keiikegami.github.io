@@ -8,7 +8,7 @@
 
 <meta name="author" content="Kei Ikegami">
 
-<title>Playground 10：顧客ベース分析の実験室</title>
+<title>Playground 10：個人の不確実性とクーポン配分</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -81,10 +81,10 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul class="collapse">
-  <li><a href="#実験1bgnbdの4つのツマミ-顧客ベースの形を決める" id="toc-実験1bgnbdの4つのツマミ-顧客ベースの形を決める" class="nav-link active" data-scroll-target="#実験1bgnbdの4つのツマミ-顧客ベースの形を決める">実験1：BG/NBDの4つのツマミ — 顧客ベースの形を決める</a></li>
-  <li><a href="#実験2paliveの直感-沈黙は何のシグナルか" id="toc-実験2paliveの直感-沈黙は何のシグナルか" class="nav-link" data-scroll-target="#実験2paliveの直感-沈黙は何のシグナルか">実験2：P(alive)の直感 — 沈黙は何のシグナルか</a></li>
-  <li><a href="#実験3自作mleの真値回収-観測期間はどれだけ必要か" id="toc-実験3自作mleの真値回収-観測期間はどれだけ必要か" class="nav-link" data-scroll-target="#実験3自作mleの真値回収-観測期間はどれだけ必要か">実験3：自作MLEの真値回収 — 観測期間はどれだけ必要か</a></li>
-  <li><a href="#実験4将来予測のevent-tree-購買のたびに離脱判定する" id="toc-実験4将来予測のevent-tree-購買のたびに離脱判定する" class="nav-link" data-scroll-target="#実験4将来予測のevent-tree-購買のたびに離脱判定する">実験4：将来予測のevent tree — 購買のたびに離脱判定する</a></li>
+  <li><a href="#実験1係数を平均して代入すると同じか" id="toc-実験1係数を平均して代入すると同じか" class="nav-link active" data-scroll-target="#実験1係数を平均して代入すると同じか">実験1：係数を平均して代入すると同じか</a></li>
+  <li><a href="#実験2よく買う人とクーポンが効く人" id="toc-実験2よく買う人とクーポンが効く人" class="nav-link" data-scroll-target="#実験2よく買う人とクーポンが効く人">実験2：よく買う人とクーポンが効く人</a></li>
+  <li><a href="#実験3原価と配信費用を入れる" id="toc-実験3原価と配信費用を入れる" class="nav-link" data-scroll-target="#実験3原価と配信費用を入れる">実験3：原価と配信費用を入れる</a></li>
+  <li><a href="#実験4一律と個人別を比べる" id="toc-実験4一律と個人別を比べる" class="nav-link" data-scroll-target="#実験4一律と個人別を比べる">実験4：一律と個人別を比べる</a></li>
   <li><a href="#次に読むもの" id="toc-次に読むもの" class="nav-link" data-scroll-target="#次に読むもの">次に読むもの</a></li>
   </ul>
 </nav>
@@ -93,7 +93,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Playground 10：顧客ベース分析の実験室</h1>
+<h1 class="title">Playground 10：個人の不確実性とクーポン配分</h1>
 <p class="subtitle lead">計量経済学II（ブラウザ上でRが動きます）</p>
 </div>
 
@@ -127,166 +127,81 @@ window.Quarto = {
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<ul>
-<li>このページのRコードは、<strong>あなたのブラウザの中で</strong>動いている（WebAssembly + webR）。インストールは一切不要。</li>
-<li><strong>初回だけ、ページ読み込みに30秒〜1分かかる</strong>（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。</li>
-<li>各セルのコードは自由に書き換えて「Run Code」で実行できる。<strong>何をどう壊しても誰にも迷惑はかからない</strong>。おかしくなったらページを再読み込みすれば元に戻る。</li>
-<li>元ネタは講義ノート（<code>lecture10.html</code>）。ここでは「数値をいじって挙動を体感する」ことに集中する。</li>
-</ul>
+<p>コードの数字を変えて実行すると、グラフや表が変わる。ここでは計算を軽くするため、個人の <span class="math inline">\(\theta_i\)</span> の事後分布を正規分布で近似した例を入力する。実際に履歴から推定するコードと結果は<a href="lecture10.html">講義ノート</a>にある。このページの入力分布は、講義のMCMC結果そのものではない。</p>
+<p>最初の共通コードを実行した後、各実験の数字を変えてみよう。</p>
 </div>
 </div>
-<div class="cell" data-edit="false" data-autorun="true" data-timelimit="120">
+<div class="cell" data-autorun="true">
 <div>
 <div id="webr-1" class="exercise-cell">
 
 </div>
 <script type="webr-1-contents">
-eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVkaXQiOmZhbHNlLCJldmFsIjp0cnVlLCJvdXRwdXQiOmZhbHNlLCJ0aW1lbGltaXQiOjEyMH0sImNvZGUiOiIjIC0tLS0g5YWx6YCa44Gu6YGT5YW3566x77yI6Kyb576p44OO44O844OI44Go5ZCM44GY6Zai5pWw576k44CC57eo6ZuG5LiN5Y+v44O76Ieq5YuV5a6f6KGM77yJLS0tLVxuXG4jIEJHL05CROOBrkRHUO+8mjHpoaflrqLjga7os7zosrfjgqTjg5njg7Pjg4jmmYLliLvjgpLnlJ/miJDjgZnjgotcbiMg55Sf44GN44Gm44GE44KL6ZaT44GvcmF0ZT1sYW1iZGHjga5Qb2lzc29u6YGO56iL44Gn6LO86LK344GX44CB5ZCE6LO86LK344Gu55u05b6M44Gr56K6546HcF9kcm9w44Gn6Zui6ISx44GZ44KLXG5zaW11bGF0ZV9jdXN0b21lcl9ldmVudHMgPC0gZnVuY3Rpb24obGFtYmRhLCBwX2Ryb3AsIFQpIHtcbiAgdCA8LSAwXG4gIGV2ZW50cyA8LSBjKClcbiAgcmVwZWF0IHtcbiAgICB3YWl0IDwtIHJleHAoMSwgcmF0ZSA9IGxhbWJkYSlcbiAgICB0X25leHQgPC0gdCArIHdhaXRcbiAgICBpZiAodF9uZXh0ID4gVCkgYnJlYWtcbiAgICB0IDwtIHRfbmV4dFxuICAgIGV2ZW50cyA8LSBjKGV2ZW50cywgdClcbiAgICBpZiAocnVuaWYoMSkgPCBwX2Ryb3ApIGJyZWFrXG4gIH1cbiAgZXZlbnRzXG59XG5cbiMgTuS6uuOBrumhp+WuouODmeODvOOCueOCkueUn+aIkOOBl+OAgSh4LCB0X3gpIOOBq+imgee0hOOBmeOCi1xuc2ltdWxhdGVfY3VzdG9tZXJfYmFzZSA8LSBmdW5jdGlvbihOLCByLCBhbHBoYSwgYSwgYiwgVCkge1xuICBsYW1iZGEgPC0gcmdhbW1hKE4sIHNoYXBlID0gciwgcmF0ZSA9IGFscGhhKVxuICBwIDwtIHJiZXRhKE4sIGEsIGIpXG4gIHggPC0gbnVtZXJpYyhOKTsgdHggPC0gbnVtZXJpYyhOKVxuICBmb3IgKGkgaW4gMTpOKSB7XG4gICAgZXYgPC0gc2ltdWxhdGVfY3VzdG9tZXJfZXZlbnRzKGxhbWJkYVtpXSwgcFtpXSwgVClcbiAgICB4W2ldIDwtIGxlbmd0aChldilcbiAgICB0eFtpXSA8LSBpZiAobGVuZ3RoKGV2KSA9PSAwKSAwIGVsc2UgbWF4KGV2KVxuICB9XG4gIGRhdGEuZnJhbWUoeCA9IHgsIHR4ID0gdHgsIGxhbWJkYSA9IGxhbWJkYSwgcCA9IHApXG59XG5cbiMgbG9nc3VtZXhwOiBsb2coZXhwKGEpICsgZXhwKGIpKSDjgpLmlbDlgKTnmoTjgavlronlrprjgavoqIjnrpfjgZnjgotcbmxvZ3N1bWV4cDIgPC0gZnVuY3Rpb24obG9nX2EsIGxvZ19iKSB7XG4gIG0gPC0gcG1heChsb2dfYSwgbG9nX2IpXG4gIG0gKyBsb2coZXhwKGxvZ19hIC0gbSkgKyBleHAobG9nX2IgLSBtKSlcbn1cblxuIyBCRy9OQkTjga7lr77mlbDlsKTluqbvvIjjg5njgq/jg4jjg6vljJbjgIJ4LCB0eCwgVOOBr+WQjOOBmOmVt+OBleOBruODmeOCr+ODiOODq++8iVxuIyDnrKwx6aCFID0gVOOBvuOBp+eUn+OBjeOBpuOBhOOCi+e1jOi3r+OAgeesrDLpoIUgPSB0X3jjgafpm6LohLHjgZfjgabjgYTjgZ/ntYzot6/vvIh4PjDjga7jgajjgY3jgaDjgZHvvIlcbmJnbmJkX2xvZ2xpayA8LSBmdW5jdGlvbihyLCBhbHBoYSwgYSwgYiwgeCwgdHgsIFQpIHtcbiAgbG5fQmFiIDwtIGxiZXRhKGEsIGIpXG4gIGxuX0EwIDwtIGxiZXRhKGEsIGIgKyB4KSAtIGxuX0JhYiArXG4gICAgbGdhbW1hKHIgKyB4KSAtIGxnYW1tYShyKSArXG4gICAgciAqIGxvZyhhbHBoYSkgLSAociArIHgpICogbG9nKGFscGhhICsgVClcbiAgbG5fQTEgPC0gcmVwKC1JbmYsIGxlbmd0aCh4KSlcbiAgaWR4IDwtIHggPiAwXG4gIGxuX0ExW2lkeF0gPC0gbGJldGEoYSArIDEsIGIgKyB4W2lkeF0gLSAxKSAtIGxuX0JhYiArXG4gICAgbGdhbW1hKHIgKyB4W2lkeF0pIC0gbGdhbW1hKHIpICtcbiAgICByICogbG9nKGFscGhhKSAtIChyICsgeFtpZHhdKSAqIGxvZyhhbHBoYSArIHR4W2lkeF0pXG4gIGxvZ3N1bWV4cDIobG5fQTAsIGxuX0ExKVxufVxuXG4jIG9wdGlt44Gr5rih44GZ6LKg44Gu5a++5pWw5bCk5bqm44CCbG9n5aSJ5o+b44GX44GfKHIsIGFscGhhLCBhLCBiKeOCkuWPl+OBkeWPluOCi++8iOato+WApOWItue0hOOCkuWkluOBmeOBn+OCge+8iVxubmVnX2xvZ2xpa19iZ25iZCA8LSBmdW5jdGlvbih0aGV0YV9sb2csIHgsIHR4LCBUKSB7XG4gIHBhcmFtcyA8LSBleHAodGhldGFfbG9nKVxuICAtc3VtKGJnbmJkX2xvZ2xpayhwYXJhbXNbMV0sIHBhcmFtc1syXSwgcGFyYW1zWzNdLCBwYXJhbXNbNF0sIHgsIHR4LCBUKSlcbn1cblxuIyBQKGFsaXZlKeOBrumWieW9ouW8j++8iHg9MOOBruOBqOOBjeOBr+W4uOOBqzHvvIlcbnBhbGl2ZV9iZ25iZCA8LSBmdW5jdGlvbihyLCBhbHBoYSwgYSwgYiwgeCwgdHgsIFQpIHtcbiAgcmF0aW8gPC0gKGFscGhhICsgVCkgLyAoYWxwaGEgKyB0eClcbiAgdGVybSA8LSBpZmVsc2UoeCA+IDAsIChhIC8gKGIgKyB4IC0gMSkpICogcmF0aW9eKHIgKyB4KSwgMClcbiAgMSAvICgxICsgdGVybSlcbn1cblxudGhlbWVfc2V0KHRoZW1lX21pbmltYWwoYmFzZV9zaXplID0gMTMpKSJ9
+eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVjaG8iOmZhbHNlLCJlZGl0IjpmYWxzZSwiZXZhbCI6dHJ1ZSwibGFiZWwiOiJ0YXJnZXRpbmctdG9vbHMifSwiY29kZSI6ImxpYnJhcnkoZ2dwbG90MilcbnNldC5zZWVkKDIwMjYxMClcbiMg5q2j6KaP5YiG5biD44Gu562J56K6546H54K544Gn56mN5YiG44GZ44KL44CC5Lmx5pWw44Gr44KI44KL5o+644KM44KS6YG/44GR44KL44CCXG5ub2RlcyA8LSBxbm9ybSgoc2VxX2xlbigxMDAwKS0uNSkvMTAwMClcbnFBIDwtIGZ1bmN0aW9uKHRoZXRhLGNvdXBvbixwQT0xMixwQj0xMikge1xuIHZBIDwtIDEuNi1leHAodGhldGEpKihwQS1jb3Vwb24pXG4gdkIgPC0gLjgtZXhwKHRoZXRhKSpwQlxuIHZtYXggPC0gcG1heCgwLHZBLHZCKVxuIGV4cCh2QS12bWF4KS8oZXhwKC12bWF4KStleHAodkEtdm1heCkrZXhwKHZCLXZtYXgpKVxufVxuZXZhbHVhdGVfY3VzdG9tZXIgPC0gZnVuY3Rpb24obXUsc2lnbWEsY29zdD0xLHNlbmRfY29zdD0wKSB7XG4gdGhldGEgPC0gbXUrc2lnbWEqbm9kZXNcbiBjb3Vwb24gPC0gMDozXG4gcSA8LSBzYXBwbHkoY291cG9uLGZ1bmN0aW9uKGMpIG1lYW4ocUEodGhldGEsYykpKVxuIHByb2ZpdCA8LSAoMTItY291cG9uLWNvc3QpKnEtaWZlbHNlKGNvdXBvbj4wLHNlbmRfY29zdCwwKVxuIGRhdGEuZnJhbWUoY291cG9uPWNvdXBvbixwcm9iYWJpbGl0eT1xLHByb2ZpdD1wcm9maXQsZ2Fpbj1wcm9maXQtcHJvZml0WzFdKVxufSJ9
 </script>
 </div>
 </div>
-<section id="実験1bgnbdの4つのツマミ-顧客ベースの形を決める" class="level2">
-<h2 class="anchored" data-anchor-id="実験1bgnbdの4つのツマミ-顧客ベースの形を決める">実験1：BG/NBDの4つのツマミ — 顧客ベースの形を決める</h2>
-<p>BG/NBDは、顧客ベース全体の姿をたった4つの数で記述する。<span class="math inline">\(r, \alpha\)</span> が個人の購買率 <span class="math inline">\(\lambda_i\)</span> のGamma分布を、<span class="math inline">\(a, b\)</span> が離脱確率 <span class="math inline">\(p_i\)</span> のBeta分布を決める。</p>
-<p><span class="math display">\[
-x_i \mid \lambda_i \sim \text{Poisson}(\lambda_i T), \qquad \lambda_i \sim \text{Gamma}(r, \alpha), \qquad p_i \sim \text{Beta}(a, b)
-\]</span></p>
-<p>なお、この回の <span class="math inline">\(\alpha\)</span> はGamma分布の<strong>rateパラメータ（scaleではない）</strong>であり、第2〜4回の需要推定で使った価格係数 <span class="math inline">\(\alpha\)</span> とは無関係である。4つのツマミを回して、購買回数の分布がどう変形するかを体感しよう。</p>
-<div class="cell" data-timelimit="90">
+<section id="実験1係数を平均して代入すると同じか" class="level2">
+<h2 class="anchored" data-anchor-id="実験1係数を平均して代入すると同じか">実験1：係数を平均して代入すると同じか</h2>
+<div class="cell">
 <div>
 <div id="webr-2" class="exercise-cell">
 
 </div>
 <script type="webr-2-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5yICAgICA8LSAwLjggICAjIOizvOiyt+eOh2xhbWJkYeOBrkdhbW1h5YiG5biD77ya5b2i54q277yI6Kyb576p44Gu55yf5YCk77yJXG5hbHBoYSA8LSA2ICAgICAjIOizvOiyt+eOh2xhbWJkYeOBrkdhbW1h5YiG5biD77yacmF0Ze+8iOWkp+OBjeOBhOOBu+OBqeizvOiyt+eOh+OBjOS9juOBhO+8iVxuYSAgICAgPC0gMC43ICAgIyDpm6LohLHnorrnjodw44GuQmV0YeWIhuW4g1xuYiAgICAgPC0gMi41ICAgIyDpm6LohLHnorrnjodw44GuQmV0YeWIhuW4g1xuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2MTApXG5OIDwtIDIwMDAgICAgICAjIOmhp+WuouaVsFxuVF9vYnMgPC0gNTIgICAgIyDoprPmuKzmnJ/plpPvvIjpgLHvvIlcbmJhc2UgPC0gc2ltdWxhdGVfY3VzdG9tZXJfYmFzZShOLCByLCBhbHBoYSwgYSwgYiwgVF9vYnMpXG5cbmNhdChcIuW5s+Wdh+izvOiyt+eOhyBFW2xhbWJkYV0gPSByL2FscGhhID1cIiwgcm91bmQociAvIGFscGhhLCA0KSwgXCLlm54v6YCxXFxuXCIpXG5jYXQoXCLlubPlnYfpm6LohLHnorrnjocgRVtwXSA9IGEvKGErYikgPVwiLCByb3VuZChhIC8gKGEgKyBiKSwgNCksIFwiXFxuXCIpXG5jYXQoXCLos7zosrflm57mlbB444Gu5bmz5Z2HID1cIiwgcm91bmQobWVhbihiYXNlJHgpLCAyKSxcbiAgICBcIi8geD0w44Gu6aGn5a6i44Gu5Ymy5ZCIID1cIiwgcm91bmQobWVhbihiYXNlJHggPT0gMCksIDMpLCBcIlxcblwiKVxuXG5nZ3Bsb3QoYmFzZSwgYWVzKHggPSB4KSkgK1xuICBnZW9tX2hpc3RvZ3JhbShiaW53aWR0aCA9IDEsIGNlbnRlciA9IDAsIGZpbGwgPSBcIiM0QzcyQjBcIiwgY29sb3IgPSBcIndoaXRlXCIpICtcbiAgbGFicyh4ID0gXCJwdXJjaGFzZXMgaW4gdGhlIG9ic2VydmF0aW9uIHdpbmRvdyAoeClcIiwgeSA9IFwibnVtYmVyIG9mIGN1c3RvbWVyc1wiKSJ9
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsImxhYmVsIjoicG9zdGVyaW9yLWludGVncmF0aW9uIn0sImNvZGUiOiJtdSA8LSBsb2coLjE4KVxuc2lnbWEgPC0gLjVcbmNvdXBvbiA8LSAwOjNcbmludGVncmF0ZWQgPC0gc2FwcGx5KGNvdXBvbixmdW5jdGlvbihjKSBtZWFuKHFBKG11K3NpZ21hKm5vZGVzLGMpKSlcbnBsdWdpbiA8LSBzYXBwbHkoY291cG9uLGZ1bmN0aW9uKGMpIHFBKG11LGMpKVxucmVzdWx0IDwtIGRhdGEuZnJhbWUoY291cG9uPWNvdXBvbixpbnRlZ3JhdGVkPWludGVncmF0ZWQscGx1Z2luPXBsdWdpbilcbnByaW50KHJlc3VsdClcbmdncGxvdChyZXN1bHQsYWVzKGNvdXBvbixpbnRlZ3JhdGVkKSkrZ2VvbV9saW5lKGNvbG9yPVwiIzRDNzJCMFwiKStnZW9tX3BvaW50KCkrXG4gZ2VvbV9saW5lKGFlcyh5PXBsdWdpbiksY29sb3I9XCIjQzQ0RTUyXCIsbGluZXR5cGU9MikrXG4gbGFicyh4PVwiY291cG9uICh0aG91c2FuZCB5ZW4pXCIseT1cInB1cmNoYXNlIHByb2JhYmlsaXR5XCIsXG4gICAgICBzdWJ0aXRsZT1cImJsdWU6IHBvc3RlcmlvciBpbnRlZ3JhdGlvbjsgcmVkOiBwb3N0ZXJpb3IgbWVhbiBwbHVnLWluXCIpIn0=
 </script>
 </div>
 </div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>やってみよう
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><code>alpha &lt;- 1.5; r &lt;- 0.2</code> にしてみよう。平均購買率 <span class="math inline">\(r/\alpha\)</span> はほぼ元のまま（約0.133）なのに、x=0の山と右の尻尾が<strong>同時に</strong>膨らむ。平均が同じでも、異質性の大きさが分布の形を決める——これが過分散の正体。</li>
-<li><code>a &lt;- 2; b &lt;- 1</code>（平均離脱確率 <span class="math inline">\(a/(a+b) = 2/3\)</span> の「離脱が早い市場」）にすると、分布のどこが削れるか。元の値と見比べよう。</li>
-<li>問い：ヘビーユーザーの尻尾を最も素直に伸ばすツマミは4つのうちどれか。仮説を立ててから、1つずつ動かして検証しよう。</li>
-</ul>
-</div>
-</div>
+<p><code>sigma</code> を0にすると、2つは一致するだろうか。<code>sigma</code> を大きくすると、どのように変わるか。ここで平均している係数は <span class="math inline">\(\theta\)</span> であり、価格係数自体は <span class="math inline">\(\exp(\theta)\)</span> である。</p>
 </section>
-<section id="実験2paliveの直感-沈黙は何のシグナルか" class="level2">
-<h2 class="anchored" data-anchor-id="実験2paliveの直感-沈黙は何のシグナルか">実験2：P(alive)の直感 — 沈黙は何のシグナルか</h2>
-<p>パラメータが手に入れば、顧客ごとの <span class="math inline">\((x, t_x, T)\)</span> という3つの数字だけから「この顧客はまだ生きているか」の確率が閉形式で計算できる。<span class="math inline">\(x &gt; 0\)</span> のとき</p>
-<p><span class="math display">\[
-P(\text{alive} \mid x, t_x, T) = \left[ 1 + \frac{a}{b+x-1} \left( \frac{\alpha+T}{\alpha+t_x} \right)^{r+x} \right]^{-1}
-\]</span></p>
-<p>であり、<span class="math inline">\(x = 0\)</span> のときは常に1とする（一度も買っていない顧客に「離脱した」という証拠は存在しない）。1人の顧客のプロフィールをいじって、判定がどう動くかを見よう。</p>
-<div class="cell" data-timelimit="90">
+<section id="実験2よく買う人とクーポンが効く人" class="level2">
+<h2 class="anchored" data-anchor-id="実験2よく買う人とクーポンが効く人">実験2：よく買う人とクーポンが効く人</h2>
+<div class="cell">
 <div>
 <div id="webr-3" class="exercise-cell">
 
 </div>
 <script type="webr-3-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG54ICAgICA8LSA1ICAgICMg6Kaz5ris5pyf6ZaT5Lit44Gu6LO86LK35Zue5pWwXG50eCAgICA8LSA0MCAgICMg5pyA57WC6LO86LK35pmC54K577yI6YCx77yJXG5UX29icyA8LSA1MiAgICMg6Kaz5ris5pyf6ZaT44Gu6ZW344GV77yI6YCx77yJXG5yIDwtIDAuODsgYWxwaGEgPC0gNjsgYSA8LSAwLjc7IGIgPC0gMi41ICAjIOODouODh+ODq+OBruODkeODqeODoeODvOOCv++8iOWun+mokzPjga7mjqjlrprlgKTjgpLosrzjgaPjgabjgoLjgojjgYTvvIlcbiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cblxucF9hbGl2ZSA8LSBwYWxpdmVfYmduYmQociwgYWxwaGEsIGEsIGIsIHgsIHR4LCBUX29icylcbmNhdChcIuOBk+OBrumhp+Wuou+8muizvOiyt1wiLCB4LCBcIuWbniAvIOacgOe1guizvOiyt1wiLCB0eCwgXCLpgLEgLyDoprPmuKxcIiwgVF9vYnMsXG4gICAgXCLpgLHvvIjmsojpu5lcIiwgVF9vYnMgLSB0eCwgXCLpgLHplpPvvIlcXG5cIilcbmNhdChcIlAoYWxpdmUpID1cIiwgcm91bmQocF9hbGl2ZSwgNCksIFwiXFxuXCIpXG5cbnR4X2dyaWQgPC0gc2VxKDAsIFRfb2JzLCBieSA9IDAuNSlcbmN1cnZlX2RmIDwtIGRhdGEuZnJhbWUodHhfdmFsID0gdHhfZ3JpZCxcbiAgICAgICAgICAgICAgICAgICAgICAgcGFsaXZlID0gcGFsaXZlX2JnbmJkKHIsIGFscGhhLCBhLCBiLCB4LCB0eF9ncmlkLCBUX29icykpXG5cbmdncGxvdChjdXJ2ZV9kZiwgYWVzKHR4X3ZhbCwgcGFsaXZlKSkgK1xuICBnZW9tX2xpbmUoY29sb3IgPSBcIiM0QzcyQjBcIiwgbGluZXdpZHRoID0gMSkgK1xuICBnZW9tX3BvaW50KGRhdGEgPSBkYXRhLmZyYW1lKHR4X3ZhbCA9IHR4LCBwYWxpdmUgPSBwX2FsaXZlKSxcbiAgICAgICAgICAgICBjb2xvciA9IFwiI0M0NEU1MlwiLCBzaXplID0gMykgK1xuICBhbm5vdGF0ZShcInRleHRcIiwgeCA9IHR4LCB5ID0gcF9hbGl2ZSwgbGFiZWwgPSBcInRoaXMgY3VzdG9tZXJcIixcbiAgICAgICAgICAgdmp1c3QgPSAtMS4yLCBjb2xvciA9IFwiI0M0NEU1MlwiKSArXG4gIHlsaW0oMCwgMSkgK1xuICBsYWJzKHggPSBcInRpbWUgb2YgbGFzdCBwdXJjaGFzZSB0X3ggKHdlZWtzKVwiLCB5ID0gXCJQKGFsaXZlKVwiKSJ9
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsImxhYmVsIjoiY3VzdG9tZXJzLWFuZC1wcm9maXQifSwiY29kZSI6ImN1c3RvbWVyX2xvdyA8LSBldmFsdWF0ZV9jdXN0b21lcihsb2coLjA2KSwuMjUsY29zdD0xKVxuY3VzdG9tZXJfaGlnaCA8LSBldmFsdWF0ZV9jdXN0b21lcihsb2coLjIyKSwuMjUsY29zdD0xKVxuY3VzdG9tZXJfbG93JGN1c3RvbWVyIDwtIFwibGVzcyBwcmljZSBzZW5zaXRpdmVcIlxuY3VzdG9tZXJfaGlnaCRjdXN0b21lciA8LSBcIm1vcmUgcHJpY2Ugc2Vuc2l0aXZlXCJcbnogPC0gcmJpbmQoY3VzdG9tZXJfbG93LGN1c3RvbWVyX2hpZ2gpXG5wcmludCh6KVxuZ2dwbG90KHosYWVzKGNvdXBvbixnYWluLGNvbG9yPWN1c3RvbWVyKSkrZ2VvbV9saW5lKCkrZ2VvbV9wb2ludCgpK1xuIGdlb21faGxpbmUoeWludGVyY2VwdD0wLGxpbmV0eXBlPTIpK2xhYnMoeD1cImNvdXBvbiAodGhvdXNhbmQgeWVuKVwiLHk9XCJpbmNyZW1lbnRhbCBwcm9maXRcIikifQ==
 </script>
 </div>
 </div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>やってみよう
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><code>tx &lt;- 40</code> のまま、<code>x &lt;- 2</code> と <code>x &lt;- 20</code> でP(alive)を比べよう。同じ12週間の沈黙が、ライトユーザーには「いつも通り」、ヘビーユーザーには「ほぼ死亡宣告」になることを数値で確認する。「たくさん買っていた顧客ほど、沈黙が続くと死亡判定が早い」のである。</li>
-<li><code>x &lt;- 20</code> のまま <code>tx &lt;- 52</code>（観測終了の直前に購買）にすると、P(alive)はほぼ1に戻るか。曲線の右端の跳ね上がり方を、xを変えながら見比べよう。</li>
-<li>問い：なぜ頻繁に買う顧客ほど同じ長さの沈黙が強い離脱シグナルになりうるのか。多い購買回数が<span class="math inline">\(\lambda\)</span>と<span class="math inline">\(p\)</span>の事後分布をそれぞれどう更新し、「生存したまま沈黙」と「最後の購買後に離脱」の相対尤度をどう変えるか説明してみよう。</li>
-</ul>
-</div>
-</div>
+<p>通常価格で買う確率と、増分利益が最大になる値引きを比べよう。どちらも「価格感応度が低いほどよい」という同じ順位になるだろうか。</p>
 </section>
-<section id="実験3自作mleの真値回収-観測期間はどれだけ必要か" class="level2">
-<h2 class="anchored" data-anchor-id="実験3自作mleの真値回収-観測期間はどれだけ必要か">実験3：自作MLEの真値回収 — 観測期間はどれだけ必要か</h2>
-<p>講義の核心手順の再演。自分で決めた真値から顧客ベースを生成し、自作の対数尤度を<code>optim()</code>で最大化して、真値が戻ってくるかを確かめる。尤度は「Tまで生きている経路」と「<span class="math inline">\(t_x\)</span> で死んでいた経路」の確率の和で、<span class="math inline">\((x, t_x, T)\)</span> だけで書ける。ここでは<span class="math inline">\(T\)</span>が全顧客で共通なので、顧客間で変わる十分な要約はRFMのRとFになる、という講義の主張をコードで確認する場面でもある。</p>
-<div class="cell" data-timelimit="90">
+<section id="実験3原価と配信費用を入れる" class="level2">
+<h2 class="anchored" data-anchor-id="実験3原価と配信費用を入れる">実験3：原価と配信費用を入れる</h2>
+<div class="cell">
 <div>
 <div id="webr-4" class="exercise-cell">
 
 </div>
 <script type="webr-4-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5yX3RydWUgPC0gMC44OyBhbHBoYV90cnVlIDwtIDY7IGFfdHJ1ZSA8LSAwLjc7IGJfdHJ1ZSA8LSAyLjUgICMg55yf5YCk77yI6Kyb576p44Go5ZCM44GY77yJXG5OICAgICA8LSAxMDAwICAgIyDpoaflrqLmlbDvvIgyMDAw44G+44Gn44Gr44GX44Gm44GK44GT44GG77yJXG5UX2NhbCA8LSA1MiAgICAgIyDoprPmuKzmnJ/plpPvvIjpgLHvvInjgIIyNuOBq+WNiuWIhuOBq+OBmeOCi+OBqO+8n1xuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2MTApXG5iYXNlIDwtIHNpbXVsYXRlX2N1c3RvbWVyX2Jhc2UoTiwgcl90cnVlLCBhbHBoYV90cnVlLCBhX3RydWUsIGJfdHJ1ZSwgVF9jYWwpXG5cbm9wdCA8LSBvcHRpbShcbiAgcGFyID0gbG9nKGMociA9IDEsIGFscGhhID0gMSwgYSA9IDEsIGIgPSAxKSksXG4gIGZuID0gbmVnX2xvZ2xpa19iZ25iZCxcbiAgeCA9IGJhc2UkeCwgdHggPSBiYXNlJHR4LCBUID0gcmVwKFRfY2FsLCBOKSxcbiAgbWV0aG9kID0gXCJMLUJGR1MtQlwiLFxuICBoZXNzaWFuID0gVFJVRVxuKVxuXG50aGV0YV9oYXQgPC0gZXhwKG9wdCRwYXIpXG5zZSA8LSB0aGV0YV9oYXQgKiBzcXJ0KGRpYWcoc29sdmUob3B0JGhlc3NpYW4pKSkgICMgZGVsdGHms5XvvJpsb2fjgrnjgrHjg7zjg6vjga5TReOCkuWFg+OBruOCueOCseODvOODq+OBuFxuXG5kYXRhLmZyYW1lKFxuICBwYXJhbWV0ZXIgPSBjKFwiclwiLCBcImFscGhhXCIsIFwiYVwiLCBcImJcIiksXG4gIHRydWVfdmFsdWUgPSBjKHJfdHJ1ZSwgYWxwaGFfdHJ1ZSwgYV90cnVlLCBiX3RydWUpLFxuICBlc3RpbWF0ZSA9IHJvdW5kKHRoZXRhX2hhdCwgNCksXG4gIHNlID0gcm91bmQoc2UsIDQpLFxuICBjaV9sb3cgPSByb3VuZCh0aGV0YV9oYXQgLSAxLjk2ICogc2UsIDQpLFxuICBjaV9oaWdoID0gcm91bmQodGhldGFfaGF0ICsgMS45NiAqIHNlLCA0KVxuKSJ9
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsImxhYmVsIjoiY29zdC1hbmQtb2ZmZXIifSwiY29kZSI6ImNvc3QgPC0gM1xuc2VuZF9jb3N0IDwtIC4xICAjIOWNg+WGhuOAguizvOWFpeOBl+OBquOBj+OBpuOCguOAgeaPkOekuuOBmeOCi+OBqOeZuueUn+OBmeOCi+OAglxueiA8LSBldmFsdWF0ZV9jdXN0b21lcihsb2coLjIyKSwuMzUsY29zdD1jb3N0LHNlbmRfY29zdD1zZW5kX2Nvc3QpXG5wcmludCh6KVxuY2F0KFwiYmVzdCBjb3Vwb246XCIseiRjb3Vwb25bd2hpY2gubWF4KHokcHJvZml0KV0sXCJ0aG91c2FuZCB5ZW5cXG5cIilcbmdncGxvdCh6LGFlcyhmYWN0b3IoY291cG9uKSxwcm9maXQpKStnZW9tX2NvbChmaWxsPVwiIzRDNzJCMFwiKStcbiBsYWJzKHg9XCJjb3Vwb24gKHRob3VzYW5kIHllbilcIix5PVwiZXhwZWN0ZWQgcHJvZml0XCIpIn0=
 </script>
 </div>
 </div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>やってみよう
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><code>T_cal &lt;- 26</code> に半分にしてみよう。4つのパラメータのうち、SEの膨らみ方が一番激しいのはどれか。真値が信頼区間から外れる場面も出てくるはずだ。</li>
-<li><code>N &lt;- 2000</code> に倍増するとSEはおよそ <span class="math inline">\(1/\sqrt{2}\)</span> 倍に縮むか。あわせて <code>set.seed(1)</code> などseedを変えて、推定値のブレ幅も体感しよう。</li>
-<li>問い：この設定で離脱パラメータ <span class="math inline">\(a, b\)</span> の推定が購買率パラメータ <span class="math inline">\(r, \alpha\)</span> より難しくなりやすいのはなぜか。離脱は直接観測されず、最終購買後の沈黙から間接的に推定していることを手がかりに考えよう。</li>
-</ul>
-</div>
-</div>
+<p>原価を1〜6千円、配信費用を0〜0.5千円で変えてみよう。同じ需要でも選ぶクーポンが変わることを確かめる。</p>
 </section>
-<section id="実験4将来予測のevent-tree-購買のたびに離脱判定する" class="level2">
-<h2 class="anchored" data-anchor-id="実験4将来予測のevent-tree-購買のたびに離脱判定する">実験4：将来予測のevent tree — 購買のたびに離脱判定する</h2>
-<p>calibration終了時点で生存している経路では、</p>
-<p><span class="math display">\[
-\lambda\mid x,T,\mathrm{alive}\sim\mathrm{Gamma}(r+x,\mathrm{rate}=\alpha+T),\qquad
-p\mid x,\mathrm{alive}\sim\mathrm{Beta}(a,b+x)
-\]</span></p>
-<p>となる。1本の将来パスは「T時点で死亡なら0、生存なら待ち時間を引く → 期間内なら購買 → 購買直後に離脱判定 → 生存なら次の待ち時間」という小さなevent treeである。</p>
-<div class="cell" data-timelimit="90">
+<section id="実験4一律と個人別を比べる" class="level2">
+<h2 class="anchored" data-anchor-id="実験4一律と個人別を比べる">実験4：一律と個人別を比べる</h2>
+<div class="cell">
 <div>
 <div id="webr-5" class="exercise-cell">
 
 </div>
 <script type="webr-5-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG54IDwtIDU7IHR4IDwtIDQwOyBUX29icyA8LSA1MlxuSCA8LSAyNjsgUyA8LSAxMDAwICAgICAgICAgICAgICAgICMg5LqI5ris5pyf6ZaTSOOCgumAsVxuciA8LSAwLjg7IGFscGhhIDwtIDY7IGEgPC0gMC43OyBiIDwtIDIuNVxuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2MTApXG5wX2FsaXZlIDwtIHBhbGl2ZV9iZ25iZChyLCBhbHBoYSwgYSwgYiwgeCwgdHgsIFRfb2JzKVxubGFtYmRhX3Bvc3QgPC0gcmdhbW1hKFMsIHNoYXBlID0gciArIHgsIHJhdGUgPSBhbHBoYSArIFRfb2JzKVxucF9wb3N0IDwtIHJiZXRhKFMsIHNoYXBlMSA9IGEsIHNoYXBlMiA9IGIgKyB4KVxuYWxpdmVfYXRfVCA8LSBydW5pZihTKSA8IHBfYWxpdmVcblxuY29ycmVjdF9jb3VudHMgPC0gbnVtZXJpYyhTKVxuZm9yIChzIGluIHNlcV9sZW4oUykpIHtcbiAgaWYgKCFhbGl2ZV9hdF9UW3NdKSBuZXh0XG4gICMg5YWx6YCa6YGT5YW3566x44Gu6Zai5pWw44Gv44CB5ZCE6LO86LK355u05b6M44Gr56K6546HcF9wb3N0W3Nd44Gn6Zui6ISx44GV44Gb44KLXG4gIGNvcnJlY3RfY291bnRzW3NdIDwtIGxlbmd0aChzaW11bGF0ZV9jdXN0b21lcl9ldmVudHMobGFtYmRhX3Bvc3Rbc10sIHBfcG9zdFtzXSwgSCkpXG59XG5cbiMg5q+U6LyD55So44Gu6Kqk44Gj44Gf6L+R5Ly877yaVOOBp+eUn+WtmOOBquOCiUjpgLHjgZrjgaPjgajnlJ/lrZjjgZnjgovjgajku67lrppcbm5vX2Z1dHVyZV9kcm9wb3V0IDwtIGlmZWxzZShhbGl2ZV9hdF9ULCBycG9pcyhTLCBsYW1iZGFfcG9zdCAqIEgpLCAwKVxuXG5jYXQoXCJQKGFsaXZlIGF0IFQpID1cIiwgcm91bmQocF9hbGl2ZSwgMyksIFwiXFxuXCIpXG5jYXQoXCLov73liqDpm6LohLHjgYLjgorjga7kuojmuKzlubPlnYcgPVwiLCByb3VuZChtZWFuKGNvcnJlY3RfY291bnRzKSwgMyksIFwi5ZueXFxuXCIpXG5jYXQoXCLov73liqDpm6LohLHjgpLnhKHoppbjgZfjgZ/lubPlnYcgPVwiLCByb3VuZChtZWFuKG5vX2Z1dHVyZV9kcm9wb3V0KSwgMyksIFwi5ZueXFxuXCIpXG5cbnBsb3RfZGYgPC0gcmJpbmQoXG4gIGRhdGEuZnJhbWUoY291bnQgPSBjb3JyZWN0X2NvdW50cywgbW9kZWwgPSBcIkJHL05CRDogZnV0dXJlIGRyb3BvdXQgaW5jbHVkZWRcIiksXG4gIGRhdGEuZnJhbWUoY291bnQgPSBub19mdXR1cmVfZHJvcG91dCwgbW9kZWwgPSBcImluY29ycmVjdDogYWxpdmUgZm9yZXZlciBhZnRlciBUXCIpXG4pXG5nZ3Bsb3QocGxvdF9kZiwgYWVzKGNvdW50LCBmaWxsID0gbW9kZWwpKSArXG4gIGdlb21faGlzdG9ncmFtKGJpbndpZHRoID0gMSwgcG9zaXRpb24gPSBcImlkZW50aXR5XCIsIGFscGhhID0gMC41NSkgK1xuICBjb29yZF9jYXJ0ZXNpYW4oeGxpbSA9IGMoMCwgcXVhbnRpbGUocGxvdF9kZiRjb3VudCwgMC45OSkpKSArXG4gIGxhYnMoeCA9IFwicHVyY2hhc2VzIGluIG5leHQgMjYgd2Vla3NcIiwgeSA9IFwic2ltdWxhdGlvbiBwYXRoc1wiLCBmaWxsID0gXCJcIikifQ==
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsImxhYmVsIjoidW5pZm9ybS1wZXJzb25hbGl6ZWQifSwiY29kZSI6Im1lYW5zIDwtIGxvZyhjKC4wNSwuMDgsLjEyLC4xOCwuMjQsLjMwKSlcbnNpZ21hIDwtIC4zNVxuY29zdCA8LSAxXG5wcm9maXRzIDwtIHQoc2FwcGx5KG1lYW5zLGZ1bmN0aW9uKG0pIGV2YWx1YXRlX2N1c3RvbWVyKG0sc2lnbWEsY29zdCkkcHJvZml0KSlcbnVuaWZvcm0gPC0gd2hpY2gubWF4KGNvbE1lYW5zKHByb2ZpdHMpKVxuaW5kaXZpZHVhbCA8LSBtYXguY29sKHByb2ZpdHMsdGllcy5tZXRob2Q9XCJmaXJzdFwiKVxucHJpbnQoZGF0YS5mcmFtZShjdXN0b21lcj1zZXFfYWxvbmcobWVhbnMpLGNvdXBvbj1pbmRpdmlkdWFsLTEpKVxucHJpbnQoYyhub19jb3Vwb249bWVhbihwcm9maXRzWywxXSksdW5pZm9ybT1tZWFuKHByb2ZpdHNbLHVuaWZvcm1dKSxcbiAgICAgICAgcGVyc29uYWxpemVkPW1lYW4ocHJvZml0c1tjYmluZChzZXFfYWxvbmcobWVhbnMpLGluZGl2aWR1YWwpXSkpKSJ9
 </script>
 </div>
 </div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>やってみよう
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><code>H &lt;- 104</code>にすると、追加離脱を無視する誤差がどう広がるか確認しよう。</li>
-<li><code>a &lt;- 0.2; b &lt;- 5</code>のように離脱確率を下げると、2つの予測は近づくか。</li>
-<li><code>alpha + T_obs</code>で足してよいのは、<span class="math inline">\(\lambda\)</span>が回/週、<span class="math inline">\(T\)</span>が週だからである。日単位へ直すなら<span class="math inline">\(\lambda,\alpha,T,H\)</span>を整合的に変換する必要がある。</li>
-</ul>
-</div>
-</div>
+<p>ここで個別化が一律以上になるのは、同じ期待利益を目的にして、選べるルールを増やしたからである。実際の購買でも必ず改善するとは限らない。個別化の運用費用を引くと、どこまで改善が残るだろうか。</p>
 </section>
 <section id="次に読むもの" class="level2">
 <h2 class="anchored" data-anchor-id="次に読むもの">次に読むもの</h2>
 <ul>
-<li>講義ノート本体：<code>lecture10.html</code>（尤度の導出・P(alive)ヒートマップ・holdout検証・CLVの完全版）</li>
-<li>coding課題：<code>assignment10.qmd</code>（ネットスーパーの顧客ベースを題材に、真値回収からCLV試算までを自分で実装する）</li>
+<li><a href="lecture10.html">講義ノート</a>：同じHB推定結果からの施策比較とRCT。</li>
+<li><a href="assignment10.html">課題10</a>：別の個人差・原価で推定から施策まで実装する。</li>
 </ul>
 <script type="webr-data">
 eyJvcHRpb25zIjp7ImJhc2VVcmwiOiJodHRwczovL3dlYnIuci13YXNtLm9yZy92MC42LjAvIn0sInBhY2thZ2VzIjp7InBrZ3MiOlsiZXZhbHVhdGUiLCJrbml0ciIsImh0bWx0b29scyIsImdncGxvdDIiLCJkcGx5ciIsInRpZHlyIl0sInJlcG9zIjpbImh0dHBzOi8vcmVwby5yLXdhc20ub3JnIiwiaHR0cHM6Ly9jcmFuLnItdW5pdmVyc2UuZGV2Il19LCJyZW5kZXJfZGYiOiJkZWZhdWx0In0=

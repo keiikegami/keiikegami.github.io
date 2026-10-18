@@ -1,5 +1,5 @@
 ---
-title: "Lecture 7：マーケティングの因果推論1：実験とA/Bテスト"
+title: "Lecture 7：商品設計とコンジョイント分析"
 subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -23,9 +23,10 @@ execute:
 #| include: false
 library(ggplot2)
 library(dplyr)
+library(knitr)
 library(fixest)
 
-set.seed(20267)
+set.seed(202607)
 
 theme_lecture <- function() {
   fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
@@ -39,967 +40,457 @@ options(scipen = 8)
 ::: {.callout-important}
 ## この講義で押さえたいこと
 
-- 「効果ありました」レポートの多くは前後比較や開封者vs非開封者比較に頼っており、真のincrementality（反実仮想との差）を測れていない。
-- ランダム化そのものが推論の基礎を与える（Fisherのランダム化推論）。ただしFisher検定が有限標本で厳密に検定するのは「全員について効果ゼロ」という**sharp null**であり、平均効果ゼロという**weak null**を主に扱うWelchのt検定とは帰無仮説も同じではない。
-- 検出力・MDE（最小検出可能効果）の計算は、実務で最も過小評価されている論点である。「思ったより桁違いに多いNが要る」ことを数値で体感する。
-- ITT（配信の効果）とTOT（使用の効果）は別物であり、IVの識別仮定とone-sided noncomplianceのもとで、complierへの効果をWald比（ITT/使用率）で推定できる。
-- CUPED（実験前データを使った回帰調整）は、分散削減の実務標準であり、同じNでより小さい効果を検出できるようにする。
-- 大規模実験にはpeeking、多重検定、SRM、interferenceといった落とし穴が山ほどあり、Kohaviらの経験知はこれらへの実務的な処方箋を与えている。
+- コンジョイント分析では、価格や機能を変えた選択課題を作り、好みを測る。購買履歴だけでは比較しにくい商品設計を考えられる。
+- 同じ回答から、属性が選択確率を動かす平均効果（AMCE）と、離散選択モデルの効用係数を推定できる。両者は異なる量である。
+- 属性のランダム化は調査内の比較を可能にする。一方、実際の購入への予測には、調査回答と実行動の関係を確かめる必要がある。
+- 個人のWTP、個人WTPの平均、平均係数の比、同質logitによる比を区別する。WTPの推定誤差をデルタ法で計算する。
+- 商品設計にも個人の異質性が必要である。8問の回答から個人係数をどう学ぶかという問題を、第8・9回のベイズ推定につなげる。
 :::
 
 ## 前回とのつながり・今回のゴール
 
-前回（第6回）は、コンジョイント分析という形で、商品属性をランダムに組み合わせて提示するというランダム化実験を扱った。属性の割り当てがランダムであることを利用して、AMCE（平均限界成分効果）を識別し、クラスター標準誤差で正しく推論する、というのが前回の骨子だった。
+前回は、母集団の好みの分布と一人の購買履歴を組み合わせて、その人の次の選択を予測した。短い履歴だけから個人の好みを推定すると、たまたま続いた選択を強い好みと読み違えやすかった。集団の情報を使うことに意味があったのは、このためである。
 
-今回はこの「ランダム化実験」という土台を、商品属性の設計実験から、実務でよく使われる広告、クーポン、レコメンド、メール施策のA/Bテストへ広げる。ランダム化の中身は変わっても、根にある論理は同じである。**割当後の選択的欠測や群間干渉がなく、割当どおりに分析すれば、処置群と対照群は処置前の潜在アウトカムについて期待値上比較可能になり、平均差が割当の平均因果効果を教えてくれる。**
+今回は、好みを測るためのデータを自分で作る。例えばイヤホンの新製品を企画するとき、バッテリーを長持ちさせるのか、ノイズキャンセリングを付けるのか、価格を下げるのかを決めたい。既存商品の販売記録にも情報はあるが、欲しい比較が十分に含まれているとは限らない。新機能の需要を予測するには、その機能への評価について追加の仮定や情報が必要になる。
 
-ただし、A/Bテストには「商品属性のランダム化」にはあまり出てこない実務上の難所がいくつもある。配った施策を使わない人がいる（noncompliance）。効果を待ちきれずに実験を早く止めてしまう（peeking）。1つの実験で20個の指標を見てしまう（multiple testing）。友達招待やマーケットプレイスのように、対照群が処置群の影響を受けてしまう（interference）。これらはすべて、「ランダム化さえすればOK」という単純な話では済まない、大規模実験特有の落とし穴である。今回はこれらを一通り体系立てて扱う。
+そこで、機能と価格を変えた仮想の商品を並べ、回答者に選んでもらう。これを **choice-based conjoint（CBC）** と呼ぶ。選択肢を作るのは分析者だが、回答の形式は第2回以来の離散選択と同じである。さらに同じ人に複数回答えてもらえば、前回と同様に、その人の選好を履歴から学ぶ問題になる。
 
-次回（第8回）は、そもそも実験ができない場面——全社的な値上げ、規制変化、過去に遡って割り付けを変えられない状況——で、観察データから因果効果を読む方法（DiD、staggered adoption、RDD）に進む。今回学ぶ「実験なら何が保証されるか」を正確に理解しておくことは、次回「実験がないと何を諦めることになるのか」を理解する土台になる。
+まず今回は、調査の設計、平均的な属性効果、WTPの推定を扱う。そのうえで、平均だけでは商品設計に足りない理由を確認する。第8回でベイズ推定の考え方を学び、第9回では**今回と同じ300人の回答**に階層ベイズの選択モデルを当てはめる。
 
-## 1. 「この施策、効果ありました」のよくある間違い
+## 1. 選択課題を設計する
 
-マーケティング部門から、こんな報告が上がってくることがよくある。
+### 実際の購入と、調査への回答
 
-> 「先月のメールクーポン施策、開封して使ってくれた人の購買額は、使わなかった人よりずっと高かったです。効果は絶大でした。」
+実際に購入した記録を revealed preference（顕示選好、RP）、仮想的な選択への回答を stated preference（表明選好、SP）という。どちらも需要についての情報を含むが、観測している行動が異なる。
 
-あるいはこういう報告もある。
-
-> 「クーポン配信キャンペーンの前と後を比べたら、購買額が20%増えていました。」
-
-どちらも一見もっともらしいが、**incrementality（インクリメンタルな効果）を測れていない**という点で同じ欠陥を抱えている。incrementalityとは、実務でよく使われる言葉で、要するに「その施策が無かったときと比べて、何がどれだけ増えたか」という反実仮想との差のことである。計量経済学Iで学んだ潜在アウトカムの記法で書けば、処置（施策）を$D_i \in \{0, 1\}$、潜在アウトカムを$Y_i(1)$（施策を受けた場合）・$Y_i(0)$（受けなかった場合）とすると、個体レベルの因果効果は$Y_i(1) - Y_i(0)$であり、施策の平均効果（ATE）は
-
-$$
-\tau = E[Y_i(1) - Y_i(0)]
-$$
-
-と定義された。実務での「効果」という言葉は、たいていこのincrementality（$\tau$、あるいは施策を受けた人に絞ったATT）を指しているつもりで使われる。ところが冒頭の2つの報告は、どちらもこの量を測れていない。
-
-1つ目の「開封者vs非開封者」比較の問題は、**開封するかどうかは顧客の自己選択（selection）である**ことだ。もともと購買意欲が高い顧客ほどメールを開封し、クーポンを使う傾向がある。この場合、開封者と非開封者の購買額の差には、「クーポンの効果」だけでなく「もともとの購買意欲の違い」が混ざり込んでいる。これは第1回・第3回で繰り返し見た交絡（confounding）の問題そのものである。
-
-2つ目の「施策前後の比較」の問題は、**季節性やトレンドと施策のタイミングが重なる**ことだ。クーポンを配ったのがちょうどボーナス時期やセール時期と重なっていれば、購買額の増加はクーポンの効果ではなく季節要因かもしれない。
-
-::: {.callout-warning}
-## この分析、どこがまずい？
-
-「効果ありました」レポートに共通する欠陥は、**反実仮想（施策を打たなかった場合に何が起きていたか）を正しく構築できていない**ことに尽きる。開封者vs非開封者比較では、非開封者は「施策を打たなかった世界」の代わりにはならない（自己選択があるから）。施策前後比較では、施策前の自分は「今この瞬間に施策を打たなかった世界」の代わりにはならない（時間とともに他の要因も変わるから）。この欠陥を修正する最も強力な方法が、今回学ぶ**ランダム化比較実験（RCT）**である。ランダムに割り当てられた対照群（holdout群）は、処置群と「施策を受けたかどうか」以外のあらゆる点で（期待値上は）同じになるように設計されているため、正しい反実仮想の代理になる。
-:::
-
-### holdout群という設計
-
-実務で「A/Bテスト」と呼ばれるものの多くは、次のような設計を取る。
-
-- 対象顧客全体からランダムに一部を選び、**holdout群（対照群）**として、施策を一切打たない。
-- 残りの顧客に施策（クーポン配信、広告表示、レコメンド表示など）を実施する。
-- 一定期間後、両群のアウトカム（購買額、コンバージョン率など）を比較する。
-
-holdout群という言葉は、「本来は全員に施策を打ちたいところを、あえて一部を『抑えて（hold out）』おく」というニュアンスを持つ。ランダム化されたholdoutがあれば、施策対象について強いモデル仮定に頼らず反実仮想を推定できる。holdoutがなくても自然実験や妥当なDiD・IVなどで識別できる場合はあるが、追加仮定が必要になる。holdoutの機会費用は、より透明な効果測定という便益と引き換えに支払う実験投資だと考えるとよい。
-
-::: {.callout-note}
-## ビジネスの現場で：ホールドアウトの規模はどう決めるか
-
-一部の企業では、全顧客の一部を恒久的なholdoutに割り当てる運用も採られている。比率に普遍的な標準値はなく、期待損失、検出したい効果、実験期間、施策間の干渉を踏まえて検出力計算で決める。これは個別施策のA/Bテストとは別に、「マーケティング活動全体が売上を押し上げているか」という問いに答える仕組みである。
-:::
-
-## 2. ランダム化推論：ランダム化そのものが推論の基礎を与える
-
-### Fisher流の美しさ
-
-計量経済学Iではt検定・信頼区間を、大標本近似（中心極限定理）から導出した。しかしランダム化実験では、sharp nullのもとで、アウトカム分布のパラメトリックな仮定を置かずに割り当て手続きから検定を組み立てられる。これがFisherに遡る**ランダム化推論（randomization inference）**である。
-
-発想は次の通りである。処置の割り当て$D_i$がランダムだったとしよう。Fisherの帰無仮説は
-
-$$
-H_0^{\mathrm{sharp}}:Y_i(1)=Y_i(0)\quad\text{for every }i
-$$
-
-という**sharp null（鋭い帰無仮説）**である。これが正しければ、全員について欠けている潜在アウトカムまで埋まり、割り当てを変えても各人のアウトカムは変わらない。そこで実験で実際に用いた割り当て機構をもう一度再現し、統計量（例えば平均差）の有限標本帰無分布を作れる。
-
-この論理から、次のような検定手続きが得られる。
-
-1. 実際に観測された処置群・対照群の平均差 $\hat\tau_{\text{obs}}$ を計算する。
-2. 処置ラベル$D_i$をランダムにシャッフルし、シャッフル後のラベルで「処置群」「対照群」を再定義し、平均差を計算する。これを何千回も繰り返し、**帰無仮説のもとでの平均差の分布（帰無分布）**を作る。
-3. 実際の$\hat\tau_{\text{obs}}$が、この帰無分布の中でどれだけ極端な値かを見る。これが**permutation p値**である。
-
-$$
-p_{\text{MC}} = \frac{1+\sum_{b=1}^{B} \mathbb{1}\{|\hat\tau^{(b)}_{\text{shuffled}}| \geq |\hat\tau_{\text{obs}}|\}}{B+1}
-$$
-
-ここで$B$は再割り当ての回数、$\hat\tau^{(b)}_{\text{shuffled}}$は$b$回目の平均差である。分子・分母の「+1」は観測された割り当ても帰無分布の一員として数える有限回Monte Carlo補正で、推定p値が0になるのを防ぐ。全割り当てを列挙できる場合は、その正確な割合を使う。
-
-このアプローチの美しさは、sharp nullのもとでは**アウトカム分布のパラメトリックな仮定を置かず**、実験の割り当て機構から検定できることにある。実際が完全無作為化なら処置数を固定してラベルを並べ替え、層別・クラスター無作為化なら、その構造を保って再割り当てしなければならない。
-
-::: {.callout-important}
-## 小ステップ：二つの「効果ゼロ」を分ける
-
-| 問いたい帰無仮説 | 内容 | ここで使う代表的手続き |
+| | 購買履歴（RP） | コンジョイントの回答（SP） |
 |---|---|---|
-| Fisherのsharp null | 全員で $Y_i(1)-Y_i(0)=0$ | 実際の割り当て機構によるrandomization test |
-| 平均効果のweak null | $E[Y_i(1)-Y_i(0)]=0$。個人効果は異なってよい | studentized統計量による大標本推論（Welchのt検定、robust SE等） |
+| 観測するもの | お金を払って選んだ商品 | 提示した仮想商品の選択 |
+| 比較の作り方 | 市場で生じた価格・属性の変動を使う | 分析者が価格・属性を割り付ける |
+| 役立つ場面 | 実際の市場での需要や購入パターン | 新機能や価格の組合せを比較する |
+| 検討が必要な点 | 価格内生性、観測されない選択肢 | 仮想回答と購入の違い、調査対象者の代表性 |
 
-「平均がゼロ」だけでは、各人の欠けた潜在アウトカムを埋められないため、単純なラベル置換は有限標本で厳密なFisher検定にはならない。この区別をした上で、次の例ではsharp nullに対する検定と、平均差についてのWelch検定を並べる。
+第3回では、企業が商品人気を見越して価格を付けることが問題だった。CBCでは提示価格をランダムに割り付けられるため、そのような価格決定から切り離して比較を作れる。ただし、調査内で価格の効果が識別できることと、実際の売上を正確に予測できることは別である。
+
+### ワイヤレスイヤホンの例
+
+今回使う属性は次の4つである。価格の単位は千円とする。
+
+| 属性 | 水準 |
+|---|---|
+| 価格 | 8、12、16（千円） |
+| バッテリー | 6時間、12時間 |
+| ノイズキャンセリング | なし、あり |
+| ブランド | 新興、大手 |
+
+1問ごとに商品AとBを提示し、「A」「B」「どちらも買わない」から選んでもらう。買わないという選択肢を含めることで、AとBの相対的な好みだけでなく、この組合せなら購入するかも観測できる。今回は300人に8問ずつ回答してもらい、分析にはこの2,400問を使う。別に8問ずつ作るが、それは第9回の予測評価用として保留する。
+
+::: {.callout-note}
+## ビジネスの現場で：新製品の機能を比較する
+
+担当者が「ノイズキャンセリングを付けたいか」とだけ聞けば、多くの人は欲しいと答えるかもしれない。しかし企業が知りたいのは、価格が上がってもその機能を選ぶかである。機能と価格を一緒に変えた選択肢を提示すれば、このトレードオフを観測できる。搭載を決めるには、推定した需要に加えて追加費用や既存商品からの買い替えも考える必要がある。
 :::
 
-::: {.callout-note collapse="true"}
-## 計量Iのt検定との関係
+水準を増やせば比較できる範囲は広がるが、一人が回答できる問数には限りがある。非現実的な組合せを除く場合は、どの組合せがどの確率で出るかを記録する。今回の単純なOLS推定は、全属性を独立に割り付ける設計に対応している。制約付きの設計に変えれば、推定方法もその設計に合わせる必要がある。
 
-Welchのt検定は、平均差を標準誤差でstudentizeし、その統計量が大標本で正規分布に近づくことを使う。したがって、効果が個人で異なっても平均効果ゼロというweak nullを扱える。一方、ここでの非studentized平均差の置換検定はsharp nullに対するデザインベースの検定である。同じデータで数値が近くなることは多いが、**一方が他方の単なる近似なのではなく、帰無仮説と正当化が異なる**。小標本だから常に置換検定が優れるとも限らず、weak nullを検定したい場合はstudentized randomization testなど目的に合った手続きを選ぶ。
-:::
+## 2. 同じ回答から何を知りたいのか
 
-### Rシミュ1：メールクーポン実験（N=2,000）でランダム化推論を確認する
+### 選択確率を動かす平均効果：AMCE
 
-ECサイトでメールクーポンを配信する実験を考える。$N=2,000$人のうちちょうど1,000人を無作為に配信群に選ぶ完全無作為化を行う。配信の真の効果（ITT、詳細は次節）を300円とし、購買額のばらつきはガンマ分布（右に歪んだ、購買額データらしい分布）で表現する。
+計量Iのランダム化実験では、処置を受けた人と受けなかった人の平均を比べた。コンジョイントでも、例えばノイズキャンセリングが付いた商品と付かなかった商品の選択率を比べられる。ただし他の属性や相手の商品は、問ごとに違う。この違いについて平均した効果が **AMCE（average marginal component effect、平均限界成分効果）** である。
+
+商品Aのノイズキャンセリングを $z$、それ以外の属性と商品Bの属性をまとめて $W$ と書く。Aが選ばれるという潜在アウトカムを $Y_{iA}(z,W)$ とすると、
+
+$$
+\operatorname{AMCE}_{\rm nc}
+=E_{i,W}[Y_{iA}(1,W)-Y_{iA}(0,W)].
+$$
+
+平均は、回答者の分布と、実験で使う属性の割付分布について取る。したがって、価格を主に8千円にする調査と16千円にする調査では、同じ人たちのAMCEでも変わりうる。これは「機能そのものの固定された価値」という量ではない。
+
+独立したランダム割付のもとでは、水準ダミーを使うOLSでこの平均効果を推定できる。効用がlogit型であるという仮定は要らない。一方、前の問の提示が次の回答を変えないことや、他の回答者の割付が本人の回答を変えないことなど、どの回答を比較しているかについての実験仮定は必要である。
+
+### 効用係数とWTP
+
+離散選択モデルの立場では、属性と価格から効用を作る。
+
+$$
+u_{ijt}=x_{ijt}'\beta_i-\alpha_i p_{ijt}+\varepsilon_{ijt}.
+$$
+
+ここで $t$ は市場ではなく、同じ回答者の選択課題を表す。商品プロファイルも人ごとに異なるので $x_{ijt},p_{ijt}$ と書いた。$\varepsilon_{ijt}$ を標準Type I極値分布とすれば、係数を固定したときの選択確率はlogitになる。
+
+効用係数は属性を評価する強さであり、AMCEのような確率の変化ではない。価格係数との比を使えば、「この機能のために何円まで払うか」というWTPを求められる。その解釈には、価格に対して線形な効用や、異質性の分布など、選択モデルの仮定が加わる。
+
+| 知りたい量 | 主な方法 | 単位・意味 |
+|---|---|---|
+| 平均的な属性効果 | ランダム化した水準ダミーのOLS | 調査設計で平均した選択確率の変化 |
+| 効用係数 | 選択モデルの推定 | 属性を評価する強さ |
+| 個人のWTP | 個人の属性係数／価格係数 | 機能を金額に換算した値 |
+| 個人の選択確率 | その人の係数の分布で平均 | 特定の商品集合から選ぶ確率 |
+
+## 3. 選好に異質性のある回答を作る
+
+今回のシミュレーションでは、価格への反応だけが人によって違う。
+
+$$
+v_{ijt}=0.5\,\mathrm{battery12}_{ijt}
++0.8\,\mathrm{nc}_{ijt}+0.3\,\mathrm{major\_brand}_{ijt}
+-\alpha_i p_{ijt},\qquad \alpha_i=e^{\theta_i},
+$$
+
+$$
+\theta_i\sim N(\mu,\tau^2),\qquad
+\tau=0.6,\quad \mu=\log(0.12)-\frac{0.6^2}{2}.
+$$
+
+これで $E[\alpha_i]=0.12$ になる。属性係数を共通にするのは、価格感応度の違いと個人の推定を追いやすくするためである。一般のCBCでは属性係数にも異質性を許せる。
+
+同じ人の $\theta_i$ を一度引き、その値を学習用8問と評価用8問の両方で使う。前回と同じく、一時的な選択の乱数と持続的な係数を区別している。
 
 ```{r}
-#| label: ri-dgp
-N <- 2000
-true_itt <- 300  # 円。配信の真の効果(ITT)
-
-D <- sample(c(rep(1, N / 2), rep(0, N / 2)))  # 処置数を固定した完全無作為化
-base_spend <- rgamma(N, shape = 4.0, scale = 1250)  # 実験期間の「素の」購買額(右に歪んだ分布)
-noise <- rnorm(N, mean = 0, sd = 3000)
-Y0 <- pmax(base_spend + noise, 0)  # 非負化は処置を足す前に行う
-Y <- Y0 + D * true_itt             # これで個人ごとの効果が厳密に300円
-
-coupon_df <- data.frame(customer_id = 1:N, D = D, Y = Y)
-head(coupon_df)
-```
-
-```{r}
-#| label: fig-ri-hist
-#| fig-cap: "配信群・非配信群の購買額分布(右に長い裾を引くことに注意)"
-ggplot(coupon_df, aes(x = Y, fill = factor(D))) +
-  geom_histogram(alpha = 0.6, position = "identity", bins = 40) +
-  labs(x = "購買額(円)", y = "人数", fill = "配信",
-       title = "購買額の分布：正規分布からはほど遠い") +
-  scale_fill_manual(values = c("grey60", "steelblue"), labels = c("非配信", "配信"))
-```
-
-見ての通り、購買額の分布は正規分布から程遠い、右に長い裾を引く分布である。まずは素朴にt検定をかけてみよう。
-
-```{r}
-#| label: ri-ttest
-t_result <- t.test(Y ~ D, data = coupon_df)
-t_result
-```
-
-```{r}
-#| label: ri-obs-diff
-obs_diff <- mean(coupon_df$Y[coupon_df$D == 1]) - mean(coupon_df$Y[coupon_df$D == 0])
-cat("観測された平均差(ITT推定値):", round(obs_diff, 1), "円\n")
-cat("t検定のp値(両側):", signif(t_result$p.value, 4), "\n")
-```
-
-次に、ランダム化推論のp値を計算する。実際の完全無作為化と同じく配信人数1,000人を保ったまま、処置ラベル$D$を5,000回シャッフルして帰無分布を作る。
-
-```{r}
-#| label: ri-permutation
-n_perm <- 5000
-perm_diffs <- numeric(n_perm)
-
-for (b in 1:n_perm) {
-  D_shuffled <- sample(coupon_df$D)  # ラベルをシャッフル(復元なし)
-  perm_diffs[b] <- mean(coupon_df$Y[D_shuffled == 1]) - mean(coupon_df$Y[D_shuffled == 0])
+# === CBC_DGP ===
+choice_prob <- function(quality, price, alpha) {
+  v <- quality - price * alpha
+  vmax <- pmax(0, v[, 1], v[, 2])
+  ev <- exp(v - vmax)
+  cbind(outside = exp(-vmax), ev) / (exp(-vmax) + rowSums(ev))
 }
-
-p_perm <- (1 + sum(abs(perm_diffs) >= abs(obs_diff))) / (n_perm + 1)
-cat("ランダム化推論のp値(両側,", n_perm, "回シャッフル):", round(p_perm, 4), "\n")
-```
-
-```{r}
-#| label: fig-ri-null-dist
-#| fig-cap: "シャッフルによる帰無分布と、実際に観測された平均差"
-perm_df <- data.frame(diff = perm_diffs)
-
-ggplot(perm_df, aes(x = diff)) +
-  geom_histogram(bins = 60, fill = "grey70", color = "white") +
-  geom_vline(xintercept = obs_diff, color = "firebrick", linewidth = 1) +
-  geom_vline(xintercept = -obs_diff, color = "firebrick", linewidth = 1, linetype = "dashed") +
-  labs(x = "シャッフル後の平均差(円)", y = "頻度",
-       title = "帰無分布(グレー)と実際の観測値(赤線)") +
-  annotate("text", x = obs_diff, y = Inf, label = "観測値", vjust = 2, color = "firebrick", hjust = -0.1)
-```
-
-```{r}
-#| label: tbl-ri-compare
-compare_p <- data.frame(
-  method = c("t検定", "ランダム化推論(permutation)"),
-  p_value = c(signif(t_result$p.value, 4), round(p_perm, 4))
-)
-knitr::kable(compare_p, col.names = c("方法", "p値"))
-```
-
-$N=2,000$というそこそこ大きいサンプルサイズのこの標本では、二つのp値は近い値になる。ただし、同じ問いを検定していると読み替えてはいけない。Fisher検定は全員の効果がゼロというsharp null、Welch検定は平均差ゼロというweak nullを主眼にしている。
-
-::: {.callout-important}
-## ここが核心
-
-Fisher検定はsharp nullのもとで割り当て機構を再現する有限標本検定、Welch検定はstudentized平均差の大標本近似でweak nullを扱う検定である。この例で結論が似るのは有益な答え合わせだが、二つを同一視しない。どちらでも、推定値・信頼区間・実務的な大きさをp値と一緒に報告する。
-:::
-
-## 3. 検出力とMDE：実務の主戦場
-
-### 検出力とは何か
-
-ここからが、A/Bテストの実務における最大の争点である。**検出力（statistical power）**とは、「真に効果がある（$\tau \neq 0$）ときに、それを検定で正しく検出できる確率」のことである。記号で書けば、有意水準$\alpha$（通常0.05）の両側検定において、
-
-$$
-\text{power} = P(|\hat\tau / \text{se}(\hat\tau)| > z_{1-\alpha/2} \mid \tau_{\text{true}} \neq 0)
-$$
-
-検出力が低い実験は、たとえ真に効果があっても「有意ではありませんでした」という結論になりやすい。これは「効果がない」ことの証明ではなく、「効果を見つけるだけの統計的な力がなかった」ことを意味するにすぎない。実務でこの区別を誤ると、「このキャンペーンは効果がなかった」と早合点して有望な施策を潰してしまうことになりかねない。
-
-### MDE（最小検出可能効果）の公式
-
-検出力を考えるときの実務的な問いは、たいてい逆向きである。「サンプルサイズ$N$と有意水準・検出力の目標を決めたときに、**検出できる最小の効果サイズはいくらか**」——これが**MDE（minimum detectable effect）**である。
-
-2群比較（例えばコンバージョン率$p_1$, $p_2$の比較）の場合、必要なサンプルサイズ（片群あたり$n$）とMDE（$p_2 - p_1$の絶対差）の関係は、次のような公式で近似できる。
-
-$$
-n = \frac{\left(z_{1-\alpha/2}\sqrt{2\bar p(1-\bar p)} + z_{1-\beta}\sqrt{p_1(1-p_1) + p_2(1-p_2)}\right)^2}{(p_2 - p_1)^2}
-$$
-
-ここで$z_q$を標準正規分布の$q$分位点と書く。$\bar p = (p_1+p_2)/2$、$z_{1-\alpha/2}$は両側検定の臨界値（$\alpha=0.05$なら1.96）、$z_{1-\beta}$は目標検出力に対応する値（検出力$1-\beta=0.80$なら0.84）である。
-
-::: {.callout-note collapse="true"}
-## 導出：MDE公式はどこから出てくるか
-
-2群の標本比率の差 $\hat p_2 - \hat p_1$ の標準誤差は、各群のサンプルサイズを$n$とすると近似的に $\text{se} = \sqrt{p_1(1-p_1)/n + p_2(1-p_2)/n}$ である。有意水準$\alpha$で検定するには、$|\hat p_2 - \hat p_1| > z_{1-\alpha/2} \cdot \text{se}_0$（帰無仮説のもとでの標準誤差、$\bar p$を使って近似）が必要になる。検出力$1-\beta$を達成するには、真の差$p_2-p_1$のもとで、この臨界値を超える確率が$1-\beta$以上でなければならない。この2つの条件（有意性の閾値と検出力の要求）を連立させると、上記のMDE・必要サンプルサイズの公式が得られる。導出の細部（$z_{1-\beta}$がどこから出てくるかの幾何的な図解）は、実務上はこの公式を覚えておけば十分だが、興味があれば統計的検出力分析の教科書（例えばCohen (1988)）を参照してほしい。
-:::
-
-### Rシミュ2：検出力曲線とMDE表
-
-「CVR 3%を3.3%に上げる施策の検出に必要なN」を計算してみよう。まず必要サンプルサイズを計算する関数を自作する。
-
-```{r}
-#| label: mde-fn
-required_n_two_prop <- function(p1, p2, alpha = 0.05, power = 0.80) {
-  z_alpha <- qnorm(1 - alpha / 2)
-  z_beta <- qnorm(power)
-  p_bar <- (p1 + p2) / 2
-  numer <- (z_alpha * sqrt(2 * p_bar * (1 - p_bar)) + z_beta * sqrt(p1 * (1 - p1) + p2 * (1 - p2)))^2
-  denom <- (p2 - p1)^2
-  numer / denom
-}
-
-n_needed <- required_n_two_prop(0.03, 0.033)
-cat("CVR 3.0% -> 3.3%(相対+10%)の検出に必要なN(片群):", round(n_needed), "\n")
-cat("両群合計:", round(2 * n_needed), "\n")
-```
-
-**片群5万人以上、両群合計で10万人以上が必要になる。** 「たった0.3ポイントの差を見るだけなのに」と驚く人は多いが、これがCVRのような低いベースライン比率を扱う実験の現実である。
-
-複数の効果サイズについて表にまとめてみよう。
-
-```{r}
-#| label: tbl-mde-table
-lift_scenarios <- data.frame(
-  target_cvr = c(0.033, 0.036, 0.039, 0.045, 0.06),
-  label = c("+10%", "+20%", "+30%", "+50%", "+100%")
-)
-
-lift_scenarios <- lift_scenarios %>%
-  rowwise() %>%
-  mutate(n_per_arm = required_n_two_prop(0.03, target_cvr),
-         n_total = 2 * n_per_arm) %>%
-  ungroup()
-
-knitr::kable(lift_scenarios, digits = 0,
-             col.names = c("目標CVR", "相対リフト", "必要N(片群)", "必要N(両群合計)"))
-```
-
-baseline CVRが3%という、ECサイトやアプリでよくある水準を前提にすると、**相対+10%程度の効果を検出するには10万人規模の実験が必要**になる。これが「思ったより桁違いに多い」という実務的衝撃の正体である。多くの企業では、実験対象のユーザー数自体がこの規模に届かないことすらある。
-
-図でも確認しておこう。サンプルサイズを横軸に、検出力を縦軸にした曲線を、複数の効果サイズについて描く。
-
-```{r}
-#| label: fig-power-curve
-#| fig-cap: "検出力曲線：効果サイズが小さいほど、検出力を上げるために必要なNが急激に増える"
-power_two_prop <- function(p1, p2, n) {
-  se1 <- sqrt(p1 * (1 - p1) / n + p2 * (1 - p2) / n)
-  p_bar <- (p1 + p2) / 2
-  se0 <- sqrt(2 * p_bar * (1 - p_bar) / n)
-  z_alpha <- qnorm(0.975)
-  z_signal <- abs(p2 - p1) / se1
-  z_cut <- z_alpha * se0 / se1
-  pnorm(z_signal - z_cut) + pnorm(-z_signal - z_cut)
-}
-
-n_grid <- seq(500, 100000, length.out = 200)
-power_curve_df <- expand.grid(n = n_grid, rel_lift = c(0.05, 0.10, 0.20, 0.30)) %>%
-  rowwise() %>%
-  mutate(p2 = 0.03 * (1 + rel_lift),
-         power = power_two_prop(0.03, p2, n)) %>%
-  ungroup() %>%
-  mutate(lift_label = paste0("+", rel_lift * 100, "%"))
-
-ggplot(power_curve_df, aes(x = n, y = power, color = lift_label)) +
-  geom_line(linewidth = 1) +
-  geom_hline(yintercept = 0.8, linetype = "dashed", color = "grey40") +
-  labs(x = "サンプルサイズ(片群)", y = "検出力", color = "相対リフト",
-       title = "検出力曲線(baseline CVR = 3%)") +
-  scale_x_continuous(labels = scales::comma) +
-  scale_y_continuous(labels = scales::percent)
-```
-
-破線は検出力80%の目安である。+30%のような大きな効果は数千〜1万人規模で検出できるが、+5%のような小さな効果は10万人規模でも検出力が50%に届かない。
-
-モンテカルロでこの公式の妥当性も検算しておこう。
-
-```{r}
-#| label: mde-monte-carlo-check
-p1_check <- 0.03
-p2_check <- 0.033
-n_check <- 5000
-n_mc <- 1000
-
-rejects <- 0
-for (i in 1:n_mc) {
-  x1 <- rbinom(n_check, 1, p1_check)
-  x2 <- rbinom(n_check, 1, p2_check)
-  ph1 <- mean(x1); ph2 <- mean(x2)
-  ph_pool <- (sum(x1) + sum(x2)) / (2 * n_check)
-  se_pool <- sqrt(ph_pool * (1 - ph_pool) * (2 / n_check))
-  if (se_pool > 0) {
-    z <- (ph2 - ph1) / se_pool
-    if (abs(z) > 1.96) rejects <- rejects + 1
+simulate_cbc <- function(seed = 202607, N = 300, Ttrain = 8, Thold = 8) {
+  set.seed(seed)
+  beta_known <- c(battery12 = 0.5, nc = 0.8, major_brand = 0.3)
+  mu_true <- log(0.12) - 0.6^2 / 2
+  tau_true <- 0.6
+  theta_true <- rnorm(N, mu_true, tau_true)
+  make_tasks <- function(T) {
+    id <- rep(seq_len(N), each = T)
+    nr <- length(id)
+    price <- matrix(sample(c(8, 12, 16), nr * 2, replace = TRUE), nr, 2)
+    battery12 <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
+    nc <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
+    major_brand <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
+    quality <- beta_known[1] * battery12 + beta_known[2] * nc + beta_known[3] * major_brand
+    prob <- choice_prob(quality, price, exp(theta_true[id]))
+    choice <- vapply(seq_len(nr), function(r) sample(0:2, 1, prob = prob[r, ]), integer(1))
+    list(id = id, price = price, battery12 = battery12, nc = nc,
+         major_brand = major_brand, quality = quality, choice = choice, T = T)
   }
+  list(train = make_tasks(Ttrain), test = make_tasks(Thold), N = N,
+       beta_known = beta_known, theta_true = theta_true, mu_true = mu_true, tau_true = tau_true)
 }
-power_mc <- rejects / n_mc
-power_formula <- power_two_prop(p1_check, p2_check, n_check)
 
-cat("モンテカルロでの検出力(N=5000/群):", round(power_mc, 3), "\n")
-cat("公式による検出力:", round(power_formula, 3), "\n")
+dat <- simulate_cbc()
+train <- dat$train
 ```
 
-モンテカルロと公式の値はよく一致しており、公式がこのシナリオで妥当な近似を与えていることが確認できる。
-
-::: {.callout-tip}
-## 実証研究コーナー：Lewis and Rao (2015)
-
-**研究の問い**：オンライン広告の「売上に対する効果（advertising ROI）」を、A/Bテストで測定することはどれだけ実現可能なのか。
-
-**データ**：大手小売企業・消費財企業が実施した、広告接触群・非接触群に分けた大規模フィールド実験（一部は数百万人規模）の実測データ。
-
-**識別戦略・モデル**：Lewis and Rao (2015, *Quarterly Journal of Economics*) は、実際に企業が実施した大規模広告実験のデータを用い、広告の売上への因果効果を検出するために必要なサンプルサイズを、本講義で導入した検出力・MDEの考え方に基づいて評価した。
-
-**主要な発見**：個人レベルの売上の分散が、広告の効果サイズに比べてあまりに大きいため、**数百万人規模の実験ですら、典型的な広告キャンペーンのROIを統計的に有意な形で検出するには往々にして力不足である**ことを示した。論文のタイトルが示す通り、広告リターンの測定には統計的に非常に不利な条件がある（unfavorable economics）という結論を、実際のデータに基づいて提示している。
-
-**なぜこの講義のトピックと繋がるのか**：今回学んだMDE公式が示す「思ったより桁違いに多いNが必要」という教訓を、広告効果測定という具体的な文脈で、実データに基づいて突きつけた研究である。売上のようにもともとの分散が大きい指標では、検出力の問題がCVRのような二値指標よりもさらに深刻になりうる。ただし、精度の低い実験を観察データに置き換えれば解決するわけではない。同論文は、ターゲティングによる選択バイアスが観察的手法にとって深刻であることも強調している。
-:::
-
-## 4. ITTとTOT：配信と使用の違い
-
-### 定義の整理
-
-クーポン施策では、「配信されたこと」と「実際に使ったこと」は別の出来事である。この区別は、計量経済学Iで学んだIV（操作変数法）の枠組みがそのまま活きる場面である。
-
-- **ITT（intention-to-treat）**：処置の**割り当て**そのものの効果。配信されたグループと配信されなかったグループのアウトカムの差。実際に使ったかどうかは問わない。
-- **TOT（treatment-on-the-treated）**：実際に**処置を受けた（クーポンを使った）**ことの効果。
-
-なぜITTを気にする必要があるのか、と思うかもしれない。しかしITTには重要な利点がある。**ITTは配信という「ランダム化された」変数に基づく比較なので、単純な平均差でバイアスなく推定できる**。一方、TOTを知りたいからといって「使用者vs非使用者」を単純比較すると、使用するかどうかは顧客の自己選択（能力・意欲の高い顧客ほど使う）なので、バイアスが生じる。
-
-### one-sided noncomplianceとWald推定量
-
-クーポン配信の実験では、典型的に**one-sided noncompliance**という構造が生じる。配信されなかった人はクーポンを使いようがない（使用率0%）が、配信された人の中にも、使う人と使わない人がいる。この構造のもとで、TOTを識別する仕組みは、計量経済学I・第3回で学んだIV・2SLSとまったく同じである。
-
-- 配信$Z_i \in \{0,1\}$（操作変数）
-- 使用$X_i \in \{0,1\}$（内生変数）
-- アウトカム$Y_i$
-
-配信$Z_i$はランダムなので外生。配信は使用に影響する（配信されないと使えない）。配信が使用**以外の経路**でアウトカムに影響しないと仮定すれば（排除制約）、Wald推定量
-
-$$
-\widehat{\text{TOT}} = \frac{E[Y \mid Z=1] - E[Y \mid Z=0]}{E[X \mid Z=1] - E[X \mid Z=0]} = \frac{\text{ITT}}{\text{使用率}}
-$$
-
-が識別するのは、配信によって使用を開始する人（complier）への平均効果、すなわちLATEである。ここでは、(i) 配信のランダム割り当て、(ii) 排除制約、(iii) first stage、(iv) monotonicity、(v) one-sided noncomplianceを仮定する。すると実際の使用者はcomplierなのでLATEをTOTと呼べる。one-sided noncomplianceだけで無条件に「TOT = ITT ÷ 使用率」となるわけではない。
-
-::: {.callout-important}
-## 小ステップ：変数・矢印・仮定を一列に置く
-
-$$
-Z_i\;\text{（配信）}\longrightarrow X_i\;\text{（使用）}\longrightarrow Y_i\;\text{（購買額）}
-$$
-
-1. ランダム化が $Z$ と潜在アウトカムを切り離す。
-2. first stage が「配信で使用率が上がる」を保証する。
-3. 排除制約が $Z\to Y$ の直接経路を閉じる。
-4. monotonicity とone-sided noncomplianceのもとで、分母の使用者をcomplierと解釈できる。
-
-この四段を確認して初めてWald比に因果効果の意味が付く。
-:::
-
-::: {.callout-note collapse="true"}
-## 復習：Wald推定量と2SLS
-
-計量経済学Iでは、Wald推定量を「操作変数によるアウトカムの変化」を「操作変数による内生変数の変化」で割ったものとして導入した。$Z$を操作変数、$X$を内生変数とすると、
-
-$$
-\hat\beta_{\text{IV}} = \frac{\text{Cov}(Z, Y)}{\text{Cov}(Z, X)}
-$$
-
-であり、$Z$が二値の場合はこれが上記のWald比の式に一致する。fixestの`feols(y ~ 1 | x ~ z)`という2SLS構文（第3回で使った）を1つの操作変数・1つの内生変数のケースに当てはめれば、この比をそのまま計算しているのと同じことになる。今回はこの構文を「配信をIVにして使用の効果を推定する」という形で再利用する。
-:::
-
-### Rシミュ3：ITT・TOT・単純比較を数値で比較する
-
-$N=2,000$の顧客について、配信をランダムに割り当て、使用は顧客の「能力」（購買意欲・ネットリテラシーなど）に依存するとしてDGPを作る。真のTOT（クーポンを使ったことの効果）を800円とする。
+次の表が実際に提示される選択課題の例である。分析者には `choice` と提示した属性が見える。`theta_true` はシミュレーションの診断専用であり、推定には渡さない。
 
 ```{r}
-#| label: itt-tot-dgp
-N3 <- 2000
-true_tot <- 800  # 円。クーポンを使ったことの真の効果(TOT)
-
-D3 <- rbinom(N3, 1, 0.5)  # 配信(ランダム化)
-ability <- rnorm(N3, mean = 0, sd = 1)  # 購買意欲・ネットリテラシーなど(観測されない)
-
-# 使用確率:能力が高いほど使う。ただしone-sided(配信されないと使えない)
-use_prob <- pmin(pmax(0.35 + 0.28 * ability, 0.02), 0.95)
-use3 <- ifelse(D3 == 1, rbinom(N3, 1, use_prob), 0)
-
-base3 <- pmax(5000 + 1500 * ability + rnorm(N3, mean = 0, sd = 2000), 0)
-Y3 <- base3 + use3 * true_tot  # 非負化後に加えるので個人効果は厳密に800円
-
-itt_df <- data.frame(D = D3, use = use3, Y = Y3, ability = ability)
-head(itt_df)
+example <- data.frame(profile = c("A", "B"), price = train$price[1, ],
+  battery_hours = 6 + 6 * train$battery12[1, ], nc = train$nc[1, ], major_brand = train$major_brand[1, ])
+kable(example, caption = "回答者1の最初の問")
+share <- as.data.frame(prop.table(table(factor(train$choice, levels = 0:2, labels = c("買わない", "A", "B")))))
+names(share) <- c("choice", "share")
+ggplot(share, aes(choice, share)) + geom_col(fill = "#4C72B0") +
+  labs(x = NULL, y = "選択割合")
 ```
 
-まずITTを計算する（配信群と非配信群の単純な平均差）。
+価格感応度の分布も見ておく。係数は必ず正なので、どの人も価格が上がると効用が下がる。その下がり方に違いがある。
 
 ```{r}
-#| label: itt-calc
-itt_hat <- mean(itt_df$Y[itt_df$D == 1]) - mean(itt_df$Y[itt_df$D == 0])
-usage_rate <- mean(itt_df$use[itt_df$D == 1])
-
-cat("ITT(配信の効果):", round(itt_hat, 1), "円\n")
-cat("使用率(配信群のうち実際に使った割合):", round(usage_rate, 3), "\n")
+alpha_distribution <- data.frame(alpha = exp(dat$theta_true))
+ggplot(alpha_distribution, aes(alpha)) + geom_histogram(bins = 30, fill = "#4C72B0") +
+  geom_vline(xintercept = .12, linetype = 2) + labs(x = "価格係数 alpha", y = "人数")
 ```
 
-次に、**単純比較（配信群の中で、使用者vs非使用者）**を計算してみる。これは実務で最もよく見かける、しかし間違った比較である。
+## 4. AMCEを推定する
+
+1問を、提示したAとBの2行へ変換する。Aを選んだときはA行だけが1、Bを選んだときはB行だけが1である。買わないと答えた問では両方を0とする。**買わなかった問も残す**ことが大切である。商品属性を見た後の購入有無で標本を絞ると、ランダムに割り付けた比較ではなくなってしまう。
 
 ```{r}
-#| label: naive-comparison
-delivered <- itt_df[itt_df$D == 1, ]
-naive_diff <- mean(delivered$Y[delivered$use == 1]) - mean(delivered$Y[delivered$use == 0])
-
-cat("単純比較(使用者 - 非使用者、配信群内):", round(naive_diff, 1), "円\n")
-cat("真のTOT:", true_tot, "円\n")
-cat("過大評価の倍率:", round(naive_diff / true_tot, 2), "倍\n")
-```
-
-**単純比較は真のTOTを大幅に過大評価している。** これは能力の高い顧客ほどクーポンを使い、かつ能力の高い顧客はクーポンなしでも購買額が高い（自己選択バイアス）ためである。
-
-続いてWald推定量（TOT = ITT ÷ 使用率）を計算し、真値と比較する。
-
-```{r}
-#| label: wald-tot
-wald_tot <- itt_hat / usage_rate
-cat("Wald推定量(TOT = ITT/使用率):", round(wald_tot, 1), "円\n")
-cat("真のTOT:", true_tot, "円\n")
-```
-
-配信を操作変数とした2SLSでも同じ値が出ることを確認しておこう。
-
-```{r}
-#| label: iv-2sls-tot
-iv_fit <- feols(Y ~ 1 | use ~ D, data = itt_df, vcov = "hetero")
-summary(iv_fit)
-```
-
-```{r}
-#| label: iv-2sls-compare
-# 内生変数(use)に対応する係数名を、接頭辞の有無によらず取り出すヘルパー
-get_coef_for <- function(model, varname) {
-  cf <- coef(model)
-  hit <- grepl(varname, names(cf), fixed = TRUE)
-  cf[hit][1]
+to_long <- function(tasks) {
+  do.call(rbind, lapply(1:2, function(j) data.frame(
+    id = tasks$id, profile = j, price = tasks$price[, j],
+    battery12 = tasks$battery12[, j], nc = tasks$nc[, j],
+    major_brand = tasks$major_brand[, j], chosen = as.integer(tasks$choice == j))))
 }
-tot_iv <- get_coef_for(iv_fit, "use")
-
-comparison_tot <- data.frame(
-  method = c("真値(TOT)", "単純比較(使用者vs非使用者)", "Wald推定量(ITT/使用率)", "2SLS(配信をIVに)"),
-  estimate = c(true_tot, round(naive_diff, 1), round(wald_tot, 1), round(as.numeric(tot_iv), 1))
-)
-knitr::kable(comparison_tot, col.names = c("方法", "推定値(円)"))
+cbc_long <- to_long(train)
+cbc_long$price12 <- as.integer(cbc_long$price == 12)
+cbc_long$price16 <- as.integer(cbc_long$price == 16)
+fit_amce <- feols(chosen ~ price12 + price16 + battery12 + nc + major_brand,
+                  data = cbc_long, cluster = ~id)
 ```
 
-Wald推定量と2SLSは代数的に同じ値を返し、この標本では単純比較より真値800円に大きく近づく。ただし、この実行例の推定値は約640円で、真値と無視できない差が残る。比の推定量はfirst stageが弱いほど不安定であり、$N=2,000$の一標本で真値にぴったり一致するとは限らない。一方、能力による選択を残した単純比較の過大評価は、標本を増やしても消えない系統的なバイアスである。
+価格は8千円、バッテリーは6時間、ノイズキャンセリングはなし、ブランドは新興を基準とした。例えば `nc` の係数は、ノイズキャンセリングを付けたときの選択確率の平均変化である。
+
+シミュレーションなので真の選択確率も計算できる。ランダムに作った多数の個人・商品集合について、Aの属性だけを変えた確率差を平均し、AMCEの真値を数値積分で近似する。回答の0/1乱数をもう一度引く必要はない。
 
 ```{r}
-#| label: fig-itt-tot-compare
-#| fig-cap: "TOTの推定方法の比較：単純比較の選択バイアスとWald/2SLSの標本変動"
-ggplot(comparison_tot, aes(x = reorder(method, estimate), y = estimate)) +
-  geom_col(fill = "steelblue", width = 0.6) +
-  geom_hline(yintercept = true_tot, linetype = "dashed", color = "firebrick") +
-  coord_flip() +
-  labs(x = NULL, y = "推定値(円)",
-       title = "破線は真のTOT(800円)")
-```
-
-::: {.callout-important}
-## ここが核心
-
-ITTとTOTのどちらを報告すべきかは、意思決定の中身による。「この施策を配信し続けるべきか」という意思決定にはITTがそのまま使える（配信のコストと配信のリターンを比べればよい）。一方、「クーポンのデザインや使いやすさを改善すべきか」という意思決定には、実際に使った人への効果（TOT）を知る必要がある。**両者を混同し、単純な使用者vs非使用者比較でTOTを語ってしまうと、施策の真の価値を大きく見誤る。**
-:::
-
-## 5. CUPED：分散削減の実務標準
-
-### アイデア
-
-検出力の節で見た通り、実験の検出力はサンプルサイズだけでなく、**アウトカムの分散**にも強く依存する。分散が小さければ小さいほど、同じ効果サイズでも検出しやすくなる。ここで実務標準になっているのが**CUPED（Controlled-experiment Using Pre-Experiment Data）**という手法である。
-
-発想は単純である。実験前の期間に観測された同じ指標（あるいは強く相関する指標）を共変量として使い、アウトカムをその共変量で「調整」する。
-
-$$
-Y_i^{\text{CUPED}} = Y_i - \theta (X_i - \bar X)
-$$
-
-ここで$X_i$は実験前指標（例えば実験前30日の購買額）、$\bar X$はその平均である。母集団の最適係数$\theta^*=\text{Cov}(Y,X)/\text{Var}(X)$が既知で、無作為化により$D\perp X$なら、調整後の平均差は同じATEを狙い、分散を最小化する。実際には$\theta$も推定するので、有限標本で毎回必ず分散が下がるとは限らない。ANCOVAまたは事前期間・別標本で決めた係数を使い、不確実性を含む標準誤差で報告する。
-
-### 理論：分散が$(1-\rho^2)$倍になる
-
-$X$と$Y$の相関係数を$\rho$とすると、CUPED後の分散は
-
-$$
-\text{Var}(Y^{\text{CUPED}}) = \text{Var}(Y)(1 - \rho^2)
-$$
-
-になることが知られている。$\rho$が大きいほど（実験前指標がアウトカムをよく予測するほど）、分散削減の効果が大きい。
-
-::: {.callout-note collapse="true"}
-## 導出：なぜ分散が$(1-\rho^2)$倍になるか
-
-$\theta = \text{Cov}(Y,X)/\text{Var}(X)$のとき、
-
-$$
-\text{Var}(Y - \theta X) = \text{Var}(Y) - 2\theta \text{Cov}(Y,X) + \theta^2 \text{Var}(X)
-$$
-
-に$\theta$を代入すると
-
-$$
-= \text{Var}(Y) - 2\frac{\text{Cov}(Y,X)^2}{\text{Var}(X)} + \frac{\text{Cov}(Y,X)^2}{\text{Var}(X)} = \text{Var}(Y) - \frac{\text{Cov}(Y,X)^2}{\text{Var}(X)}
-$$
-
-ここで$\rho^2 = \text{Cov}(Y,X)^2/(\text{Var}(Y)\text{Var}(X))$なので、$\text{Cov}(Y,X)^2/\text{Var}(X) = \rho^2 \text{Var}(Y)$となり、
-
-$$
-\text{Var}(Y - \theta X) = \text{Var}(Y)(1-\rho^2)
-$$
-
-が得られる。この$\theta$の選び方（最小分散を与える線形調整）は、実は$Y$を$X$に回帰したときの回帰係数そのものであり、次に述べる**ANCOVA（共分散分析）と本質的に同じ操作**である。
-:::
-
-CUPEDは、統計学で古くから知られる**ANCOVA（analysis of covariance）**と密接に関係する。実務上は「処置ダミー$D$と処置前共変量$X$を同時に入れた回帰 $Y = \alpha + \tau D + \theta X + \varepsilon$」を実行し、$\hat\tau$とheteroskedasticity-robust SEを報告するのが簡潔である。CUPEDの$\theta$を実験前に固定したいなら、過去の対応するアウトカムを持つ別期間・別標本で推定する必要がある。今期の$Y$を使って推定する場合は「事前に推定した」とは呼ばない。
-
-### Rシミュ4：SEが何%縮むか、必要Nが何%減るか
-
-実験前30日の購買額（$X$）と実験期間の購買額（$Y$）の相関を$\rho \approx 0.6$になるように、$N=2,000$のデータを作る。
-
-```{r}
-#| label: cuped-dgp
-N4 <- 2000
-rho_target <- 0.6
-
-z1 <- rnorm(N4, 0, 1)
-z2 <- rnorm(N4, 0, 1)
-pre_period <- 5000 + 1800 * z1  # 実験前30日購買額
-outcome_base <- 5200 + 1800 * (rho_target * z1 + sqrt(1 - rho_target^2) * z2)
-
-D4 <- rbinom(N4, 1, 0.5)
-true_ate4 <- 250
-Y4 <- outcome_base + D4 * true_ate4
-
-cuped_df <- data.frame(pre = pre_period, Y = Y4, D = D4)
-actual_rho <- cor(cuped_df$pre, cuped_df$Y)
-cat("実際に構成したcorr(実験前, 実験期間):", round(actual_rho, 3), "\n")
-```
-
-```{r}
-#| label: fig-cuped-scatter
-#| fig-cap: "実験前指標と実験期間アウトカムの相関(CUPEDが効く根拠)"
-ggplot(cuped_df, aes(x = pre, y = Y)) +
-  geom_point(alpha = 0.3, color = "steelblue") +
-  geom_smooth(method = "lm", se = FALSE, color = "firebrick") +
-  labs(x = "実験前30日購買額", y = "実験期間購買額",
-       title = "実験前指標は実験期間の指標をかなりよく予測する")
-```
-
-まず調整前（単純比較）のSEを計算する。
-
-```{r}
-#| label: cuped-naive-se
-diff_naive <- mean(cuped_df$Y[cuped_df$D == 1]) - mean(cuped_df$Y[cuped_df$D == 0])
-n1 <- sum(cuped_df$D == 1); n0 <- sum(cuped_df$D == 0)
-var_y1 <- var(cuped_df$Y[cuped_df$D == 1])
-var_y0 <- var(cuped_df$Y[cuped_df$D == 0])
-se_naive <- sqrt(var_y1 / n1 + var_y0 / n0)
-
-cat("調整前ATE推定値:", round(diff_naive, 2), " SE:", round(se_naive, 2), "\n")
-```
-
-次にCUPED調整を行う。$\theta$はデータ全体から$Y$を$X$に回帰して推定する。
-
-```{r}
-#| label: cuped-adjustment
-theta_hat <- cov(cuped_df$Y, cuped_df$pre) / var(cuped_df$pre)
-pre_mean <- mean(cuped_df$pre)
-cuped_df$Y_cuped <- cuped_df$Y - theta_hat * (cuped_df$pre - pre_mean)
-
-diff_cuped <- mean(cuped_df$Y_cuped[cuped_df$D == 1]) - mean(cuped_df$Y_cuped[cuped_df$D == 0])
-var_y1_c <- var(cuped_df$Y_cuped[cuped_df$D == 1])
-var_y0_c <- var(cuped_df$Y_cuped[cuped_df$D == 0])
-se_cuped <- sqrt(var_y1_c / n1 + var_y0_c / n0)
-
-cat("CUPED後ATE推定値:", round(diff_cuped, 2), " SE:", round(se_cuped, 2), "\n")
-```
-
-```{r}
-#| label: cuped-reduction
-var_reduction <- 1 - (se_cuped^2) / (se_naive^2)
-se_reduction <- 1 - se_cuped / se_naive
-
-cat("分散削減率:", round(var_reduction * 100, 1), "% (理論値 rho^2 =", round(actual_rho^2 * 100, 1), "%)\n")
-cat("SE削減率:", round(se_reduction * 100, 1), "%\n")
-cat("同じ検出力に必要なNの削減率: 約", round(var_reduction * 100, 1), "% (Nは分散に比例するため)\n")
-```
-
-この実行例ではATE推定値はCUPEDの前後でほぼ変わらず、SEは大きく縮小している。これは無作為化と正しい回帰調整から期待される方向であるが、単一の有限標本で「推定値が不変」という保証ではない。分散削減率も、母集団の最適係数に対する理論値$\rho^2$の標本対応物とおおむね一致していると読む。
-
-```{r}
-#| label: fig-cuped-se-compare
-#| fig-cap: "CUPED前後のSE比較"
-se_compare_df <- data.frame(
-  method = c("調整前(単純比較)", "CUPED調整後"),
-  se = c(se_naive, se_cuped)
-)
-ggplot(se_compare_df, aes(x = method, y = se, fill = method)) +
-  geom_col(width = 0.5) +
-  labs(x = NULL, y = "標準誤差(円)", title = "CUPEDによるSEの削減") +
-  theme(legend.position = "none")
-```
-
-::: {.callout-important}
-## ここが核心
-
-CUPEDは、**実験前に既に持っているデータ（実験前の購買額など）を使って、追加のサンプルサイズなしに検出力を上げる**、費用対効果の高い手法である。$\rho$が大きい指標（実験前後で相関が強い指標、例えば継続課金額やロイヤルティの高い顧客の購買額）ほど効果が大きい。実務の実験プラットフォームでは、CUPEDが標準機能として組み込まれていることが多く、「同じサンプルサイズでより小さい効果を検出できる」「同じ効果を検出するのに必要な実験期間を短縮できる」という直接的な実務上の価値を持つ。
-:::
-
-## 6. 大規模実験の落とし穴集：Kohaviの世界
-
-ここからは、Kohavi, Tang, and Xu (2020) *Trustworthy Online Controlled Experiments* が体系的に整理している、大規模実験の実務上の落とし穴を一通り見ていく。
-
-### (i) Peeking問題：見たら気づいてしまう誘惑
-
-実験担当者が最も陥りやすい罠が**peeking（覗き見）**である。「実験開始から数日経ったし、ちょっと結果を見てみよう。有意になっていたら早めに施策を展開しよう」——この行動が、Type I errorを大きく膨らませてしまう。
-
-理由は単純である。t検定のp値が5%を下回る確率は、**1回だけ**検定したときにだけ正しく5%になる。実験の途中で何度も検定を繰り返し、「どこかのタイミングで一度でも有意になったら止める」という行動を取ると、帰無仮説が正しい（本当は効果がゼロ）場合でも、**どこかのタイミングでたまたま有意になってしまう確率**がどんどん積み上がっていく。
-
-### Rシミュ5（見せ場）：peekingでType I errorがどれだけ膨らむか
-
-「100人増えるごとにt検定して、有意なら止める」という行動をシミュレートする。真の効果はゼロ（帰無仮説が正しい）としたときに、この「止める」行動によって誤って有意と判定してしまう確率（Type I error）を計算する。
-
-```{r}
-#| label: peeking-sim-fn
-simulate_peeking <- function(n_max, check_every, n_sims, p0 = 0.10) {
-  false_positive_count <- 0
-  checkpoints <- seq(check_every, n_max, by = check_every)
-
-  for (s in 1:n_sims) {
-    d_full <- rbinom(n_max, 1, 0.5)
-    y_full <- rbinom(n_max, 1, p0)  # 真の効果ゼロ:割付に関係なく同じ分布から生成
-    stopped_significant <- FALSE
-
-    for (n_cur in checkpoints) {
-      d_cur <- d_full[1:n_cur]
-      y_cur <- y_full[1:n_cur]
-      n1 <- sum(d_cur == 1); n0 <- sum(d_cur == 0)
-      if (n1 < 5 || n0 < 5) next
-      p1_hat <- mean(y_cur[d_cur == 1]); p0_hat <- mean(y_cur[d_cur == 0])
-      p_pool <- mean(y_cur)
-      se <- sqrt(p_pool * (1 - p_pool) * (1 / n1 + 1 / n0))
-      if (se == 0) next
-      z <- (p1_hat - p0_hat) / se
-      if (abs(z) > 1.96) {
-        stopped_significant <- TRUE
-        break
-      }
-    }
-    if (stopped_significant) false_positive_count <- false_positive_count + 1
-  }
-  false_positive_count / n_sims
+population_amce <- function(M = 100000, seed = 2026071) {
+  set.seed(seed)
+  alpha <- exp(rnorm(M, dat$mu_true, dat$tau_true))
+  price <- matrix(sample(c(8, 12, 16), 2 * M, TRUE), M, 2)
+  x <- lapply(1:3, function(k) matrix(rbinom(2 * M, 1, .5), M, 2))
+  probability <- function(p, xx) choice_prob(.5 * xx[[1]] + .8 * xx[[2]] + .3 * xx[[3]], p, alpha)[, 2]
+  baseprice <- price; baseprice[, 1] <- 8
+  price_effect <- sapply(c(12, 16), function(level) {
+    changed <- price; changed[, 1] <- level
+    mean(probability(changed, x) - probability(baseprice, x))
+  })
+  attribute_effect <- sapply(1:3, function(k) {
+    low <- high <- x; low[[k]][, 1] <- 0; high[[k]][, 1] <- 1
+    mean(probability(price, high) - probability(price, low))
+  })
+  c(price_effect, attribute_effect)
 }
+truth_amce <- population_amce()
+b <- coef(fit_amce)[-1]; se <- sqrt(diag(vcov(fit_amce)))[-1]
+amce_result <- data.frame(attribute = names(b), estimate = unname(b), truth = truth_amce,
+                         lower = b - 1.96 * se, upper = b + 1.96 * se)
+kable(amce_result, digits = 3, row.names = FALSE)
+ggplot(amce_result, aes(attribute, estimate)) +
+  geom_hline(yintercept = 0, color = "gray60") + geom_point(size = 3, color = "#4C72B0") +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = .1) +
+  geom_point(aes(y = truth), shape = 4, size = 3, color = "#C44E52") +
+  labs(x = NULL, y = "AMCE", subtitle = "点と区間：推定値と95%信頼区間、×：数値積分した真値")
 ```
 
-まずベンチマークとして、**N固定で1回だけ検定した場合**のType I errorを確認する（理論値5%になるはず）。
+推定値と真値はおおむね近い。ここで回収しているのは選択確率の平均変化であり、効用式に入れた0.5、0.8、0.3ではない。
+
+### なぜ回答者単位の標準誤差か
+
+同じ回答者の8問には同じ価格係数が入る。さらに同じ問のAとBは、片方が選ばれればもう片方は選ばれない。このため4,800行を互いに独立とは扱えない。回答者を一つのまとまりとして扱うクラスター標準誤差を使う。
 
 ```{r}
-#| label: peeking-fixed-benchmark
-n_sims_peek <- 1000
-n_max_peek <- 6000
-
-t1_fixed <- simulate_peeking(n_max_peek, n_max_peek, n_sims_peek)  # check_every=n_maxなら1回だけ検定
-cat("N固定(", n_max_peek, ")で1回だけ検定した場合のType I error:", round(t1_fixed * 100, 1), "% (理論値5%)\n")
+fit_rows <- feols(chosen ~ price12 + price16 + battery12 + nc + major_brand,
+                  data = cbc_long, vcov = "hetero")
+se_compare <- data.frame(attribute = names(coef(fit_amce))[-1],
+  cluster = sqrt(diag(vcov(fit_amce)))[-1], row_independent = sqrt(diag(vcov(fit_rows)))[-1])
+kable(se_compare, digits = 4, row.names = FALSE)
 ```
 
-次に、「100人増えるごとに検定して、有意なら止める」場合のType I errorを計算する。
-
-```{r}
-#| label: peeking-100-check
-t1_peek_100 <- simulate_peeking(n_max_peek, 100, n_sims_peek)
-n_checks_100 <- n_max_peek / 100
-cat("100人ごとに検定(合計", n_checks_100, "回の検定機会): Type I error =", round(t1_peek_100 * 100, 1), "%\n")
-```
-
-覗く頻度を変えながら、Type I errorがどう変化するかを一通り見てみよう。
-
-```{r}
-#| label: peeking-curve-sim
-check_intervals <- c(6000, 3000, 2000, 1200, 600, 400, 300, 200, 100)
-peeking_results <- data.frame(check_every = check_intervals) %>%
-  rowwise() %>%
-  mutate(n_checks = n_max_peek %/% check_every,
-         type1_error = simulate_peeking(n_max_peek, check_every, n_sims_peek)) %>%
-  ungroup()
-
-knitr::kable(peeking_results, digits = c(0, 0, 3),
-             col.names = c("覗く間隔(人)", "覗く回数", "Type I error"))
-```
-
-```{r}
-#| label: fig-peeking-curve
-#| fig-cap: "覗く回数が増えるほど、Type I errorは5%から大きく膨らんでいく"
-ggplot(peeking_results, aes(x = n_checks, y = type1_error)) +
-  geom_line(color = "firebrick", linewidth = 1) +
-  geom_point(color = "firebrick", size = 2) +
-  geom_hline(yintercept = 0.05, linetype = "dashed", color = "grey40") +
-  labs(x = "実験中に検定した回数", y = "Type I error",
-       title = "peekingによるType I errorの膨張") +
-  scale_y_continuous(labels = scales::percent)
-```
-
-破線は本来の5%水準である。**覗く機会が増えるほど、Type I errorは理論上は非減少となり、このシミュレーションでは数十回覗くケースで20〜30%台にまで達する。** 有限回のMonte Carlo推定値は隣り合う点で多少上下しうるが、「有意になるまで回す」という行動を放置すると、本当は効果がない施策のかなりの割合が「有意な効果あり」と誤って報告されてしまう。
+クラスター標準誤差が常に大きくなるという意味ではない。どちらを使うかは、この標本で数値が大きいか小さいかではなく、どの単位の独立性を仮定できるかで決める。
 
 ::: {.callout-warning}
 ## この分析、どこがまずい？
 
-「毎日ダッシュボードを見て、有意になったらすぐ展開しよう」という運用は、一見合理的に見えるが、統計的には「何度も宝くじを引いて、一度でも当たったら『当選確率が高い』と主張する」のと同じ構造の誤りを犯している。この問題への対策は大きく2つある。1つは最も単純で、**事前にサンプルサイズ（実験期間）を固定し、中間のp値で停止や展開を決めない**ことである。安全性指標の監視などのために結果を見ること自体が誤りなのではなく、その情報で予定していない停止・展開ルールに切り替えることが問題である。もう1つは、**sequential testing（逐次検定）**という、繰り返し検定してもType I errorが正しく制御される統計手法を使うことである。sequential testingの技術的な詳細はこの講義の範囲を超えるが、「常時モニタリングしたい」という実務ニーズに応える設計として、near-continuous monitoringを許しつつ全体のType I errorを制御する方法が存在することは知っておいてほしい。
+買わないという回答を除いてからAMCEを推定する分析を考えよう。属性が魅力的かどうかは購入有無にも影響するので、残る回答者・問の組合せが属性によって変わる。これは、最初から「AかBを必ず選んでください」と設計した実験とも異なる。調査に含めたoutside optionは、分析でも残す。
 :::
 
-### (ii) 多重検定：20指標×5セグメントの罠
+## 5. 効用係数からWTPを求める
 
-もう1つの典型的な罠が**多重検定（multiple testing）**である。1つの実験で「コンバージョン率」「購買額」「継続率」「クリック率」など20個の指標を見て、さらに「新規顧客」「既存顧客」「年代別」など5つのセグメントで切ったとしよう。合計$20 \times 5 = 100$回の検定を行うことになる。
+### 同質logitを当てはめると何を推定しているか
 
-帰無仮説が正しい（本当はどの指標・セグメントでも効果がゼロ）としても、100回独立に検定すれば、**どれか1つでも有意になってしまう確率**は
+全員の係数が同じと仮定してlogitを当てはめてみる。計算は第2回と同じ最尤法である。ただし今回のデータでは価格係数に異質性があるので、これは**同質logitによる近似（working model）**になる。
 
-$$
-1 - (1 - 0.05)^{100} \approx 99.4\%
-$$
+$$E_\theta[P_j(\theta)]\ne P_j(E[\theta])$$
 
-とほぼ確実になる。
+という非線形性のため、この推定値を個人係数の平均と解釈してはいけない。異質性を持つ人たちの回答を、一つの係数でどこまで近似できるかを調べる推定である。
 
 ```{r}
-#| label: multiple-testing-calc
-multiple_testing_prob <- function(n_tests, alpha = 0.05) {
-  1 - (1 - alpha)^n_tests
+fit_logit <- function(tasks) {
+  XA <- cbind(tasks$battery12[, 1], tasks$nc[, 1], tasks$major_brand[, 1], -tasks$price[, 1])
+  XB <- cbind(tasks$battery12[, 2], tasks$nc[, 2], tasks$major_brand[, 2], -tasks$price[, 2])
+  loss <- function(b) {
+    vA <- drop(XA %*% b); vB <- drop(XB %*% b)
+    mx <- pmax(0, vA, vB)
+    logden <- mx + log(exp(-mx) + exp(vA - mx) + exp(vB - mx))
+    -sum(vA * (tasks$choice == 1) + vB * (tasks$choice == 2) - logden)
+  }
+  op <- optim(c(.4, .6, .2, .1), loss, method = "L-BFGS-B",
+              lower = c(-Inf, -Inf, -Inf, 1e-5), hessian = TRUE)
+  stopifnot(op$convergence == 0)
+  b <- op$par
+  vA <- drop(XA %*% b); vB <- drop(XB %*% b)
+  mx <- pmax(0, vA, vB)
+  den <- exp(-mx) + exp(vA - mx) + exp(vB - mx)
+  score <- XA * ((tasks$choice == 1) - exp(vA - mx) / den) +
+           XB * ((tasks$choice == 2) - exp(vB - mx) / den)
+  S <- rowsum(score, tasks$id); G <- nrow(S)
+  bread <- solve(op$hessian)
+  V <- G / (G - 1) * bread %*% crossprod(S) %*% bread
+  names(b) <- c("battery12", "nc", "major_brand", "alpha")
+  list(coef = b, vcov = V, model_vcov = bread)
 }
-
-scenarios <- data.frame(
-  n_metrics = c(1, 20, 1, 20),
-  n_segments = c(1, 1, 5, 5)
-) %>%
-  mutate(n_tests = n_metrics * n_segments,
-         prob_any_significant = multiple_testing_prob(n_tests))
-
-knitr::kable(scenarios, digits = 3,
-             col.names = c("指標数", "セグメント数", "検定回数", "どれか有意になる確率"))
+wtp_delta <- function(fit) {
+  b <- fit$coef; gradient <- c(0, 1 / b[4], 0, -b[2] / b[4]^2)
+  value <- unname(b[2] / b[4])
+  se <- sqrt(drop(t(gradient) %*% fit$vcov %*% gradient))
+  c(estimate = value, se = se, lower = value - 1.96 * se, upper = value + 1.96 * se)
+}
+fit_work <- fit_logit(train)
+kable(data.frame(parameter = names(fit_work$coef),
+  dgp_mean = c(dat$beta_known, .12), working_estimate = fit_work$coef,
+  cluster_se = sqrt(diag(fit_work$vcov))), digits = 3, row.names = FALSE)
 ```
 
-たった20指標×5セグメントの組み合わせでも、ほぼ確実に「どこかで有意な効果」が見つかってしまう。これが、実務で「セグメント別に見たら効果がありました」という報告が大量生産される統計的なからくりである。
+比較のため真の係数の平均も載せたが、この列はworking modelの推定対象ではない。推論には回答者ごとのスコアをまとめたsandwich分散を使う。Hessianの逆行列だけでは、ここで許している個人内の依存とモデルの誤指定を反映できない。
 
-対策としては、**Bonferroni補正**（有意水準を検定回数で割る、$\alpha/100$のように厳しくする）や、**FDR（false discovery rate）補正**（発見のうち偽陽性の割合を制御する、より緩やかな補正）がある。
+### WTPには複数の集計方法がある
+
+ノイズキャンセリングを付けると個人 $i$ の効用は $\beta_{{\rm nc},i}$ 増える。価格を $\Delta p$ 上げると $\alpha_i\Delta p$ 減る。両者がちょうど釣り合う金額が、その人のWTPである。
+
+$$\mathrm{WTP}_{{\rm nc},i}=\frac{\beta_{{\rm nc},i}}{\alpha_i}.$$
+
+今回、分子は全員0.8だが、分母には個人差がある。平均を求めるなら、個人ごとの比を計算してから平均する。
+
+$$E\left[\frac{\beta_{{\rm nc},i}}{\alpha_i}\right]
+\ne\frac{E[\beta_{{\rm nc},i}]}{E[\alpha_i]}.$$
 
 ```{r}
-#| label: bonferroni-level
-alpha_bonferroni <- 0.05 / 100
-cat("100回検定でのBonferroni補正後の有意水準:", signif(alpha_bonferroni, 3), "\n")
+wtp_table <- data.frame(quantity = c("個人WTPの平均（真値）", "個人WTPの中央値（真値）", "平均係数の比（真値）", "同質logitで推定した比"),
+  thousand_yen = c(.8 * exp(-dat$mu_true + dat$tau_true^2 / 2), .8 * exp(-dat$mu_true), .8 / .12,
+                   fit_work$coef[2] / fit_work$coef[4]))
+kable(wtp_table, digits = 3)
+wtp_individual <- data.frame(wtp = .8 / exp(dat$theta_true))
+ggplot(wtp_individual, aes(wtp)) + geom_histogram(bins = 30, fill = "#4C72B0") +
+  geom_vline(xintercept = .8 / .12, linetype = 2) +
+  labs(x = "ノイズキャンセリングへの個人WTP（千円）", y = "人数", subtitle = "破線は平均係数の比")
 ```
 
-しかし実務でより重要なのは、こうした補正を後から機械的にかけることよりも、**実験前に主要評価指標と意思決定ルールを1つ、または少数に限定しておく**という規律である。OEC（Overall Evaluation Criterion）を1つにまとめる設計もその代表例である。20指標を並べて「どれかが有意になるか探す」のではなく、どの指標で成否を判断するかを事前にコミットしておけば、多重検定の問題を抑えられる。guardrail metricsも安全性・副作用を判断する正式な基準になりうるので、単なる参考情報に落とすのではなく、その役割と閾値を事前に決めておく。
+個人WTPの平均は約9.56千円、平均係数の比は約6.67千円である。この違いは標本誤差ではない。そもそも計算している量が違う。working modelで推定した比にも、そのモデルによる要約という意味しか自動的には付かない。
 
-### (iii) SRM（sample ratio mismatch）：割付比率のズレはバグのサイン
+### 比の推定誤差：デルタ法
 
-実験を50%/50%で割り付けたはずなのに、実際に集まったデータが52%/48%のように偏っていることがある。これを**SRM（sample ratio mismatch）**と呼ぶ。
+計量Iでは回帰係数の標準誤差から信頼区間を作った。WTPは2つの推定係数の比なので、両方の不確実性と共分散を使う必要がある。関数 $g(\beta,\alpha)=\beta/\alpha$ を推定値の近くで直線近似するのがデルタ法である。
 
-SRMは、それ自体が実験の結果に影響するというより、**「実験の実装のどこかにバグがある」ことを示す警告シグナル**として扱うべきものである。例えば、処置群でページの読み込みが遅くなり、一部のユーザーが離脱してログに残らない（結果として処置群のサンプルが減る）、といった実装上の問題が典型例である。
+$$
+\nabla g=\begin{pmatrix}1/\alpha\\-\beta/\alpha^2\end{pmatrix},\qquad
+\operatorname{SE}(\widehat{\mathrm{WTP}})
+\simeq\sqrt{\nabla g'\widehat V\nabla g}.
+$$
 
-割付比率のズレが統計的に有意かどうかは、単純なカイ二乗検定で確認できる。
+$\widehat V$ は $(\hat\beta,\hat\alpha)$ の分散共分散行列である。共分散を落とすと、同じデータから推定した2つの係数の関係を無視することになる。
+
+::: {.callout-note collapse="true"}
+## 導出：係数の関数を一次近似する
+
+$\hat\vartheta$ が推定する対象を $\vartheta^*$ とすると、
+
+$$g(\hat\vartheta)\simeq g(\vartheta^*)+\nabla g(\vartheta^*)'(\hat\vartheta-\vartheta^*)$$
+
+である。右辺の定数を除いて分散を取れば、$\nabla g'V\nabla g$ が出る。同質logitが誤指定されている場合の $\vartheta^*$ は、そのworking modelの擬似真値である。デルタ法を使っても、個人WTPの平均を推定する式へ変わるわけではない。
+:::
 
 ```{r}
-#| label: srm-check
-observed_treat <- 5200
-observed_control <- 4800
-expected_ratio <- 0.5
-
-chisq_stat <- (observed_treat - (observed_treat + observed_control) * expected_ratio)^2 /
-  ((observed_treat + observed_control) * expected_ratio) +
-  (observed_control - (observed_treat + observed_control) * (1 - expected_ratio))^2 /
-  ((observed_treat + observed_control) * (1 - expected_ratio))
-
-p_srm <- 1 - pchisq(chisq_stat, df = 1)
-cat("観測比率:", observed_treat, "vs", observed_control, "\n")
-cat("SRMのカイ二乗統計量:", round(chisq_stat, 2), " p値:", signif(p_srm, 4), "\n")
+working_wtp <- wtp_delta(fit_work)
+kable(as.data.frame(t(working_wtp)), digits = 3, caption = "同質logitによるWTP要約とデルタ法区間（千円）")
 ```
 
-このp値が非常に小さい場合は、割付・ログ欠損・適格条件の実装などを調査する強い警告である。偶然の偏りだけでも小さいp値は起こりうるため、SRMだけでバグと断定はしないが、**原因が説明・解消されるまでは効果推定を意思決定に使わない**のが安全である。実務の実験レポートには、SRMチェックを自動で組み込んでおくべきである。
+### 正しく指定した場合の確認
 
-### (iv) Interference/SUTVA違反：対照群が汚染される
+推定方法が正しい対象を回収するかも確認しておこう。属性の提示は同じまま、全員の価格係数を0.12にそろえて回答を生成し直す。この場合は同質logitが正しく、ノイズキャンセリングのWTPの真値は $0.8/0.12$ になる。
 
-計量経済学Iで学んだ潜在アウトカムの枠組みは、暗黙のうちに**SUTVA（Stable Unit Treatment Value Assumption）**を仮定していた。SUTVAには処置の隠れた複数バージョンがないことと、**ある個体の潜在アウトカムが他個体の処置に依存しないこと**が含まれる。マーケットプレイスや友達招待キャンペーンでは、後者が明確に破れうる。
+```{r}
+set.seed(2026072)
+hom <- train
+prob_hom <- choice_prob(hom$quality, hom$price, rep(.12, length(hom$id)))
+hom$choice <- vapply(seq_len(nrow(prob_hom)), function(i) sample(0:2, 1, prob = prob_hom[i, ]), integer(1))
+fit_hom <- fit_logit(hom)
+wtp_hom <- wtp_delta(fit_hom)
+kable(data.frame(parameter = names(fit_hom$coef), truth = c(dat$beta_known, .12), estimate = fit_hom$coef), digits = 3, row.names = FALSE)
+ci_data <- data.frame(estimate = wtp_hom[1], lower = wtp_hom[3], upper = wtp_hom[4])
+ggplot(ci_data, aes(x = "同質logit", y = estimate)) + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = .1) +
+  geom_hline(yintercept = .8 / .12, linetype = 2) +
+  labs(x = NULL, y = "WTP（千円）", subtitle = "破線：真値、区間：95%信頼区間")
+```
 
-例えば、配車マッチングサービスで一部のドライバーに新しいインセンティブを与える実験を考える。処置群のドライバーが稼働を増やせば、マーケットプレイス全体の需給バランスが変わり、**対照群のドライバーの稼働状況にも影響が及ぶ**（需要が処置群に吸われて対照群の売上が減る、など）。これは**interference（干渉）**あるいはSUTVA違反と呼ばれる問題である。
+推定対象をそろえると、点推定値と真値を直接比較できる。価格係数が0に近い場合は比が大きく変動し、一次近似による区間も不安定になる。WTPだけを報告せず、価格係数自体がどの程度の精度で推定されているかも確認する。
 
-友達招待キャンペーンでも同様の問題が起きる。ある顧客を処置群に割り当てても、その顧客が招待した友人（対照群かもしれない）にも施策の影響が及んでしまう。
+## 6. 商品設計にも異質性が必要になる
 
-対策として実務でよく使われるのが**クラスターランダム化**である。個人単位ではなく、地域市場、都市、店舗といった大きな単位で割り当てることで、処置群と対照群の間の相互作用を減らす。マーケットプレイス実験では「市場全体を処置群にする市場」と「市場全体を対照群にする市場」を複数用意する、**市場単位実験（marketplace-level experiment）**が候補になる。ただし市場をまたぐ干渉が残れば完全には解決せず、推論も割当単位でクラスタリングし、十分なクラスター数を確保する必要がある。
+### 平均の属性効果だけでは決まらない
 
-### (v) Novelty効果とA/Aテスト
+AMCEは、実験で提示した他の属性について平均している。しかし実際の製品会議では「価格は12千円、バッテリーは12時間」といった特定の組合せを比べる。同じノイズキャンセリングでも、その組合せにおける需要の増え方が必要になる。
 
-最後に、新しい施策を導入した直後は、**単に「新しい」というだけで一時的に反応が変わる**ことがある（novelty効果、あるいは逆に慣れるまでの学習コストで一時的に反応が悪化するprimacy効果）。実験開始直後の数日だけを見て効果を判断すると、この一時的な効果を恒常的な効果と誤認するリスクがある。
+効用が属性の足し算で書かれていても、選択確率は非線形なので、確率スケールの交互作用は生じうる。次の図では、商品Bを価格12千円、全機能なしのまま固定し、商品Aの価格とノイズキャンセリングを変える。母集団の価格感応度分布について平均した、モデル上の選択確率である。
 
-また、実験基盤自体が正しく機能しているかを確認するために、**A/Aテスト**（処置群・対照群を全く同じ扱いにする「ダミー実験」）を定期的に実施することも実務では重要である。A/Aテストで有意差が出る頻度が理論値（5%程度）から大きくズレていれば、実験基盤やデータ収集のパイプラインにバグがある可能性が高い。
+```{r}
+nodes <- qnorm((seq_len(1000) - .5) / 1000)
+alpha_nodes <- exp(dat$mu_true + dat$tau_true * nodes)
+design <- expand.grid(price = seq(8, 16, .5), nc = c(0, 1))
+design$share <- mapply(function(p, nc) {
+  q <- cbind(rep(.5 + .8 * nc, 1000), rep(0, 1000))
+  prices <- cbind(rep(p, 1000), rep(12, 1000))
+  mean(choice_prob(q, prices, alpha_nodes)[, 2])
+}, design$price, design$nc)
+ggplot(design, aes(price, share, color = factor(nc))) + geom_line(linewidth = 1) +
+  labs(x = "商品Aの価格（千円）", y = "商品Aの選択確率", color = "ノイキャン")
+```
 
-::: {.callout-note}
-## ビジネスの現場で：社内実験プラットフォームの標準レポート様式
-
-多くのテック企業の社内実験プラットフォームでは、実験結果のレポートに次のような項目を必須で含める運用になっている。
-
-- **N**：処置群・対照群それぞれのサンプルサイズ
-- **期間**：実験の開始日・終了日、事前に固定した実験期間かどうか
-- **OEC**：事前に定めた主要評価指標とその結果
-- **MDE**：この実験サイズで検出できた最小効果（検出力分析の結果）
-- **SRMチェック**：割付比率が理論値からズレていないかの検定結果
-
-この様式が標準化されている理由は単純で、**「有意でした」という結論だけを見て意思決定するのを防ぐ**ためである。SRMチェックが通っていない実験、MDEが実務上意味のある効果サイズより大きい実験（そもそも検出力が足りていない実験）は、たとえ「有意な効果あり」と報告されていても、鵜呑みにしてはいけない。
-:::
-
-## 7. 平均効果と異質的効果
-
-ここまで扱ってきたのは、すべて**平均処置効果（ATE）**——「この施策は平均してどれだけ効果があったか」——である。しかし実務の意思決定では、「誰に効いたか」「どのセグメントで最も効果的だったか」という**異質的効果（heterogeneous treatment effects）**への関心も強い。
-
-ここで先ほど見た多重検定の問題が再び顔を出す。「新規顧客だけ見たら効果が大きかった」「40代セグメントでは有意だった」というサブグループ分析は、事前に仮説を立てずに後から探索的に行うと、多重検定によって偽陽性を量産しやすい。探索自体は仮説発見に役立つが、**同じデータで見つけた差を、そのまま検証済みの異質性と呼ばない**ことが重要である。事前指定、多重性の調整、honest sample splitting、別標本での再検証のどれを使うかを明示する。
-
-異質的効果を正しく——多重検定の罠を避けながら——推定するための体系的な方法（CATE推定、causal forest、uplift modelingなど）は、第11回で本格的に扱う。今回はまず、「平均効果とサブグループ別の効果は違う問いであり、後者を安易に探索すると簡単に嘘の発見にたどり着く」ということを認識しておいてほしい。
-
-## 8. 実証研究コーナー
-
-::: {.callout-tip}
-## 実証研究コーナー：Gordon, Zettelmeyer, Bhargava, and Chapsky (2019)
-
-**研究の問い**：Facebook広告のような大規模プラットフォームで、広告の効果を測る際に、RCT（ランダム化比較実験）と観察データに基づく手法（マッチングなど）は、どれくらい異なる推定値を与えるのか。
-
-**データ**：Facebook上で実施された15件の米国広告実験、合計約5億のuser-experiment observations。各実験には無作為化された処置群と対照群がある。
-
-**識別戦略・モデル**：Gordon et al. (2019, *Marketing Science*) は、同じ広告キャンペーンについて、(i) RCTによる推定値（因果推論のgold standardとみなせる）と、(ii) 観察データに傾向スコアマッチングなどの手法を適用した推定値を比較した。
-
-**主要な発見**：観察データに基づく手法は、豊富な共変量で調整してもRCTの推定値を再現できないことが多く、誤差の大きさや向きにも一貫したパターンがなかった。これは、広告が配信されるユーザーと非配信ユーザーの系統的な違いを、観測共変量だけでは十分に除けないことを示す。
-
-**なぜこの講義のトピックと繋がるのか**：この研究は「なぜRCTがそれでも重要か」を、大規模な実データで裏付けた代表例である。冒頭で見た「開封者vs非開封者比較」の罠が、Facebook規模のプラットフォームでも実際に起きていることを示しており、次回学ぶ観察データからの因果推論の限界を考える上でも重要な参照点になる。
-:::
-
-::: {.callout-tip}
-## 実証研究コーナー：Johnson, Lewis, and Nubbemeyer (2017) の"Ghost Ads"
-
-**研究の問い**：オンライン広告の効果を測定するために、コストの低い対照群（ホールドアウト群）をどう作ればよいか。
-
-**データ**：オンライン広告配信プラットフォームにおける、広告接触者・非接触者の行動データ。
-
-**識別戦略・モデル**：Johnson, Lewis, and Nubbemeyer (2017, *Journal of Marketing Research*) は、**ghost ads**という仕組みを提案した。対象ユーザーを無作為に処置群・対照群へ分け、対照群ではテスト広告を表示・購入しない一方、「同じ配信ロジックなら広告が表示されていたはず」の機会を記録する。これにより、実際に接触した処置群と、接触していたはずの対照群を対応させ、PSA広告の費用やITT分析の余分なノイズを減らせる。実装によっては実オークションまたは予測オークションの情報を用いるため、「対照群がオークションに一切関与しない」とは限らない。
-
-**主要な発見**：通常のオンライン広告実験で対照群を作る際に生じがちな「入札に参加させないと対照群を作れない」というコスト構造上の制約を回避しながら、正しいincrementalityの測定を可能にする実装上の工夫を提示した。
-
-**なぜこの講義のトピックと繋がるのか**：この論文は、「正しいholdout群をどう安く作るか」という、今回学んだholdout設計の実務的な発展形を示している。理論的には単純なランダム化でも、実務での実装コスト（広告オークションのように、対照群を作ること自体にコストがかかる場面）を考えると、工夫が必要になることを教えてくれる好例である。
-:::
-
-::: {.callout-tip}
-## 実証研究コーナー：Kohaviの「Bingのタイトル変更」の逸話
-
-**研究の問い**：一見些細なUI変更（検索結果のタイトルの表示ロジックの微修正）が、企業の収益にどれだけの影響を持ちうるか。
-
-**データ・アプローチ**：Kohavi, Tang, and Xu (2020) *Trustworthy Online Controlled Experiments* で紹介されている、Microsoft Bingでの実際のA/Bテスト事例（詳細な数値は書籍中の記述に基づく）。
-
-**主要な発見**：ある年、Bingのエンジニアが広告タイトルの表示ロジックにごく小さな変更を加えるA/Bテストを実施したところ、想定を大きく超える収益改善効果が観測された。この効果は「too good to be true」警告が出るほど大きかったが、検証の結果、主要な利用者指標を悪化させずに**収益を12%押し上げ、米国だけで年換算1億ドル超**に相当すると報告された。
-
-**なぜこの講義のトピックと繋がるのか**：この逸話は、Kohaviらが繰り返し強調する「小さな変更が持つ効果は、事前の直感だけでは全く予測できない」という教訓の象徴的な例として、A/Bテスト文化の重要性を語る際によく引用される。同時に、「想定外に大きい効果が出たときほど、SRMや実装バグを疑って慎重に検証すべきだ」という、今回学んだ落とし穴のリストとも直結する教訓を含んでいる。
-:::
-
-::: {.callout-tip}
-## 実証研究コーナー：Lewis and Rao (2015)（再掲・検出力の観点から）
-
-第3節で紹介したLewis and Rao (2015) は、実証研究コーナーとしても改めて位置づけておく価値がある。この論文が示した「広告効果の検出は統計的に難しい」という結論は、単に「少しサンプルサイズを増やせば解決する」という話ではない。**個人レベルの売上の分散が、広告の効果サイズに比べて桁違いに大きい**という、指標そのものの統計的性質に起因する構造的な問題である。CUPEDなどで精度を改善できても、この難しさが消えるとは限らない。また、観察データに切り替えても情報が増えるわけではなく、広告ターゲティングによる選択バイアスが加わる。同論文の教訓は、精度と識別を別々に点検することにある。
-:::
-
-## 9. ビジネスの現場で
+平均的に高く評価される機能でも、誰が買うかが変われば既存商品からの需要の移り方も変わる。第4回で代替関係を考えるために異質性が必要だったのと同じである。機能を一つ追加するか、異なる価格帯の商品を二つ用意するかという設計にも、分布が関係する。
 
 ::: {.callout-note}
-## ビジネスの現場で：「有意になるまで回す」への社内ルール
+## ビジネスの現場で：標準版と上位版を用意する
 
-大規模な実験基盤を持つ企業の多くは、社内の実験文化として次のようなルールを明文化している。
-
-- 実験開始前に、サンプルサイズ（あるいは実験期間）とOECを確定し、実験計画書として記録する。
-- 実験の途中経過はモニタリングしてよいが、**その時点でのp値をもって意思決定してはいけない**（sequential testingの仕組みを使っていない限り）。
-- 「有意にならなかったので、対象セグメントを絞ってもう一度検定してみる」という事後的な探索は、多重検定の観点から原則禁止するか、少なくとも「探索的分析であり検証的な結論ではない」と明記する。
-- SRMチェックが通らない実験は、結果を公表する前に必ず原因を調査する。
-
-こうしたルールは、統計的な厳密さのためだけでなく、**「都合の良い結果が出るまで実験を回し続ける」というインセンティブに対する組織的な防波堤**として機能している。
+価格に敏感な人と、機能のためなら高い価格を払う人がいるとする。全員に上位版だけを出すと、前者は買わないかもしれない。標準版を残せば購入を保てるが、上位版を買うはずだった人が標準版に移る可能性もある。個人別の選択確率を平均して各商品の需要を求め、製造費用と併せて比べる必要がある。平均WTPが追加費用を超えるという条件だけでは、商品群の最適な構成は決まらない。
 :::
 
-::: {.callout-note}
-## ビジネスの現場で：経営会議での効果報告テンプレート
+### 8問から一人の係数を推定できるか
 
-経営会議でA/Bテストの結果を報告する際、実務でよく使われるテンプレートは次のような構成を取る。
+この調査は一人8問である。300人分を合わせれば平均効果を推定できても、一人の価格係数をその8問だけで正確に求められるとは限らない。例えば、たまたま安い商品を続けて選んだ人を、非常に価格に敏感だと推定してしまうかもしれない。前回の購買履歴と同じ問題である。
 
-1. **施策の概要**：何を、誰に、いつ実施したか。
-2. **OECの結果**：事前に定めた主要指標の推定値、信頼区間、有意性。
-3. **incrementalityの解釈**：ITTなのかTOTなのかを明示し、施策のコストとリターンを対応させる。
-4. **信頼性チェック**：SRM、サンプルサイズが計画通りだったか。
-5. **セグメント別の参考情報**：あくまで「参考」として扱い、これを根拠に新たな結論を主張しない。
-6. **推奨アクション**：展開する・しない・追加検証するの3択で提示する。
+今回のモデルで一人の履歴を説明する尤度は、
 
-このテンプレートの肝は、**「有意だったかどうか」という二値の判断だけでなく、効果の大きさ（実務的重要性）とコストを併記する**ことにある。統計的に有意でも、効果の大きさが施策のコストに見合わなければ展開すべきではないし、逆に有意ではなくても検出力が最初から不足していた（MDEが実務上意味のある効果より大きかった）なら、「効果がなかった」と結論づけるのは早計である。
+$$L_i(\theta_i)=\prod_{t=1}^{8}P_{iy_{it}t}(e^{\theta_i})$$
+
+である。ここに母集団の分布 $\theta_i\sim N(\mu,\tau^2)$ を組み合わせれば、本人の回答と他の人たちの情報の両方を使える。第8回で「尤度と事前分布を合わせる」とはどういう計算かを学び、第9回でこの式を使う。
+
+第9回では個人係数の推定を追いやすくするため、属性係数 $(0.5,0.8,0.3)$ を既知に固定し、$\theta_i,\mu,\tau$ を推定する。今回の同質logitは属性係数も推定していたので、その点は異なる。実務で属性係数が既知という意味ではなく、階層モデルを段階的に学ぶための簡略化である。
+
+## 7. 実証研究での使い方
+
+::: {.callout-tip}
+## 実証研究コーナー：Hainmueller, Hopkins, and Yamamoto (2014)
+
+この研究は、複数の属性を同時に変える調査から、各属性の因果効果をどう取り出すかを考えた。移民の受け入れに関する実験では、教育、職業、言語能力など9属性を変えた申請者の組を、一人に5組提示している。潜在アウトカムを使ってAMCEを定義し、割付設計に対応する回帰で推定する。さらに、回答への効果が問の位置や属性の表示順によって変わっていないかを調べた。例えば通訳を必要とすることの不利な効果は、属性の表示位置による比較で10〜23パーセントポイントの範囲にあり、等しいという仮説は棄却されなかった（$p=0.14$）。ランダム化したから終わりではなく、想定した比較が回答過程でも保たれているかを点検する例である。[論文§2.2、§5.3.4](https://web.mit.edu/teppei/www/research/conjoint.pdf)
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Hainmueller, Hangartner, and Yamamoto (2015)
+
+この研究は、仮想的な回答が実際の行動にどこまで対応するかを、スイスの帰化に関する住民投票と調査実験で比較した。同じ種類の申請者属性について、実際の投票と複数の調査形式から効果を推定している。比較した21個の属性効果では、paired conjointと実行動の推定値の絶対差は平均2パーセントポイントだった。一方、拒否率の水準は調査に基づく予測が約21%、実際の投票が37%であった。属性効果が近いことと、選択率の水準まで一致することは異なる。この区別は、調査のAMCEを評価する場合と、新商品の販売数量を予測する場合で、確認すべきものが違うことを示している。[論文Table 1、pp.2398–2399](https://eprints.lse.ac.uk/86341/1/Hainmueller_Hnagartner_Yamamoto_Validating%20vignette.pdf)
+:::
+
+::: {.callout-tip}
+## 実証研究コーナー：Lenk, DeSarbo, Green, and Young (1996)
+
+一人の回答を減らしても、選好の個人差を推定できるだろうか。この研究はrating型のコンジョイントを対象に、個人の部分効用を階層ベイズで推定した。シミュレーションでは、一人16件の評価から2件ずつ減らし、2件まで情報を減らして比較している。個人別OLSが計算できなくなる少数回答でも、集団の分布を使うことで個人差を推定できることを示した。今回のCBCとは回答形式が違うが、一人の情報が少ないときに母集団から情報を借りる考え方は共通である。第9回ではこれを、評価点ではなく選択の尤度に組み合わせる。[論文、p.177](https://pubsonline.informs.org/doi/10.1287/mksc.15.2.173)
 :::
 
 ## まとめ
 
 ::: {.callout-important}
-## まとめ
+## この回のポイント
 
-- 「効果ありました」レポートの多くは、開封者vs非開封者比較や前後比較のような、正しい反実仮想を構築できていない比較に基づいている。ランダム化holdoutはincrementalityを測る最も透明な基準であり、自然実験・DiD・IVなどを使う場合は追加の識別仮定を明示する。
-- Fisherのランダム化推論はsharp nullを割り当て機構から有限標本で検定する。Welchのt検定は平均効果ゼロというweak nullの大標本推論であり、数値が近くても同じ検定ではない。
-- 検出力・MDEの計算は実務の主戦場であり、CVRのような低いベースライン比率を持つ指標では、小さな効果の検出に驚くほど大きなサンプルサイズが必要になる。
-- ITT（配信の効果）とTOT（使用の効果）は異なる。ランダム割り当て・first stage・排除制約・monotonicity・one-sided noncomplianceのもとで、complierへのLATEをTOTと解釈し、Wald比（ITT/使用率）で推定できる。
-- CUPEDは実験前データを使う分散削減法である。母集団の最適な調整係数なら分散は$(1-\rho^2)$倍になるが、推定係数を使う有限標本では保証ではないため、ANCOVAと適切なSEで確認する。
-- 大規模実験にはpeeking（Type I errorの膨張）、多重検定（どれか有意になる確率の急増）、SRM（実装バグのシグナル）、interference（SUTVA違反）、novelty効果といった落とし穴があり、事前のN固定・OECの一本化・SRMチェック・クラスターランダム化といった実務規範で対処する。
+- CBCは価格と属性を割り付けた選択実験であり、同じ離散選択モデルで分析できる。
+- AMCEは調査設計で平均した選択確率の変化である。効用係数やWTPとは単位も推定対象も違う。
+- outsideの回答を残し、同じ人の複数回答を回答者単位の標準誤差に反映する。
+- 個人WTPの平均と平均係数の比は異なる。デルタ法は、どの比を推定しているかを決めたうえで使う。
+- 個人の異質性は、提案先を選ぶときだけでなく、商品群の設計や需要の移り方にも関係する。短い回答から個人係数を学ぶため、第8・9回でベイズ推定と階層モデルを使う。
 :::
 
 ## 宿題
 
-- ブラウザ実験室（[playground7.html](playground7.html)）で、今回のシミュレーションの数値を自分でいじって遊んでみよう。インストール不要、ブラウザだけでRが動く（初回ロードのみ30秒〜1分かかる）。
-- 今回のRシミュ5（peeking）で、`check_intervals`をさらに細かく（例えば50人ごと）変えて、Type I errorがどこまで膨らむか確認してみよう。逆に、覗く回数を1回・2回に絞ると、Type I errorが5%に近づくことも確認してみよう。
-- ChatGPTなどの対話AIに「sequential testingとはどのような仕組みで、なぜpeekingをしても妥当な推論を保てるのか」と聞いてみて、今回学んだ内容とどう関係するか考えてみよう。
-- 自分の仕事（または身近な企業）で「有意になるまで実験を回してしまいそうな場面」を1つ思い浮かべ、どんな社内ルールがあれば防げそうか考えてみよう。
-- coding課題は `assignment7.qmd` を参照。
+1. 同じノイズキャンセリングでも、価格の割付分布を変えるとAMCEが変わる理由を説明しよう。
+2. 平均WTPが8千円だったとして、全員が8千円の追加価格を払うと言えるだろうか。今回の個人WTPの分布で考えよう。
+3. ある人が8問すべてで買わないと答えたとき、個人の係数をどこまで決められるだろうか。
+
+coding課題は [課題7](assignment7.html) を参照。[Playground](playground7.html)では、価格感応度と回答数を変えて計算できる。
 
 ## 次回予告
 
-次回（第8回）は、今回学んだ実験ができない場面——過去に遡って割り付けを変えられない状況、全社的な値上げのように一部の顧客だけに施策を打つことが現実的でない状況——で、観察データから施策効果を読み取る方法を扱う。計量経済学Iで学んだDiD、IV、RDD、固定効果モデルを、マーケティング施策の文脈に応用し、staggered adoption（施策の導入タイミングが顧客・地域ごとにバラバラな状況）のような近年のDiDで問題になる論点にも触れる。今回学んだ「実験なら何が保証されるか」という基準は、次回「観察データからの推定がその基準にどれだけ近づけるか」を評価する物差しになる。
+次回はベイズ推定の基礎を学ぶ。本人のデータが少ないとき、事前に持っている情報とどう合わせればよいかを、簡単な正規モデルから考える。尤度、事前分布、事後分布を区別し、完全に同じ係数を使う方法と一人ずつ推定する方法の間にあるpartial poolingを計算する。その後の第9回で、今回のCBCデータへ戻る。
 
 ## 参考文献
 
-- Kohavi, Ron, Diane Tang, and Ya Xu (2020) *Trustworthy Online Controlled Experiments: A Practical Guide to A/B Testing*, Cambridge University Press, Chapters 1-3.
-- Gordon, Brett R., Florian Zettelmeyer, Neha Bhargava, and Dan Chapsky (2019) "A Comparison of Approaches to Advertising Measurement: Evidence from Big Field Experiments at Facebook," *Marketing Science*, 38(2), 193-225.
-- Johnson, Garrett A., Randall A. Lewis, and Elmar I. Nubbemeyer (2017) "Ghost Ads: Improving the Economics of Measuring Online Ad Effectiveness," *Journal of Marketing Research*, 54(6), 867-884.
-- Athey, Susan and Guido W. Imbens (2017) "The Econometrics of Randomized Experiments," in *Handbook of Economic Field Experiments*, Vol. 1, 73-140.
-- Lewis, Randall A. and Justin M. Rao (2015) "The Unfavorable Economics of Measuring the Returns to Advertising," *Quarterly Journal of Economics*, 130(4), 1941-1973.
-- Cohen, Jacob (1988) *Statistical Power Analysis for the Behavioral Sciences*, 2nd ed., Lawrence Erlbaum Associates.
+- Hainmueller, J., D. J. Hopkins, and T. Yamamoto (2014). “Causal Inference in Conjoint Analysis: Understanding Multidimensional Choices via Stated Preference Experiments.” *Political Analysis*, 22(1), 1–30. [論文](https://web.mit.edu/teppei/www/research/conjoint.pdf)
+- Hainmueller, J., D. Hangartner, and T. Yamamoto (2015). “Validating Vignette and Conjoint Survey Experiments Against Real-World Behavior.” *PNAS*, 112(8), 2395–2400. [論文](https://doi.org/10.1073/pnas.1416587112)
+- Lenk, P. J., W. S. DeSarbo, P. E. Green, and M. R. Young (1996). “Hierarchical Bayes Conjoint Analysis: Recovery of Partworth Heterogeneity from Reduced Experimental Designs.” *Marketing Science*, 15(2), 173–191. [論文](https://doi.org/10.1287/mksc.15.2.173)
+- Green, P. E., and V. Srinivasan (1990). “Conjoint Analysis in Marketing: New Developments with Implications for Research and Practice.” *Journal of Marketing*, 54(4), 3–19.
+- Egami, N., and K. Imai (2019). “Causal Interaction in Factorial Experiments: Application to Conjoint Analysis.” *JASA*, 114(526), 529–540.
+- Goplerud, M., K. Imai, and N. E. Pashley (2025). “Estimating Heterogeneous Causal Effects of High-Dimensional Treatments: Application to Conjoint Analysis.” *The Annals of Applied Statistics*, 19(2), 866–888.
+- Train, K. E. (2009). *Discrete Choice Methods with Simulation*, 2nd ed. Chapters 3, 6, 11. [著者による公開版](https://eml.berkeley.edu/books/choice2.html)
+
+- 上武康亮・遠山祐太・若森直樹・渡辺安虎（2025）『実証ビジネス・エコノミクス』日本評論社。

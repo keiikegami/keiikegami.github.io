@@ -1,5 +1,5 @@
 ---
-title: "課題6：フードデリバリーのサブスクプラン設計 — コンジョイント分析"
+title: "課題6：短い購買履歴から需要を予測する"
 subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -23,10 +23,9 @@ execute:
 #| include: false
 library(ggplot2)
 library(dplyr)
-library(fixest)
 library(knitr)
 
-set.seed(20266)
+set.seed(202606)
 
 theme_lecture <- function() {
   fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
@@ -37,393 +36,66 @@ knitr::opts_chunk$set(fig.align = "center", dpi = 144)
 options(scipen = 8)
 ```
 
-::: {.callout-important}
-## この課題のねらい
+## 提出するもの
 
-第6回で学んだ **choice-based conjoint（CBC）の設計** と **AMCE（average marginal component effect）の推定**、**WTP（支払意思額）のデルタ法CI**、**交互作用**、**セグメント別異質性**を、フードデリバリーのサブスクプランという別の題材で最初から最後まで自分の手で通す。
+Rコード、図・表、設問への回答をまとめたHTMLを提出する。講義ノートの関数を使ってよいが、データ生成部分は自分で書くこと。乱数シードは `2026062` とする。解答は自分の言葉で書き、真の係数を使う箇所と推定した係数を使う箇所を区別する。
 
-- **Part 1**：CBC調査を設計し、DGPを自作してデータを生成する（40点）。
-- **Part 2**：AMCE推定、logit MLE、WTP、交互作用、セグメント分析、クラスターSEの重要性の検証、経営含意まで（60点）。
+## Part 1：シミュレーション設計（40点）
 
-配点は合計100点。手を動かせば2〜4時間で終わる分量。骨格コード（穴埋め）を惜しみなく与えるので、まず埋めることから始めよ。ヒントcalloutを見逃さないように。
-:::
-
-この課題は講義ノート（`lecture6.qmd`）と同じ構造だが、**題材と属性設定は変えてある**。ノートのコードをそのままコピペするだけでは通らないので、自分で理解して埋めること。
-
----
-
-# Part 1：CBC調査の設計とDGP（40点）
-
-## 舞台設定
-
-あなたはフードデリバリーサービスの新しいサブスクリプションプラン（例えば「月額会員になると配達手数料が優遇される」プラン）を設計するチームにいる。次の3つの属性でコンジョイント調査を行うことにした。
-
-| 属性 | 水準 |
-|---|---|
-| 月額料金 | 300円 / 500円 / 800円 |
-| 配達無料になる注文金額の閾値 | 1,000円以上 / 1,500円以上（閾値が低いほど便利、と解釈する） |
-| 限定クーポン配布 | なし / あり |
-
-$N=500$人の回答者が、それぞれ8回のタスクに回答する。各タスクでは2つのプラン（A・B）＋「どちらも入会しない」（outside option）の中から1つを選ぶ。
-
-モデル（条件付き分布の束）は次の通り。回答者 $i$、タスク $t$、プラン $j\in\{A,B\}$：
+飲料サービスが、無糖のお茶Aと甘いお茶Bを提案する場面を考える。顧客はA、B、購入しない（0）のいずれかを選ぶ。顧客数は300人、価格の単位は100円である。
 
 $$
-u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{coupon},i}\cdot \text{coupon}_{jt} - \alpha_i \cdot \text{price}_{jt}/100 + \varepsilon_{ijt}
+u_{iAt}=1.5-\theta_i-p_{iAt}+\varepsilon_{iAt},\qquad
+u_{iBt}=1.5+\theta_i-p_{iBt}+\varepsilon_{iBt},\qquad
+u_{i0t}=\varepsilon_{i0t}.
 $$
 
-$\text{low\_threshold}_{jt}$は「閾値1,000円以上（低い方）なら1」のダミー、$\text{coupon}_{jt}$は「クーポン配布ありなら1」のダミー、$\text{price}_{jt}$は月額料金（円）である。$\varepsilon_{ijt}$はType I極値分布。属性係数には正規異質性、必ず正である価格係数には対数正規異質性を持たせる（mixed logit）。
+$\varepsilon_{ijt}$ は互いに独立な標準Type I極値分布に従う。$\theta_i$ は $(-1.2,0,1.2)$ のいずれかであり、その割合は $(0.2,0.3,0.5)$ とする。各価格は独立に $U[1,2.5]$ から引く。同じ人の $\theta_i$ は全期間で固定する。定数1.5、価格係数1、タイプの位置は推定でも既知とし、母集団の割合だけを未知とする。
+
+### 問1：選択確率と生成コード（15点）
+
+条件付き選択確率を式で示し、顧客ごとに一度だけタイプを引くコードを書け。各人12回の学習用候補データと、それとは別に20回の評価用データを生成せよ。両方で同じタイプを使うこと。推定に最初に使うのは、学習用のうち最初の3回だけである。
+
+### 問2：データの確認（10点）
+
+`id, occasion, pA, pB, y` を持つデータを作り、行数、選択割合、価格の範囲を確認せよ。学習用と評価用で価格や一時的ショックを引き直す理由を説明せよ。
+
+### 問3：履歴の可視化（15点）
+
+最初の3回にBを選んだ回数の分布を図示せよ。シミュレーションで保存した真のタイプ別にその分布を比較し、「Bを多く買った人なら必ず $\theta_i=1.2$」とは言えない理由を書け。真のタイプはこの診断だけで使い、推定には渡さないこと。
+
+## Part 2：推定・推論（60点）
+
+### 問4：母集団のタイプ割合（15点）
+
+履歴の尤度 $L_i(\theta_k)=\prod_t P_{iy_{it}t}(\theta_k)$ を計算し、
 
 $$
-\beta_{\text{low},i} = \beta_{\text{low}} + \sigma_{\text{low}} z_{\text{low},i}, \qquad
-\beta_{\text{coupon},i} = \beta_{\text{coupon}} + \sigma_{\text{coupon}} z_{\text{coupon},i}, \qquad
-\alpha_i = \exp(\mu_\alpha + \sigma_{\log\alpha}z_{\alpha,i})
+\hat\pi=\arg\max_\pi\sum_i\log\left\{\sum_{k=1}^3\pi_k L_i(\theta_k)\right\}
 $$
 
-$z_{\cdot,i}\sim N(0,1)$で、$\mu_\alpha=\log(\bar\alpha)-\sigma_{\log\alpha}^2/2$ として $E[\alpha_i]=\bar\alpha$ に合わせる。各回答者は8タスクすべてで同じ係数を使う（回答者内クラスター相関の源）。
+を推定せよ。割合が非負で合計1になるよう、講義のsoftmaxによるパラメータ化を使ってよい。推定値と真値を表にまとめよ。
 
-**DGPのパラメータ**（AMCEの大標本真値を作るために使う。問6では異質性を0にした別の基準ケースも作る）：
+### 問5：履歴による重みの更新（15点）
 
-| 記号 | 意味 | 値 |
-|---|---|---|
-| $\beta_{\text{low}}$ | 低閾値（1,000円）への平均選好 | 0.6 |
-| $\beta_{\text{coupon}}$ | クーポンありへの平均選好 | 0.9 |
-| $\alpha$ | 価格係数（百円あたり） | 0.35 |
-| $\sigma_{\text{low}}$ | 低閾値選好のばらつき | 0.35 |
-| $\sigma_{\text{coupon}}$ | クーポン選好のばらつき | 0.7（利用頻度の差が大きく効くという想定） |
-| $\sigma_{\log\alpha}$ | log価格係数のばらつき | 0.3 |
+各人の重み $w_{ik}=\hat\pi_kL_i(\theta_k)/\sum_l\hat\pi_lL_i(\theta_l)$ を計算し、行ごとの合計が1であることを確認せよ。また、全員を別々に扱い、$\theta_i\in[-5,5]$ の範囲で個人の最尤推定値を求めよ。いくつの推定値が区間の端に近いか（$|\hat\theta_i|>4.9$）を数えよ。
 
-## 問1（10点）：属性・DGPパラメータの設定とプロファイル生成関数
+### 問6：予測評価（15点）
 
-以下のコードを完成させ、属性の水準とDGPパラメータを設定し、プロファイルをランダム生成する関数`generate_profiles`を書け。
+評価用20回の選択について、母集団の割合だけを使う予測、個人別最尤推定値を使う予測、履歴で更新した重みを使う予測を比べよ。指標は選ばれた選択肢の予測確率の負の対数（log loss）の平均とし、小さいほどよい。学習履歴を3回から12回へ増やした場合も比較せよ。
 
-```{r}
-#| eval: false
-# ---- 属性の水準 ----
-price_levels <- c(300, 500, 800)      # 月額料金（円）
-threshold_levels <- c(1000, 1500)      # 配達無料閾値（円）。1000円の方が「低い」=便利
-coupon_levels <- c(0, 1)               # 0=なし, 1=あり
+### 問7：顧客単位のブートストラップ（10点）
 
-# ---- 真のパラメータ ----
-true_params <- list(
-  beta_low_mean    = ______,   # 【穴埋め】低閾値への平均選好(0.6)
-  beta_coupon_mean = ______,   # 【穴埋め】クーポンへの平均選好(0.9)
-  alpha_mean       = ______,   # 【穴埋め】価格係数(0.35, 百円あたり)
-  sigma_low    = 0.35,
-  sigma_coupon = 0.7,
-  sigma_log_alpha = 0.3
-)
+最初の3回のデータで、顧客を復元抽出して母集団の割合を80回推定し直せ。各割合の2.5、97.5パーセンタイルで区間を作れ。個々の選択行を独立に抽出してはいけない理由を説明せよ。
 
-draw_gumbel <- function(n) {
-  u <- runif(n)
-  -log(-log(u))
-}
+### 問8：経営への含意（5点）
 
-# ---- プロファイル生成関数 ----
-# n個のプロファイルについて、price・low_threshold(ダミー)・couponをランダムに生成する
-generate_profiles <- function(n) {
-  price <- sample(price_levels, n, replace = TRUE)
-  low_threshold <- as.numeric(sample(threshold_levels, n, replace = TRUE) == ______)  # 【穴埋め】1000円なら1
-  coupon <- sample(coupon_levels, n, replace = TRUE)
-  data.frame(price = price, low_threshold = low_threshold, coupon = coupon)
-}
-```
-
-::: {.callout-tip}
-## ヒント：なぜ「低閾値ダミー」として作るのか
-
-配達無料閾値は「1,000円」と「1,500円」という数量だが、講義ノートのバッテリー属性と同様、AMCEの回帰では**水準ダミー**として扱うのが基本である。閾値が低い（1,000円）方が消費者にとって便利なはずなので、`low_threshold = 1`が「良い水準」を表すようにダミーの向きを揃えておくと、後で係数の符号が直感と一致し解釈しやすくなる。
-:::
-
-## 問2（10点）：CBCデータを生成する`simulate_cbc`関数
-
-講義ノートの`simulate_cbc`関数を参考に、回答者ごとのランダム係数を引き、8タスク×500人分のCBCデータを生成する関数を完成させよ。各タスクでプランA・Bの属性を独立にランダム生成し、outside optionを含めた3択の選択を、Gumbel分布に基づく効用比較で決めること。
-
-```{r}
-#| eval: false
-simulate_cbc <- function(n_resp, n_task, params) {
-  resp_id <- rep(1:n_resp, each = n_task)
-  N <- n_resp * n_task
-
-  # 回答者ごとのランダム係数
-  z_low    <- rnorm(n_resp)
-  z_coupon <- rnorm(n_resp)
-  z_alpha  <- rnorm(n_resp)
-
-  beta_low_i    <- params$beta_low_mean    + params$sigma_low    * z_low
-  beta_coupon_i <- ______                                          # 【穴埋め】beta_coupon_iを作る
-  mu_log_alpha  <- log(params$alpha_mean) - params$sigma_log_alpha^2 / 2
-  alpha_i       <- exp(mu_log_alpha + params$sigma_log_alpha * z_alpha)
-
-  beta_low_n    <- rep(beta_low_i,    each = n_task)
-  beta_coupon_n <- rep(beta_coupon_i, each = n_task)
-  alpha_n       <- rep(alpha_i,       each = n_task)
-
-  # プロファイルA・Bを独立生成（price単位に注意：alphaは「百円あたり」なので/100する）
-  profA <- generate_profiles(N)
-  profB <- generate_profiles(N)
-
-  vA <- beta_low_n * profA$low_threshold + beta_coupon_n * profA$coupon - alpha_n * (profA$price / 100)
-  vB <- ______   # 【穴埋め】vAと同様にvBを作る
-
-  eps <- matrix(draw_gumbel(N * 3), nrow = N, ncol = 3)
-  U <- cbind(eps[, 1], vA + eps[, 2], vB + eps[, 3])
-  choice3 <- apply(U, 1, which.max) - 1   # 0=outside, 1=A, 2=B
-
-  data.frame(
-    resp_id = resp_id, choice3 = choice3,
-    priceA = profA$price, lowA = profA$low_threshold, couponA = profA$coupon,
-    priceB = profB$price, lowB = profB$low_threshold, couponB = profB$coupon
-  )
-}
-
-n_resp <- 500
-n_task <- 8
-cbc_raw <- simulate_cbc(n_resp, n_task, true_params)
-head(cbc_raw)
-```
-
-::: {.callout-tip}
-## ヒント：単位に注意
-
-`alpha_mean = 0.35`は「価格が百円動いたときの効用の変化」を表すよう設計している（講義ノートでは価格を千円単位で扱っていたが、今回は月額料金がもっと小さい金額なので百円単位にしてある）。`price / 100`の`/100`を忘れて円のまま入れると、価格項は意図した値の**100倍**になり、ほぼ全員が「どちらも入会しない」を選ぶ。逆に、誤ってもう一度100で割る（`price / 10000`）と価格項は意図した値の1/100になり、価格をほぼ無視する。まず小さいNで`table(cbc_raw$choice3)`を見て、極端に偏っていないか確認する習慣をつけよ。
-:::
-
-## 問3（10点）：プロファイルのランダム化チェックと記述統計
-
-生成したプロファイルについて、(a) 属性間の相関行列を計算し無相関に近いことを確認せよ、(b) CBC回答データの選択シェア（outside/A/B）を集計し図示せよ。
-
-```{r}
-#| eval: false
-# (a) ランダム化チェック
-n_check <- 20000
-profiles_check <- generate_profiles(n_check)
-cor_matrix <- cor(profiles_check[, c("price", "low_threshold", "coupon")])
-round(cor_matrix, 3)
-
-# (b) 選択シェアの集計と図示
-choice_share <- cbc_raw %>%
-  mutate(choice_label = factor(choice3, levels = c(0,1,2),
-                                labels = c("どちらも入会しない", "プランA", "プランB"))) %>%
-  count(choice_label) %>%
-  mutate(share = n / sum(n))
-
-ggplot(choice_share, aes(x = choice_label, y = share, fill = choice_label)) +
-  geom_col(width = 0.6, show.legend = FALSE) +
-  labs(x = NULL, y = "選択割合", title = "CBC回答の選択分布")
-```
+「少ない履歴から極端な好みを推定し、そのまま商品を提案する」方法の問題を3行で述べよ。今回の予測比較だけで、実際に提案を送ることの売上効果まで分かるかにも触れること。
 
 ::: {.callout-note}
-## この課題での記述統計の意味
+## 実装のヒント
 
-属性間の相関がゼロに近いことを確認するのは「ランダム化が実装バグなく機能しているか」の最も基本的なチェックである。もし相関が大きく出たら、`generate_profiles`のロジックか、`sample`の引数を疑うこと。選択シェアについては、outsideがほぼ0ならoutsideの効用水準を識別する情報が乏しく、ほぼ1ならA・Bが選ばれる情報が乏しい。唯一の「健全な比率」があるわけではなく、想定市場に照らして各選択肢に十分な変動があるかを確認する。
+積を直接計算すると小さい値になりやすい。各タイプの対数尤度を先に計算し、行最大値を引いてから指数を取ると安定する。学習用と評価用のデータを別のオブジェクトにしておくと、評価用の選択を推定に混ぜずに済む。
 :::
 
-## 問4（10点）：long形式への変換
-
-AMCE推定用に、各タスクをプランA行・プランB行に分解したlong形式のデータフレームを作る関数`to_long`を完成させよ。**outside optionを選んだタスクも残し**、そのときはA行・B行の`chosen`をともに0にすること。outsideでなかったことへの条件付けは、属性の影響を受ける結果で標本を選ぶpost-treatment selectionになる。
-
-```{r}
-#| eval: false
-to_long <- function(cbc_raw) {
-  d <- cbc_raw
-
-  rowsA <- data.frame(
-    resp_id = d$resp_id, task_id = seq_len(nrow(d)),
-    profile = "A", price = d$priceA, low_threshold = d$lowA, coupon = d$couponA,
-    chosen = as.numeric(______)   # 【穴埋め】choice3が1(=Aが選ばれた)なら1
-  )
-  rowsB <- data.frame(
-    resp_id = d$resp_id, task_id = seq_len(nrow(d)),
-    profile = "B", price = d$priceB, low_threshold = d$lowB, coupon = d$couponB,
-    chosen = as.numeric(______)   # 【穴埋め】choice3が2(=Bが選ばれた)なら1
-  )
-  rbind(rowsA, rowsB)
-}
-
-cbc_long <- to_long(cbc_raw)
-cbc_long$price500 <- as.numeric(cbc_long$price == 500)
-cbc_long$price800 <- as.numeric(cbc_long$price == 800)
-nrow(cbc_long)
-```
-
----
-
-# Part 2：推定・推論（60点）
-
-## 問5（12点）：(i) AMCEをOLS＋クラスターSEで推定し、真値と比較する
-
-`fixest::feols`で水準ダミーのOLSを実行し、`cluster = ~resp_id`で回答者クラスターSEを計算せよ。真のAMCEは、講義ノートと同様に**大標本（n_resp=50,000程度）で同じ手順を実行してOLSした値**として近似せよ。推定値・真値・95%信頼区間の比較表を作れ。
-
-```{r}
-#| eval: false
-# AMCE推定
-amce_fit <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
-                   data = cbc_long, cluster = ~resp_id)
-summary(amce_fit)
-
-# 真のAMCE（大標本シミュレーション）
-compute_true_amce <- function(n_resp_big, n_task, params) {
-  big_raw <- ______                     # 【穴埋め】simulate_cbcを大標本で呼ぶ
-  big_long <- to_long(big_raw)
-  big_long$price500 <- as.numeric(big_long$price == 500)
-  big_long$price800 <- as.numeric(big_long$price == 800)
-  fit <- lm(chosen ~ price500 + price800 + low_threshold + coupon, data = big_long)
-  coef(fit)
-}
-true_amce_vec <- compute_true_amce(50000, n_task, true_params)
-
-# 比較表
-recovery_df <- data.frame(
-  attribute = names(coef(amce_fit)),
-  amce_hat = round(coef(amce_fit), 4),
-  true_amce = round(true_amce_vec, 4),
-  se_cluster = round(sqrt(diag(vcov(amce_fit))), 4),
-  ci_lower = round(coef(amce_fit) - 1.96 * sqrt(diag(vcov(amce_fit))), 4),
-  ci_upper = round(coef(amce_fit) + 1.96 * sqrt(diag(vcov(amce_fit))), 4)
-)
-kable(recovery_df, row.names = FALSE)
-```
-
-::: {.callout-tip}
-## ヒント：真値がCIに入らないときの確認順序
-
-1つの標本だけを見ると、偶然95%CIから真値が外れることは（5%の確率で）普通に起こる。もし複数の属性で系統的に大きく外れているように見えたら、(1)`compute_true_amce`の大標本サイズが十分か（1万人未満だと真値自体にまだノイズが残る）、(2)`simulate_cbc`と`to_long`の引数・列名の対応がズレていないか、を確認せよ。
-:::
-
-## 問6（12点）：(ii) 正しく指定されたlogitでWTPのデルタ法CIを作る
-
-問2の主標本はmixed logitである。同じ標本に同質logitを当てても、そのMLEは平均ランダム係数を回収せず、HessianだけのSEも誤指定に頑健ではない。そこでデルタ法の仕組みを正しく確認するため、**この問だけ**`sigma_low = sigma_coupon = sigma_log_alpha = 0`とした同質logit DGPから新しい標本`cbc_raw_hom`を生成する。第2回・第6回の自作MLEパターンで推定し、低閾値（1,000円）へのWTPをデルタ法で信頼区間付きで求めよ（月額料金の単位＝百円）。
-
-```{r}
-#| eval: false
-neg_loglik_cbc <- function(theta, d) {
-  beta_low <- theta[1]; beta_coupon <- theta[2]; alpha <- theta[3]
-
-  vA <- beta_low * d$lowA + beta_coupon * d$couponA - alpha * (d$priceA / 100)
-  vB <- ______   # 【穴埋め】vAと同様にvBを作る
-
-  V <- cbind(0, vA, vB)
-  V <- V - apply(V, 1, max)
-  expV <- exp(V)
-  denom <- rowSums(expV)
-  chosen_idx <- cbind(1:nrow(d), d$choice3 + 1)
-  logprob <- V[chosen_idx] - log(denom)
-  -sum(logprob)
-}
-
-hom_params <- true_params
-hom_params$sigma_low <- 0
-hom_params$sigma_coupon <- 0
-hom_params$sigma_log_alpha <- 0
-cbc_raw_hom <- simulate_cbc(n_resp, n_task, hom_params)
-
-opt_cbc <- optim(par = c(0.1, 0.1, 0.1), fn = neg_loglik_cbc, d = cbc_raw_hom,
-                  method = "BFGS", hessian = TRUE)
-theta_hat <- opt_cbc$par
-names(theta_hat) <- c("beta_low", "beta_coupon", "alpha")
-vcov_cbc <- solve(opt_cbc$hessian)
-
-# WTP(低閾値) = beta_low / alpha （百円単位）
-beta_low_hat <- theta_hat["beta_low"]; alpha_hat <- theta_hat["alpha"]
-wtp_low_hat <- ______        # 【穴埋め】WTPの点推定
-
-# デルタ法SE: grad = (1/alpha, -beta_low/alpha^2)、beta_lowはtheta[1], alphaはtheta[3]
-grad_wtp <- c(______, ______)     # 【穴埋め】勾配ベクトル
-vcov_sub <- vcov_cbc[c(1,3), c(1,3)]
-se_wtp <- sqrt(as.numeric(t(grad_wtp) %*% vcov_sub %*% grad_wtp))
-
-cat("WTP(低閾値, 百円):", round(wtp_low_hat, 3),
-    " 95%CI:[", round(wtp_low_hat - 1.96*se_wtp, 3), ",", round(wtp_low_hat + 1.96*se_wtp, 3), "]\n")
-```
-
-::: {.callout-tip}
-## ヒント：単位の読み替え
-
-`alpha`は「百円あたりの効用の変化」なので、WTP=$\beta_{\text{low}}/\alpha$の単位は「百円」になる。実際の円に直すには100倍すればよい。信頼区間の上限・下限も同様に100倍してから報告すること。
-
-この同質ケースの真のWTPは $0.6/0.35\times100$ 円である。元のmixed-logit標本では、平均個人WTP $E[\beta_{\text{low},i}/\alpha_i]$ と平均係数の比 $E[\beta_{\text{low},i}]/E[\alpha_i]$ は一般に一致しない。
-:::
-
-## 問7（9点）：(iii) 交互作用を1つ推定し解釈する
-
-「低閾値」×「クーポンあり」の交互作用項を含めてAMCEを再推定し、係数とSEを報告せよ。さらに他の変数を観測値に保ったまま2属性を4通りに置き換えた平均予測確率を作り、$P(1,1)-P(1,0)-P(0,1)+P(0,0)$を計算して2〜3文で解釈せよ。効用指数に積項がなくても、logit確率の非線形性により確率スケールの差の差はゼロとは限らない点に注意すること。
-
-```{r}
-#| eval: false
-interaction_fit <- feols(chosen ~ price500 + price800 + low_threshold * coupon,
-                          data = cbc_long, cluster = ~resp_id)
-summary(interaction_fit)
-```
-
-## 問8（9点）：(iv) セグメント別AMCE（利用頻度高低）
-
-回答者を「利用頻度が高い/低い」の2セグメントに（このDGPでは説明用にランダムに）分割し、セグメントごとにクーポンのAMCEを推定・比較せよ。
-
-```{r}
-#| eval: false
-segment_df <- data.frame(resp_id = 1:n_resp, frequent_user = rbinom(n_resp, 1, 0.5))
-cbc_long_seg <- cbc_long %>% left_join(segment_df, by = "resp_id")
-
-fit_frequent <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
-                       data = cbc_long_seg %>% filter(frequent_user == 1), cluster = ~resp_id)
-fit_infrequent <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
-                         data = cbc_long_seg %>% filter(frequent_user == 0), cluster = ~resp_id)
-
-# クーポンのAMCEをセグメント別に比較する表を作れ
-```
-
-## 問9（9点）：(v) クラスターSEを使わない場合とのSE比較
-
-問5と同じ回帰について、`vcov = "hetero"`（通常のロバストSE、クラスターを無視）を指定した場合のSEを計算し、クラスターSEと並べた比較表を作れ。**なぜ回答者クラスターが必要か、またクラスターSEが通常SEより必ず大きくなるわけではない理由**を3〜4文で説明せよ。
-
-```{r}
-#| eval: false
-amce_fit_naive <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
-                         data = cbc_long, vcov = "hetero")
-
-se_compare_df <- data.frame(
-  attribute = names(coef(amce_fit)),
-  se_cluster = round(sqrt(diag(vcov(amce_fit))), 4),
-  se_naive = round(sqrt(diag(vcov(amce_fit_naive))), 4)
-)
-kable(se_compare_df, row.names = FALSE)
-```
-
-::: {.callout-tip}
-## ヒント：説明のポイント
-
-profile-levelデータは500人×8タスク×2プロファイル=8,000行だが、独立なクラスターは500回答者である。`beta_coupon_i`などが8タスクで共有され、同じタスクのA・B結果も依存する。無視した共分散項には正負がありうるので、SEの大小そのものより、ランダム化・回答の単位に分散推定を合わせることが重要である。
-:::
-
-## 問10（9点）：(vi) 経営含意を3行で
-
-問5〜9の結果を踏まえ、フードデリバリー会社の商品企画担当者に向けて、**このサブスクプランのどの属性を優先的に訴求すべきか、価格をどう設定すべきか、どのセグメントに何を訴求すべきか**を、数値を根拠に3行で述べよ。
-
-```{r}
-#| eval: false
-# ここに直接コメントとして書いてもよいし、テキストセルに書いてもよい
-```
-
----
-
-## 提出方法
-
-- この`.qmd`の穴埋め（`______`）と`#| eval: false`をすべて解消し、最後まで render できる状態にする。
-- 各問の出力（表・図）とコメントを含めること。
-- render した HTML を提出。
-
-::: {.callout-important}
-## 配点（合計100点）
-
-- 問1（10）：属性・DGPパラメータ設定
-- 問2（10）：simulate_cbc関数の完成
-- 問3（10）：ランダム化チェックと記述統計
-- 問4（10）：long形式への変換
-- 問5（12）：AMCE推定とOLS＋クラスターSE、真値との比較
-- 問6（12）：logit MLEとWTPのデルタ法CI
-- 問7（9）：交互作用の推定と解釈
-- 問8（9）：セグメント別AMCE
-- 問9（9）：クラスターSEありなしの比較と説明
-- 問10（9）：経営含意3行
-:::
+[講義ノートへ](lecture6.html) / [Playgroundへ](playground6.html)

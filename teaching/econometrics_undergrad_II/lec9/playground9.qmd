@@ -1,6 +1,6 @@
 ---
-title: "Playground 9：shrinkageの実験室"
-subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+title: "Playground 9：HB logitを小さなデータで試す"
+subtitle: "計量経済学II（ブラウザでRを実行）"
 author: "Kei Ikegami"
 lang: ja
 format:
@@ -11,10 +11,6 @@ format:
     theme: cosmo
 engine: knitr
 webr:
-  packages:
-    - ggplot2
-    - dplyr
-    - tidyr
   repos:
     - https://repo.r-wasm.org
     - https://cran.r-universe.dev
@@ -22,276 +18,159 @@ webr:
 
 {{< include /_extensions/r-wasm/live/_knitr.qmd >}}
 
-::: {.callout-important}
-## このページの使い方
+## 使い方
 
-- このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
-- **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
-- 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
-- 元ネタは講義ノート（`lecture9.html`）。ここでは「shrinkage（縮小推定）がいつ・どれくらい効くのか」を、数値をいじって体感することに集中する。
-:::
+第9回のモデルを、小さいデータで実行する。[講義ノート](lecture9.html)より反復を短くするため、診断が悪ければ回数を増やしてほしい。ブラウザ版での速度を優先した設定であり、講義の推定結果をそのまま再現する設定ではない。
 
 ```{webr}
 #| edit: false
 #| output: false
 #| autorun: true
 #| timelimit: 120
-# ---- 共通の道具箱（講義ノートと同じ関数群。編集不可・自動実行）----
-
-# 店舗データを1セット生成する：真の効果 theta_i と観測された店舗平均 y_i
-simulate_stores <- function(N, mu, tau, sigma2, n_range) {
-  n_vals <- n_range[1]:n_range[2]
-  n_i    <- n_vals[sample.int(length(n_vals), N, replace = TRUE)]  # 店ごとの観測数
-  s2     <- sigma2 / n_i                    # 店舗平均 y_i のノイズ分散
-  theta  <- rnorm(N, mu, tau)               # 真の店舗効果
-  y      <- rnorm(N, theta, sqrt(s2))       # 観測された店舗平均（no pooling 推定）
-  list(n_i = n_i, s2 = s2, theta = theta, y = y)
+choice_prob <- function(quality, price, alpha) {
+  v <- quality - price * alpha
+  vmax <- pmax(0, v[, 1], v[, 2])
+  ev <- exp(v - vmax)
+  cbind(outside = exp(-vmax), ev) / (exp(-vmax) + rowSums(ev))
 }
-
-# 経験ベイズ：モーメント法で全体平均とtau2を推定し、shrinkage推定を返す
-eb_fit <- function(y, s2) {
-  mu_hat   <- mean(y)
-  tau2_hat <- max(var(y) - mean(s2), 1e-6)  # 観測の散らばりからノイズの分を引いた残り
-  B        <- s2 / (s2 + tau2_hat)          # 縮小係数（店ごと）
-  list(mu_hat = mu_hat, tau2_hat = tau2_hat, B = B,
-       est = B * mu_hat + (1 - B) * y)
+simulate_cbc <- function(seed = 202607, N = 300, Ttrain = 8, Thold = 8) {
+  set.seed(seed)
+  beta_known <- c(battery12 = 0.5, nc = 0.8, major_brand = 0.3)
+  mu_true <- log(0.12) - 0.6^2 / 2
+  tau_true <- 0.6
+  theta_true <- rnorm(N, mu_true, tau_true)
+  make_tasks <- function(T) {
+    id <- rep(seq_len(N), each = T)
+    nr <- length(id)
+    price <- matrix(sample(c(8, 12, 16), nr * 2, replace = TRUE), nr, 2)
+    battery12 <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
+    nc <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
+    major_brand <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
+    quality <- beta_known[1] * battery12 + beta_known[2] * nc + beta_known[3] * major_brand
+    prob <- choice_prob(quality, price, exp(theta_true[id]))
+    choice <- vapply(seq_len(nr), function(r) sample(0:2, 1, prob = prob[r, ]), integer(1))
+    list(id = id, price = price, battery12 = battery12, nc = nc,
+         major_brand = major_brand, quality = quality, choice = choice, T = T)
+  }
+  list(train = make_tasks(Ttrain), test = make_tasks(Thold), N = N,
+       beta_known = beta_known, theta_true = theta_true, mu_true = mu_true, tau_true = tau_true)
 }
-
-# Gibbsサンプラー（1 chain。下で異なる初期値から4本走らせる）
-gibbs_hier <- function(ybar, n_i, sigma2, n_draws = 800, burn = 200,
-                       mu0 = 0, kappa2 = 1e6,
-                       alpha0 = 0.01, beta0 = 0.01,
-                       seed = NULL, init_mu = NULL, init_tau2 = NULL) {
-  if (!is.null(seed)) set.seed(seed)
-  N     <- length(ybar)
-  theta <- ybar                             # 初期値
-  mu    <- if (is.null(init_mu)) mean(ybar) else init_mu
-  tau2  <- if (is.null(init_tau2)) max(var(ybar), 0.1) else init_tau2
-  keep_theta <- matrix(0, n_draws, N)
-  keep_mu    <- numeric(n_draws)
-  keep_tau2  <- numeric(n_draws)
-  for (it in 1:(n_draws + burn)) {
-    # (1) theta_i を引く（店ごと、ベクトル化）
-    v_i   <- 1 / (n_i / sigma2 + 1 / tau2)
-    m_i   <- v_i * (n_i * ybar / sigma2 + mu / tau2)
-    theta <- rnorm(N, m_i, sqrt(v_i))
-    # (2) mu（全体平均）を引く
-    prec  <- N / tau2 + 1 / kappa2
-    mean_ <- (sum(theta) / tau2 + mu0 / kappa2) / prec
-    mu    <- rnorm(1, mean_, sqrt(1 / prec))
-    # (3) tau2（店舗間分散）を引く：逆ガンマ = 1/ガンマ
-    shape          <- alpha0 + N / 2
-    precision_rate <- beta0 + 0.5 * sum((theta - mu)^2)
-    tau2 <- 1 / rgamma(1, shape = shape, rate = precision_rate)
-    if (it > burn) {
-      k <- it - burn
-      keep_theta[k, ] <- theta
-      keep_mu[k]      <- mu
-      keep_tau2[k]    <- tau2
+individual_loglik <- function(theta, tasks, N) {
+  v <- tasks$quality - tasks$price * exp(theta[tasks$id])
+  vmax <- pmax(0, v[, 1], v[, 2])
+  logden <- vmax + log(exp(-vmax) + rowSums(exp(v - vmax)))
+  chosen <- numeric(length(tasks$choice))
+  inside <- which(tasks$choice > 0)
+  chosen[inside] <- v[cbind(inside, tasks$choice[inside])]
+  as.vector(rowsum(chosen - logden, tasks$id, reorder = FALSE))
+}
+fit_hb <- function(dat, seed = 202609, n_iter = 16000, burn = 4000, thin = 4,
+                   prior_mu = log(0.2), prior_mu_sd = 1.5,
+                   prior_shape = 2, prior_rate = 0.5) {
+  keep <- seq(burn + thin, n_iter, by = thin)
+  one_chain <- function(chain) {
+    set.seed(seed + chain)
+    theta <- rep(prior_mu + c(-0.4, 0.4)[chain], dat$N)
+    mu <- mean(theta); tau2 <- 0.5
+    ll <- individual_loglik(theta, dat$train, dat$N)
+    theta_draw <- matrix(NA_real_, length(keep), dat$N)
+    mu_draw <- tau_draw <- numeric(length(keep))
+    accepted <- numeric(dat$N); saved <- 0
+    for (iteration in seq_len(n_iter)) {
+      proposal <- theta + rnorm(dat$N, 0, 0.7)
+      ll_new <- individual_loglik(proposal, dat$train, dat$N)
+      logratio <- ll_new - ll + dnorm(proposal, mu, sqrt(tau2), log = TRUE) -
+        dnorm(theta, mu, sqrt(tau2), log = TRUE)
+      accept <- log(runif(dat$N)) < logratio
+      theta[accept] <- proposal[accept]; ll[accept] <- ll_new[accept]
+      if (iteration > burn) accepted <- accepted + accept
+      variance_mu <- 1 / (dat$N / tau2 + 1 / prior_mu_sd^2)
+      mean_mu <- variance_mu * (sum(theta) / tau2 + prior_mu / prior_mu_sd^2)
+      mu <- rnorm(1, mean_mu, sqrt(variance_mu))
+      tau2 <- 1 / rgamma(1, shape = prior_shape + dat$N / 2,
+        rate = prior_rate + sum((theta - mu)^2) / 2)
+      if (iteration %in% keep) {
+        saved <- saved + 1
+        theta_draw[saved, ] <- theta
+        mu_draw[saved] <- mu; tau_draw[saved] <- sqrt(tau2)
+      }
+    }
+    list(theta = theta_draw, mu = mu_draw, tau = tau_draw,
+         acceptance = accepted / (n_iter - burn))
+  }
+  chains <- lapply(1:2, one_chain)
+  list(theta = rbind(chains[[1]]$theta, chains[[2]]$theta),
+       mu = c(chains[[1]]$mu, chains[[2]]$mu), tau = c(chains[[1]]$tau, chains[[2]]$tau),
+       chain = rep(1:2, each = length(keep)), chains = chains,
+       settings = c(n_iter = n_iter, burn = burn, thin = thin))
+}
+predict_existing <- function(fit, tasks) {
+  answer <- matrix(0, length(tasks$id), 3)
+  for (b in seq_len(nrow(fit$theta))) {
+    answer <- answer + choice_prob(tasks$quality, tasks$price, exp(fit$theta[b, tasks$id]))
+  }
+  answer / nrow(fit$theta)
+}
+predict_new <- function(fit, quality, price, n_integration = 80) {
+  # 母集団パラメータの不確実性と新しい個人の異質性の両方を積分。
+  nodes <- qnorm((seq_len(n_integration) - 0.5) / n_integration)
+  answer <- matrix(0, nrow(price), 3)
+  for (b in seq_along(fit$mu)) {
+    for (z in nodes) {
+      answer <- answer + choice_prob(quality, price, exp(fit$mu[b] + fit$tau[b] * z))
     }
   }
-  list(theta = keep_theta, mu = keep_mu, tau2 = keep_tau2)
+  answer / (length(fit$mu) * n_integration)
+}
+log_score <- function(prob, choice) -mean(log(pmax(prob[cbind(seq_along(choice), choice + 1)], 1e-12)))
+split_rhat <- function(chain1, chain2) {
+  n <- floor(length(chain1) / 2)
+  z <- cbind(chain1[1:n], tail(chain1, n), chain2[1:n], tail(chain2, n))
+  W <- mean(apply(z, 2, var)); B <- n * var(colMeans(z))
+  sqrt(((n - 1) * W / n + B / n) / W)
 }
 
-# split-Rhat・ESS・MCSEの教育用簡易版
-basic_mcmc_diag <- function(x) {
-  x <- as.matrix(x); n <- nrow(x); m <- ncol(x); n2 <- floor(n / 2)
-  sx <- do.call(cbind, lapply(1:m, function(j)
-    cbind(x[1:n2, j], x[(n - n2 + 1):n, j])))
-  W <- mean(apply(sx, 2, var)); B <- n2 * var(colMeans(sx))
-  rhat <- sqrt(((n2 - 1) / n2 * W + B / n2) / W)
-  ac <- sapply(1:m, function(j)
-    as.numeric(acf(x[, j], lag.max = min(300, n - 1), plot = FALSE)$acf)[-1])
-  rho <- rowMeans(ac); le <- 2 * floor(length(rho) / 2)
-  ps <- rho[seq(1, le, 2)] + rho[seq(2, le, 2)]
-  stop_at <- which(ps <= 0)[1]
-  keep <- if (is.na(stop_at)) seq_along(ps) else seq_len(stop_at - 1)
-  ess <- min(n * m, n * m / max(1, 1 + 2 * sum(ps[keep])))
-  c(split_Rhat = rhat, ESS = ess,
-    MCSE_mean = sd(as.vector(x)) / sqrt(ess))
-}
-
-theme_set(theme_minimal(base_size = 13))
 ```
 
-## 実験1：shrinkageの綱引き — 矢印はどこまで引かれるか
-
-店舗効果の推定は「自分のデータ $y_i$」と「全体平均 $\bar\theta$」の綱引きだ。真の店舗効果は $\theta_i \sim N(2, \tau^2)$ から生まれ、各店は $n_i$ 個の観測を持つので、店舗平均 $y_i$ のノイズ分散は $\sigma^2 / n_i$ になる。経験ベイズはこの $y_i$（no pooling 推定）を、次の式で全体平均へ引き寄せる。
-
-$$
-\hat\theta_i = B_i \, \bar\theta + (1 - B_i) \, y_i, \qquad B_i = \frac{\sigma_i^2}{\sigma_i^2 + \tau^2}
-$$
-
-縮小の強さ $B_i$ は「店ごとの測定ノイズ」と「店舗間の本物のばらつき」の比で決まる。**データが語るなら聞き、語らないなら全体に頼る**——この標語が矢印の長さにそのまま現れる。$\tau$ と $n_i$ をいじって確かめよう。
+## 1. 個人ごとの選択課題を作る
 
 ```{webr}
-#| timelimit: 90
-# ---- いじるのはここ ----
-tau     <- 1.0        # 店舗間異質性（真の効果のばらつき）。3や0.2も試そう
-n_range <- c(5, 30)   # 各店舗の観測数の範囲。c(50, 100)にすると？
-# -----------------------
-
-set.seed(20269)
-N      <- 40     # 店舗数
-mu     <- 2.0    # 真の全体平均
-sigma2 <- 4.0    # 1観測あたりのノイズ分散
-
-sim <- simulate_stores(N, mu, tau, sigma2, n_range)
-eb  <- eb_fit(sim$y, sim$s2)
-
-data.frame(
-  quantity = c("estimated grand mean", "estimated tau2", "mean shrinkage B"),
-  value = round(c(eb$mu_hat, eb$tau2_hat, mean(eb$B)), 3)
-)
-
-df_arrow <- data.frame(nopool = sim$y, eb = eb$est, n_i = sim$n_i)
-ggplot(df_arrow) +
-  geom_segment(aes(x = 1, xend = 2, y = nopool, yend = eb, color = n_i),
-               arrow = arrow(length = unit(0.12, "cm")), alpha = 0.85) +
-  geom_hline(yintercept = eb$mu_hat, linetype = "dashed", color = "gray40") +
-  annotate("text", x = 2.05, y = eb$mu_hat, label = "grand mean",
-           hjust = 0, color = "gray40", size = 3.4) +
-  scale_x_continuous(breaks = c(1, 2), labels = c("no pooling", "after shrinkage"),
-                     limits = c(0.9, 2.45)) +
-  scale_color_viridis_c(name = "n_i (obs per store)") +
-  labs(x = NULL, y = "estimated store effect")
+dat <- simulate_cbc(N=80,Ttrain=8,Thold=8)
+table(dat$train$choice)
+hist(exp(dat$theta_true),main="True price sensitivity",xlab="alpha")
 ```
 
-::: {.callout-note}
-## やってみよう
-
-- `tau <- 3`（店舗どうしが全然似ていない世界）にすると、矢印はほとんど動かなくなる。逆に `tau <- 0.2` ではほぼ全店が全体平均へ潰される。表の `mean shrinkage B` と合わせて、縮小が弱まる・強まるを確認しよう。
-- `n_range <- c(50, 100)`（どの店もデータが厚い）にすると、$\tau$ が同じでも矢印が短くなることを確認しよう。`c(2, 8)` にすれば逆のことが起きる。
-- 矢印が長い店と短い店の色（$n_i$）を見比べよう。同じ $\tau$・同じ $\sigma^2$ のもとで、店ごとに縮小の強さを変えているものは何か。「データが語るなら聞き、語らないなら全体に頼る」は、$B_i$ の式のどの部分に対応しているだろうか。
-:::
-
-## 実験2：MSE対決 — 3つのpooling、どれが当たるか
-
-綱引きの絵がきれいでも、「本当に当たるのか」は別の問題だ。真値 $\theta_i$ を知っているシミュレーションだからこそ、真値との二乗誤差（MSE）で答え合わせができる。データ生成を200回繰り返し、complete pooling（共通効果を $n_i$ で精度加重推定）・no pooling（各店の $y_i$ をそのまま）・partial pooling（経験ベイズ）のMSEを平均する。`win_rate` は「そのデータセットで最小MSEだった回数の割合」だ。どんな世界でどれが勝つのか、$\tau$ と店舗数・観測数をいじって探そう。
+## 2. 事後分布を計算する
 
 ```{webr}
-#| timelimit: 90
-# ---- いじるのはここ ----
-tau     <- 1.0        # 店舗間異質性（0.1や5も試そう）
-N       <- 40         # 店舗数
-n_range <- c(5, 30)   # 各店舗の観測数の範囲
-# -----------------------
-
-set.seed(20269)
-mu     <- 2.0    # 真の全体平均
-sigma2 <- 4.0    # 1観測あたりのノイズ分散
-R      <- 200    # モンテカルロ反復回数
-
-one_rep <- function() {
-  sim <- simulate_stores(N, mu, tau, sigma2, n_range)
-  eb  <- eb_fit(sim$y, sim$s2)
-  pool <- weighted.mean(sim$y, w = sim$n_i)
-  c(complete = mean((pool - sim$theta)^2),
-    nopool   = mean((sim$y - sim$theta)^2),
-    partial  = mean((eb$est - sim$theta)^2))
-}
-res  <- replicate(R, one_rep())
-best <- apply(res, 2, which.min)
-
-data.frame(
-  method   = c("complete pooling", "no pooling", "partial pooling (EB)"),
-  MSE      = round(rowMeans(res), 4),
-  win_rate = round(as.numeric(table(factor(best, levels = 1:3))) / R, 3)
-)
+#| timelimit: 120
+fit <- fit_hb(dat,n_iter=8000,burn=2000,thin=4)
+c(mu=mean(fit$mu),tau=mean(fit$tau))
+c(mu_Rhat=split_rhat(fit$chains[[1]]$mu,fit$chains[[2]]$mu),
+  tau_Rhat=split_rhat(fit$chains[[1]]$tau,fit$chains[[2]]$tau))
+matplot(cbind(fit$chains[[1]]$tau,fit$chains[[2]]$tau),type="l",lty=1,
+  xlab="saved draw",ylab="tau")
 ```
 
-::: {.callout-note}
-## やってみよう
+`n_iter=2000,burn=1000,thin=2`に短くした場合と、`n_iter=16000,burn=4000,thin=4`に長くした場合で、平均や診断はどう変わるか。乱数の数が多いだけで十分とは判断しないこと。
 
-- `tau <- 5`（店舗が全く似ていない世界）にすると、partial pooling の優位は消えるか。no pooling とのMSEの差と `win_rate` を、`tau <- 1` のときと見比べよう。
-- `tau <- 0.1` かつ `N <- 100`（全店ほぼ同じ効果）にすると、complete pooling が勝ちに来ることを確認しよう。次に `n_range <- c(100, 200)` として、no pooling と partial pooling の差がほぼ消えることも見よう。
-- partial pooling が勝つ回と負ける回の両方を探そう。経験ベイズは $\hat\tau^2$ を通じて縮小を調整するが、有限標本での hyperparameter 推定誤差やモデルのずれがあるので、毎データセットで勝つ保証はない。表の `MSE`（反復平均）と `win_rate`（実現ごとの勝率）を混同しないこと。
-:::
-
-## 実験3：ミニGibbsサンプラー — 事後分布を自分の目で見る
-
-経験ベイズは $\tau^2$ を1点に固定したが、その値自体にも不確実性がある。それも伝播させるのがフルベイズで、道具は講義ノート§6の Gibbs サンプラーだ（ここでは軽量版：各 chain draws 800・burn-in 200）。異なる初期値から4本を走らせ、traceplotに加えて split-$\widehat R$・ESS・MCSE を見る。さらに逆ガンマ prior を変えて感度を確かめる。
-
-ここで $\mathrm{Inv\text{-}Gamma}(\alpha_0,\beta_0)$ は $p(\tau^2)\propto(\tau^2)^{-\alpha_0-1}\exp(-\beta_0/\tau^2)$。$\beta_0$ は逆ガンマの **scale** で、$1/\tau^2$ を引く `rgamma` では **rate** として渡す。
+## 3. 事後分布で予測する
 
 ```{webr}
-#| timelimit: 90
-# ---- いじるのはここ ----
-tau_true <- 1.0   # 店舗間異質性の真値。0.3や2も試そう
-N        <- 30    # 店舗数。5に減らすと？
-# -----------------------
-
-set.seed(20269)
-mu_true <- 2.0    # 真の全体平均
-sigma2  <- 4.0    # 1観測あたりのノイズ分散
-
-sim <- simulate_stores(N, mu_true, tau_true, sigma2, c(5, 30))
-fits <- lapply(1:4, function(ch) gibbs_hier(
-  sim$y, sim$n_i, sigma2, n_draws = 800, burn = 200,
-  seed = 20269 + ch,
-  init_mu = mean(sim$y) + c(-1, -0.3, 0.3, 1)[ch],
-  init_tau2 = c(0.2, 0.6, 1.5, 3)[ch]
-))
-fit <- list(theta = do.call(rbind, lapply(fits, `[[`, "theta")),
-            mu = unlist(lapply(fits, `[[`, "mu")),
-            tau2 = unlist(lapply(fits, `[[`, "tau2")))
-
-data.frame(
-  quantity = c("posterior mean of mu", "posterior mean of tau2",
-               "95% interval of tau2 (low)", "95% interval of tau2 (high)",
-               "true tau2"),
-  value = round(as.numeric(c(mean(fit$mu), mean(fit$tau2),
-                             quantile(fit$tau2, 0.025), quantile(fit$tau2, 0.975),
-                             tau_true^2)), 3)
-)
-
-df_trace <- bind_rows(lapply(1:4, function(ch) {
-  data.frame(iter = seq_along(fits[[ch]]$mu), chain = factor(ch),
-             mu = fits[[ch]]$mu, tau2 = fits[[ch]]$tau2)
-})) |> pivot_longer(c(mu, tau2), names_to = "param", values_to = "value")
-ggplot(df_trace, aes(iter, value, color = chain)) +
-  geom_line(linewidth = 0.25, alpha = 0.8) +
-  facet_wrap(~param, scales = "free_y") +
-  labs(title = "traceplot: 4 chains", x = "iteration", y = NULL, color = "chain")
-
-rbind(
-  mu = basic_mcmc_diag(sapply(fits, `[[`, "mu")),
-  tau2 = basic_mcmc_diag(sapply(fits, `[[`, "tau2"))
-) |> round(4)
-
-ggplot(data.frame(tau2 = fit$tau2), aes(tau2)) +
-  geom_histogram(bins = 40, fill = "steelblue", alpha = 0.6) +
-  geom_vline(xintercept = tau_true^2, linetype = "dashed", color = "firebrick") +
-  annotate("text", x = tau_true^2, y = Inf, label = "true tau2",
-           vjust = 2, hjust = -0.1, color = "firebrick", size = 3.4) +
-  labs(title = "posterior distribution of tau2",
-       x = "tau2 (between-store variance)", y = "count")
-
-# prior感度：beta0は逆ガンマのscale、rgamma側ではprecisionのrate
-fits_alt <- lapply(1:4, function(ch) gibbs_hier(
-  sim$y, sim$n_i, sigma2, n_draws = 800, burn = 200,
-  alpha0 = 3, beta0 = 2, seed = 30269 + ch,
-  init_tau2 = c(0.2, 0.6, 1.5, 3)[ch]
-))
-tau_alt <- unlist(lapply(fits_alt, `[[`, "tau2"))
-rbind(
-  `IG(0.01,0.01): conjugacy demo` = c(mean = mean(fit$tau2),
-                                       quantile(fit$tau2, c(.025, .975))),
-  `IG(3,2)` = c(mean = mean(tau_alt), quantile(tau_alt, c(.025, .975)))
-) |> round(3)
+p_integrated <- predict_existing(fit,dat$test)
+p_plugin <- choice_prob(dat$test$quality,dat$test$price,
+  exp(colMeans(fit$theta)[dat$test$id]))
+c(integrated_loss=log_score(p_integrated,dat$test$choice),
+  plugin_loss=log_score(p_plugin,dat$test$choice),
+  mean_probability_difference=mean(abs(p_integrated-p_plugin)))
 ```
 
-::: {.callout-note}
-## やってみよう
+## 4. 個人の不確実性
 
-- `N <- 5`（店舗が5つしかない世界）にすると、$\tau^2$ の事後分布はどれくらい横に広がるか。表の95%区間の幅を `N <- 30` のときと見比べよう。店舗間のばらつきは「店舗の数」からしか学べないので、少数グループでは階層モデルでも $\tau^2$ をほぼ特定できない——これが階層モデルの限界だ。
-- `tau_true <- 0.3` にすると、事後分布は0の近くに寄る。traceplotで $\tau^2$ がときどき0のすぐ上まで潜る様子も観察しよう。`tau_true <- 2` なら分布ごと右へ動く。
-- $\tau^2$ の推定を良くするには、各店の観測数 $n_i$ を増やすのと店舗数 $N$ を増やすのと、どちらが本質的に効くのか。コード中の `c(5, 30)` を `c(100, 300)` に変えた場合と、`N` を増やした場合とで、95%区間の縮み方を比べて考えよう。
-- traceplotの4色が重なるか、split-$\widehat R<1.01$ か、ESS と MCSE が十分かをセットで確認しよう。上の診断関数は教育用の簡易版で、実務では rank-normalized split-$\widehat R$ と bulk/tail ESS を使う。
-- $\mathrm{IG}(0.01,0.01)$ は「弱情報」ではなく共役計算のデモ。`N <- 5` にすると $\mathrm{IG}(3,2)$ との差が広がるか確認しよう。prior を変えて結論が動くなら、その不確実性を報告する。
-:::
+```{webr}
+i <- 1
+hist(exp(fit$theta[,i]),main=paste("Customer",i),xlab="alpha posterior")
+quantile(exp(fit$theta[,i]),c(.025,.5,.975))
+```
 
-## 次に読むもの
-
-- 講義ノート本体：`lecture9.html`（shrinkage公式の導出、James-Stein、ベイズ入門、Gibbsと信用区間の完全版）
-- coding課題：`assignment9.qmd`（60店舗のクーポン施策DGPを自作し、経験ベイズとGibbsをゼロから実装して、確率ベースのターゲティングまで通す）
+顧客番号や推定用課題数を変えてみよう。個人の区間と、母集団平均の区間を混同しないこと。
