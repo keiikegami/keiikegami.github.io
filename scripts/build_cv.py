@@ -105,7 +105,7 @@ def build(output, updated):
         'paper': ParagraphStyle('paper', fontName='CV-Bold', fontSize=10.1,
                                 leading=13.5, textColor=INK, spaceAfter=2),
         'section': ParagraphStyle('section', fontName='CV-SansBold', fontSize=10.5,
-                                  leading=13, textColor=INK, spaceBefore=9,
+                                  leading=13, textColor=INK, spaceBefore=7,
                                   spaceAfter=5, keepWithNext=True),
         'subsection': ParagraphStyle('subsection', fontName='CV-SansBold', fontSize=9.1,
                                      leading=12.5, textColor=MUTED, spaceBefore=3,
@@ -164,7 +164,7 @@ def build(output, updated):
         parts = [p(item[0], 'paper')]
         for line in item[1:]:
             parts.append(p(line, 'small' if line.startswith(('with ', 'Accepted ', '*EC ')) else 'body'))
-        parts.append(Spacer(1, 5))
+        parts.append(Spacer(1, 1))
         story.append(KeepTogether(parts))
 
     heading('Publications')
