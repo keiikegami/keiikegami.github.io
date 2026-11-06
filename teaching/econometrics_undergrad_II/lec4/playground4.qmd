@@ -28,7 +28,7 @@ webr:
 - このページのRコードは、**あなたのブラウザの中で**動いている（WebAssembly + webR）。インストールは一切不要。
 - **初回だけ、ページ読み込みに30秒〜1分かかる**（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。
 - 各セルのコードは自由に書き換えて「Run Code」で実行できる。**何をどう壊しても誰にも迷惑はかからない**。おかしくなったらページを再読み込みすれば元に戻る。
-- 元ネタは講義ノート（`lecture4.html`）。ここでは「数値をいじって挙動を体感する」ことに集中する。
+- 元ネタは[講義ノート](lecture4.html)。ここでは「数値をいじって挙動を体感する」ことに集中する。
 :::
 
 ```{webr}
@@ -230,7 +230,7 @@ $$
 p = mc + \Delta^{-1} s
 $$
 
-を満たす。$\Delta$ は所有関係と需要の傾きから決まる行列で、**合併とは所有行列の中身を書き換える操作**にすぎない。値上げして逃げた客を自社の別製品が受け止めてくれるなら、値上げのブレーキが外れる。財1・財2がプレミアム、財3・財4がエコノミーの4財市場で、合併前後の均衡を固定点反復で解く（反復上限300回・許容誤差1e-8とやや緩めの設定。収束しない場合はメッセージが出る）。合併する2財の組と、合併による限界費用の削減率（効率化）をいじれる。
+を満たす。$\Delta$ は所有関係と需要の傾きから決まる行列である。**合併後は所有行列を書き換え、その下で価格設定の一階条件を解き直す。** 値上げして逃げた客を自社の別製品が受け止めてくれるなら、値上げのブレーキが外れる。財1・財2がプレミアム、財3・財4がエコノミーの4財市場で、合併前後の均衡を固定点反復で解く（反復上限300回・許容誤差1e-8とやや緩めの設定。収束しない場合はメッセージが出る）。合併する2財の組と、合併による限界費用の削減率（効率化）をいじれる。
 
 ```{webr}
 #| timelimit: 120
@@ -305,7 +305,118 @@ ggplot(df_m, aes(product, pct, fill = party)) +
 - 問い：属性が近い2財の合併 `c(1, 2)` と遠い2財の合併 `c(1, 3)` では、当事者の価格上昇（`pct_change`）はどちらが大きいか。表示されるdiversion ratioと結びつけて説明しよう。
 :::
 
+## 実験4：同じシェアでも、価格係数の分布を決められるか
+
+講義のBLP推定では、価格係数 $\alpha_i=\exp(a+\sigma\nu_i)$ の候補 $(a,\sigma)$ を決め、次の3つを行った。
+
+1. **シェア反転**：候補ごとに平均効用 $\delta$ を調整し、観測シェアを再現する。
+2. **OLS**：$\delta+m(a,\sigma)p$ を定数と属性 $x$ に回帰し、候補ごとの残差を得る。ただし $m(a,\sigma)=\exp(a+\sigma^2/2)$ である。
+3. **IVで比較**：残差と追加の操作変数の積の平均（モーメント）を計算し、候補を比較する。
+
+どの候補でもシェアを合わせられるし、OLS残差は定数と $x$ に直交する。では、**追加のIVとの関係は候補によって変わるだろうか。** 下のセルは同じ架空データと固定された積分点を使い、真値と自分で選んだ候補を比較する。価格は外生的な費用変数 $w$ と、未観測の需要ショックに反応して決まる。$w$ と他商品の属性は、このシミュレーションでは需要ショックと独立なので、追加のIVとして使う。
+
+```{webr}
+#| timelimit: 60
+local({
+  # ---- いじるのはここ ----
+  candidate_a     <- 0.75  # 比較したいlog価格係数の平均
+  candidate_sigma <- 1.10  # 比較したいlog価格係数の標準偏差（0以上）
+  # -----------------------
+
+  if (!is.finite(candidate_a) || !is.finite(candidate_sigma) || candidate_sigma < 0)
+    stop("候補の a は有限、sigma は0以上の有限値にしてください。")
+
+  # 他の実験の乱数状態を変えず、実行のたびに同じデータを作る。
+  had_seed4 <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  if (had_seed4) seed4 <- get(".Random.seed", envir = .GlobalEnv)
+  on.exit({
+    if (had_seed4) assign(".Random.seed", seed4, envir = .GlobalEnv)
+    else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
+      rm(".Random.seed", envir = .GlobalEnv)
+  })
+  set.seed(20264)
+  markets4 <- 60; goods4 <- 3; draws4 <- 50
+  true_a4 <- 0.20; true_sigma4 <- 0.60
+  x4 <- matrix(rnorm(markets4 * goods4), markets4, goods4)
+  w4 <- matrix(runif(markets4 * goods4, 0.3, 1.3), markets4, goods4)
+  xi4 <- matrix(rnorm(markets4 * goods4, 0, 0.45), markets4, goods4)
+  price4 <- 1.0 + 1.2 * w4 + 0.6 * pmax(xi4, 0)
+  # すべての候補で同じ正規分布の分位点を使う。
+  nu4 <- qnorm((seq_len(draws4) - 0.5) / draws4)
+  vec4 <- function(z) as.vector(t(z))
+
+  # 一度に全市場のシェアを計算する。列は市場ごとに財1・2・3の順。
+  shares4 <- function(delta, a, sigma) {
+    alpha <- exp(a + sigma * nu4)
+    mean_alpha <- exp(a + sigma^2 / 2)
+    v <- matrix(rep(vec4(delta), each = draws4), nrow = draws4) -
+      outer(alpha - mean_alpha, vec4(price4))
+    ev <- exp(v)
+    denom <- matrix(1, draws4, markets4)
+    for (j in seq_len(goods4)) {
+      cols <- seq(j, markets4 * goods4, by = goods4)
+      denom <- denom + ev[, cols, drop = FALSE]
+    }
+    out <- matrix(0, markets4, goods4)
+    for (j in seq_len(goods4)) {
+      cols <- seq(j, markets4 * goods4, by = goods4)
+      out[, j] <- colMeans(ev[, cols, drop = FALSE] / denom)
+    }
+    out
+  }
+
+  true_mean4 <- exp(true_a4 + true_sigma4^2 / 2)
+  true_delta4 <- 1.3 + 0.8 * x4 - true_mean4 * price4 + xi4
+  observed4 <- shares4(true_delta4, true_a4, true_sigma4)
+  outside4 <- 1 - rowSums(observed4)
+  X4 <- cbind(constant = 1, x = vec4(x4))
+  Z4 <- cbind(X4, w = vec4(w4), rival_x = vec4(rowSums(x4) - x4),
+              rival_w = vec4(rowSums(w4) - w4))
+  W4 <- solve(crossprod(Z4) / nrow(Z4))
+
+  compare4 <- function(a, sigma) {
+    delta <- log(observed4) - log(outside4)
+    converged <- FALSE
+    for (iteration in seq_len(2000)) {
+      predicted <- shares4(delta, a, sigma)
+      change <- log(observed4) - log(predicted)
+      delta <- delta + change
+      if (max(abs(change)) < 1e-9) { converged <- TRUE; break }
+    }
+    if (!converged) stop("シェア反転が収束しません。別の候補を試してください。")
+    predicted <- shares4(delta, a, sigma)
+    y <- vec4(delta + exp(a + sigma^2 / 2) * price4)
+    residual <- lm.fit(X4, y)$residuals
+    moment <- as.vector(crossprod(Z4, residual) / nrow(Z4))
+    c(a = a, sigma = sigma,
+      share_error = max(abs(predicted - observed4)),
+      moment_const = moment[1], moment_x = moment[2], moment_w = moment[3],
+      Q = as.numeric(crossprod(moment, W4 %*% moment)))
+  }
+
+  result4 <- rbind(
+    "真値" = compare4(true_a4, true_sigma4),
+    "自分の候補" = compare4(candidate_a, candidate_sigma)
+  )
+  print(signif(result4, 5))
+  cat("share_error: 観測シェアとの最大のずれ\n")
+  cat("moment_const, moment_x: OLS残差と定数・属性のモーメント\n")
+  cat("moment_w: OLS残差と追加IV w のモーメント\n")
+  cat("Q: 定数・x・w・他財のx和・w和を使った重み付き二乗和\n")
+})
+```
+
+表の `share_error` はどちらの候補でも十分小さく、`moment_const` と `moment_x` もOLSの性質によりほぼゼロになる。一方、`moment_w` や、他の追加IVも使って計算した `Q` は候補によって変わり得る。$Q$ には講義と同じ $W=(Z'Z/N)^{-1}$ という重みを使っている。追加のIVが妥当で、候補を区別する情報を持つことが推定には必要である。
+
+::: {.callout-note}
+## やってみよう
+
+- `candidate_a <- 0.20`、`candidate_sigma <- 0.60` にして真値と比べ、2行が一致するか確認しよう。
+- $a$ だけ、または $\sigma$ だけを変えると、シェア再現とOLS残差の直交性、追加IVとのモーメントはそれぞれどうなるだろうか。
+- 観測数が限られるので、真値の $Q$ がちょうどゼロになるとも、必ず最小になるとも限らない。有限標本でなぜそうなるか考えよう。
+:::
+
 ## 次に読むもの
 
-- 講義ノート本体：`lecture4.html`（random coefficient logitの導出・ミニBLP推定・合併分析の完全版）
-- coding課題：`assignment4.qmd`（J=3・T=60のDGPを自作し、$\sigma$ のグリッドでGMMを回し、財1・2の合併まで分析する。この回のすべてを自分の手で通す課題）
+- [講義ノート本体](lecture4.html)：random coefficient logitの導出・ミニBLP推定・合併分析
+- [coding課題](assignment4.html)：市場データを自作し、価格分布の2つのパラメータを使った推定と合併分析に取り組む
