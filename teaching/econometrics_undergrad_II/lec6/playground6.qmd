@@ -24,7 +24,7 @@ webr:
 
 ## 使い方
 
-セルを上から実行する。コードを書き換えてから「Run Code」を押すと再計算できる。最初の読み込みには少し時間がかかる。[講義ノート](lecture6.html)と同じモデルを使い、履歴の長さによって予測がどう変わるかを調べる。
+セルを上から実行する。コードを書き換えてから「Run Code」を押すと再計算できる。最初の読み込みには少し時間がかかる。[講義ノート](lecture6.html)と同じ3タイプのモデルを使い、履歴の長さによって予測がどう変わるかを調べる。同じ機会には全顧客が同じ価格を見る。
 
 ```{webr}
 #| edit: false
@@ -42,17 +42,20 @@ choice_prob <- function(theta, pA, pB, beta0 = 1.5, alpha = 1) {
   ev <- cbind(exp(-mx), exp(va - mx), exp(vb - mx))
   ev / rowSums(ev)
 }
-sim_panel <- function(n, nt, types, theta_grid, beta0 = 1.5, alpha = 1) {
-  id <- rep(seq_len(n), each = nt)
-  pA <- runif(n * nt, 1, 2.5); pB <- runif(n * nt, 1, 2.5)
-  prob <- choice_prob(theta_grid[types[id]], pA, pB, beta0, alpha)
-  u <- runif(n * nt)
-  y <- as.integer(u > prob[, 1]) + as.integer(u > prob[, 1] + prob[, 2])
-  data.frame(id, occasion = rep(seq_len(nt), n), pA, pB, y)
-}
 type_true <- sample(1:3, N, replace = TRUE, prob = pi_true)
-train_all <- sim_panel(N, T_train, type_true, theta_grid)
-test <- sim_panel(N, T_test, type_true, theta_grid)
+T_total <- T_train + T_test
+prices <- data.frame(occasion = seq_len(T_total),
+                     pA = runif(T_total, 1, 2.5),
+                     pB = runif(T_total, 1, 2.5))
+id <- rep(seq_len(N), each = T_total)
+occasion <- rep(seq_len(T_total), times = N)
+pA <- prices$pA[occasion]; pB <- prices$pB[occasion]
+prob <- choice_prob(theta_grid[type_true[id]], pA, pB)
+u <- runif(N * T_total)
+y <- as.integer(u > prob[, 1]) + as.integer(u > prob[, 1] + prob[, 2])
+panel <- data.frame(id, occasion, pA, pB, y)
+train_all <- subset(panel, occasion <= T_train)
+test <- subset(panel, occasion > T_train)
 panel_loglik <- function(dat, grid = theta_grid) {
   sapply(grid, function(th) {
     pr <- choice_prob(th, dat$pA, dat$pB)
@@ -69,14 +72,10 @@ fit_mixture <- function(ell) {
   ww <- sweep(e, 2, pi, '*'); ww <- ww / rowSums(ww)
   list(pi = pi, weights = ww, Q = op$value)
 }
-no_pool <- function(dat) {
-  sapply(split(dat, dat$id), function(di) {
-    loss <- function(th) {
-      pr <- choice_prob(th, di$pA, di$pB)
-      -sum(log(pr[cbind(seq_len(nrow(di)), di$y + 1)]))
-    }
-    optimize(loss, c(-5, 5))$minimum
-  })
+no_pool <- function(dat, grid = theta_grid) {
+  ell_i <- panel_loglik(dat, grid)
+  best_k <- max.col(ell_i, ties.method = "first")
+  grid[best_k]
 }
 predict_mix <- function(dat, weights, grid = theta_grid) {
   out <- matrix(0, nrow(dat), 3)
@@ -101,14 +100,16 @@ price_a <- 1.5
 price_b <- 1.5
 pr <- choice_prob(theta_grid, price_a, price_b)
 rownames(pr) <- paste("theta =", theta_grid)
-colnames(pr) <- c("買わない", "A", "B")
+colnames(pr) <- c("Outside", "A", "B")
 round(pr, 3)
-barplot(t(pr), beside = TRUE, legend.text = colnames(pr), ylim = c(0, 1), ylab = "選択確率")
+barplot(t(pr), beside = TRUE, legend.text = colnames(pr), ylim = c(0, 1), ylab = "Choice probability")
 ```
 
 ## 2. 履歴を使うと予測はどう変わるか
 
-`history_length` を1、2、4、8、16に変える。個人別推定と、母集団の情報を使う予測の違いを確認しよう。評価には別に作った20回の選択を使っている。
+`history_length` を1、2、4、8、16に変える。どの方法も同じ3タイプを候補にする。`population` は母集団の割合だけを使い、`individual` は本人の履歴の尤度が最大になるタイプを一つ選ぶ。`history` は母集団の割合と本人の履歴を組み合わせ、3タイプの確率を重み付きで平均する。個人別推定で尤度が同点なら、タイプ番号の小さい方を選ぶ。
+
+評価には、推定に使っていない後の20機会の選択を使う。各機会の価格のもとで実際に選ばれた選択肢に付けた確率について、負の対数を平均する。これが対数損失で、小さいほどよい。評価中は本人のタイプの重みを更新しない。
 
 ```{webr}
 #| timelimit: 120
@@ -123,20 +124,20 @@ result <- c(population = mean(score_prob(prob_population, test)),
             individual = mean(score_prob(prob_individual, test)),
             history = mean(score_prob(prob_history, test)))
 round(result, 3)
-barplot(result, ylab = "評価用log loss（小さいほどよい）")
+barplot(result, ylab = "Test log loss (lower is better)")
 ```
 
 ## 3. 一人の履歴とタイプの重み
 
-`customer` を変え、同じ購入回数でも価格が違えばタイプの重みが違うことを確認しよう。あるタイプの重みが高くなっても、その人のタイプが確定したわけではない。
+`customer` を変え、本人の選択履歴によってタイプの重みがどう変わるかを確認しよう。同じ人が同じ商品を同じ回数選んでいても、選んだ機会の価格が違えば重みは異なり得る。あるタイプの重みが高くなっても、その人のタイプが確定したわけではない。
 
 ```{webr}
 customer <- 1
 subset(train, id == customer)
 rbind(population = f$pi, conditional = f$weights[customer, ])
 barplot(rbind(f$pi, f$weights[customer, ]), beside = TRUE,
-        names.arg = theta_grid, legend.text = c("母集団", "本人の履歴を使用"),
-        xlab = "タイプ", ylab = "重み", ylim = c(0, 1))
+        names.arg = theta_grid, legend.text = c("Population", "Given history"),
+        xlab = "Type", ylab = "Weight", ylim = c(0, 1))
 ```
 
 ## 考えてみよう

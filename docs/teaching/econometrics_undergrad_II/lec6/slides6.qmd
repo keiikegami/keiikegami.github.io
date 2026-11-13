@@ -45,7 +45,11 @@ options(scipen = 8)
 set.seed(202606)
 theta_grid <- c(-1.5, 0, 1.5)
 pi_true <- c(.25, .5, .25)
-N <- 400; T_train <- 16; T_test <- 20
+N <- 400; T_total <- 36; T_train <- 16; T_test <- 20
+type_true <- sample(1:3, N, replace = TRUE, prob = pi_true)
+prices <- data.frame(occasion = seq_len(T_total),
+                     pA = runif(T_total, 1, 2.5),
+                     pB = runif(T_total, 1, 2.5))
 choice_prob <- function(theta, pA, pB, beta0 = 1.5, alpha = 1) {
   va <- beta0 - theta - alpha * pA
   vb <- beta0 + theta - alpha * pB
@@ -53,17 +57,15 @@ choice_prob <- function(theta, pA, pB, beta0 = 1.5, alpha = 1) {
   ev <- cbind(exp(-mx), exp(va - mx), exp(vb - mx))
   ev / rowSums(ev)
 }
-sim_panel <- function(n, nt, types, theta_grid, beta0 = 1.5, alpha = 1) {
-  id <- rep(seq_len(n), each = nt)
-  pA <- runif(n * nt, 1, 2.5); pB <- runif(n * nt, 1, 2.5)
-  prob <- choice_prob(theta_grid[types[id]], pA, pB, beta0, alpha)
-  u <- runif(n * nt)
-  y <- as.integer(u > prob[, 1]) + as.integer(u > prob[, 1] + prob[, 2])
-  data.frame(id, occasion = rep(seq_len(nt), n), pA, pB, y)
-}
-type_true <- sample(1:3, N, replace = TRUE, prob = pi_true)
-train_all <- sim_panel(N, T_train, type_true, theta_grid)
-test <- sim_panel(N, T_test, type_true, theta_grid)
+id <- rep(seq_len(N), each = T_total)
+occasion <- rep(seq_len(T_total), times = N)
+pA <- prices$pA[occasion]; pB <- prices$pB[occasion]
+prob <- choice_prob(theta_grid[type_true[id]], pA, pB)
+u <- runif(N * T_total)
+y <- as.integer(u > prob[, 1]) + as.integer(u > prob[, 1] + prob[, 2])
+panel <- data.frame(id, occasion, pA, pB, y)
+train_all <- subset(panel, occasion <= T_train)
+test <- subset(panel, occasion > T_train)
 panel_loglik <- function(dat, grid = theta_grid) {
   sapply(grid, function(th) {
     pr <- choice_prob(th, dat$pA, dat$pB)
@@ -80,14 +82,10 @@ fit_mixture <- function(ell) {
   ww <- sweep(e, 2, pi, '*'); ww <- ww / rowSums(ww)
   list(pi = pi, weights = ww, Q = op$value)
 }
-no_pool <- function(dat) {
-  sapply(split(dat, dat$id), function(di) {
-    loss <- function(th) {
-      pr <- choice_prob(th, di$pA, di$pB)
-      -sum(log(pr[cbind(seq_len(nrow(di)), di$y + 1)]))
-    }
-    optimize(loss, c(-5, 5))$minimum
-  })
+no_pool <- function(dat, grid = theta_grid) {
+  ell_i <- panel_loglik(dat, grid)
+  best_k <- max.col(ell_i, ties.method = "first")
+  grid[best_k]
 }
 predict_mix <- function(dat, weights, grid = theta_grid) {
   out <- matrix(0, nrow(dat), 3)
@@ -132,6 +130,18 @@ $$P_{ij}^{\mathrm{history}}=\int P_j(\theta)dF(\theta\mid H_i)$$
 
 履歴を説明しやすい好みに、大きな重みを付ける。
 
+::: {.notes}
+ここで計算するのは選択ダミーの条件付き平均、すなわち選択確率である。確率を答えるタスクと、商品を一つ選ぶタスクを区別する。
+:::
+
+## 何を「予測」するのか
+
+- 今回は、本人の履歴に条件づけた**選択確率**を計算する。
+- 商品を一つ当てるなら、最大の確率の商品を答える。
+- 数値を答える場合も、二乗損失なら平均、絶対損失なら中央値。
+
+何を答えるかと、どんな損失で評価するかを決める。
+
 ## 企業のデータで必要なもの
 
 - 誰が、いつ、何を選んだか。
@@ -144,9 +154,9 @@ $$P_{ij}^{\mathrm{history}}=\int P_j(\theta)dF(\theta\mid H_i)$$
 
 Aはブラック、Bは甘いコーヒー。価格は100円単位。
 
-$$v_{iAt}=1.5-\theta_i-p_{iAt},\quad v_{iBt}=1.5+\theta_i-p_{iBt}$$
+$$v_{iAt}=1.5-\theta_i-p_{At},\quad v_{iBt}=1.5+\theta_i-p_{Bt}$$
 
-$$\theta_i\in\{-1.5,0,1.5\},\quad \pi=(.25,.5,.25)$$
+$$\theta_i\in\{-1.5,0,1.5\},\quad \pi^{\mathrm{true}}=(.25,.5,.25)$$
 
 outsideの効用は一時的ショックのみ。
 
@@ -154,7 +164,7 @@ outsideの効用は一時的ショックのみ。
 
 - タイプの位置、定数、価格係数は既知。
 - 母集団のタイプ割合を推定する。
-- 価格は外生的。同じ人のタイプは固定。
+- 価格は各機会で全員共通かつ外生的。同じ人のタイプは固定。
 
 価格内生性や習慣形成を同時に扱う例ではない。
 
@@ -168,26 +178,39 @@ ggplot(plot_pr, aes(factor(type), probability, fill = choice)) + geom_col(positi
 
 ## 同じ選好が複数の選択を生む
 
-$$L_i(\theta_k)=\prod_{t=1}^{T_i}P_{iy_{it}t}(\theta_k)$$
+履歴は $H_i=\{(y_{it},p_{At},p_{Bt})\}_{t=1}^{T_i}$。価格に条件づける。
+
+$$L(\theta_k;H_i)=\prod_{t=1}^{T_i}P_{y_{it},t}(\theta_k)$$
 
 まずタイプを固定して各回の確率を掛ける。
 
-$$L_i(\pi)=\sum_k\pi_k L_i(\theta_k)$$
+$$L(\pi;H_i)=\sum_k\pi_kL(\theta_k;H_i)$$
 
 その後に、タイプについて平均する。
 
 ## 平均と積の順序
 
-$$\sum_k\pi_k\prod_tP_{iy_{it}t}(\theta_k)
-\ne\prod_t\sum_k\pi_kP_{iy_{it}t}(\theta_k)$$
+$$\sum_k\pi_k\prod_tP_{y_{it},t}(\theta_k)
+\ne\prod_t\sum_k\pi_kP_{y_{it},t}(\theta_k)$$
 
 右辺では、各回でタイプを引き直すことになる。
 
+## データを作ってから、使い方を分ける
+
+1. 400人のタイプを一度だけ抽選する。
+2. 36機会の共通価格を100〜250円から独立に抽選する。
+3. タイプと価格からlogit確率を計算し、各人の選択を抽選する。
+
+前半16機会が学習用、後半20機会が評価用。
+
+まず最初の4機会を使う。真の個人タイプは推定に渡さない。
+
 ## 母集団の割合を推定する
 
-$$\hat\pi=\arg\max_\pi\sum_i\log L_i(\pi)$$
+$$\hat\pi\in\arg\max_{\pi_k\geq0,\,\sum_k\pi_k=1}
+\sum_i\log L(\pi;H_i)$$
 
-400人の最初の4回だけを使用する。
+400人の最初の4回を使い、既知の3タイプの**割合だけ**を推定する。
 
 ```{r}
 kable(data.frame(type = theta_grid, truth = pi_true, estimate = fit$pi), digits = 3)
@@ -195,9 +218,20 @@ kable(data.frame(type = theta_grid, truth = pi_true, estimate = fit$pi), digits 
 
 ## 履歴を見た後の重み
 
-$$w_{ik}=\frac{\hat\pi_kL_i(\theta_k)}{\sum_l\hat\pi_lL_i(\theta_l)}$$
+$$w_{ik}=\frac{\hat\pi_kL(\theta_k;H_i)}
+{\sum_l\hat\pi_lL(\theta_l;H_i)}$$
 
 母集団で多いタイプと、その人の履歴を説明しやすいタイプの両方に重みが付く。
+
+## なぜこの重みなのか：ベイズの公式
+
+$$\Pr(A\mid B)=\frac{\Pr(B\mid A)\Pr(A)}{\Pr(B)}$$
+
+- $A$：本人がタイプ $k$。$B$：本人の選択列を観測した。
+- 既知の $\pi$ なら、履歴を見た後のタイプの**事後確率**になる。
+- 未知の $\pi$ に推定値 $\hat\pi$ を代入するのが**経験ベイズ**。
+
+$\hat\pi$ 自体の不確実性まで積分する計算とは区別する。
 
 ## 一人の例
 
@@ -207,27 +241,37 @@ kable(train[train$id == i, ])
 kable(data.frame(type = theta_grid, population = fit$pi, history = fit$weights[i, ]), digits = 3)
 ```
 
-## 一人ずつ推定すると
+## 一人ずつ推定すると {.nostretch}
 
-本人の4回の選択だけで $\theta_i$ を最尤推定する。
+同じ3タイプの中で、本人の履歴の尤度が最大のものを選ぶ。
 
-同じ商品ばかりを選んだ人では、係数を極端にするほど当てはまりがよくなりやすい。
+$$\widehat k_i^{\mathrm{NP}}\in\arg\max_{k\in\{1,2,3\}}
+\log L(\theta_k;H_i)$$
+
+短い履歴で一つに決めると、誤分類しても他の可能性を残せない。
 
 ```{r}
-ggplot(data.frame(estimate = np), aes(estimate)) + geom_histogram(bins = 25, fill = "#4C72B0") + labs(x = "個人別の最尤推定値", y = "人数")
+#| fig-height: 3.0
+#| out-width: "750px"
+ggplot(data.frame(estimate = factor(np, levels = theta_grid)), aes(estimate)) +
+  geom_bar(fill = "#4C72B0") +
+  labs(x = "個人別最尤で選んだタイプ", y = "人数")
 ```
 
 ## 予測の方法を比べる
 
 1. 母集団の割合のみ。
-2. 個人別の最尤推定値。
+2. 個人別最尤で選んだ一つのタイプ。
 3. 履歴で更新したタイプの重み。
 
-同じ顧客の、推定に使わない20回で評価する。
+各タイプの選択確率を、それぞれの重みで平均する。
+
+同じ顧客の後半20回で評価する。評価中は重みを更新しない。
 
 ## log loss
 
-$$-\frac1{NT_{\rm test}}\sum_i\sum_t\log\hat P_{iy_{it}t}$$
+$$-\frac1{N T_{\mathrm{test}}}\sum_{i=1}^N\sum_{t=17}^{36}
+\log\widehat P_{i,y_{it},t},\qquad T_{\mathrm{test}}=20$$
 
 実際に選ばれた選択肢に高い確率を付けるほど小さくなる。
 
@@ -243,7 +287,7 @@ ggplot(result, aes(method, loss)) + geom_col(fill = "#4C72B0") + labs(x = NULL, 
 
 ## 結果をどう読むか
 
-短い履歴では、個人別推定の極端な係数が予測を悪くする。
+短い履歴で一つのタイプに決めると、誤分類が次の選択確率にも影響する。
 
 母集団の情報と本人の履歴を合わせることで改善した。
 
