@@ -1,5 +1,5 @@
 ---
-title: "Playground 6：購買履歴から予測する"
+title: "Playground 6：個人の履歴から好みを学ぶ"
 subtitle: "計量経済学II（ブラウザ上でRが動きます）"
 author: "Kei Ikegami"
 lang: ja
@@ -11,10 +11,6 @@ format:
     theme: cosmo
 engine: knitr
 webr:
-  packages:
-    - ggplot2
-    - dplyr
-    - tidyr
   repos:
     - https://repo.r-wasm.org
     - https://cran.r-universe.dev
@@ -24,17 +20,14 @@ webr:
 
 ## 使い方
 
-セルを上から実行する。コードを書き換えてから「Run Code」を押すと再計算できる。最初の読み込みには少し時間がかかる。[講義ノート](lecture6.html)と同じ3タイプのモデルを使い、履歴の長さによって予測がどう変わるかを調べる。同じ機会には全顧客が同じ価格を見る。
+セルを上から実行する。コードを書き換えたら「Run Code」を押して再計算する。最初の読み込みには時間がかかる。[講義ノート](lecture6.html)と同じコーヒーのモデルを使う。同じ機会には全員に同じ価格が提示され、一人の好みは全機会で変わらない。グラフのラベルはブラウザで読みやすいよう英語にしている。
 
 ```{webr}
 #| edit: false
 #| output: false
 #| autorun: true
 #| timelimit: 120
-set.seed(202606)
-theta_grid <- c(-1.5, 0, 1.5)
-pi_true <- c(.25, .5, .25)
-N <- 400; T_train <- 16; T_test <- 20
+# Finite-type panel logit: all calculations condition on common prices.
 choice_prob <- function(theta, pA, pB, beta0 = 1.5, alpha = 1) {
   va <- beta0 - theta - alpha * pA
   vb <- beta0 + theta - alpha * pB
@@ -42,104 +35,159 @@ choice_prob <- function(theta, pA, pB, beta0 = 1.5, alpha = 1) {
   ev <- cbind(exp(-mx), exp(va - mx), exp(vb - mx))
   ev / rowSums(ev)
 }
-type_true <- sample(1:3, N, replace = TRUE, prob = pi_true)
-T_total <- T_train + T_test
-prices <- data.frame(occasion = seq_len(T_total),
-                     pA = runif(T_total, 1, 2.5),
-                     pB = runif(T_total, 1, 2.5))
-id <- rep(seq_len(N), each = T_total)
-occasion <- rep(seq_len(T_total), times = N)
-pA <- prices$pA[occasion]; pB <- prices$pB[occasion]
-prob <- choice_prob(theta_grid[type_true[id]], pA, pB)
-u <- runif(N * T_total)
-y <- as.integer(u > prob[, 1]) + as.integer(u > prob[, 1] + prob[, 2])
-panel <- data.frame(id, occasion, pA, pB, y)
-train_all <- subset(panel, occasion <= T_train)
-test <- subset(panel, occasion > T_train)
-panel_loglik <- function(dat, grid = theta_grid) {
+sim_finite <- function(n = 400, nt = 16, seed = 202606) {
+  set.seed(seed)
+  grid <- c(-1.5, 0, 1.5)
+  pi <- c(.25, .5, .25)
+  type <- sample(seq_along(grid), n, replace = TRUE, prob = pi)
+  prices <- data.frame(occasion = seq_len(nt), pA = runif(nt, 1, 2.5),
+                       pB = runif(nt, 1, 2.5))
+  id <- rep(seq_len(n), each = nt)
+  occasion <- rep(seq_len(nt), times = n)
+  pA <- prices$pA[occasion]; pB <- prices$pB[occasion]
+  prob <- choice_prob(grid[type[id]], pA, pB)
+  u <- runif(n * nt)
+  y <- as.integer(u > prob[, 1]) + as.integer(u > prob[, 1] + prob[, 2])
+  list(data = data.frame(id, occasion, pA, pB, y),
+       type = type, theta = grid[type], grid = grid, pi = pi, prices = prices)
+}
+# Each row is a person, each column a proposed value of theta.
+panel_loglik <- function(dat, grid) {
   sapply(grid, function(th) {
     pr <- choice_prob(th, dat$pA, dat$pB)
     drop(rowsum(log(pr[cbind(seq_len(nrow(dat)), dat$y + 1)]), dat$id))
   })
 }
-fit_mixture <- function(ell) {
+# Stable type probabilities and observed-data log likelihood.
+mixture_eval <- function(ell, pi) {
+  z <- sweep(ell, 2, log(pi), "+")
+  rowmax <- apply(z, 1, max)
+  e <- exp(z - rowmax)
+  totals <- rowSums(e)
+  list(weights = e / totals, loglik = sum(rowmax + log(totals)))
+}
+fit_known_pi <- function(ell) {
   softmax <- function(a) { z <- c(a, 0); z <- exp(z - max(z)); z / sum(z) }
-  rowmax <- apply(ell, 1, max); e <- exp(ell - rowmax)
-  loss <- function(a) -sum(rowmax + log(drop(e %*% softmax(a))))
-  op <- optim(c(0, 0), loss, method = 'BFGS')
-  if(op$convergence != 0) stop('mixture fit did not converge')
-  pi <- softmax(op$par)
-  ww <- sweep(e, 2, pi, '*'); ww <- ww / rowSums(ww)
-  list(pi = pi, weights = ww, Q = op$value)
+  opt <- optim(rep(0, ncol(ell) - 1),
+               function(a) -mixture_eval(ell, softmax(a))$loglik,
+               method = "BFGS", control = list(reltol = 1e-11, maxit = 1000))
+  if (opt$convergence != 0) stop("Known-support MLE did not converge")
+  pi <- softmax(opt$par)
+  c(list(pi = pi), mixture_eval(ell, pi))
 }
-no_pool <- function(dat, grid = theta_grid) {
-  ell_i <- panel_loglik(dat, grid)
-  best_k <- max.col(ell_i, ties.method = "first")
-  grid[best_k]
+# No pooling uses the same fixed candidate values as the EB comparison.
+individual_mle <- function(ell, grid) {
+  grid[max.col(ell, ties.method = "first")]
 }
-predict_mix <- function(dat, weights, grid = theta_grid) {
-  out <- matrix(0, nrow(dat), 3)
-  for(k in seq_along(grid)) {
-    out <- out + weights[dat$id, k] * choice_prob(grid[k], dat$pA, dat$pB)
+# EM for an unknown 3-point distribution; each M-step increases Q.
+fit_em_once <- function(dat, start, maxit = 2000, tol = 1e-8, bounds = c(-6, 6)) {
+  theta <- sort(start)
+  pi <- rep(1 / length(theta), length(theta))
+  ell <- panel_loglik(dat, theta)
+  current <- mixture_eval(ell, pi)
+  trace <- current$loglik
+  converged <- FALSE
+  for (iter in seq_len(maxit)) {
+    w <- current$weights
+    pi_new <- colMeans(w)
+    theta_new <- vapply(seq_along(theta), function(k) {
+      optimize(function(th) -sum(w[, k] * panel_loglik(dat, th)),
+               interval = bounds, tol = 1e-8)$minimum
+    }, numeric(1))
+    order_new <- order(theta_new)
+    theta_new <- theta_new[order_new]; pi_new <- pi_new[order_new]
+    ell_new <- panel_loglik(dat, theta_new)
+    next_fit <- mixture_eval(ell_new, pi_new)
+    gain <- next_fit$loglik - current$loglik
+    if (gain < -1e-6) stop("EM log likelihood decreased")
+    trace <- c(trace, next_fit$loglik)
+    theta <- theta_new; pi <- pi_new; ell <- ell_new; current <- next_fit
+    if (abs(gain) < tol) { converged <- TRUE; break }
   }
-  out
+  list(theta = theta, pi = pi, loglik = current$loglik,
+       weights = current$weights, trace = trace, converged = converged,
+       iterations = iter, bounds = bounds)
 }
-score_prob <- function(prob, dat) {
-  loss <- -log(pmax(prob[cbind(seq_len(nrow(dat)), dat$y + 1)], 1e-12))
-  drop(rowsum(loss, dat$id)) / as.numeric(table(dat$id))
+fit_em_multistart <- function(dat, starts = list(c(-2, 0, 2), c(-1, .5, 2.5),
+                                                  c(-2.5, -.5, 1))) {
+  fits <- lapply(starts, function(st) fit_em_once(dat, st))
+  best <- which.max(vapply(fits, `[[`, numeric(1), "loglik"))
+  list(best = fits[[best]], fits = fits, best_start = best)
 }
 
+example <- sim_finite()
+panel <- example$data
+support <- example$grid
+ell <- panel_loglik(panel, support)
 ```
 
-## 1. 3タイプの選択確率
+## 1. 一人の履歴でタイプの重みを変える
 
-同じ価格を見せても、好みが違うと選択確率が変わる。`price_a` と `price_b` を動かしてみよう。
-
-```{webr}
-price_a <- 1.5
-price_b <- 1.5
-pr <- choice_prob(theta_grid, price_a, price_b)
-rownames(pr) <- paste("theta =", theta_grid)
-colnames(pr) <- c("Outside", "A", "B")
-round(pr, 3)
-barplot(t(pr), beside = TRUE, legend.text = colnames(pr), ylim = c(0, 1), ylab = "Choice probability")
-```
-
-## 2. 履歴を使うと予測はどう変わるか
-
-`history_length` を1、2、4、8、16に変える。どの方法も同じ3タイプを候補にする。`population` は母集団の割合だけを使い、`individual` は本人の履歴の尤度が最大になるタイプを一つ選ぶ。`history` は母集団の割合と本人の履歴を組み合わせ、3タイプの確率を重み付きで平均する。個人別推定で尤度が同点なら、タイプ番号の小さい方を選ぶ。
-
-評価には、推定に使っていない後の20機会の選択を使う。各機会の価格のもとで実際に選ばれた選択肢に付けた確率について、負の対数を平均する。これが対数損失で、小さいほどよい。評価中は本人のタイプの重みを更新しない。
-
-```{webr}
-#| timelimit: 120
-history_length <- 4
-train <- subset(train_all, occasion <= history_length)
-f <- fit_mixture(panel_loglik(train))
-np <- no_pool(train)
-prob_population <- predict_mix(test, matrix(f$pi, N, 3, byrow = TRUE))
-prob_history <- predict_mix(test, f$weights)
-prob_individual <- choice_prob(np[test$id], test$pA, test$pB)
-result <- c(population = mean(score_prob(prob_population, test)),
-            individual = mean(score_prob(prob_individual, test)),
-            history = mean(score_prob(prob_history, test)))
-round(result, 3)
-barplot(result, ylab = "Test log loss (lower is better)")
-```
-
-## 3. 一人の履歴とタイプの重み
-
-`customer` を変え、本人の選択履歴によってタイプの重みがどう変わるかを確認しよう。同じ人が同じ商品を同じ回数選んでいても、選んだ機会の価格が違えば重みは異なり得る。あるタイプの重みが高くなっても、その人のタイプが確定したわけではない。
+`customer` を変えて、その人の履歴を見る。母集団割合 `prior` を事前確率とし、本人の選択列の尤度を掛けて合計1に直す。尤度最大のタイプを一つ答える個人別最尤と、3タイプの不確実性を残す事後分布を比較しよう。事前確率は正の数3個を合計1にして指定する。
 
 ```{webr}
 customer <- 1
-subset(train, id == customer)
-rbind(population = f$pi, conditional = f$weights[customer, ])
-barplot(rbind(f$pi, f$weights[customer, ]), beside = TRUE,
-        names.arg = theta_grid, legend.text = c("Population", "Given history"),
-        xlab = "Type", ylab = "Weight", ylim = c(0, 1))
+prior <- c(.25, .50, .25)
+stopifnot(all(prior > 0), abs(sum(prior) - 1) < 1e-8)
+log_like <- ell[customer, ]
+like <- exp(log_like - max(log_like))
+posterior <- prior * like / sum(prior * like)
+print(subset(panel, id == customer))
+round(rbind(prior = prior, likelihood = like, posterior = posterior), 3)
+cat("Individual MLE:", support[which.max(log_like)], "\n")
+barplot(rbind(prior, posterior), beside = TRUE, names.arg = support,
+        legend.text = c("Prior", "Posterior"), ylim = c(0, 1),
+        xlab = "Taste theta", ylab = "Probability")
 ```
 
-## 考えてみよう
+尤度は形を比較できるように最大値で割っている。事前確率と同じく合計が1になる必要はない。タイプの事後確率を全部使った係数の平均と、最尤タイプは別の要約である。
 
-個人別推定がよい予測にならなかったとき、学習用の当てはまりだけを比較していたら同じ結論になっただろうか。タイプの位置を誤って指定した場合にも、母集団の情報を使う方法が必ず優れるだろうか。
+## 2. 母集団を推定してから個人を更新する
+
+3つのタイプの位置が既知で、割合は未知だとする。全員の履歴から割合を最尤推定し、その割合を使って一人の事後確率を計算する。この2段階が経験ベイズである。`customer` を変えると、同じ母集団割合から違う個人の更新を確かめられる。
+
+```{webr}
+fit <- fit_known_pi(ell)
+round(rbind(true_pi = example$pi, estimated_pi = fit$pi,
+            posterior = fit$weights[customer, ]), 3)
+cat("Individual posterior mean:", sum(fit$weights[customer, ] * support), "\n")
+barplot(rbind(fit$pi, fit$weights[customer, ]), beside = TRUE,
+        names.arg = support, legend.text = c("Est. prior", "Posterior"),
+        ylim = c(0, 1), xlab = "Taste theta", ylab = "Probability")
+```
+
+## 3. タイプの位置も推定する
+
+今度は3タイプの位置と割合を同時に推定する。`start` を変えてEMを実行し、推定値や対数尤度が変わるかを確かめよう。複数の初期値が同じ結果でも大域的な最適解である保証にはならない。位置の探索範囲は $[-6,6]$ とする。
+
+```{webr}
+#| timelimit: 120
+start <- c(-2, 0, 2)
+em <- fit_em_once(panel, start)
+round(data.frame(theta = em$theta, share = em$pi), 3)
+cat("Iterations:", em$iterations, " Converged:", em$converged, "\n")
+plot(em$trace, type = "o", xlab = "EM iteration", ylab = "Log likelihood")
+```
+
+## 4. 連続的な好みでも更新の仕組みは同じ
+
+分析側では、タイプの候補を3点に限らず、正規分布から連続的に好みが生まれると仮定する。ここではデータを生成し直さず、有限タイプから生成した同じ顧客履歴に対して、事前分布の仮定を変えている。講義ノート第5節では、別に連続分布からデータを生成している。ここでは平均 `mu` と標準偏差 `tau` を指定し、本人の尤度を掛けて事後分布を描く。`customer`、`mu`、`tau` を変えてみよう。これは指定した母集団分布に基づく更新であり、`mu` と `tau` をデータから推定する経験ベイズは講義ノートで扱う。
+
+```{webr}
+mu <- 0.2
+tau <- 1
+stopifnot(tau > 0)
+grid <- seq(-6, 6, length.out = 601)
+log_like <- as.numeric(panel_loglik(subset(panel, id == customer), grid))
+log_post <- log_like + dnorm(grid, mu, tau, log = TRUE)
+post <- exp(log_post - max(log_post))
+step <- grid[2] - grid[1]
+post <- post / (sum(post) * step)
+plot(grid, dnorm(grid, mu, tau), type = "l", lwd = 2,
+     xlab = "Taste theta", ylab = "Density", ylim = c(0, max(post, dnorm(grid, mu, tau))))
+lines(grid, post, col = "steelblue", lwd = 2)
+legend("topright", c("Population", "Posterior"),
+       col = c("black", "steelblue"), lwd = 2, cex = .85, bty = "n", inset = .02)
+```
+
+$[-6,6]$ 上の細かい点で近似したため、事後分布の端に無視できない密度が残るような極端な設定では、この範囲を広げて再計算しよう。

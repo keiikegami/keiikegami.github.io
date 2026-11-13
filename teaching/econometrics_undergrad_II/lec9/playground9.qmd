@@ -1,6 +1,6 @@
 ---
-title: "Playground 9：HB logitを小さなデータで試す"
-subtitle: "計量経済学II（ブラウザでRを実行）"
+title: "Playground 9：コンジョイントと個人の好み"
+subtitle: "計量経済学II（ブラウザ上でRが動きます）"
 author: "Kei Ikegami"
 lang: ja
 format:
@@ -11,6 +11,10 @@ format:
     theme: cosmo
 engine: knitr
 webr:
+  packages:
+    - ggplot2
+    - dplyr
+    - tidyr
   repos:
     - https://repo.r-wasm.org
     - https://cran.r-universe.dev
@@ -20,13 +24,14 @@ webr:
 
 ## 使い方
 
-第9回のモデルを、小さいデータで実行する。[講義ノート](lecture9.html)より反復を短くするため、診断が悪ければ回数を増やしてほしい。ブラウザ版での速度を優先した設定であり、講義の推定結果をそのまま再現する設定ではない。
+セルを上から実行する。価格や回答者数を書き換えて「Run Code」を押すと結果が変わる。[講義ノート](lecture9.html)と同じイヤホンのモデルを使う。標準誤差は、ブラウザ版でも回答者単位のクラスター分散を計算する。
 
 ```{webr}
 #| edit: false
 #| output: false
 #| autorun: true
 #| timelimit: 120
+# === CBC_DGP ===
 choice_prob <- function(quality, price, alpha) {
   v <- quality - price * alpha
   vmax <- pmax(0, v[, 1], v[, 2])
@@ -55,122 +60,88 @@ simulate_cbc <- function(seed = 202607, N = 300, Ttrain = 8, Thold = 8) {
   list(train = make_tasks(Ttrain), test = make_tasks(Thold), N = N,
        beta_known = beta_known, theta_true = theta_true, mu_true = mu_true, tau_true = tau_true)
 }
-individual_loglik <- function(theta, tasks, N) {
-  v <- tasks$quality - tasks$price * exp(theta[tasks$id])
-  vmax <- pmax(0, v[, 1], v[, 2])
-  logden <- vmax + log(exp(-vmax) + rowSums(exp(v - vmax)))
-  chosen <- numeric(length(tasks$choice))
-  inside <- which(tasks$choice > 0)
-  chosen[inside] <- v[cbind(inside, tasks$choice[inside])]
-  as.vector(rowsum(chosen - logden, tasks$id, reorder = FALSE))
-}
-fit_hb <- function(dat, seed = 202609, n_iter = 16000, burn = 4000, thin = 4,
-                   prior_mu = log(0.2), prior_mu_sd = 1.5,
-                   prior_shape = 2, prior_rate = 0.5) {
-  keep <- seq(burn + thin, n_iter, by = thin)
-  one_chain <- function(chain) {
-    set.seed(seed + chain)
-    theta <- rep(prior_mu + c(-0.4, 0.4)[chain], dat$N)
-    mu <- mean(theta); tau2 <- 0.5
-    ll <- individual_loglik(theta, dat$train, dat$N)
-    theta_draw <- matrix(NA_real_, length(keep), dat$N)
-    mu_draw <- tau_draw <- numeric(length(keep))
-    accepted <- numeric(dat$N); saved <- 0
-    for (iteration in seq_len(n_iter)) {
-      proposal <- theta + rnorm(dat$N, 0, 0.7)
-      ll_new <- individual_loglik(proposal, dat$train, dat$N)
-      logratio <- ll_new - ll + dnorm(proposal, mu, sqrt(tau2), log = TRUE) -
-        dnorm(theta, mu, sqrt(tau2), log = TRUE)
-      accept <- log(runif(dat$N)) < logratio
-      theta[accept] <- proposal[accept]; ll[accept] <- ll_new[accept]
-      if (iteration > burn) accepted <- accepted + accept
-      variance_mu <- 1 / (dat$N / tau2 + 1 / prior_mu_sd^2)
-      mean_mu <- variance_mu * (sum(theta) / tau2 + prior_mu / prior_mu_sd^2)
-      mu <- rnorm(1, mean_mu, sqrt(variance_mu))
-      tau2 <- 1 / rgamma(1, shape = prior_shape + dat$N / 2,
-        rate = prior_rate + sum((theta - mu)^2) / 2)
-      if (iteration %in% keep) {
-        saved <- saved + 1
-        theta_draw[saved, ] <- theta
-        mu_draw[saved] <- mu; tau_draw[saved] <- sqrt(tau2)
-      }
-    }
-    list(theta = theta_draw, mu = mu_draw, tau = tau_draw,
-         acceptance = accepted / (n_iter - burn))
-  }
-  chains <- lapply(1:2, one_chain)
-  list(theta = rbind(chains[[1]]$theta, chains[[2]]$theta),
-       mu = c(chains[[1]]$mu, chains[[2]]$mu), tau = c(chains[[1]]$tau, chains[[2]]$tau),
-       chain = rep(1:2, each = length(keep)), chains = chains,
-       settings = c(n_iter = n_iter, burn = burn, thin = thin))
-}
-predict_existing <- function(fit, tasks) {
-  answer <- matrix(0, length(tasks$id), 3)
-  for (b in seq_len(nrow(fit$theta))) {
-    answer <- answer + choice_prob(tasks$quality, tasks$price, exp(fit$theta[b, tasks$id]))
-  }
-  answer / nrow(fit$theta)
-}
-predict_new <- function(fit, quality, price, n_integration = 80) {
-  # 母集団パラメータの不確実性と新しい個人の異質性の両方を積分。
-  nodes <- qnorm((seq_len(n_integration) - 0.5) / n_integration)
-  answer <- matrix(0, nrow(price), 3)
-  for (b in seq_along(fit$mu)) {
-    for (z in nodes) {
-      answer <- answer + choice_prob(quality, price, exp(fit$mu[b] + fit$tau[b] * z))
-    }
-  }
-  answer / (length(fit$mu) * n_integration)
-}
-log_score <- function(prob, choice) -mean(log(pmax(prob[cbind(seq_along(choice), choice + 1)], 1e-12)))
-split_rhat <- function(chain1, chain2) {
-  n <- floor(length(chain1) / 2)
-  z <- cbind(chain1[1:n], tail(chain1, n), chain2[1:n], tail(chain2, n))
-  W <- mean(apply(z, 2, var)); B <- n * var(colMeans(z))
-  sqrt(((n - 1) * W / n + B / n) / W)
+
+to_long <- function(tasks) {
+  do.call(rbind, lapply(1:2, function(j) data.frame(
+    id = tasks$id, profile = j, price = tasks$price[, j],
+    battery12 = tasks$battery12[, j], nc = tasks$nc[, j],
+    major_brand = tasks$major_brand[, j], chosen = as.integer(tasks$choice == j))))
 }
 
+cluster_lm <- function(d) {
+  d$price12 <- as.integer(d$price == 12); d$price16 <- as.integer(d$price == 16)
+  fit <- lm(chosen ~ price12 + price16 + battery12 + nc + major_brand, data = d)
+  X <- model.matrix(fit); S <- rowsum(X * residuals(fit), d$id)
+  G <- nrow(S); bread <- solve(crossprod(X))
+  V <- G / (G - 1) * (nrow(X) - 1) / (nrow(X) - ncol(X)) * bread %*% crossprod(S) %*% bread
+  data.frame(term = names(coef(fit)), estimate = coef(fit), se = sqrt(diag(V)))
+}
 ```
 
-## 1. 個人ごとの選択課題を作る
+## 1. 価格への反応が違う人
+
+Aはバッテリー12時間、ノイズキャンセリングあり、新興ブランド。Bはすべて基準の機能で、価格12千円とする。`alpha` を変えると、同じAの値上げに対する反応がどう変わるだろうか。
 
 ```{webr}
-dat <- simulate_cbc(N=80,Ttrain=8,Thold=8)
-table(dat$train$choice)
-hist(exp(dat$theta_true),main="True price sensitivity",xlab="alpha")
+alpha <- 0.12
+price_a <- seq(8, 16, .5)
+quality <- cbind(rep(.5 + .8, length(price_a)), rep(0, length(price_a)))
+price <- cbind(price_a, rep(12, length(price_a)))
+prob <- choice_prob(quality, price, alpha)
+matplot(price_a, prob, type = "l", lty = 1, col = c("gray40", "blue", "red"),
+        xlab = "Aの価格（千円）", ylab = "選択確率", ylim = c(0, 1))
+legend("topright", c("買わない", "A", "B"), col = c("gray40", "blue", "red"), lty = 1)
 ```
 
-## 2. 事後分布を計算する
+## 2. 回答者数とAMCEの精度
+
+`N` を100、300、1000に変える。`Ttrain` は一人の回答数である。推定に使うのは学習用だけであり、`test` の選択を混ぜない。
 
 ```{webr}
 #| timelimit: 120
-fit <- fit_hb(dat,n_iter=8000,burn=2000,thin=4)
-c(mu=mean(fit$mu),tau=mean(fit$tau))
-c(mu_Rhat=split_rhat(fit$chains[[1]]$mu,fit$chains[[2]]$mu),
-  tau_Rhat=split_rhat(fit$chains[[1]]$tau,fit$chains[[2]]$tau))
-matplot(cbind(fit$chains[[1]]$tau,fit$chains[[2]]$tau),type="l",lty=1,
-  xlab="saved draw",ylab="tau")
+N <- 300
+Ttrain <- 8
+dat <- simulate_cbc(N = N, Ttrain = Ttrain)
+d <- to_long(dat$train)
+result <- cluster_lm(d)
+round(result[, c("estimate", "se")], 3)
+r <- result[result$term != "(Intercept)", ]
+plot(seq_len(nrow(r)), r$estimate, xaxt = "n", xlab = "", ylab = "AMCE",
+     ylim = range(r$estimate + 1.96 * r$se, r$estimate - 1.96 * r$se), pch = 19)
+axis(1, seq_len(nrow(r)), labels = r$term)
+arrows(seq_len(nrow(r)), r$estimate - 1.96 * r$se, seq_len(nrow(r)), r$estimate + 1.96 * r$se,
+       angle = 90, code = 3, length = .05)
+abline(h = 0, lty = 2)
 ```
 
-`n_iter=2000,burn=1000,thin=2`に短くした場合と、`n_iter=16000,burn=4000,thin=4`に長くした場合で、平均や診断はどう変わるか。乱数の数が多いだけで十分とは判断しないこと。
+## 3. WTPの平均と、平均係数の比
 
-## 3. 事後分布で予測する
+平均価格係数を0.12に保って、ばらつき `tau` を変える。平均係数の比が変わらないのに、個人WTPの平均が変わる理由を考えよう。
 
 ```{webr}
-p_integrated <- predict_existing(fit,dat$test)
-p_plugin <- choice_prob(dat$test$quality,dat$test$price,
-  exp(colMeans(fit$theta)[dat$test$id]))
-c(integrated_loss=log_score(p_integrated,dat$test$choice),
-  plugin_loss=log_score(p_plugin,dat$test$choice),
-  mean_probability_difference=mean(abs(p_integrated-p_plugin)))
+set.seed(2026073)
+tau <- 0.6
+mu <- log(.12) - tau^2 / 2
+alpha <- exp(rnorm(10000, mu, tau))
+wtp <- .8 / alpha
+c(mean_individual_wtp = mean(wtp), ratio_of_means = .8 / mean(alpha), median_wtp = median(wtp))
+hist(wtp, breaks = 40, xlab = "個人WTP（千円）", main = "ノイズキャンセリングのWTP")
+abline(v = .8 / .12, col = "red", lwd = 2)
 ```
 
-## 4. 個人の不確実性
+## 4. 8問で一人の好みを決められるか
+
+最初の8問を使い、回答者1の価格係数を変えたときの対数尤度を描く。山が狭いか広いか、端まで増え続けるかを確認しよう。今回は他の属性係数を既知としているので、実際に全係数を一人ずつ推定する場合より簡単な問題である。
 
 ```{webr}
-i <- 1
-hist(exp(fit$theta[,i]),main=paste("Customer",i),xlab="alpha posterior")
-quantile(exp(fit$theta[,i]),c(.025,.5,.975))
+customer <- 1
+rows <- which(dat$train$id == customer)
+theta_grid <- seq(log(.01), log(1), length.out = 200)
+loglik <- sapply(theta_grid, function(theta) {
+  p <- choice_prob(dat$train$quality[rows, , drop = FALSE], dat$train$price[rows, , drop = FALSE], exp(theta))
+  sum(log(p[cbind(seq_along(rows), dat$train$choice[rows] + 1)]))
+})
+plot(exp(theta_grid), loglik, type = "l", xlab = "価格係数 alpha", ylab = "本人の回答の対数尤度")
 ```
 
-顧客番号や推定用課題数を変えてみよう。個人の区間と、母集団平均の区間を混同しないこと。
+この曲線に、母集団でどの係数がどれくらいありそうかという情報を組み合わせる。第6回で学んだ更新と同じ仕組みである。価格感応度の階層モデルとしての実装は、ターゲティングの回で使ったものと同じ構造になる。

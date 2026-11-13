@@ -1,5 +1,5 @@
 ---
-title: "Lecture 9：階層ベイズによる個人の選択と需要の推定"
+title: "Lecture 9：商品設計とコンジョイント分析"
 subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -23,10 +23,16 @@ execute:
 #| include: false
 library(ggplot2)
 library(dplyr)
-library(tidyr)
-set.seed(202609)
-font_family <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
-theme_set(theme_minimal(base_size = 13, base_family = font_family))
+library(knitr)
+library(fixest)
+
+set.seed(202607)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
 knitr::opts_chunk$set(fig.align = "center", dpi = 144)
 options(scipen = 8)
 ```
@@ -34,71 +40,116 @@ options(scipen = 8)
 ::: {.callout-important}
 ## この講義で押さえたいこと
 
-- 第7回の選択課題に戻り、個人の価格係数を階層ベイズで推定する。
-- 母集団の平均とばらつき、個人ごとの係数には、それぞれ事後の不確実性がある。
-- 個人の回答が少ない場合は、母集団の情報を使っても、その人の好みを正確に言い当てられるとは限らない。
-- 予測は、係数の事後平均をlogitに代入するだけでなく、事後分布にわたって選択確率を平均する。
-- 既存顧客の次の選択と、履歴がない新規顧客の選択を区別して予測する。
+- コンジョイント分析では、価格や機能を変えた選択課題を作り、好みを測る。購買履歴だけでは比較しにくい商品設計を考えられる。
+- 同じ回答から、属性が選択確率を動かす平均効果（AMCE）と、離散選択モデルの効用係数を推定できる。両者は異なる量である。
+- 属性のランダム化は調査内の比較を可能にする。一方、実際の購入への予測には、調査回答と実行動の関係を確かめる必要がある。
+- 個人のWTP、個人WTPの平均、平均係数の比、同質logitによる比を区別する。WTPの推定誤差をデルタ法で計算する。
+- 商品設計にも個人の異質性が必要である。8問の回答から個人係数をどう学ぶかという問題を、第6回の階層ベイズと結びつける。
 :::
 
 ## 前回とのつながり・今回のゴール
 
-前回は、正規分布のモデルでベイズ推定を学んだ。データから個人の情報を取り出しつつ、母集団の情報も使うと、少ない観測に振り回されにくくなる。ただし、そこで観測していたのは連続的な評価スコアだった。
+ここまで、母集団の分布と本人の履歴から好みを推定し、その情報をターゲティングや顧客価値の分析に使ってきた。これらの分析では、既にある履歴から何が分かるかを考えた。では、新商品の機能を変えたときの反応など、今ある履歴だけでは分からないことを知りたい場合はどうすればよいだろうか。
 
-今回は第7回のイヤホンの選択課題に戻る。「Aを選んだ」「どちらも買わなかった」という回答から、価格への反応を人ごとに推定しよう。**同じ人の次の選択を、全員同じ係数のモデルよりよく予測できるか**が今回のゴールである。推定結果は次回、誰にどのクーポンを配るかを考えるときにも使う。
+今回は、好みを測るためのデータを自分で作る。例えばイヤホンの新製品を企画するとき、バッテリーを長持ちさせるのか、ノイズキャンセリングを付けるのか、価格を下げるのかを決めたい。既存商品の販売記録にも情報はあるが、欲しい比較が十分に含まれているとは限らない。新機能の需要を予測するには、その機能への評価について追加の仮定や情報が必要になる。
 
-## 1. 同じ選択モデルに、個人の分布を加える
+そこで、機能と価格を変えた仮想の商品を並べ、回答者に選んでもらう。これを **choice-based conjoint（CBC）** と呼ぶ。選択肢を作るのは分析者だが、回答の形式は第2回以来の離散選択と同じである。さらに同じ人に複数回回答してもらえば、第6回と同様に、その人の選好を履歴から学ぶ問題になる。
 
-第7回と同じく、2つのイヤホンと「どちらも買わない」という外部選択肢を考える。価格の単位は千円で、調査では8、12、16から無作為に選ぶ。属性は、長時間バッテリー、ノイズキャンセリング、大手ブランドの3つである。
+まず今回は、調査の設計、平均的な属性効果、WTPの推定を扱う。そのうえで、平均だけでは商品設計に足りない理由を確認する。第6回で学んだ階層ベイズをこの回答データにも応用できる。ターゲティングの回で使った仮想選択のデータを、今回は**何をどのように提示すれば、知りたい好みを学べるか**という調査設計の側から考え直す。
 
-$$
-u_{ijt}=x_{ijt}'\beta-\exp(\theta_i)p_{ijt}+\varepsilon_{ijt},\qquad j=A,B,
-\qquad u_{i0t}=\varepsilon_{i0t}.
-$$
+## 1. 選択課題を設計する
 
-$\alpha_i=\exp(\theta_i)>0$ が価格係数で、値上げは効用を下げる。個人の分布は
+### 実際の購入と、調査への回答
 
-$$
-\theta_i\mid\mu,\tau^2\sim N(\mu,\tau^2)
-$$
+実際に購入した記録を revealed preference（顕示選好、RP）、仮想的な選択への回答を stated preference（表明選好、SP）という。どちらも需要についての情報を含むが、観測している行動が異なる。
 
-とする。したがって価格係数は対数正規分布になる。
+| | 購買履歴（RP） | コンジョイントの回答（SP） |
+|---|---|---|
+| 観測するもの | お金を払って選んだ商品 | 提示した仮想商品の選択 |
+| 比較の作り方 | 市場で生じた価格・属性の変動を使う | 分析者が価格・属性を割り付ける |
+| 役立つ場面 | 実際の市場での需要や購入パターン | 新機能や価格の組合せを比較する |
+| 検討が必要な点 | 価格内生性、観測されない選択肢 | 仮想回答と購入の違い、調査対象者の代表性 |
 
-今回のコードでは、仕組みを見通せるように、**属性の係数 $\beta=(0.5,0.8,0.3)$ は既知に固定し、価格係数の個人差だけを推定する**。第7回の推定値を無条件で真値とみなしたわけではない。実際の分析では、属性係数や定数項についても推定し、その不確実性を含める必要がある。ここで出す区間は、固定した属性係数が正しいという条件付きの区間である。
+第3回では、企業が商品人気を見越して価格を付けることが問題だった。CBCでは提示価格をランダムに割り付けられるため、そのような価格決定から切り離して比較を作れる。ただし、調査内で価格の効果が識別できることと、実際の売上を正確に予測できることは別である。
 
-### 選択確率と、繰り返された選択の尤度
+### ワイヤレスイヤホンの例
 
-第2回のlogitと同じ計算により、$\theta_i$ が与えられたときの選択確率は
+今回使う属性は次の4つである。価格の単位は千円とする。
 
-$$
-P_{ijt}(\theta_i)=
-\frac{\exp\{x_{ijt}'\beta-\exp(\theta_i)p_{ijt}\}}
-{1+\sum_{k=A,B}\exp\{x_{ikt}'\beta-\exp(\theta_i)p_{ikt}\}}.
-$$
+| 属性 | 水準 |
+|---|---|
+| 価格 | 8、12、16（千円） |
+| バッテリー | 6時間、12時間 |
+| ノイズキャンセリング | なし、あり |
+| ブランド | 新興、大手 |
 
-外部選択肢の確率は、分子を1にした式である。同じ人の8問に共通するのは $\theta_i$ で、各問の誤差は条件付きで独立とする。観測された選択を $y_{it}$ と書けば、個人の尤度は
-
-$$
-L_i(\theta_i)=\prod_{t=1}^{T_i}P_{i,y_{it},t}(\theta_i).
-$$
-
-積の中で、同じ $\theta_i$ を使っているところが重要である。回答ごとに別の顧客を引き直したモデルでは、その人の一貫した好みを学習できない。
+1問ごとに商品AとBを提示し、「A」「B」「どちらも買わない」から選んでもらう。買わないという選択肢を含めることで、AとBの相対的な好みだけでなく、この組合せなら購入するかも観測できる。今回は300人に8問ずつ回答してもらい、分析にはこの2,400問を使う。別に8問ずつ作るが、今回の推定には使わない。ターゲティングの回の予測評価と対応するよう、同じデータ生成手順を保っている。
 
 ::: {.callout-note}
-## ビジネスの現場で：8問からどこまで分かるか
+## ビジネスの現場で：新製品の機能を比較する
 
-価格が高い商品を1度選んだだけでは、価格をあまり気にしない人なのか、たまたまその商品の属性がよかったのか分からない。属性と価格を変えた複数の課題を使うと、候補となる係数を比較できる。それでも8問で残る曖昧さは、点推定で消したことにせず、事後分布として持っておきたい。
+担当者が「ノイズキャンセリングを付けたいか」とだけ聞けば、多くの人は欲しいと答えるかもしれない。しかし企業が知りたいのは、価格が上がってもその機能を選ぶかである。機能と価格を一緒に変えた選択肢を提示すれば、このトレードオフを観測できる。搭載を決めるには、推定した需要に加えて追加費用や既存商品からの買い替えも考える必要がある。
 :::
 
-## 2. データを作り、推定用と検証用を分ける
+水準を増やせば比較できる範囲は広がるが、一人が回答できる問数には限りがある。非現実的な組合せを除く場合は、どの組合せがどの確率で出るかを記録する。今回の単純なOLS推定は、全属性を独立に割り付ける設計に対応している。制約付きの設計に変えれば、推定方法もその設計に合わせる必要がある。
 
-300人それぞれについて、推定用の8問と検証用の8問を作る。第7回と同じ生成手順・乱数seedを使う。同じ人の検証用の選択にも同じ真の $\theta_i$ を使うが、商品属性と選択の誤差は新しく発生させる。
+## 2. 同じ回答から何を知りたいのか
 
-真の母集団パラメータは $\tau=0.6$、$\mu=\log(0.12)-0.6^2/2$ とする。このため、母集団における平均価格係数は $E[\alpha_i]=0.12$ である。**真の個人係数を推定へ渡すことはせず、後の答え合わせだけに使う。**
+### 選択確率を動かす平均効果：AMCE
+
+計量Iのランダム化実験では、処置を受けた人と受けなかった人の平均を比べた。コンジョイントでも、例えばノイズキャンセリングが付いた商品と付かなかった商品の選択率を比べられる。ただし他の属性や相手の商品は、問ごとに違う。この違いについて平均した効果が **AMCE（average marginal component effect、平均限界成分効果）** である。
+
+商品Aのノイズキャンセリングを $z$、それ以外の属性と商品Bの属性をまとめて $W$ と書く。Aが選ばれるという潜在アウトカムを $Y_{iA}(z,W)$ とすると、
+
+$$
+\operatorname{AMCE}_{\rm nc}
+=E_{i,W}[Y_{iA}(1,W)-Y_{iA}(0,W)].
+$$
+
+平均は、回答者の分布と、実験で使う属性の割付分布について取る。したがって、価格を主に8千円にする調査と16千円にする調査では、同じ人たちのAMCEでも変わりうる。これは「機能そのものの固定された価値」という量ではない。
+
+独立したランダム割付のもとでは、水準ダミーを使うOLSでこの平均効果を推定できる。効用がlogit型であるという仮定は要らない。一方、前の問の提示が次の回答を変えないことや、他の回答者の割付が本人の回答を変えないことなど、どの回答を比較しているかについての実験仮定は必要である。
+
+### 効用係数とWTP
+
+離散選択モデルの立場では、属性と価格から効用を作る。
+
+$$
+u_{ijt}=x_{ijt}'\beta_i-\alpha_i p_{ijt}+\varepsilon_{ijt}.
+$$
+
+ここで $t$ は市場ではなく、同じ回答者の選択課題を表す。商品プロファイルも人ごとに異なるので $x_{ijt},p_{ijt}$ と書いた。$\varepsilon_{ijt}$ を標準Type I極値分布とすれば、係数を固定したときの選択確率はlogitになる。
+
+効用係数は属性を評価する強さであり、AMCEのような確率の変化ではない。価格係数との比を使えば、「この機能のために何円まで払うか」というWTPを求められる。その解釈には、価格に対して線形な効用や、異質性の分布など、選択モデルの仮定が加わる。
+
+| 知りたい量 | 主な方法 | 単位・意味 |
+|---|---|---|
+| 平均的な属性効果 | ランダム化した水準ダミーのOLS | 調査設計で平均した選択確率の変化 |
+| 効用係数 | 選択モデルの推定 | 属性を評価する強さ |
+| 個人のWTP | 個人の属性係数／価格係数 | 機能を金額に換算した値 |
+| 個人の選択確率 | その人の係数の分布で平均 | 特定の商品集合から選ぶ確率 |
+
+## 3. 選好に異質性のある回答を作る
+
+今回のシミュレーションでは、価格への反応だけが人によって違う。
+
+$$
+v_{ijt}=0.5\,\mathrm{battery12}_{ijt}
++0.8\,\mathrm{nc}_{ijt}+0.3\,\mathrm{major\_brand}_{ijt}
+-\alpha_i p_{ijt},\qquad \alpha_i=e^{\theta_i},
+$$
+
+$$
+\theta_i\sim N(\mu,\tau^2),\qquad
+\tau=0.6,\quad \mu=\log(0.12)-\frac{0.6^2}{2}.
+$$
+
+これで $E[\alpha_i]=0.12$ になる。属性係数を共通にするのは、価格感応度の違いと個人の推定を追いやすくするためである。一般のCBCでは属性係数にも異質性を許せる。
+
+同じ人の $\theta_i$ を一度引き、その値を学習用8問と評価用8問の両方で使う。第6回と同じく、一時的な選択の乱数と持続的な係数を区別している。
 
 ```{r}
-#| code-fold: true
-#| code-summary: "第7回と共通のCBCデータ生成"
+# === CBC_DGP ===
 choice_prob <- function(quality, price, alpha) {
   v <- quality - price * alpha
   vmax <- pmax(0, v[, 1], v[, 2])
@@ -129,374 +180,317 @@ simulate_cbc <- function(seed = 202607, N = 300, Ttrain = 8, Thold = 8) {
 }
 
 dat <- simulate_cbc()
-knitr::kable(data.frame(sample = c("推定", "検証"),
-  customers = dat$N, tasks_per_customer = c(dat$train$T, dat$test$T),
-  outside_share = c(mean(dat$train$choice == 0), mean(dat$test$choice == 0))),
-  digits = 3, col.names = c("用途", "人数", "1人の課題数", "非購入割合"))
+train <- dat$train
 ```
+
+次の表が実際に提示される選択課題の例である。分析者には `choice` と提示した属性が見える。`theta_true` はシミュレーションの診断専用であり、推定には渡さない。
 
 ```{r}
-#| fig-cap: "生成した個人価格係数の分布。真値は推定に使わず、答え合わせに残す。"
-truth_plot <- data.frame(alpha = exp(dat$theta_true))
-ggplot(truth_plot, aes(alpha)) + geom_histogram(bins = 30, fill = "#1f77b4", color = "white") +
-  labs(x = "価格係数の真値（千円あたり）", y = "人数", title = "生成した価格反応の個人差")
+example <- data.frame(profile = c("A", "B"), price = train$price[1, ],
+  battery_hours = 6 + 6 * train$battery12[1, ], nc = train$nc[1, ], major_brand = train$major_brand[1, ])
+kable(example, caption = "回答者1の最初の問")
+share <- as.data.frame(prop.table(table(factor(train$choice, levels = 0:2, labels = c("買わない", "A", "B")))))
+names(share) <- c("choice", "share")
+ggplot(share, aes(choice, share)) + geom_col(fill = "#4C72B0") +
+  labs(x = NULL, y = "選択割合")
 ```
 
-これは調査の中で価格と属性を無作為化したデータである。実際の購買履歴で企業が価格を選んでいる場合には、第3回の価格内生性を別に考える必要がある。階層ベイズに変えるだけで、その問題まで解決するわけではない。
+価格感応度の分布も見ておく。係数は必ず正なので、どの人も価格が上がると効用が下がる。その下がり方に違いがある。
 
-## 3. 母集団と個人の事後分布
+```{r}
+alpha_distribution <- data.frame(alpha = exp(dat$theta_true))
+ggplot(alpha_distribution, aes(alpha)) + geom_histogram(bins = 30, fill = "#4C72B0") +
+  geom_vline(xintercept = .12, linetype = 2) + labs(x = "価格係数 alpha", y = "人数")
+```
 
-前回と同じように、母集団パラメータにも事前分布を置く。
+## 4. AMCEを推定する
+
+1問を、提示したAとBの2行へ変換する。Aを選んだときはA行だけが1、Bを選んだときはB行だけが1である。買わないと答えた問では両方を0とする。**買わなかった問も残す**ことが大切である。商品属性を見た後の購入有無で標本を絞ると、ランダムに割り付けた比較ではなくなってしまう。
+
+```{r}
+to_long <- function(tasks) {
+  do.call(rbind, lapply(1:2, function(j) data.frame(
+    id = tasks$id, profile = j, price = tasks$price[, j],
+    battery12 = tasks$battery12[, j], nc = tasks$nc[, j],
+    major_brand = tasks$major_brand[, j], chosen = as.integer(tasks$choice == j))))
+}
+cbc_long <- to_long(train)
+cbc_long$price12 <- as.integer(cbc_long$price == 12)
+cbc_long$price16 <- as.integer(cbc_long$price == 16)
+fit_amce <- feols(chosen ~ price12 + price16 + battery12 + nc + major_brand,
+                  data = cbc_long, cluster = ~id)
+```
+
+価格は8千円、バッテリーは6時間、ノイズキャンセリングはなし、ブランドは新興を基準とした。例えば `nc` の係数は、ノイズキャンセリングを付けたときの選択確率の平均変化である。
+
+シミュレーションなので真の選択確率も計算できる。ランダムに作った多数の個人・商品集合について、Aの属性だけを変えた確率差を平均し、AMCEの真値を数値積分で近似する。回答の0/1乱数をもう一度引く必要はない。
+
+```{r}
+population_amce <- function(M = 100000, seed = 2026071) {
+  set.seed(seed)
+  alpha <- exp(rnorm(M, dat$mu_true, dat$tau_true))
+  price <- matrix(sample(c(8, 12, 16), 2 * M, TRUE), M, 2)
+  x <- lapply(1:3, function(k) matrix(rbinom(2 * M, 1, .5), M, 2))
+  probability <- function(p, xx) choice_prob(.5 * xx[[1]] + .8 * xx[[2]] + .3 * xx[[3]], p, alpha)[, 2]
+  baseprice <- price; baseprice[, 1] <- 8
+  price_effect <- sapply(c(12, 16), function(level) {
+    changed <- price; changed[, 1] <- level
+    mean(probability(changed, x) - probability(baseprice, x))
+  })
+  attribute_effect <- sapply(1:3, function(k) {
+    low <- high <- x; low[[k]][, 1] <- 0; high[[k]][, 1] <- 1
+    mean(probability(price, high) - probability(price, low))
+  })
+  c(price_effect, attribute_effect)
+}
+truth_amce <- population_amce()
+b <- coef(fit_amce)[-1]; se <- sqrt(diag(vcov(fit_amce)))[-1]
+amce_result <- data.frame(attribute = names(b), estimate = unname(b), truth = truth_amce,
+                         lower = b - 1.96 * se, upper = b + 1.96 * se)
+kable(amce_result, digits = 3, row.names = FALSE)
+ggplot(amce_result, aes(attribute, estimate)) +
+  geom_hline(yintercept = 0, color = "gray60") + geom_point(size = 3, color = "#4C72B0") +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = .1) +
+  geom_point(aes(y = truth), shape = 4, size = 3, color = "#C44E52") +
+  labs(x = NULL, y = "AMCE", subtitle = "点と区間：推定値と95%信頼区間、×：数値積分した真値")
+```
+
+推定値と真値はおおむね近い。ここで回収しているのは選択確率の平均変化であり、効用式に入れた0.5、0.8、0.3ではない。
+
+### なぜ回答者単位の標準誤差か
+
+同じ回答者の8問には同じ価格係数が入る。さらに同じ問のAとBは、片方が選ばれればもう片方は選ばれない。このため4,800行を互いに独立とは扱えない。回答者を一つのまとまりとして扱うクラスター標準誤差を使う。
+
+```{r}
+fit_rows <- feols(chosen ~ price12 + price16 + battery12 + nc + major_brand,
+                  data = cbc_long, vcov = "hetero")
+se_compare <- data.frame(attribute = names(coef(fit_amce))[-1],
+  cluster = sqrt(diag(vcov(fit_amce)))[-1], row_independent = sqrt(diag(vcov(fit_rows)))[-1])
+kable(se_compare, digits = 4, row.names = FALSE)
+```
+
+クラスター標準誤差が常に大きくなるという意味ではない。どちらを使うかは、この標本で数値が大きいか小さいかではなく、どの単位の独立性を仮定できるかで決める。
+
+::: {.callout-warning}
+## この分析、どこがまずい？
+
+買わないという回答を除いてからAMCEを推定する分析を考えよう。属性が魅力的かどうかは購入有無にも影響するので、残る回答者・問の組合せが属性によって変わる。これは、最初から「AかBを必ず選んでください」と設計した実験とも異なる。調査に含めたoutside optionは、分析でも残す。
+:::
+
+## 5. 効用係数からWTPを求める
+
+### 同質logitを当てはめると何を推定しているか
+
+全員の係数が同じと仮定してlogitを当てはめてみる。計算は第2回と同じ最尤法である。ただし今回のデータでは価格係数に異質性があるので、これは**同質logitによる近似（working model）**になる。
+
+$$E_\theta[P_j(\theta)]\ne P_j(E[\theta])$$
+
+という非線形性のため、この推定値を個人係数の平均と解釈してはいけない。異質性を持つ人たちの回答を、一つの係数でどこまで近似できるかを調べる推定である。
+
+```{r}
+fit_logit <- function(tasks) {
+  XA <- cbind(tasks$battery12[, 1], tasks$nc[, 1], tasks$major_brand[, 1], -tasks$price[, 1])
+  XB <- cbind(tasks$battery12[, 2], tasks$nc[, 2], tasks$major_brand[, 2], -tasks$price[, 2])
+  loss <- function(b) {
+    vA <- drop(XA %*% b); vB <- drop(XB %*% b)
+    mx <- pmax(0, vA, vB)
+    logden <- mx + log(exp(-mx) + exp(vA - mx) + exp(vB - mx))
+    -sum(vA * (tasks$choice == 1) + vB * (tasks$choice == 2) - logden)
+  }
+  op <- optim(c(.4, .6, .2, .1), loss, method = "L-BFGS-B",
+              lower = c(-Inf, -Inf, -Inf, 1e-5), hessian = TRUE)
+  stopifnot(op$convergence == 0)
+  b <- op$par
+  vA <- drop(XA %*% b); vB <- drop(XB %*% b)
+  mx <- pmax(0, vA, vB)
+  den <- exp(-mx) + exp(vA - mx) + exp(vB - mx)
+  score <- XA * ((tasks$choice == 1) - exp(vA - mx) / den) +
+           XB * ((tasks$choice == 2) - exp(vB - mx) / den)
+  S <- rowsum(score, tasks$id); G <- nrow(S)
+  bread <- solve(op$hessian)
+  V <- G / (G - 1) * bread %*% crossprod(S) %*% bread
+  names(b) <- c("battery12", "nc", "major_brand", "alpha")
+  list(coef = b, vcov = V, model_vcov = bread)
+}
+wtp_delta <- function(fit) {
+  b <- fit$coef; gradient <- c(0, 1 / b[4], 0, -b[2] / b[4]^2)
+  value <- unname(b[2] / b[4])
+  se <- sqrt(drop(t(gradient) %*% fit$vcov %*% gradient))
+  c(estimate = value, se = se, lower = value - 1.96 * se, upper = value + 1.96 * se)
+}
+fit_work <- fit_logit(train)
+kable(data.frame(parameter = names(fit_work$coef),
+  dgp_mean = c(dat$beta_known, .12), working_estimate = fit_work$coef,
+  cluster_se = sqrt(diag(fit_work$vcov))), digits = 3, row.names = FALSE)
+```
+
+比較のため真の係数の平均も載せたが、この列はworking modelの推定対象ではない。推論には回答者ごとのスコアをまとめたsandwich分散を使う。Hessianの逆行列だけでは、ここで許している個人内の依存とモデルの誤指定を反映できない。
+
+### WTPには複数の集計方法がある
+
+ノイズキャンセリングを付けると個人 $i$ の効用は $\beta_{{\rm nc},i}$ 増える。価格を $\Delta p$ 上げると $\alpha_i\Delta p$ 減る。両者がちょうど釣り合う金額が、その人のWTPである。
+
+$$\mathrm{WTP}_{{\rm nc},i}=\frac{\beta_{{\rm nc},i}}{\alpha_i}.$$
+
+今回、分子は全員0.8だが、分母には個人差がある。平均を求めるなら、個人ごとの比を計算してから平均する。
+
+$$E\left[\frac{\beta_{{\rm nc},i}}{\alpha_i}\right]
+\ne\frac{E[\beta_{{\rm nc},i}]}{E[\alpha_i]}.$$
+
+```{r}
+wtp_table <- data.frame(quantity = c("個人WTPの平均（真値）", "個人WTPの中央値（真値）", "平均係数の比（真値）", "同質logitで推定した比"),
+  thousand_yen = c(.8 * exp(-dat$mu_true + dat$tau_true^2 / 2), .8 * exp(-dat$mu_true), .8 / .12,
+                   fit_work$coef[2] / fit_work$coef[4]))
+kable(wtp_table, digits = 3)
+wtp_individual <- data.frame(wtp = .8 / exp(dat$theta_true))
+ggplot(wtp_individual, aes(wtp)) + geom_histogram(bins = 30, fill = "#4C72B0") +
+  geom_vline(xintercept = .8 / .12, linetype = 2) +
+  labs(x = "ノイズキャンセリングへの個人WTP（千円）", y = "人数", subtitle = "破線は平均係数の比")
+```
+
+個人WTPの平均は約9.56千円、平均係数の比は約6.67千円である。この違いは標本誤差ではない。そもそも計算している量が違う。working modelで推定した比にも、そのモデルによる要約という意味しか自動的には付かない。
+
+### 比の推定誤差：デルタ法
+
+計量Iでは回帰係数の標準誤差から信頼区間を作った。WTPは2つの推定係数の比なので、両方の不確実性と共分散を使う必要がある。関数 $g(\beta,\alpha)=\beta/\alpha$ を推定値の近くで直線近似するのがデルタ法である。
 
 $$
-\mu\sim N\{\log(0.2),1.5^2\},\qquad
-\tau^2\sim IG(2,0.5).
+\nabla g=\begin{pmatrix}1/\alpha\\-\beta/\alpha^2\end{pmatrix},\qquad
+\operatorname{SE}(\widehat{\mathrm{WTP}})
+\simeq\sqrt{\nabla g'\widehat V\nabla g}.
 $$
 
-この数値は価格の単位が千円であることを踏まえた設定で、真の $\mu,\tau$ を入れたものではない。$IG(a,b)$ は前回と同じく、shape $a$、rate $b$ のガンマ変数の逆数である。例えばこの事前分布では $E[\tau^2]=0.5$ なので、どの程度の個人差を想定しているかも明示できる。
-
-全員の回答を $D$ と書くと、事後分布は
-
-$$
-p(\theta_1,\ldots,\theta_N,\mu,\tau^2\mid D)
-\propto
-\left\{\prod_i L_i(\theta_i)\,\phi(\theta_i;\mu,\tau^2)\right\}
- p(\mu)p(\tau^2).
-$$
-
-$L_i$ は本人の回答から来る情報、$\phi$ は母集団から来る情報である。母集団の分布自体も全員のデータから更新されるので、他の人の回答が間接的にその人の推定に使われる。
-
-前回の正規モデルでは、個人の事後分布を正規分布の式で書けた。今回は尤度がlogitなので、その式は使えない。ただし、尤度と事前分布の積に比例するという考え方は同じである。
-
-### Metropolisの更新をGibbsの中に入れる
-
-$\mu,\tau^2$ を固定したとき、個人 $i$ の更新では次の手順を使う。
-
-1. 現在の $\theta_i$ の近くに、新しい候補 $\theta_i^*$ を対称な正規分布から発生させる。
-2. 候補と現在の「尤度×母集団密度」を比べる。
-3. 比率が1より大きければ採用し、1未満ならその比率の確率で採用する。
-
-この更新がMetropolis法である。悪い候補も時々採用するため、最大値だけに向かう最適化とは違う。続いて、今の全員の $\theta_i$ を使って $\mu,\tau^2$ を条件付き分布から更新する。
+$\widehat V$ は $(\hat\beta,\hat\alpha)$ の分散共分散行列である。共分散を落とすと、同じデータから推定した2つの係数の関係を無視することになる。
 
 ::: {.callout-note collapse="true"}
-## 更新式と計算コード
+## 導出：係数の関数を一次近似する
 
-対称な提案分布では、採用確率は
+$\hat\vartheta$ が推定する対象を $\vartheta^*$ とすると、
 
-$$
-\min\left\{1,
-\frac{L_i(\theta_i^*)\phi(\theta_i^*;\mu,\tau^2)}
-{L_i(\theta_i)\phi(\theta_i;\mu,\tau^2)}\right\}
-$$
+$$g(\hat\vartheta)\simeq g(\vartheta^*)+\nabla g(\vartheta^*)'(\hat\vartheta-\vartheta^*)$$
 
-になる。計算では小さな確率の積を直接掛けず、対数尤度を足して比較する。$\mu$ の条件付き分布は正規、$\tau^2$ は逆ガンマで、前回と同じ形である。
-
-```{r}
-individual_loglik <- function(theta, tasks, N) {
-  v <- tasks$quality - tasks$price * exp(theta[tasks$id])
-  vmax <- pmax(0, v[, 1], v[, 2])
-  logden <- vmax + log(exp(-vmax) + rowSums(exp(v - vmax)))
-  chosen <- numeric(length(tasks$choice))
-  inside <- which(tasks$choice > 0)
-  chosen[inside] <- v[cbind(inside, tasks$choice[inside])]
-  as.vector(rowsum(chosen - logden, tasks$id, reorder = FALSE))
-}
-fit_hb <- function(dat, seed = 202609, n_iter = 16000, burn = 4000, thin = 4,
-                   prior_mu = log(0.2), prior_mu_sd = 1.5,
-                   prior_shape = 2, prior_rate = 0.5) {
-  keep <- seq(burn + thin, n_iter, by = thin)
-  one_chain <- function(chain) {
-    set.seed(seed + chain)
-    theta <- rep(prior_mu + c(-0.4, 0.4)[chain], dat$N)
-    mu <- mean(theta); tau2 <- 0.5
-    ll <- individual_loglik(theta, dat$train, dat$N)
-    theta_draw <- matrix(NA_real_, length(keep), dat$N)
-    mu_draw <- tau_draw <- numeric(length(keep))
-    accepted <- numeric(dat$N); saved <- 0
-    for (iteration in seq_len(n_iter)) {
-      proposal <- theta + rnorm(dat$N, 0, 0.7)
-      ll_new <- individual_loglik(proposal, dat$train, dat$N)
-      logratio <- ll_new - ll + dnorm(proposal, mu, sqrt(tau2), log = TRUE) -
-        dnorm(theta, mu, sqrt(tau2), log = TRUE)
-      accept <- log(runif(dat$N)) < logratio
-      theta[accept] <- proposal[accept]; ll[accept] <- ll_new[accept]
-      if (iteration > burn) accepted <- accepted + accept
-      variance_mu <- 1 / (dat$N / tau2 + 1 / prior_mu_sd^2)
-      mean_mu <- variance_mu * (sum(theta) / tau2 + prior_mu / prior_mu_sd^2)
-      mu <- rnorm(1, mean_mu, sqrt(variance_mu))
-      tau2 <- 1 / rgamma(1, shape = prior_shape + dat$N / 2,
-        rate = prior_rate + sum((theta - mu)^2) / 2)
-      if (iteration %in% keep) {
-        saved <- saved + 1
-        theta_draw[saved, ] <- theta
-        mu_draw[saved] <- mu; tau_draw[saved] <- sqrt(tau2)
-      }
-    }
-    list(theta = theta_draw, mu = mu_draw, tau = tau_draw,
-         acceptance = accepted / (n_iter - burn))
-  }
-  chains <- lapply(1:2, one_chain)
-  list(theta = rbind(chains[[1]]$theta, chains[[2]]$theta),
-       mu = c(chains[[1]]$mu, chains[[2]]$mu), tau = c(chains[[1]]$tau, chains[[2]]$tau),
-       chain = rep(1:2, each = length(keep)), chains = chains,
-       settings = c(n_iter = n_iter, burn = burn, thin = thin))
-}
-
-```
+である。右辺の定数を除いて分散を取れば、$\nabla g'V\nabla g$ が出る。同質logitが誤指定されている場合の $\vartheta^*$ は、そのworking modelの擬似真値である。デルタ法を使っても、個人WTPの平均を推定する式へ変わるわけではない。
 :::
 
 ```{r}
-fit <- fit_hb(dat)
+working_wtp <- wtp_delta(fit_work)
+kable(as.data.frame(t(working_wtp)), digits = 3, caption = "同質logitによるWTP要約とデルタ法区間（千円）")
 ```
 
-2本の計算列を、異なる初期値・乱数seedから動かしている。各列16,000回のうち最初の4,000回を捨て、その後4回ごとに保存する。間引きは保存量を減らすためであり、間引いた値が独立になったと保証するものではない。
+### 正しく指定した場合の確認
 
-## 4. 母集団と個人を、分けて確認する
-
-まず母集団の分布を見よう。$\mu$ は対数価格係数の平均であり、価格係数の平均そのものではない。後者を知りたいときは、各抽出値から $\exp(\mu+\tau^2/2)$ を計算する。
+推定方法が正しい対象を回収するかも確認しておこう。属性の提示は同じまま、全員の価格係数を0.12にそろえて回答を生成し直す。この場合は同質logitが正しく、ノイズキャンセリングのWTPの真値は $0.8/0.12$ になる。
 
 ```{r}
-#| fig-cap: "母集団の対数平均muと、個人差の標準偏差tauの事後分布。"
-hyper_draws <- cbind(mu = fit$mu, tau = fit$tau,
-  mean_alpha = exp(fit$mu + fit$tau^2 / 2))
-hyper_table <- data.frame(parameter = colnames(hyper_draws),
-  truth = c(dat$mu_true, dat$tau_true, 0.12),
-  posterior_mean = colMeans(hyper_draws),
-  lower = apply(hyper_draws, 2, quantile, 0.025),
-  upper = apply(hyper_draws, 2, quantile, 0.975))
-knitr::kable(hyper_table, digits = 3,
-  col.names = c("対象", "真値", "事後平均", "2.5%点", "97.5%点"))
-hyper_long <- data.frame(mu = fit$mu, tau = fit$tau) |>
-  pivot_longer(everything(), names_to = "parameter", values_to = "value")
-ggplot(hyper_long, aes(value)) + geom_density(fill = "#1f77b4", alpha = 0.4) +
-  facet_wrap(~parameter, scales = "free") + labs(x = "母集団パラメータ", y = "事後密度")
+set.seed(2026072)
+hom <- train
+prob_hom <- choice_prob(hom$quality, hom$price, rep(.12, length(hom$id)))
+hom$choice <- vapply(seq_len(nrow(prob_hom)), function(i) sample(0:2, 1, prob = prob_hom[i, ]), integer(1))
+fit_hom <- fit_logit(hom)
+wtp_hom <- wtp_delta(fit_hom)
+kable(data.frame(parameter = names(fit_hom$coef), truth = c(dat$beta_known, .12), estimate = fit_hom$coef), digits = 3, row.names = FALSE)
+ci_data <- data.frame(estimate = wtp_hom[1], lower = wtp_hom[3], upper = wtp_hom[4])
+ggplot(ci_data, aes(x = "同質logit", y = estimate)) + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = .1) +
+  geom_hline(yintercept = .8 / .12, linetype = 2) +
+  labs(x = NULL, y = "WTP（千円）", subtitle = "破線：真値、区間：95%信頼区間")
 ```
 
-次に、一人ずつの $\alpha_i$ を見る。指数関数は非線形なので、$E[\alpha_i\mid D]$ は $\exp\{E[\theta_i\mid D]\}$ と一般には一致しない。ここでも各抽出値を変換してから平均する。
+推定対象をそろえると、点推定値と真値を直接比較できる。価格係数が0に近い場合は比が大きく変動し、一次近似による区間も不安定になる。WTPだけを報告せず、価格係数自体がどの程度の精度で推定されているかも確認する。
+
+## 6. 商品設計にも異質性が必要になる
+
+### 平均の属性効果だけでは決まらない
+
+AMCEは、実験で提示した他の属性について平均している。しかし実際の製品会議では「価格は12千円、バッテリーは12時間」といった特定の組合せを比べる。同じノイズキャンセリングでも、その組合せにおける需要の増え方が必要になる。
+
+効用が属性の足し算で書かれていても、選択確率は非線形なので、確率スケールの交互作用は生じうる。次の図では、商品Bを価格12千円、全機能なしのまま固定し、商品Aの価格とノイズキャンセリングを変える。母集団の価格感応度分布について平均した、モデル上の選択確率である。
 
 ```{r}
-#| fig-cap: ["個人の真値と事後平均。母集団を推定できても、各人の真値を正確に回収できるとは限らない。", "最初の15人の価格係数と95%信用区間。赤い印は真値。"]
-alpha_draws <- exp(fit$theta)
-alpha_mean <- colMeans(alpha_draws)
-alpha_ci <- t(apply(alpha_draws, 2, quantile, c(0.025, 0.975)))
-individual_table <- data.frame(id = seq_len(dat$N), truth = exp(dat$theta_true),
-  estimate = alpha_mean, lower = alpha_ci[, 1], upper = alpha_ci[, 2])
-ggplot(individual_table, aes(truth, estimate)) +
-  geom_abline(slope = 1, intercept = 0, color = "grey60") + geom_point(alpha = 0.5) +
-  labs(x = "個人価格係数の真値", y = "個人価格係数の事後平均")
-ggplot(individual_table[1:15, ], aes(factor(id), estimate)) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
-  geom_point(color = "#1f77b4") + geom_point(aes(y = truth), shape = 4, color = "#d62728") +
-  labs(x = "最初の15人", y = "価格係数と95%信用区間")
+nodes <- qnorm((seq_len(1000) - .5) / 1000)
+alpha_nodes <- exp(dat$mu_true + dat$tau_true * nodes)
+design <- expand.grid(price = seq(8, 16, .5), nc = c(0, 1))
+design$share <- mapply(function(p, nc) {
+  q <- cbind(rep(.5 + .8 * nc, 1000), rep(0, 1000))
+  prices <- cbind(rep(p, 1000), rep(12, 1000))
+  mean(choice_prob(q, prices, alpha_nodes)[, 2])
+}, design$price, design$nc)
+ggplot(design, aes(price, share, color = factor(nc))) + geom_line(linewidth = 1) +
+  labs(x = "商品Aの価格（千円）", y = "商品Aの選択確率", color = "ノイキャン")
 ```
 
-母集団の平均を比較的よく推定できても、一人ずつの区間は広い。人数を増やすことと、その人の回答を増やすことは、違う情報を加えている。
-
-::: {.callout-tip}
-## 研究コーナー：人数と、一人あたりの観測数
-
-Train (2009, Chapter 11)は、個人の係数を条件付き分布から求める方法を整理し、300人のシミュレーションで1人あたりの観測数を1、10、20、50と変えている。個人の観測が増えると、その人の係数についての情報が増える。一方で一人あたりの観測数が固定されたまま人数だけ増えても、各人の係数が必ず真値に収束するわけではない。ここでの「条件付き分布」は頻度論的に推定した母集団分布からも計算でき、すべてがフルベイズの議論ではない。今回の区間が何の不確実性を表すかを考えるときにも役立つ。[著者公開版 pp.266–268](https://eml.berkeley.edu/books/choice2nd/Ch11_p259-281.pdf)
-:::
-
-## 5. 計算の診断と、事前分布への感度
-
-事後分布から十分に標本を取れていなければ、平均や区間も安定しない。計算列の時系列を描き、2本が似た範囲を探索しているかを確認しよう。
-
-```{r}
-#| fig-cap: "2本の計算列が母集団パラメータのどの範囲を探索したか。"
-trace <- data.frame(draw = rep(seq_len(nrow(fit$chains[[1]]$theta)), 2),
-  chain = factor(fit$chain), mu = fit$mu, tau = fit$tau) |>
-  pivot_longer(c(mu, tau), names_to = "parameter", values_to = "value")
-ggplot(trace, aes(draw, value, color = chain)) + geom_line(alpha = 0.45, linewidth = 0.3) +
-  facet_wrap(~parameter, scales = "free_y") + labs(x = "保存した反復", y = NULL, color = "chain")
-```
-
-下では各計算列を前半・後半に分け、列内のばらつきと列間のばらつきを比較する簡単なsplit-$\hat R$も計算する。1に近いことは望ましいが、これだけで収束を証明できるわけではない。実務ではrank正規化した診断、実効標本数、Monte Carlo標準誤差なども合わせて確認する。
-
-```{r}
-predict_existing <- function(fit, tasks) {
-  answer <- matrix(0, length(tasks$id), 3)
-  for (b in seq_len(nrow(fit$theta))) {
-    answer <- answer + choice_prob(tasks$quality, tasks$price, exp(fit$theta[b, tasks$id]))
-  }
-  answer / nrow(fit$theta)
-}
-predict_new <- function(fit, quality, price, n_integration = 80) {
-  # 母集団パラメータの不確実性と新しい個人の異質性の両方を積分。
-  nodes <- qnorm((seq_len(n_integration) - 0.5) / n_integration)
-  answer <- matrix(0, nrow(price), 3)
-  for (b in seq_along(fit$mu)) {
-    for (z in nodes) {
-      answer <- answer + choice_prob(quality, price, exp(fit$mu[b] + fit$tau[b] * z))
-    }
-  }
-  answer / (length(fit$mu) * n_integration)
-}
-log_score <- function(prob, choice) -mean(log(pmax(prob[cbind(seq_along(choice), choice + 1)], 1e-12)))
-split_rhat <- function(chain1, chain2) {
-  n <- floor(length(chain1) / 2)
-  z <- cbind(chain1[1:n], tail(chain1, n), chain2[1:n], tail(chain2, n))
-  W <- mean(apply(z, 2, var)); B <- n * var(colMeans(z))
-  sqrt(((n - 1) * W / n + B / n) / W)
-}
-
-diagnostics <- data.frame(parameter = c("mu", "tau", "theta1", "theta150", "theta300"),
-  split_Rhat = c(split_rhat(fit$chains[[1]]$mu, fit$chains[[2]]$mu),
-    split_rhat(fit$chains[[1]]$tau, fit$chains[[2]]$tau),
-    sapply(c(1, 150, 300), function(i)
-      split_rhat(fit$chains[[1]]$theta[, i], fit$chains[[2]]$theta[, i]))))
-knitr::kable(diagnostics, digits = 3)
-knitr::kable(data.frame(min_acceptance = min(fit$chains[[1]]$acceptance),
-  max_acceptance = max(fit$chains[[1]]$acceptance)), digits = 3)
-```
-
-採用率が高いほどよいとも限らない。候補が現在の値に近すぎると、ほとんど採用されても探索が遅い場合がある。今回の実装は、1次元の個人差を使って更新を理解するためのものである。
-
-事前分布については、$\tau^2$ のrateを0.5から1へ変えて再推定してみる。この変更では、個人差が大きい範囲に事前の重みが移る。他の設定を固定し、どこまで結論が変わるかを見る。
-
-```{r}
-#| code-fold: true
-fit_alternative <- fit_hb(dat, seed = 202610, prior_rate = 1)
-prior_comparison <- data.frame(prior_rate = c(0.5, 1),
-  mu_mean = c(mean(fit$mu), mean(fit_alternative$mu)),
-  tau_mean = c(mean(fit$tau), mean(fit_alternative$tau)),
-  tau_Rhat = c(split_rhat(fit$chains[[1]]$tau, fit$chains[[2]]$tau),
-    split_rhat(fit_alternative$chains[[1]]$tau, fit_alternative$chains[[2]]$tau)))
-knitr::kable(prior_comparison, digits = 3)
-```
-
-結果が似ている場合も、試した事前分布の範囲での比較である。別の母集団分布、属性係数の固定、調査回答と実購買の違いまで確認できたことにはならない。
-
-## 6. 次の選択は、事後分布で平均して予測する
-
-既存顧客 $i$ の新しい課題での予測は
-
-$$
-\Pr(y_i^{\mathrm{new}}=j\mid D,x^{\mathrm{new}},p^{\mathrm{new}})
-=\int P_{ij}^{\mathrm{new}}(\theta_i)p(\theta_i\mid D)\,d\theta_i
-\approx\frac1B\sum_{b=1}^B P_{ij}^{\mathrm{new}}(\theta_i^{(b)}).
-$$
-
-**事後から係数を1組取り、選択確率を計算し、それを平均する。** logitは非線形なので、係数の事後平均を1度代入するだけの計算とは違う。
-
-```{r}
-p_hb <- predict_existing(fit, dat$test)
-p_plugin <- choice_prob(dat$test$quality, dat$test$price,
-  exp(colMeans(fit$theta)[dat$test$id]))
-knitr::kable(data.frame(mean_abs_difference = mean(abs(p_hb - p_plugin)),
-  max_abs_difference = max(abs(p_hb - p_plugin))), digits = 4,
-  col.names = c("事後積分と平均代入の平均絶対差", "最大絶対差"))
-```
-
-### complete pooling、no poolingとの予測比較
-
-比較対象として、全員に同じ価格係数を当てはめるモデルと、一人ずつ独立に最尤推定するモデルも作る。比較の条件をそろえるため、この2つでも属性係数は同じ既知値に固定する。第7回の、属性係数も推定したモデルと完全に同じ推定ではない。
-
-8問しかない人の最尤推定は、極端な値を取りうる。以下では計算のため価格係数を $[0.01,1]$ に制限する。その範囲に結果が依存することと、端に張り付いた人数も確認する。
-
-```{r}
-pooled_theta <- optimize(function(theta)
-  -sum(individual_loglik(rep(theta, dat$N), dat$train, dat$N)),
-  interval = c(log(0.01), log(1)))$minimum
-individual_theta <- vapply(seq_len(dat$N), function(i) {
-  tasks_i <- lapply(dat$train, function(z)
-    if (is.matrix(z)) z[dat$train$id == i, , drop = FALSE] else z)
-  tasks_i$id <- rep(1, dat$train$T)
-  tasks_i$choice <- dat$train$choice[dat$train$id == i]
-  optimize(function(theta) -individual_loglik(theta, tasks_i, 1),
-    interval = c(log(0.01), log(1)))$minimum
-}, numeric(1))
-p_pool <- choice_prob(dat$test$quality, dat$test$price, rep(exp(pooled_theta), length(dat$test$id)))
-p_no <- choice_prob(dat$test$quality, dat$test$price, exp(individual_theta[dat$test$id]))
-score_table <- data.frame(method = c("complete pooling", "no pooling（範囲制限あり）", "階層ベイズ"),
-  log_loss = c(log_score(p_pool, dat$test$choice), log_score(p_no, dat$test$choice),
-               log_score(p_hb, dat$test$choice)))
-knitr::kable(score_table, digits = 4, col.names = c("方法", "検証データのlog loss"))
-cat("個別MLEが探索範囲の端付近となった人数:",
-  sum(exp(individual_theta) < 0.0101 | exp(individual_theta) > 0.999), "\n")
-```
-
-log lossは、実際に選ばれた選択肢へ割り当てた予測確率の対数を取り、符号を変えて平均した値である。小さいほどよい。推定用の回答をもう一度当てるのではなく、残しておいた8問だけで比較している。
-
-```{r}
-#| fig-cap: ["推定に使わなかった各人8問のlog loss。小さいほど予測がよい。", "非購入確率の較正。近い予測確率をまとめ、検証課題の非購入割合と比べる。"]
-ggplot(score_table, aes(method, log_loss)) + geom_col(fill = "#1f77b4", width = 0.6) +
-  labs(x = NULL, y = "検証log loss（小さい方がよい）")
-calibration <- data.frame(predicted = p_hb[, 1], observed = as.integer(dat$test$choice == 0)) |>
-  mutate(bin = cut(predicted, breaks = seq(0, 1, by = 0.1), include.lowest = TRUE)) |>
-  group_by(bin) |> summarise(predicted = mean(predicted), observed = mean(observed), n = n(), .groups = "drop")
-ggplot(calibration, aes(predicted, observed, size = n)) +
-  geom_abline(slope = 1, intercept = 0, color = "grey60") + geom_point(color = "#1f77b4") +
-  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "予測した非購入確率", y = "検証課題での非購入割合", size = "課題数")
-```
-
-この標本では階層ベイズのlog lossが最も小さい。ただし、これは今回の生成過程とモデルによる1回の比較である。予測がよかったことと、各人の価格係数を正確に回収できたことも同じではない。
-
-::: {.callout-tip}
-## 実証研究コーナー：短い調査の情報を共有する
-
-Lenk, DeSarbo, Green and Young (1996)は、179人のパソコン評価データで、推定用16プロファイルと検証用4プロファイルを用いた。推定用の回答を減らし、階層モデルが個人差をどれくらい回収できるかを調べている。元の分析は評価値に対する階層モデルで、今回のCBC logitそのものではない。回答が少なくても情報を共有できることと、個人の係数が完全に分かることを区別する必要がある。別のプロファイルで予測を検証する考え方も、今回と共通している。[原論文](https://ucsf-idl-dataset.s3.us-east-1.amazonaws.com/k/z/l/j/kzlj0191/kzlj0191.pdf)
-:::
-
-## 7. 履歴がない新規顧客をどう予測するか
-
-新規顧客については、その人の $\theta$ の事後分布がまだない。そこで、母集団パラメータの各抽出値から新しい人の係数を発生させ、その人の選択確率を計算する。
-
-$$
-\Pr(y_{\mathrm{new}}=j\mid D)
-=\iint P_j(\theta)\,\phi(\theta;\mu,\tau^2)\,
- p(\mu,\tau^2\mid D)\,d\theta\,d\mu\,d\tau^2.
-$$
-
-個人の異質性と、母集団分布そのものの不確実性を、両方平均している。母集団平均の係数を持つ「代表的な一人」に置き換える計算ではない。
-
-```{r}
-# Aは3属性すべてあり、Bは長時間バッテリーのみ。価格は千円。
-quality_new <- matrix(c(sum(dat$beta_known), dat$beta_known[1]), 1, 2)
-price_new <- matrix(c(12, 8), 1, 2)
-p_new <- predict_new(fit, quality_new, price_new, n_integration = 40)
-knitr::kable(data.frame(choice = c("買わない", "A", "B"), probability = as.vector(p_new)),
-  digits = 3, col.names = c("選択肢", "新規顧客の予測確率"))
-stopifnot(abs(sum(p_new) - 1) < 1e-8, max(abs(rowSums(p_hb) - 1)) < 1e-8)
-```
+平均的に高く評価される機能でも、誰が買うかが変われば既存商品からの需要の移り方も変わる。第4回で代替関係を考えるために異質性が必要だったのと同じである。機能を一つ追加するか、異なる価格帯の商品を二つ用意するかという設計にも、分布が関係する。
 
 ::: {.callout-note}
-## ビジネスの現場で：新規顧客を勝手に分類しない
+## ビジネスの現場で：標準版と上位版を用意する
 
-履歴がない人を「価格に敏感な層」と決めつける情報は、今回のモデルにはない。同じ属性情報しかなければ、新規顧客の予測は同じになる。年齢や利用目的から母集団平均を説明するモデルへ拡張することはできるが、その関係もデータと仮定に基づいて学ぶ必要がある。
+価格に敏感な人と、機能のためなら高い価格を払う人がいるとする。全員に上位版だけを出すと、前者は買わないかもしれない。標準版を残せば購入を保てるが、上位版を買うはずだった人が標準版に移る可能性もある。個人別の選択確率を平均して各商品の需要を求め、製造費用と併せて比べる必要がある。平均WTPが追加費用を超えるという条件だけでは、商品群の最適な構成は決まらない。
+:::
+
+### 8問から一人の係数を推定できるか
+
+この調査は一人8問である。300人分を合わせれば平均効果を推定できても、一人の価格係数をその8問だけで正確に求められるとは限らない。例えば、たまたま安い商品を続けて選んだ人を、非常に価格に敏感だと推定してしまうかもしれない。第6回の購買履歴と同じ問題である。
+
+今回のモデルで一人の履歴を説明する尤度は、
+
+$$L_i(\theta_i)=\prod_{t=1}^{8}P_{iy_{it}t}(e^{\theta_i})$$
+
+である。ここに母集団の分布 $\theta_i\sim N(\mu,\tau^2)$ を組み合わせれば、本人の回答と他の人たちの情報の両方を使える。第6回では甘さへの好みを学ぶために使った仕組みを、ここでは対数価格感応度に応用する。係数が何を意味するかは異なるが、本人の尤度と母集団の分布を組み合わせる構造は共通である。
+
+ターゲティングの回では施策比較に必要な個人係数の推定を追いやすくするため、属性係数 $(0.5,0.8,0.3)$ を既知に固定し、$\theta_i,\mu,\tau$ を推定した。今回の同質logitは属性係数も推定しているので、その点は異なる。実務で属性係数が既知という意味ではなく、階層モデルを段階的に学ぶための簡略化である。
+
+## 7. 実証研究での使い方
+
+::: {.callout-tip}
+## 実証研究コーナー：Hainmueller, Hopkins, and Yamamoto (2014)
+
+この研究は、複数の属性を同時に変える調査から、各属性の因果効果をどう取り出すかを考えた。移民の受け入れに関する実験では、教育、職業、言語能力など9属性を変えた申請者の組を、一人に5組提示している。潜在アウトカムを使ってAMCEを定義し、割付設計に対応する回帰で推定する。さらに、回答への効果が問の位置や属性の表示順によって変わっていないかを調べた。例えば通訳を必要とすることの不利な効果は、属性の表示位置による比較で10〜23パーセントポイントの範囲にあり、等しいという仮説は棄却されなかった（$p=0.14$）。ランダム化したから終わりではなく、想定した比較が回答過程でも保たれているかを点検する例である。[論文§2.2、§5.3.4](https://web.mit.edu/teppei/www/research/conjoint.pdf)
 :::
 
 ::: {.callout-tip}
-## 実証研究コーナー：購買履歴の価値は、施策で測る
+## 実証研究コーナー：Hainmueller, Hangartner, and Yamamoto (2015)
 
-Rossi, McCulloch and Allenby (1996)は、購買履歴を使った個別クーポンを分析した。論文では、短い履歴を用いた個別化による純収益の増分が一律配布の2.5倍となり、1回の購買履歴だけでも50%大きいというモデルに基づく比較を報告している。これは実験で確認されたクーポン効果ではなく、推定した需要モデルを使った施策比較である。また元のモデルは階層probitで、今回のlogitとは異なる。個人の好みを推定した先で、何を目的に行動を選ぶかが重要になる例であり、次回はこの問いを扱う。[原論文の要旨](https://rob-mcculloch.org/some_papers_and_talks/papers/published/1996_The_Value_of.pdf)
+この研究は、仮想的な回答が実際の行動にどこまで対応するかを、スイスの帰化に関する住民投票と調査実験で比較した。同じ種類の申請者属性について、実際の投票と複数の調査形式から効果を推定している。比較した21個の属性効果では、paired conjointと実行動の推定値の絶対差は平均2パーセントポイントだった。一方、拒否率の水準は調査に基づく予測が約21%、実際の投票が37%であった。属性効果が近いことと、選択率の水準まで一致することは異なる。この区別は、調査のAMCEを評価する場合と、新商品の販売数量を予測する場合で、確認すべきものが違うことを示している。[論文Table 1、pp.2398–2399](https://eprints.lse.ac.uk/86341/1/Hainmueller_Hnagartner_Yamamoto_Validating%20vignette.pdf)
 :::
 
-::: {.callout-important}
+::: {.callout-tip}
+## 実証研究コーナー：Lenk, DeSarbo, Green, and Young (1996)
+
+一人の回答を減らしても、選好の個人差を推定できるだろうか。この研究はrating型のコンジョイントを対象に、個人の部分効用を階層ベイズで推定した。シミュレーションでは、一人16件の評価から2件ずつ減らし、2件まで情報を減らして比較している。個人別OLSが計算できなくなる少数回答でも、集団の分布を使うことで個人差を推定できることを示した。今回のCBCとは回答形式が違うが、一人の情報が少ないときに母集団から情報を借りる考え方は共通である。第6回で学んだ情報共有と同じ発想である。ターゲティングの回では、この考え方を選択の尤度に組み合わせて価格感応度の個人差を推定した。[論文、p.177](https://pubsonline.informs.org/doi/10.1287/mksc.15.2.173)
+:::
+
 ## まとめ
 
-- 階層ベイズは推定方法であり、logitとは別の選択モデルの名前ではない。
-- 個人の尤度と母集団分布を組み合わせ、母集団パラメータも更新する。
-- 母集団と個人の不確実性は分けて確認する。短い個人履歴から分かることには限界がある。
-- 予測では、係数の事後分布にわたって選択確率を平均する。
-- 計算の診断、事前分布への感度、未使用データでの予測評価を合わせて確認する。
+::: {.callout-important}
+## この回のポイント
+
+- CBCは価格と属性を割り付けた選択実験であり、同じ離散選択モデルで分析できる。
+- AMCEは調査設計で平均した選択確率の変化である。効用係数やWTPとは単位も推定対象も違う。
+- outsideの回答を残し、同じ人の複数回答を回答者単位の標準誤差に反映する。
+- 個人WTPの平均と平均係数の比は異なる。デルタ法は、どの比を推定しているかを決めたうえで使う。
+- 個人の異質性は、提案先を選ぶときだけでなく、商品群の設計や需要の移り方にも関係する。短い回答から個人係数を学ぶため、第6回の階層モデルの考え方を応用できる。
 :::
 
 ## 宿題
 
-1. 推定用の課題を8問から16問に変え、母集団と個人の信用区間がどう変わるか見よう。
-2. 事後平均を代入した予測と、事後積分した予測の違いが大きい人を探そう。
-3. 「買いやすい顧客にクーポンを配ればよい」が正しいか、値引きで失う利益も含めて考えてみよう。
+1. 同じノイズキャンセリングでも、価格の割付分布を変えるとAMCEが変わる理由を説明しよう。
+2. 平均WTPが8千円だったとして、全員が8千円の追加価格を払うと言えるだろうか。今回の個人WTPの分布で考えよう。
+3. ある人が8問すべてで買わないと答えたとき、個人の係数をどこまで決められるだろうか。
 
-coding課題は [assignment9.qmd](assignment9.qmd) を参照。ブラウザで小さな例を試す場合は [Playground 9](playground9.html) を使ってほしい。
+coding課題は [課題9](assignment9.html) を参照。[Playground](playground9.html)では、価格感応度と回答数を変えて計算できる。
 
 ## 次回予告
 
-次回は、今回の個人需要の事後分布を使ってクーポンを配る。購入確率を最大にするのではなく、値引きの費用も含めた期待増分利益を比べる。さらに、モデルで選んだ配布方針をRCTで検証するところまで進む。
+次はゲスト講義で、需要や選好を推定し、実験や施策につなげる考え方が実務でどう使われるかを学ぶ。その後は、消費者自身が将来を考えて選ぶ動学モデルへ進む。今回の調査設計でも、どんな行動や好みを知りたいのかを先に決める姿勢を持ち続けてほしい。
 
 ## 参考文献
 
-- Train, K. E. (2009). *Discrete Choice Methods with Simulation*, 2nd ed., Chapters 11–12.
-- Lenk, P. J., DeSarbo, W. S., Green, P. E., and Young, M. R. (1996). “Hierarchical Bayes Conjoint Analysis.” *Marketing Science*, 15(2), 173–191.
-- Rossi, P. E., McCulloch, R. E., and Allenby, G. M. (1996). “The Value of Purchase History Data in Target Marketing.” *Marketing Science*, 15(4), 321–340.
+- Hainmueller, J., D. J. Hopkins, and T. Yamamoto (2014). “Causal Inference in Conjoint Analysis: Understanding Multidimensional Choices via Stated Preference Experiments.” *Political Analysis*, 22(1), 1–30. [論文](https://web.mit.edu/teppei/www/research/conjoint.pdf)
+- Hainmueller, J., D. Hangartner, and T. Yamamoto (2015). “Validating Vignette and Conjoint Survey Experiments Against Real-World Behavior.” *PNAS*, 112(8), 2395–2400. [論文](https://doi.org/10.1073/pnas.1416587112)
+- Lenk, P. J., W. S. DeSarbo, P. E. Green, and M. R. Young (1996). “Hierarchical Bayes Conjoint Analysis: Recovery of Partworth Heterogeneity from Reduced Experimental Designs.” *Marketing Science*, 15(2), 173–191. [論文](https://doi.org/10.1287/mksc.15.2.173)
+- Green, P. E., and V. Srinivasan (1990). “Conjoint Analysis in Marketing: New Developments with Implications for Research and Practice.” *Journal of Marketing*, 54(4), 3–19.
+- Egami, N., and K. Imai (2019). “Causal Interaction in Factorial Experiments: Application to Conjoint Analysis.” *JASA*, 114(526), 529–540.
+- Goplerud, M., K. Imai, and N. E. Pashley (2025). “Estimating Heterogeneous Causal Effects of High-Dimensional Treatments: Application to Conjoint Analysis.” *The Annals of Applied Statistics*, 19(2), 866–888.
+- Train, K. E. (2009). *Discrete Choice Methods with Simulation*, 2nd ed. Chapters 3, 6, 11. [著者による公開版](https://eml.berkeley.edu/books/choice2.html)
+
+- 上武康亮・遠山祐太・若森直樹・渡辺安虎（2025）『実証ビジネス・エコノミクス』日本評論社。

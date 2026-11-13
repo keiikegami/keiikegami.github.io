@@ -8,7 +8,7 @@
 
 <meta name="author" content="Kei Ikegami">
 
-<title>Playground 13：動学的意思決定の実験室</title>
+<title>Playground 13：dynamic pricingの実験室</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -81,9 +81,9 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul class="collapse">
-  <li><a href="#実験1割引因子βと交換行動" id="toc-実験1割引因子βと交換行動" class="nav-link active" data-scroll-target="#実験1割引因子βと交換行動">実験1：割引因子βと交換行動</a></li>
-  <li><a href="#実験2交換費用と政策関数" id="toc-実験2交換費用と政策関数" class="nav-link" data-scroll-target="#実験2交換費用と政策関数">実験2：交換費用と政策関数</a></li>
-  <li><a href="#実験3反実仮想-交換費用の補助" id="toc-実験3反実仮想-交換費用の補助" class="nav-link" data-scroll-target="#実験3反実仮想-交換費用の補助">実験3：反実仮想 — 交換費用の補助</a></li>
+  <li><a href="#実験1最適価格の地図-backward-inductionが1枚の絵になる" id="toc-実験1最適価格の地図-backward-inductionが1枚の絵になる" class="nav-link active" data-scroll-target="#実験1最適価格の地図-backward-inductionが1枚の絵になる">実験1：最適価格の地図 — backward inductionが1枚の絵になる</a></li>
+  <li><a href="#実験2動的価格-vs-最適固定価格-優位はどこから来るか" id="toc-実験2動的価格-vs-最適固定価格-優位はどこから来るか" class="nav-link" data-scroll-target="#実験2動的価格-vs-最適固定価格-優位はどこから来るか">実験2：動的価格 vs 最適固定価格 — 優位はどこから来るか</a></li>
+  <li><a href="#実験3需要推定の誤差が収入を蝕む" id="toc-実験3需要推定の誤差が収入を蝕む" class="nav-link" data-scroll-target="#実験3需要推定の誤差が収入を蝕む">実験3：需要推定の誤差が収入を蝕む</a></li>
   <li><a href="#次に読むもの" id="toc-次に読むもの" class="nav-link" data-scroll-target="#次に読むもの">次に読むもの</a></li>
   </ul>
 </nav>
@@ -92,7 +92,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Playground 13：動学的意思決定の実験室</h1>
+<h1 class="title">Playground 13：dynamic pricingの実験室</h1>
 <p class="subtitle lead">計量経済学II（ブラウザ上でRが動きます）</p>
 </div>
 
@@ -130,7 +130,8 @@ window.Quarto = {
 <li>このページのRコードは、<strong>あなたのブラウザの中で</strong>動いている（WebAssembly + webR）。インストールは一切不要。</li>
 <li><strong>初回だけ、ページ読み込みに30秒〜1分かかる</strong>（R本体とパッケージのダウンロード）。2回目以降はキャッシュで速くなる。</li>
 <li>各セルのコードは自由に書き換えて「Run Code」で実行できる。<strong>何をどう壊しても誰にも迷惑はかからない</strong>。おかしくなったらページを再読み込みすれば元に戻る。</li>
-<li>元ネタは講義ノート（<code>lecture13.html</code>）。ここでは推定はせず、「<strong>モデルを解く → 政策関数を眺める → 政策を変えて解き直す</strong>」という動学モデルの遊び方を体感することに集中する。</li>
+<li>このページのセルは第11回のbackward inductionを回すので、1回の実行に数秒かかることがある。慌てず待とう。</li>
+<li>元ネタは講義ノート（<code>lecture13.html</code>）。ここでは「数値をいじって挙動を体感する」ことに集中する。</li>
 </ul>
 </div>
 </div>
@@ -140,24 +141,30 @@ window.Quarto = {
 
 </div>
 <script type="webr-1-contents">
-eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVkaXQiOmZhbHNlLCJldmFsIjp0cnVlLCJvdXRwdXQiOmZhbHNlLCJ0aW1lbGltaXQiOjEyMH0sImNvZGUiOiJsaWJyYXJ5KGdncGxvdDIpXG5cbiMgLS0tLSDlhbHpgJrjga7pgZPlhbfnrrHvvIjorJvnvqnjg47jg7zjg4jjgajlkIzjgZggUnVzdCDjg5Djgrnjgqjjg7Pjgrjjg7Pjg6Ljg4fjg6vjgILnt6jpm4bkuI3lj6/jg7voh6rli5Xlrp/ooYzvvIktLS0tXG5cbkVVTEVSIDwtIDAuNTc3MjE1NjY0OTAxNTMyOSAgICMgRXVsZXIg5a6a5pWw77yIbG9nc3VtIOOBruWumuaVsOmghe+8iVxuXG4jIOeKtuaFi+mBt+enu+ihjOWIl+OAglAwOiDntq3mjIHvvIh4IOOBi+OCiei3nembouOBjOmAsuOCgO+8iSwgUDE6IOS6pOaPm++8iDAg44Gr44Oq44K744OD44OI44GX44Gm6YCy44KA77yJXG5idWlsZF90cmFuc2l0aW9uIDwtIGZ1bmN0aW9uKEssIHApIHtcbiAgbmogPC0gbGVuZ3RoKHApXG4gIFAwIDwtIG1hdHJpeCgwLCBLLCBLKVxuICBQMSA8LSBtYXRyaXgoMCwgSywgSylcbiAgZm9yICh4IGluIDE6SykgeyAgICAgICAgICAjIFIg44GvIDEtaW5kZXjjgILnirbmhYvlgKTjga8gKHgtMSlcbiAgICB4diA8LSB4IC0gMVxuICAgIGZvciAoaiBpbiAxOm5qKSB7XG4gICAgICBqaiA8LSBqIC0gMVxuICAgICAgUDBbeCwgbWluKHh2ICsgamosIEsgLSAxKSArIDFdIDwtIFAwW3gsIG1pbih4diArIGpqLCBLIC0gMSkgKyAxXSArIHBbal1cbiAgICAgIFAxW3gsIG1pbigwICArIGpqLCBLIC0gMSkgKyAxXSA8LSBQMVt4LCBtaW4oMCAgKyBqaiwgSyAtIDEpICsgMV0gKyBwW2pdXG4gICAgfVxuICB9XG4gIGxpc3QoUDAgPSBQMCwgUDEgPSBQMSlcbn1cblxuIyDkvqHlgKTplqLmlbDlj43lvqnvvIhWRknvvInjgacgUnVzdCDjg6Ljg4fjg6vjgpLop6PjgY/jgIJcbiMg6L+U44KK5YCkOiDkvqHlgKTplqLmlbAgViwgY2hvaWNlLXNwZWNpZmljIHZhbHVlIHYwL3YxLCDkuqTmj5vnorrnjocgUHIsXG4jICAgICAgICAg5Y+N5b6p5Zue5pWwIG5pdGVyLCDlj47mnZ/jg5Xjg6njgrAgY29udmVyZ2VkLCDnirbmhYvlgKQgeHMsIOmBt+enu+ihjOWIlyBQMC9QMVxuc29sdmVfcnVzdCA8LSBmdW5jdGlvbih0aGV0YTEsIFJDLCBiZXRhLCBLID0gMjAsXG4gICAgICAgICAgICAgICAgICAgICAgIHBfdHJhbnMgPSBjKDAuMzAsIDAuNTUsIDAuMTUpLFxuICAgICAgICAgICAgICAgICAgICAgICB0b2wgPSAxZS02LCBtYXhpdCA9IDIwMDAwKSB7XG4gIHRyIDwtIGJ1aWxkX3RyYW5zaXRpb24oSywgcF90cmFucylcbiAgUDAgPC0gdHIkUDA7IFAxIDwtIHRyJFAxXG4gIHhzIDwtIDA6KEsgLSAxKVxuICB1MCA8LSAtdGhldGExICogeHMgICAgICAgICMg57at5oyB44GuIGZsb3cgdXRpbGl0eTogLXRoZXRhMSAqIHhcbiAgdTEgPC0gcmVwKC1SQywgSykgICAgICAgICAjIOS6pOaPm+OBriBmbG93IHV0aWxpdHk6IC1SQ1xuICBWICA8LSByZXAoMCwgSylcbiAgZXJyIDwtIEluZjsgaXQgPC0gMFxuICB3aGlsZSAoaXQgPCBtYXhpdCAmJiBlcnIgPj0gdG9sKSB7XG4gICAgaXQgPC0gaXQgKyAxXG4gICAgdjAgPC0gdTAgKyBiZXRhICogYXMudmVjdG9yKFAwICUqJSBWKVxuICAgIHYxIDwtIHUxICsgYmV0YSAqIGFzLnZlY3RvcihQMSAlKiUgVilcbiAgICBtICA8LSBwbWF4KHYwLCB2MSkgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICMg5pWw5YCk5a6J5a6a5YyWXG4gICAgVm5ldyA8LSBtICsgbG9nKGV4cCh2MCAtIG0pICsgZXhwKHYxIC0gbSkpICsgRVVMRVIgICAjIGxvZ3N1bSArIEV1bGVyIOWumuaVsFxuICAgIGVyciAgPC0gbWF4KGFicyhWbmV3IC0gVikpXG4gICAgViA8LSBWbmV3XG4gIH1cbiAgdjAgPC0gdTAgKyBiZXRhICogYXMudmVjdG9yKFAwICUqJSBWKVxuICB2MSA8LSB1MSArIGJldGEgKiBhcy52ZWN0b3IoUDEgJSolIFYpXG4gIG0gIDwtIHBtYXgodjAsIHYxKVxuICBQciA8LSBleHAodjEgLSBtKSAvIChleHAodjAgLSBtKSArIGV4cCh2MSAtIG0pKSAgICAgICAgIyBQKOS6pOaPm3x4KTogbG9naXRcbiAgbGlzdChWID0gViwgdjAgPSB2MCwgdjEgPSB2MSwgUHIgPSBQcixcbiAgICAgICBuaXRlciA9IGl0LCBjb252ZXJnZWQgPSAoZXJyIDwgdG9sKSxcbiAgICAgICB4cyA9IHhzLCBQMCA9IFAwLCBQMSA9IFAxKVxufVxuXG4jIOS6pOaPm+aWuemHneOBjOiqmOWwjuOBmeOCi+ODnuODq+OCs+ODlemAo+mOluOBruWumuW4uOWIhuW4g+OBqOOAgemVt+acn+OBruS6pOaPm+eOh+ODu+W5s+Wdh+i1sOihjOi3nembolxuc3RlYWR5X3N0YXRlIDwtIGZ1bmN0aW9uKHNvbCkge1xuICBLIDwtIGxlbmd0aChzb2wkUHIpXG4gIE0gPC0gKDEgLSBzb2wkUHIpICogc29sJFAwICsgc29sJFByICogc29sJFAxICAgIyDooYwgeCDjgpLmlrnph53jga7norrnjofjgafph43jgb/ku5jjgZFcbiAgQSA8LSByYmluZCh0KE0pIC0gZGlhZyhLKSwgcmVwKDEsIEspKVxuICBiIDwtIGMocmVwKDAsIEspLCAxKVxuICBkIDwtIHFyLnNvbHZlKEEsIGIpXG4gIGQgPC0gcG1heChkLCAwKTsgZCA8LSBkIC8gc3VtKGQpXG4gIGxpc3QoZGlzdCA9IGQsXG4gICAgICAgcmVwbGFjZV9yYXRlID0gc3VtKGQgKiBzb2wkUHIpLFxuICAgICAgIG1lYW5fbWlsZWFnZSA9IHN1bShkICogc29sJHhzKSlcbn1cblxuIyBQKOS6pOaPm3x4KSDjgYzliJ3jgoHjgaYgY3V0IOOCkui2heOBiOOCi+eKtuaFi++8iOS6pOaPm+OBrumWvuWApOOBruebruWuie+8iVxudGhyZXNob2xkX3N0YXRlIDwtIGZ1bmN0aW9uKHNvbCwgY3V0ID0gMC41KSB7XG4gIGlkeCA8LSB3aGljaChzb2wkUHIgPj0gY3V0KVxuICBpZiAobGVuZ3RoKGlkeCkgPT0gMCkgTkFfaW50ZWdlcl8gZWxzZSBzb2wkeHNbaWR4WzFdXVxufVxuXG50aGVtZV9zZXQodGhlbWVfbWluaW1hbChiYXNlX3NpemUgPSAxMykpIn0=
+eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVkaXQiOmZhbHNlLCJldmFsIjp0cnVlLCJvdXRwdXQiOmZhbHNlLCJ0aW1lbGltaXQiOjEyMH0sImNvZGUiOiJsaWJyYXJ5KGdncGxvdDIpXG5cbiMgLS0tLSDlhbHpgJrjga7pgZPlhbfnrrHvvIjorJvnvqnjg47jg7zjg4jjgajlkIzjgZjjg6Ljg4fjg6vjgILnt6jpm4bkuI3lj6/jg7voh6rli5Xlrp/ooYzvvIktLS0tXG5cbiMg5p2l44Gf5a6i44GM5L6h5qC8cOOBp+iyt+OBhueiuueOh++8iOesrDLlm57ku6XmnaXjga5sb2dpdO+8iVxuYnV5X3Byb2IgPC0gZnVuY3Rpb24ocCwgdGhldGEwLCBhbHBoYSkge1xuICAxIC8gKDEgKyBleHAoLSh0aGV0YTAgLSBhbHBoYSAqIHApKSlcbn1cblxuIyAx5pyf44GC44Gf44KK44Gu6LO86LK356K6546H77ya5Yiw552A56K6546HIMOXIOadpeOBn+WuouOBjOiyt+OBhueiuueOh1xucHVyY2hhc2VfcHJvYiA8LSBmdW5jdGlvbihwLCB0aGV0YTAsIGFscGhhLCBsYW1iZGFfYmFyKSB7XG4gIGxhbWJkYV9iYXIgKiBidXlfcHJvYihwLCB0aGV0YTAsIGFscGhhKVxufVxuXG4jIEJlbGxtYW7mlrnnqIvlvI/jgpJiYWNrd2FyZCBpbmR1Y3Rpb27jgafop6PjgY/vvIjorJvnvqnjg47jg7zjg4jjga5zb2x2ZV9kcOOBqOWQjOOBmO+8iVxuIyDnirbmhYsodCxjKeOBr1Ljga7ooYzliJfjgafjga9bdCsxLCBjKzFd44Gr5a++5b+c44GZ44KL44GT44Go44Gr5rOo5oSP77yIUuOBrzHlp4vjgb7jgorvvIlcbnNvbHZlX2RwIDwtIGZ1bmN0aW9uKFRfcGVyaW9kLCBDX2NhcGFjaXR5LCB0aGV0YTAsIGFscGhhLCBsYW1iZGFfYmFyLCBwX2dyaWQpIHtcbiAgViAgICAgPC0gbWF0cml4KDAsIG5yb3cgPSBUX3BlcmlvZCArIDEsIG5jb2wgPSBDX2NhcGFjaXR5ICsgMSlcbiAgcHN0YXIgPC0gbWF0cml4KE5BX3JlYWxfLCBucm93ID0gVF9wZXJpb2QgKyAxLCBuY29sID0gQ19jYXBhY2l0eSArIDEpXG4gIGxhbV9ncmlkIDwtIHB1cmNoYXNlX3Byb2IocF9ncmlkLCB0aGV0YTAsIGFscGhhLCBsYW1iZGFfYmFyKVxuICBmb3IgKHQgaW4gMTpUX3BlcmlvZCkge1xuICAgIGZvciAoYyBpbiAxOkNfY2FwYWNpdHkpIHtcbiAgICAgICMgVlt0LCBjXSA9IFYodC0xLCBjLTEp77yI6LO85YWl5pmC77yJ44CBVlt0LCBjICsgMV0gPSBWKHQtMSwgYynvvIjpnZ7os7zlhaXmmYLvvIlcbiAgICAgIG9iaiA8LSBsYW1fZ3JpZCAqIChwX2dyaWQgKyBWW3QsIGNdKSArICgxIC0gbGFtX2dyaWQpICogVlt0LCBjICsgMV1cbiAgICAgIGJlc3QgPC0gd2hpY2gubWF4KG9iailcbiAgICAgIFZbdCArIDEsIGMgKyAxXSAgICAgPC0gb2JqW2Jlc3RdXG4gICAgICBwc3Rhclt0ICsgMSwgYyArIDFdIDwtIHBfZ3JpZFtiZXN0XVxuICAgIH1cbiAgfVxuICBsaXN0KFYgPSBWLCBwc3RhciA9IHBzdGFyKVxufVxuXG4jIOWbuuWumuS+oeagvHDjgpLkvb/jgYTntprjgZHjgZ/jgajjgY3jga7mnJ/lvoXlj47nm4rvvIjmsbrlrproq5bnmoTjgarlho3luLDjgafljrPlr4bjgavoqZXkvqHvvIlcbmV2YWx1YXRlX2ZpeGVkX3ByaWNlIDwtIGZ1bmN0aW9uKHAsIFRfcGVyaW9kLCBDX2NhcGFjaXR5LCB0aGV0YTAsIGFscGhhLCBsYW1iZGFfYmFyKSB7XG4gIGxhbSA8LSBwdXJjaGFzZV9wcm9iKHAsIHRoZXRhMCwgYWxwaGEsIGxhbWJkYV9iYXIpXG4gIFcgPC0gbWF0cml4KDAsIG5yb3cgPSBUX3BlcmlvZCArIDEsIG5jb2wgPSBDX2NhcGFjaXR5ICsgMSlcbiAgY2MgPC0gMTpDX2NhcGFjaXR5XG4gIGZvciAodCBpbiAxOlRfcGVyaW9kKSB7XG4gICAgV1t0ICsgMSwgY2MgKyAxXSA8LSBsYW0gKiAocCArIFdbdCwgY2NdKSArICgxIC0gbGFtKSAqIFdbdCwgY2MgKyAxXVxuICB9XG4gIFdbVF9wZXJpb2QgKyAxLCBDX2NhcGFjaXR5ICsgMV1cbn1cblxuIyDkuI7jgYjjgonjgozjgZ/kvqHmoLzmlL/nrZbvvIjooYzliJfvvInjgpLjgIznnJ/jga7jg6Ljg4fjg6vjgI3jga7kuIrjgafljrPlr4bjgavoqZXkvqHjgZnjgotcbmV2YWx1YXRlX3BvbGljeSA8LSBmdW5jdGlvbihwc3Rhcl9wb2xpY3ksIFRfcGVyaW9kLCBDX2NhcGFjaXR5LCB0aGV0YTAsIGFscGhhLCBsYW1iZGFfYmFyKSB7XG4gIFcgPC0gbWF0cml4KDAsIG5yb3cgPSBUX3BlcmlvZCArIDEsIG5jb2wgPSBDX2NhcGFjaXR5ICsgMSlcbiAgY2MgPC0gMTpDX2NhcGFjaXR5XG4gIGZvciAodCBpbiAxOlRfcGVyaW9kKSB7XG4gICAgcF92ZWMgICA8LSBwc3Rhcl9wb2xpY3lbdCArIDEsIGNjICsgMV1cbiAgICBsYW1fdmVjIDwtIHB1cmNoYXNlX3Byb2IocF92ZWMsIHRoZXRhMCwgYWxwaGEsIGxhbWJkYV9iYXIpXG4gICAgV1t0ICsgMSwgY2MgKyAxXSA8LSBsYW1fdmVjICogKHBfdmVjICsgV1t0LCBjY10pICsgKDEgLSBsYW1fdmVjKSAqIFdbdCwgY2MgKyAxXVxuICB9XG4gIFdbVF9wZXJpb2QgKyAxLCBDX2NhcGFjaXR5ICsgMV1cbn1cblxuIyAx44K344O844K644Oz5YiG44Gu6LKp5aOy44KS44CB5YuV55qE5L6h5qC844Go5Zu65a6a5L6h5qC844Gu5Lih5pa544Gn6LWw44KJ44Gb44KLXG4jIOWFrOW5s+OBruOBn+OCgeOAgeWQjOOBmOWuouOBruWIl++8iOWQjOOBmOS5seaVsO+8ieOCkuS4oeaWueW8j+OBq+OBtuOBpOOBkeOCi1xuc2ltdWxhdGVfc2Vhc29uX3BhaXIgPC0gZnVuY3Rpb24oVF9wZXJpb2QsIENfY2FwYWNpdHksIHBzdGFyX21hdCwgcF9maXhlZCxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHRoZXRhMCwgYWxwaGEsIGxhbV9zZWFzb24pIHtcbiAgdV9hcnJpdmUgPC0gcnVuaWYoVF9wZXJpb2QpXG4gIHVfYnV5ICAgIDwtIHJ1bmlmKFRfcGVyaW9kKVxuICByZXZfZHluIDwtIDA7IGNfZHluIDwtIENfY2FwYWNpdHlcbiAgcmV2X2ZpeCA8LSAwOyBjX2ZpeCA8LSBDX2NhcGFjaXR5XG4gIGkgPC0gMFxuICBmb3IgKHQgaW4gVF9wZXJpb2Q6MSkge1xuICAgIGkgPC0gaSArIDFcbiAgICBpZiAodV9hcnJpdmVbaV0gPCBsYW1fc2Vhc29uKSB7XG4gICAgICBpZiAoY19keW4gPj0gMSkge1xuICAgICAgICBwIDwtIHBzdGFyX21hdFt0ICsgMSwgY19keW4gKyAxXVxuICAgICAgICBpZiAodV9idXlbaV0gPCBidXlfcHJvYihwLCB0aGV0YTAsIGFscGhhKSkgeyByZXZfZHluIDwtIHJldl9keW4gKyBwOyBjX2R5biA8LSBjX2R5biAtIDEgfVxuICAgICAgfVxuICAgICAgaWYgKGNfZml4ID49IDEpIHtcbiAgICAgICAgaWYgKHVfYnV5W2ldIDwgYnV5X3Byb2IocF9maXhlZCwgdGhldGEwLCBhbHBoYSkpIHsgcmV2X2ZpeCA8LSByZXZfZml4ICsgcF9maXhlZDsgY19maXggPC0gY19maXggLSAxIH1cbiAgICAgIH1cbiAgICB9XG4gIH1cbiAgYyhkeW5hbWljID0gcmV2X2R5biwgZml4ZWQgPSByZXZfZml4KVxufVxuXG50aGVtZV9zZXQodGhlbWVfbWluaW1hbChiYXNlX3NpemUgPSAxMykpIn0=
 </script>
 </div>
 </div>
-<section id="実験1割引因子βと交換行動" class="level2">
-<h2 class="anchored" data-anchor-id="実験1割引因子βと交換行動">実験1：割引因子βと交換行動</h2>
-<p>Rust (1987) のバスエンジン交換問題を、そのまま実験台にする。状態は走行距離 <span class="math inline">\(x \in \{0, 1, \ldots, K-1\}\)</span>（今日は <span class="math inline">\(K=20\)</span>）。毎期、維持（<span class="math inline">\(a=0\)</span>、その期の費用は <span class="math inline">\(\theta_1 x\)</span>）か交換（<span class="math inline">\(a=1\)</span>、費用は <span class="math inline">\(RC\)</span>、距離は0にリセット）を選ぶ。将来まで見据えた価値（choice-specific value）は、次の Bellman 方程式で決まる：</p>
+<section id="実験1最適価格の地図-backward-inductionが1枚の絵になる" class="level2">
+<h2 class="anchored" data-anchor-id="実験1最適価格の地図-backward-inductionが1枚の絵になる">実験1：最適価格の地図 — backward inductionが1枚の絵になる</h2>
+<p>航空券1路線を考える。状態は「残り日数 <span class="math inline">\(t\)</span>」と「残り座席 <span class="math inline">\(c\)</span>」。毎期、確率 <code>lambda_bar</code> で客が1人現れ、来た客は提示価格 <span class="math inline">\(p\)</span> に対してlogitで買うかどうかを決める。両者を掛けた1期あたりの購買確率が <span class="math inline">\(\lambda(p)\)</span> だ。企業が解くのは、第11回で学んだ形のBellman方程式1本である。</p>
 <p><span class="math display">\[
-v(x, a) = u(x, a) + \beta \sum_{x'} P(x' \mid x, a) V(x')
+V(t, c) = \max_p \{ \lambda(p) [ p + V(t-1, c-1) ] + (1 - \lambda(p)) V(t-1, c) \}
 \]</span></p>
-<p><span class="math inline">\(V(x)\)</span> は logsum（Emax）で閉じる——第2回のlogitだ。道具箱の <code>solve_rust()</code> がこれを価値関数反復で解き、状態ごとの交換確率（logit）を返す。断っておくと、<strong>この回の <span class="math inline">\(\beta\)</span> は割引因子</strong>である（第2〜4回の選好パラメータの <span class="math inline">\(\beta\)</span> とは別物）。<span class="math inline">\(\beta = 0\)</span> の myopic な意思決定者は将来の維持費増を一切無視するので、交換がほとんど起きなくなる——はずだ。確かめよう。</p>
-<div class="cell" data-timelimit="90">
+<p>1期のevent treeは2枝だけだ。売れる枝は確率 <span class="math inline">\(\lambda(p)\)</span>、今期収入 <span class="math inline">\(p\)</span>、次期状態 <span class="math inline">\((t-1,c-1)\)</span>。売れない枝は確率 <span class="math inline">\(1-\lambda(p)\)</span>、今期収入0、次期状態 <span class="math inline">\((t-1,c)\)</span>。「確率×（今期収入＋継続価値）」を2枝について足したものが上の式である。</p>
+<p>今売る機会費用（bid price）は</p>
+<p><span class="math display">\[
+b(t,c)=V(t-1,c)-V(t-1,c-1)
+\]</span></p>
+<p>である。同時点差 <span class="math inline">\(V(t,c)-V(t,c-1)\)</span> は期首に追加1席を持つ価値で、販売FOCへ直接入るbid priceとは時間添字が違う。来た客の購買確率を <span class="math inline">\(s(p)\)</span> とすると、連続価格の内部解は <span class="math inline">\(p^*(t,c)=b(t,c)+1/[\alpha\{1-s(p^*(t,c))\}]\)</span>。「静学最適価格＋bid price」という単純な足し算ではなく、bid priceを限界費用の位置へ入れた新しい固定点だ。</p>
+<p>境界条件は「席が尽きたら以後の収益ゼロ、期限が来たらゼロ」。これを <span class="math inline">\(t\)</span> の小さい方から順に埋めていくと、すべての状態での最適価格 <span class="math inline">\(p^*(t,c)\)</span> が1枚の地図になる。図では横軸を右へ行くほど残り日数が長く、縦軸を上へ行くほど残り座席が多い。したがって、右下（時間はたっぷり・席はわずか）ほど高く、左上（締切間近・席が余っている）ほど安くなるはずだ。bid priceがほぼ0の領域では、動学FOCはこの仕様の静学FOCに近づく。</p>
+<div class="cell" data-timelimit="120">
 <div>
 <div id="webr-2" class="exercise-cell">
 
 </div>
 <script type="webr-2-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5iZXRhcyAgPC0gYygwLCAwLjUsIDAuOSwgMC45OSkgICAjIOWJsuW8leWboOWtkO+8iDAgPSBteW9waWPvvInjgIIwLjk5OSDjgoLoqabjgZ3jgYZcbnRoZXRhMSA8LSAwLjE1ICAgICAgICAgICAgICAgICAgICMg57at5oyB6LK744Gu5YK+44GN77yIMeeKtuaFi+OBguOBn+OCiu+8iVxuUkMgICAgIDwtIDguMCAgICAgICAgICAgICAgICAgICAgIyDjgqjjg7Pjgrjjg7PkuqTmj5vosrtcbiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cblxuc2V0LnNlZWQoMjAyNjEzKVxuSyA8LSAyMFxuc29scyA8LSBsYXBwbHkoYmV0YXMsIGZ1bmN0aW9uKGIpIHNvbHZlX3J1c3QodGhldGExLCBSQywgYmV0YSA9IGIsIEsgPSBLKSlcblxuIyDlj47mnZ/jga7mp5jlrZDvvJpiZXRhIOOBjDHjgavov5HjgYTjgbvjganlj43lvqnlm57mlbDjgYzlopfjgYjjgovvvIjnuK7lsI/kv4LmlbDjgYwgYmV0YSDjgaDjgYvjgonvvIlcbmluZm8gPC0gZGF0YS5mcmFtZShcbiAgYmV0YSA9IGJldGFzLFxuICBpdGVyYXRpb25zID0gc2FwcGx5KHNvbHMsIGZ1bmN0aW9uKHMpIHMkbml0ZXIpLFxuICBjb252ZXJnZWQgPSBzYXBwbHkoc29scywgZnVuY3Rpb24ocykgcyRjb252ZXJnZWQpLFxuICBQX3JlcGxhY2VfYXRfbWF4X3ggPSByb3VuZChzYXBwbHkoc29scywgZnVuY3Rpb24ocykgcyRQcltLXSksIDQpXG4pXG5wcmludChpbmZvKVxuXG5kZiA8LSBkby5jYWxsKHJiaW5kLCBsYXBwbHkoc2VxX2Fsb25nKGJldGFzKSwgZnVuY3Rpb24oaSkge1xuICBkYXRhLmZyYW1lKHggPSBzb2xzW1tpXV0keHMsIHByb2IgPSBzb2xzW1tpXV0kUHIsIGJldGEgPSBiZXRhc1tpXSlcbn0pKVxuZGYkYmV0YSA8LSBmYWN0b3IoZGYkYmV0YSwgbGV2ZWxzID0gYmV0YXMpXG5nZ3Bsb3QoZGYsIGFlcyh4LCBwcm9iLCBjb2xvciA9IGJldGEpKSArXG4gIGdlb21fbGluZShsaW5ld2lkdGggPSAxKSArIGdlb21fcG9pbnQoc2l6ZSA9IDEuMikgK1xuICBsYWJzKHggPSBcIm1pbGVhZ2Ugc3RhdGUgeFwiLCB5ID0gXCJQKHJlcGxhY2UgfCB4KVwiLCBjb2xvciA9IFwiZGlzY291bnQgZmFjdG9yXCIpICtcbiAgdGhlbWUobGVnZW5kLnBvc2l0aW9uID0gXCJ0b3BcIikifQ==
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6MTIwfSwiY29kZSI6IiMgLS0tLSDjgYTjgZjjgovjga7jga/jgZPjgZMgLS0tLVxuQ19jYXBhY2l0eSA8LSAyMCAgICAjIOW6p+W4reaVsO+8iOWuuemHj++8ieOAgjUw5Lul5LiL44KS5o6o5aWoXG5UX3BlcmlvZCAgIDwtIDMwICAgICMg6LKp5aOy5pyf6ZaT77yI5pel5pWw77yJ44CCNTDku6XkuIvjgpLmjqjlpahcbmxhbWJkYV9iYXIgPC0gMC45NSAgIyAx5pel44Gr5a6i44GMMeS6uuePvuOCjOOCi+eiuueOh++8iOmcgOimgeOBruW8t+OBle+8iVxuIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuXG5zZXQuc2VlZCgyMDI2NSkgICMg44GT44Gu44K744Or44Gu6KiI566X44Gv5rG65a6a6KuW55qE44Gg44GM44CB5L2c5rOV44Go44GX44Gm5Zu65a6a44GX44Gm44GK44GPXG50aGV0YTAgPC0gNi4wXG5hbHBoYSAgPC0gMC4wNDVcbnBfZ3JpZCA8LSBzZXEoMTAsIDM1MCwgYnkgPSA1KVxuXG5kcCA8LSBzb2x2ZV9kcChUX3BlcmlvZCwgQ19jYXBhY2l0eSwgdGhldGEwLCBhbHBoYSwgbGFtYmRhX2JhciwgcF9ncmlkKVxuXG5jYXQoXCLmnJ/lvoXnt4/lj47nm4ogVihULCBDKTpcIiwgcm91bmQoZHAkVltUX3BlcmlvZCArIDEsIENfY2FwYWNpdHkgKyAxXSwgMSksIFwiXFxuXCIpXG5jYXQoXCLmrovjgopcIiwgVF9wZXJpb2QsIFwi5pel44O75q6L44KKXCIsIENfY2FwYWNpdHksIFwi5bit44Gu5L6h5qC8OlwiLFxuICAgIGRwJHBzdGFyW1RfcGVyaW9kICsgMSwgQ19jYXBhY2l0eSArIDFdLCBcIlxcblwiKVxuY2F0KFwi5q6L44KKXCIsIFRfcGVyaW9kLCBcIuaXpeODu+aui+OCijHluK3jga7kvqHmoLw6XCIsIGRwJHBzdGFyW1RfcGVyaW9kICsgMSwgMl0sIFwiXFxuXCIpXG5jYXQoXCLmrovjgoox5pel44O75q6L44KKXCIsIENfY2FwYWNpdHksIFwi5bit44Gu5L6h5qC8OlwiLCBkcCRwc3RhclsyLCBDX2NhcGFjaXR5ICsgMV0sIFwiXFxuXCIpXG5cbmhlYXRfZGYgPC0gZXhwYW5kLmdyaWQodCA9IDE6VF9wZXJpb2QsIGMgPSAxOkNfY2FwYWNpdHkpXG5oZWF0X2RmJHByaWNlIDwtIGRwJHBzdGFyW2NiaW5kKGhlYXRfZGYkdCArIDEsIGhlYXRfZGYkYyArIDEpXVxuaGVhdF9kZiRiaWRfcHJpY2UgPC0gZHAkVltjYmluZChoZWF0X2RmJHQsIGhlYXRfZGYkYyArIDEpXSAtXG4gICAgICAgICAgICAgICAgICAgICBkcCRWW2NiaW5kKGhlYXRfZGYkdCwgaGVhdF9kZiRjKV1cblxucF9wcmljZSA8LSBnZ3Bsb3QoaGVhdF9kZiwgYWVzKHQsIGMsIGZpbGwgPSBwcmljZSkpICtcbiAgZ2VvbV90aWxlKCkgK1xuICBzY2FsZV9maWxsX3ZpcmlkaXNfYyhuYW1lID0gXCJvcHRpbWFsIHByaWNlXCIsIG9wdGlvbiA9IFwibWFnbWFcIikgK1xuICBsYWJzKHggPSBcInJlbWFpbmluZyBkYXlzICh0KVwiLCB5ID0gXCJyZW1haW5pbmcgc2VhdHMgKGMpXCIsXG4gICAgICAgdGl0bGUgPSBcIm9wdGltYWwgcHJpY2UgcCoodCxjKVwiKVxuXG5wX2JpZCA8LSBnZ3Bsb3QoaGVhdF9kZiwgYWVzKHQsIGMsIGZpbGwgPSBiaWRfcHJpY2UpKSArXG4gIGdlb21fdGlsZSgpICtcbiAgc2NhbGVfZmlsbF92aXJpZGlzX2MobmFtZSA9IFwiYmlkIHByaWNlXCIsIG9wdGlvbiA9IFwidmlyaWRpc1wiKSArXG4gIGxhYnMoeCA9IFwicmVtYWluaW5nIGRheXMgKHQpXCIsIHkgPSBcInJlbWFpbmluZyBzZWF0cyAoYylcIixcbiAgICAgICB0aXRsZSA9IFwiYih0LGMpPVYodC0xLGMpLVYodC0xLGMtMSlcIilcblxucHJpbnQocF9wcmljZSlcbnByaW50KHBfYmlkKSJ9
 </script>
 </div>
 </div>
@@ -172,23 +179,23 @@ eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAt
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><code>betas &lt;- c(0, 0.5, 0.9, 0.99, 0.999)</code> にしてみよう。反復回数はどこまで伸びるか。カーブは <span class="math inline">\(\beta = 0.99\)</span> からさらに大きく動くか。価値関数反復は縮小係数 <span class="math inline">\(\beta\)</span> の幾何収束なので、<span class="math inline">\(\beta\)</span> が1に近いほど収束は劇的に遅くなる。</li>
-<li><code>theta1 &lt;- 0.05</code>（維持費がゆるやかにしか増えない世界）にすると、<span class="math inline">\(\beta\)</span> の違いによるカーブの開きは大きくなるか、小さくなるか。予想してから実行しよう。</li>
-<li><span class="math inline">\(\beta = 0\)</span> のカーブは床に張り付いている。<span class="math inline">\(u(x,0) = -0.15x\)</span> と <span class="math inline">\(u(x,1) = -8\)</span> を見比べれば、今日の損得だけなら <span class="math inline">\(x=19\)</span> でも維持が得（<span class="math inline">\(0.15 \times 19 = 2.85 &lt; 8\)</span>）だからだ。では forward-looking な意思決定者は、なぜ同じ <span class="math inline">\(x=19\)</span> で8割方交換するのか。</li>
+<li><code>C_capacity &lt;- 40</code>（容量を倍増）にすると、地図の色はどう変わるか。予想してから実行しよう。希少性が消えた領域では地図はほぼ一色になる。</li>
+<li><code>lambda_bar &lt;- 0.5</code>（需要が弱い路線）にすると、高価格の領域はどこまで後退するか。<code>0.95</code> との地図の違いを見比べよう。</li>
+<li>出力の数字を使い、同じ「ラスト1席」でも残り30日と残り1日で価格がどう違うかを比較しよう。固定された古い数値を覚えるのでなく、今のパラメータで再計算された差を「その席を今売らずに取っておく価値（機会費用）」で説明してみよう。</li>
 </ul>
 </div>
 </div>
 </section>
-<section id="実験2交換費用と政策関数" class="level2">
-<h2 class="anchored" data-anchor-id="実験2交換費用と政策関数">実験2：交換費用と政策関数</h2>
-<p>DP の解として出てくる「状態ごとの交換確率」を<strong>政策関数</strong>（policy function）と呼ぶ。深層パラメータ <span class="math inline">\((\theta_1, RC)\)</span> を動かすと、この政策関数がどう動くか。交換費 <span class="math inline">\(RC\)</span> を上げれば交換は割高になり、カーブは右（もっと走り込んでから交換）へずれるはずだ。破線は <span class="math inline">\(P = 0.5\)</span> の目安で、これを初めて超える状態を「交換の閾値」として表に出す。カーブが動く余地を作るため、状態数は <span class="math inline">\(K=40\)</span> に増やしてある。</p>
-<div class="cell" data-timelimit="90">
+<section id="実験2動的価格-vs-最適固定価格-優位はどこから来るか" class="level2">
+<h2 class="anchored" data-anchor-id="実験2動的価格-vs-最適固定価格-優位はどこから来るか">実験2：動的価格 vs 最適固定価格 — 優位はどこから来るか</h2>
+<p>動的価格の最適固定価格に対するリフトは、需要と在庫の設定次第で変わる。Gallego and van Ryzinのベンチマークは、一定の条件と大規模極限で固定価格型ヒューリスティックが動的最適へ近づくことを示すが、すべての市場で同じリフトになるという定理ではない。ここでは、シーズンごとに需要の水準（到着率）がブレる世界を作る。企業は動的・固定のどちらの方式でも、<strong>同じ基準到着率 <code>lambda_bar</code> を使って</strong>価格を設計する。各シーズンの実際の到着率は事前に知らない。条件は同じで、動的価格は売れ行きに応じた残り在庫を見て価格を変える。同じ乱数の客の列を両方式にぶつけて、シーズン収入の分布を比べる。</p>
+<div class="cell" data-timelimit="120">
 <div>
 <div id="webr-3" class="exercise-cell">
 
 </div>
 <script type="webr-3-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5SQ192YWx1ZXMgPC0gYyg0LCA4LCAxMikgICAjIOOCqOODs+OCuOODs+S6pOaPm+iyu++8iGMoOCwgMTYpIOOBq+OBmeOCi+OBqDLlgI3lrp/pqJPvvIlcbnRoZXRhMSAgICA8LSAwLjE1ICAgICAgICAgICMg57at5oyB6LK744Gu5YK+44GN77yIMC4zMCDjgavjgZnjgovjgajvvJ/vvIlcbiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cblxuc2V0LnNlZWQoMjAyNjEzKVxuSyA8LSA0MDsgYmV0YSA8LSAwLjk1XG5zb2xzIDwtIGxhcHBseShSQ192YWx1ZXMsIGZ1bmN0aW9uKHJjKSBzb2x2ZV9ydXN0KHRoZXRhMSwgcmMsIGJldGEgPSBiZXRhLCBLID0gSykpXG5cbiMg5Lqk5o+b44Gu6Za+5YCk77yaUCjkuqTmj5t8eCkg44GM5Yid44KB44GmIDAuNSDjgpLotoXjgYjjgovnirbmhYtcbnRociA8LSBkYXRhLmZyYW1lKFxuICBSQyA9IFJDX3ZhbHVlcyxcbiAgdGhyZXNob2xkX3ggPSBzYXBwbHkoc29scywgdGhyZXNob2xkX3N0YXRlKVxuKVxucHJpbnQodGhyKVxuXG5kZiA8LSBkby5jYWxsKHJiaW5kLCBsYXBwbHkoc2VxX2Fsb25nKFJDX3ZhbHVlcyksIGZ1bmN0aW9uKGkpIHtcbiAgZGF0YS5mcmFtZSh4ID0gc29sc1tbaV1dJHhzLCBwcm9iID0gc29sc1tbaV1dJFByLCBSQyA9IFJDX3ZhbHVlc1tpXSlcbn0pKVxuZGYkUkMgPC0gZmFjdG9yKGRmJFJDLCBsZXZlbHMgPSBSQ192YWx1ZXMpXG5nZ3Bsb3QoZGYsIGFlcyh4LCBwcm9iLCBjb2xvciA9IFJDKSkgK1xuICBnZW9tX2xpbmUobGluZXdpZHRoID0gMSkgK1xuICBnZW9tX2hsaW5lKHlpbnRlcmNlcHQgPSAwLjUsIGxpbmV0eXBlID0gXCJkYXNoZWRcIiwgY29sb3IgPSBcImdyYXk1MFwiKSArXG4gIGxhYnMoeCA9IFwibWlsZWFnZSBzdGF0ZSB4XCIsIHkgPSBcIlAocmVwbGFjZSB8IHgpXCIsIGNvbG9yID0gXCJyZXBsYWNlbWVudCBjb3N0IFJDXCIpICtcbiAgdGhlbWUobGVnZW5kLnBvc2l0aW9uID0gXCJ0b3BcIikifQ==
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6MTIwfSwiY29kZSI6IiMgLS0tLSDjgYTjgZjjgovjga7jga/jgZPjgZMgLS0tLVxuc2lnbWFfZGVtYW5kIDwtIDAuNSAgICMg6ZyA6KaB44Gu5aSJ5YuV5oCn77ya44K344O844K644Oz44GU44Go44Gu5Yiw552A546H44Gu44OW44Os77yIMOOBp+WujOWFqOOBq+WuieWumuOAgTHjgaflpKfojZLjgozvvIlcbkNfY2FwYWNpdHkgICA8LSAxNSAgICAjIOW6p+W4reaVsOOAgjEw44Gr57We44KL44Go5Zyo5bqr44GM44K/44Kk44OI44Gq6Lev57ea44Gr44Gq44KLXG5uX3NpbSAgICAgICAgPC0gMjAwICAgIyDjgrfjg5/jg6Xjg6zjg7zjgrfjg6fjg7PjgZnjgovjgrfjg7zjgrrjg7PmlbDvvIgyMDDku6XkuIvjgpLmjqjlpajvvIlcbiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cblxuc2V0LnNlZWQoMjAyNjUpXG5UX3BlcmlvZCAgIDwtIDMwXG50aGV0YTAgICAgIDwtIDYuMFxuYWxwaGEgICAgICA8LSAwLjA0NVxubGFtYmRhX2JhciA8LSAwLjYgICAgICMg5Lih5pa55byP44GM5pS/562W6Kit6KiI44Gr5L2/44GG5YWx6YCa44Gu5Z+65rqW5Yiw552A546HXG5wX2dyaWQgICAgIDwtIHNlcSgxMCwgMzUwLCBieSA9IDUpXG5cbiMg5YWx6YCa44Gu5Z+65rqW5Yiw552A546H44Gn44CBKGEpIOWLleeahOS+oeagvOOBruaUv+etluOBqCAoYikg5pyA6YGp44Gq5Zu65a6a5L6h5qC8MeacrOOCkuioreioiOOBmeOCi1xuZHAgPC0gc29sdmVfZHAoVF9wZXJpb2QsIENfY2FwYWNpdHksIHRoZXRhMCwgYWxwaGEsIGxhbWJkYV9iYXIsIHBfZ3JpZClcbmZpeGVkX3JldiA8LSBzYXBwbHkocF9ncmlkLCBldmFsdWF0ZV9maXhlZF9wcmljZSwgVF9wZXJpb2QgPSBUX3BlcmlvZCxcbiAgICAgICAgICAgICAgICAgICAgQ19jYXBhY2l0eSA9IENfY2FwYWNpdHksIHRoZXRhMCA9IHRoZXRhMCxcbiAgICAgICAgICAgICAgICAgICAgYWxwaGEgPSBhbHBoYSwgbGFtYmRhX2JhciA9IGxhbWJkYV9iYXIpXG5wX2ZpeGVkIDwtIHBfZ3JpZFt3aGljaC5tYXgoZml4ZWRfcmV2KV1cblxuIyDjgrfjg7zjgrrjg7PjgZTjgajjgavpnIDopoHjga7msLTmupbjgYzpgZXjgYbkuJbnlYzjgafjgIHkuKHmlrnlvI/jgpLotbDjgonjgZvjgotcbnJlcyA8LSBtYXRyaXgoMCwgbnJvdyA9IG5fc2ltLCBuY29sID0gMilcbmZvciAobSBpbiAxOm5fc2ltKSB7XG4gIGxhbV9zZWFzb24gPC0gbWluKG1heChsYW1iZGFfYmFyICogKDEgKyBzaWdtYV9kZW1hbmQgKiBybm9ybSgxKSksIDApLCAxKVxuICByZXNbbSwgXSA8LSBzaW11bGF0ZV9zZWFzb25fcGFpcihUX3BlcmlvZCwgQ19jYXBhY2l0eSwgZHAkcHN0YXIsIHBfZml4ZWQsXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHRoZXRhMCwgYWxwaGEsIGxhbV9zZWFzb24pXG59XG5cbm1lYW5fZHluIDwtIG1lYW4ocmVzWywgMV0pOyBtZWFuX2ZpeCA8LSBtZWFuKHJlc1ssIDJdKVxuY2F0KFwi5pyA6YGp5Zu65a6a5L6h5qC8OlwiLCBwX2ZpeGVkLCBcIlxcblwiKVxuY2F0KFwi5bmz5Z2H44K344O844K644Oz5Y+O5YWl77yI5YuV55qE5L6h5qC877yJOlwiLCByb3VuZChtZWFuX2R5biwgMSksIFwiXFxuXCIpXG5jYXQoXCLlubPlnYfjgrfjg7zjgrrjg7Plj47lhaXvvIjlm7rlrprkvqHmoLzvvIk6XCIsIHJvdW5kKG1lYW5fZml4LCAxKSwgXCJcXG5cIilcbmNhdChcIuWLleeahOS+oeagvOOBruODquODleODiDpcIiwgcm91bmQoMTAwICogKG1lYW5fZHluIC0gbWVhbl9maXgpIC8gbWVhbl9maXgsIDIpLCBcIiVcXG5cIilcblxuZGYgPC0gZGF0YS5mcmFtZShcbiAgcmV2ZW51ZSA9IGMocmVzWywgMV0sIHJlc1ssIDJdKSxcbiAgcG9saWN5ICA9IHJlcChjKFwiZHluYW1pY1wiLCBcImZpeGVkXCIpLCBlYWNoID0gbl9zaW0pXG4pXG5nZ3Bsb3QoZGYsIGFlcyhyZXZlbnVlLCBmaWxsID0gcG9saWN5KSkgK1xuICBnZW9tX2hpc3RvZ3JhbShwb3NpdGlvbiA9IFwiaWRlbnRpdHlcIiwgYWxwaGEgPSAwLjYsIGJpbnMgPSAzMCkgK1xuICBnZW9tX3ZsaW5lKHhpbnRlcmNlcHQgPSBjKG1lYW5fZHluLCBtZWFuX2ZpeCksIGxpbmV0eXBlID0gXCJkYXNoZWRcIiwgY29sb3IgPSBcImdyYXk0MFwiKSArXG4gIGxhYnMoeCA9IFwic2Vhc29uIHJldmVudWVcIiwgeSA9IFwiY291bnRcIiwgZmlsbCA9IE5VTEwpICtcbiAgdGhlbWUobGVnZW5kLnBvc2l0aW9uID0gXCJ0b3BcIikifQ==
 </script>
 </div>
 </div>
@@ -203,23 +210,24 @@ eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAt
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><code>RC_values &lt;- c(8, 16)</code> にして、交換費を2倍にすると閾値（表の <code>threshold_x</code>）が何状態ぶん後ろにずれるか確かめよう。費用を2倍にしても、閾値は2倍にはならないはずだ。</li>
-<li><code>theta1 &lt;- 0.30</code>（維持費が急勾配な世界）にすると、カーブの位置だけでなく「立ち上がりの鋭さ」も変わる。<span class="math inline">\(RC\)</span> を変えたときの動き方との違いを観察しよう。</li>
-<li><span class="math inline">\(RC\)</span> と <span class="math inline">\(\theta_1\)</span> は、どちらも「交換 vs 維持」の相対コストを動かすのに、政策関数への効き方が違うのはなぜか。維持費の差 <span class="math inline">\(\theta_1 x\)</span> は状態に比例して開いていく、という点から考えてみよう。</li>
+<li><code>sigma_demand &lt;- 1</code>（需要が大荒れの世界）にすると、リフトと2つのヒストグラムの形はどう変わるか。</li>
+<li><code>C_capacity &lt;- 10</code>（在庫がタイトな路線）にするとリフトはどうなるか。逆に <code>C_capacity &lt;- 30</code>（在庫だぶだぶ）なら。「需要の変動性」と「在庫の逼迫度」がRM導入の判断軸だ、という講義の主張を自分の目で確かめよう。</li>
+<li>問い：<code>sigma_demand &lt;- 0</code>（需要が完全に安定した世界）にすると、動的価格の優位はどれくらい残るか。ゼロにはならないはずだが、それはなぜか。到着と購買という「コイン投げ」のゆらぎが残っていることに注意して考えよう。</li>
 </ul>
 </div>
 </div>
+<p>到着率を0と1の範囲に収めているので、変動があると実際の平均到着率は <code>lambda_bar</code> と少し異なる。ここで比較しているのは、同じ基準値で設計した2つの政策を、同じ需要の変動にさらした結果である。</p>
 </section>
-<section id="実験3反実仮想-交換費用の補助" class="level2">
-<h2 class="anchored" data-anchor-id="実験3反実仮想-交換費用の補助">実験3：反実仮想 — 交換費用の補助</h2>
-<p>構造モデルの配当が反実仮想だ。政府（や本社）が交換費を補助して、実効的な交換費が <span class="math inline">\((1-s) \times RC\)</span> になる政策を考える。<strong>この政策のデータはどこにも存在しない</strong>。推定した構造・状態遷移が適切で、政策を変えても好みや技術を表すパラメータが不変だという追加仮定を置けるなら、<span class="math inline">\(RC\)</span> を置き換えて DP を解き直し、政策後の選択と状態分布を計算できる。ただし「深層パラメータ」と名付けただけで不変性が保証されるわけではない。長期的な効果は、交換方針が誘導するマルコフ連鎖の定常分布（<code>steady_state()</code>）から、平均交換率と平均走行距離で測る。</p>
-<div class="cell" data-timelimit="90">
+<section id="実験3需要推定の誤差が収入を蝕む" class="level2">
+<h2 class="anchored" data-anchor-id="実験3需要推定の誤差が収入を蝕む">実験3：需要推定の誤差が収入を蝕む</h2>
+<p>コースの締めくくり。第2回から積み上げてきた需要推定の「誤差」は、消えてなくなるのではなく、価格政策を通じて収入ロスという金額に変換される。ここでは切片 <span class="math inline">\(\theta_0\)</span> を真値に固定し、価格感応度 <span class="math inline">\(\alpha\)</span> だけを <span class="math inline">\((1+e)\)</span> 倍に見誤る<strong>一変数感度分析</strong>を行う。その値で価格政策を作り、政策を<strong>真のモデル</strong>の上で走らせたときの期待収入を厳密に計算する。誤差 <span class="math inline">\(e\)</span> がゼロならロスもゼロ。曲線がどれだけ深く、そして左右にどれだけ非対称かを読もう。実際の推定では <span class="math inline">\(\theta_0\)</span> と <span class="math inline">\(\alpha\)</span> の双方が動くため、講義ノートのモンテカルロでは同時推定誤差を評価している。</p>
+<div class="cell" data-timelimit="120">
 <div>
 <div id="webr-4" class="exercise-cell">
 
 </div>
 <script type="webr-4-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAtLS0tIOOBhOOBmOOCi+OBruOBr+OBk+OBkyAtLS0tXG5zX2dyaWQgPC0gYygwLCAwLjEsIDAuMiwgMC4zLCAwLjQpICAgIyDkuqTmj5vosrvjga7oo5zliqnnjofvvIgwID0g6KOc5Yqp44Gq44GX77yJXG4jIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tXG5cbnNldC5zZWVkKDIwMjYxMylcbksgPC0gMjA7IGJldGEgPC0gMC45NTsgdGhldGExIDwtIDAuMTU7IFJDIDwtIDguMCAgICMg5a6f6aiTMeOBqOWQjOOBmOWfuua6luOCseODvOOCuVxuXG5iYXNlX3NzIDwtIHN0ZWFkeV9zdGF0ZShzb2x2ZV9ydXN0KHRoZXRhMSwgUkMsIGJldGEgPSBiZXRhLCBLID0gSykpICAjIOijnOWKqeOBquOBl+OBruS4lueVjFxuXG50YWIgPC0gZG8uY2FsbChyYmluZCwgbGFwcGx5KHNfZ3JpZCwgZnVuY3Rpb24ocykge1xuICBzb2wgPC0gc29sdmVfcnVzdCh0aGV0YTEsICgxIC0gcykgKiBSQywgYmV0YSA9IGJldGEsIEsgPSBLKSAgIyDmlL/nrZblvozjga7kuJbnlYzjgpLop6PjgY3nm7TjgZlcbiAgc3MgIDwtIHN0ZWFkeV9zdGF0ZShzb2wpXG4gIGRhdGEuZnJhbWUoXG4gICAgc3Vic2lkeV9yYXRlID0gcyxcbiAgICBlZmZlY3RpdmVfUkMgPSAoMSAtIHMpICogUkMsXG4gICAgcmVwbGFjZV9yYXRlID0gcm91bmQoc3MkcmVwbGFjZV9yYXRlLCA0KSxcbiAgICByZXBsYWNlX2NoYW5nZV9wY3QgPSByb3VuZCgoc3MkcmVwbGFjZV9yYXRlIC8gYmFzZV9zcyRyZXBsYWNlX3JhdGUgLSAxKSAqIDEwMCwgMSksXG4gICAgbWVhbl9taWxlYWdlID0gcm91bmQoc3MkbWVhbl9taWxlYWdlLCAzKSxcbiAgICBtaWxlYWdlX2NoYW5nZV9wY3QgPSByb3VuZCgoc3MkbWVhbl9taWxlYWdlIC8gYmFzZV9zcyRtZWFuX21pbGVhZ2UgLSAxKSAqIDEwMCwgMSlcbiAgKVxufSkpXG50YWIifQ==
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6MTIwfSwiY29kZSI6IiMgLS0tLSDjgYTjgZjjgovjga7jga/jgZPjgZMgLS0tLVxuYWxwaGFfdHJ1ZSA8LSAwLjA0NSAgIyDnnJ/jga7kvqHmoLzmhJ/lv5zluqbvvIjjgZPjgozjgYzpnIDopoHlvL7lipvmgKfjgpLmsbrjgoHjgovvvIlcbmVycl9tYXggICAgPC0gMC40ICAgICMg5o6o5a6a6Kqk5beu44Gu56+E5Zuy77yawrE0MCXjgb7jgafmjK/jgotcbkNfY2FwYWNpdHkgPC0gMjAgICAgICMg5bqn5bit5pWw44CCMTDjgavjgZnjgovjgajlnKjluqvjgYzjgr/jgqTjg4jjgarot6/nt5rjgavjgarjgotcbiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cblxuc2V0LnNlZWQoMjAyNjUpICAjIOOBk+OBruOCu+ODq+OBruioiOeul+OBr+axuuWumuirlueahOOBoOOBjOOAgeS9nOazleOBqOOBl+OBpuWbuuWumuOBl+OBpuOBiuOBj1xuVF9wZXJpb2QgICA8LSAzMFxudGhldGEwICAgICA8LSA2LjBcbmxhbWJkYV9iYXIgPC0gMC45NVxucF9ncmlkICAgICA8LSBzZXEoMTAsIDM1MCwgYnkgPSA1KVxuXG4jIOecn+OBrih0aGV0YTAsIGFscGhhKeOBp+ino+OBhOOBn+acgOmBqeaUv+etluOBruWPjuebiuOBjOODmeODs+ODgeODnuODvOOCr1xuVl90cnVlIDwtIHNvbHZlX2RwKFRfcGVyaW9kLCBDX2NhcGFjaXR5LCB0aGV0YTAsIGFscGhhX3RydWUsXG4gICAgICAgICAgICAgICAgICAgbGFtYmRhX2JhciwgcF9ncmlkKSRWW1RfcGVyaW9kICsgMSwgQ19jYXBhY2l0eSArIDFdXG5cbmVycl9ncmlkIDwtIHNlcSgtZXJyX21heCwgZXJyX21heCwgYnkgPSAwLjA1KVxubG9zc19wY3QgPC0gbnVtZXJpYyhsZW5ndGgoZXJyX2dyaWQpKVxuZm9yIChpIGluIHNlcV9hbG9uZyhlcnJfZ3JpZCkpIHtcbiAgYWxwaGFfdXNlZCA8LSBhbHBoYV90cnVlICogKDEgKyBlcnJfZ3JpZFtpXSkgICAjIOimi+iqpOOBo+OBn2FscGhh44GnXG4gIHBvbGljeSA8LSBzb2x2ZV9kcChUX3BlcmlvZCwgQ19jYXBhY2l0eSwgdGhldGEwLCBhbHBoYV91c2VkLFxuICAgICAgICAgICAgICAgICAgICAgbGFtYmRhX2JhciwgcF9ncmlkKSRwc3RhciAgICMg5pS/562W44KS5L2c44KKXG4gIFcgPC0gZXZhbHVhdGVfcG9saWN5KHBvbGljeSwgVF9wZXJpb2QsIENfY2FwYWNpdHksIHRoZXRhMCxcbiAgICAgICAgICAgICAgICAgICAgICAgYWxwaGFfdHJ1ZSwgbGFtYmRhX2JhcikgICAjIOecn+OBruODouODh+ODq+OBruS4iuOBp+ipleS+oeOBmeOCi1xuICBsb3NzX3BjdFtpXSA8LSAxMDAgKiAoVl90cnVlIC0gVykgLyBWX3RydWVcbn1cblxuZGYgPC0gZGF0YS5mcmFtZShlcnIgPSAxMDAgKiBlcnJfZ3JpZCwgbG9zcyA9IGxvc3NfcGN0KVxuaV9uZWcgPC0gd2hpY2gubWluKGFicyhkZiRlcnIgKyAyMCkpXG5pX3BvcyA8LSB3aGljaC5taW4oYWJzKGRmJGVyciAtIDIwKSlcbmNhdChcImFscGhh44KSXCIsIGRmJGVycltpX25lZ10sIFwiJeimi+iqpOOBo+OBn+OBqOOBjeOBruWPjuWFpeODreOCuTpcIiwgcm91bmQoZGYkbG9zc1tpX25lZ10sIDIpLCBcIiVcXG5cIilcbmNhdChcImFscGhh44KSICtcIiwgZGYkZXJyW2lfcG9zXSwgXCIl6KaL6Kqk44Gj44Gf44Go44GN44Gu5Y+O5YWl44Ot44K5OlwiLCByb3VuZChkZiRsb3NzW2lfcG9zXSwgMiksIFwiJVxcblwiKVxuXG5nZ3Bsb3QoZGYsIGFlcyhlcnIsIGxvc3MpKSArXG4gIGdlb21fbGluZShjb2xvciA9IFwiI0REODQ1MlwiLCBsaW5ld2lkdGggPSAxKSArXG4gIGdlb21fcG9pbnQoc2l6ZSA9IDEuOCkgK1xuICBnZW9tX3ZsaW5lKHhpbnRlcmNlcHQgPSBjKC0yMCwgMjApLCBsaW5ldHlwZSA9IFwiZGFzaGVkXCIsIGNvbG9yID0gXCJncmF5NDBcIikgK1xuICBsYWJzKHggPSBcImVzdGltYXRpb24gZXJyb3IgaW4gYWxwaGEgKCUpXCIsIHkgPSBcInJldmVudWUgbG9zcyAoJSlcIikifQ==
 </script>
 </div>
 </div>
@@ -234,9 +242,9 @@ eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAt
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><code>s_grid &lt;- seq(0, 0.6, by = 0.05)</code> に細かくして、セルの末尾に <code>ggplot(tab, aes(subsidy_rate, replace_rate)) + geom_line() + geom_point() + labs(x = "subsidy rate", y = "long-run replacement rate")</code> を足すと、関係の形が一目で見える。</li>
-<li>補助の逆、課税も同じ道具で計算できる。<code>s_grid &lt;- c(0, -0.2, -0.5)</code>（交換費が1.2倍・1.5倍）にすると、交換率と平均走行距離は補助のときと対称に動くか。</li>
-<li>補助率を0.1ずつ上げたときの交換率の増分（<code>replace_change_pct</code> の差）は一定か。線形でないなら、逓増と逓減のどちらか。政府が「補助率を倍にすれば効果も倍」と見積もったら、何をどう間違えるか。</li>
+<li><code>C_capacity &lt;- 10</code>（在庫がタイトな路線）にすると、ロス曲線は深くなるか浅くなるか。予想してから実行しよう。</li>
+<li><code>err_max &lt;- 0.6</code> に広げる、あるいは <code>alpha_true &lt;- 0.09</code>（もともと価格に敏感な市場）にすると、曲線の形はどう変わるか。</li>
+<li>問い：弾力性を20%見誤ると、収入は何%失われるか。出力から読み取ろう。高めに見誤って安売りするのと、低めに見誤って強気の価格をつけるのとで、痛さは同じだろうか。推定の精度は、そのままカネに直結する。これがこのコースの最後のメッセージだ。</li>
 </ul>
 </div>
 </div>
@@ -244,8 +252,8 @@ eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6OTB9LCJjb2RlIjoiIyAt
 <section id="次に読むもの" class="level2">
 <h2 class="anchored" data-anchor-id="次に読むもの">次に読むもの</h2>
 <ul>
-<li>講義ノート本体：<code>lecture13.html</code>（NFXP と CCP による推定、myopic 推定の失敗、反実仮想の完全版）</li>
-<li>coding課題：<code>assignment13.qmd</code>（縮小版の Rust モデルをゼロから自分で実装し、NFXP と CCP を比較して反実仮想まで回す）</li>
+<li>講義ノート本体：<code>lecture13.html</code>（revenue management・surge pricing・推定→最適化パイプラインの完全版）</li>
+<li>coding課題：<code>assignment13.qmd</code>（予約データの生成→backward induction→推定誤差が収益ロスへ変換される過程を、自分の手で一周する）</li>
 </ul>
 <script type="webr-data">
 eyJvcHRpb25zIjp7ImJhc2VVcmwiOiJodHRwczovL3dlYnIuci13YXNtLm9yZy92MC42LjAvIn0sInBhY2thZ2VzIjp7InBrZ3MiOlsiZXZhbHVhdGUiLCJrbml0ciIsImh0bWx0b29scyIsImdncGxvdDIiLCJkcGx5ciIsInRpZHlyIl0sInJlcG9zIjpbImh0dHBzOi8vcmVwby5yLXdhc20ub3JnIiwiaHR0cHM6Ly9jcmFuLnItdW5pdmVyc2UuZGV2Il19LCJyZW5kZXJfZGYiOiJkZWZhdWx0In0=

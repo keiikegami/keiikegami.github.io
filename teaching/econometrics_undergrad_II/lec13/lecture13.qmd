@@ -1,5 +1,5 @@
 ---
-title: "Lecture 13：将来を考えた選択と動学的離散選択モデル"
+title: "Lecture 13：Dynamic pricing — 企業の動学的価格設定"
 subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -25,8 +25,9 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(knitr)
+library(patchwork)
 
-set.seed(202613)
+set.seed(20265)
 
 theme_lecture <- function() {
   fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
@@ -40,848 +41,906 @@ options(scipen = 8)
 ::: {.callout-important}
 ## この講義で押さえたいこと
 
-- 将来の購買を予測することと、消費者自身が将来を考えて選ぶことを区別する。現在の行動が将来の状態を変えるとき、将来価値を含めて選択を考える必要がある。
-- 状態・行動・状態遷移を定め、Bellman方程式で意思決定を表す。バスのエンジン交換を例に、モデルから選択確率とデータを作る。
-- 第2回と同じType I極値ショックを使うと、将来価値を含む選択でもlogitの式が得られる。
-- NFXPとCCPという2つの方法で維持費・交換費を推定し、真値と比較する。
-- 交換費への補助を反実仮想として計算し、将来価値を無視したモデルでは予測がどう変わるかを確かめる。
+- 消費者が将来の値下げを待つなら、企業はその待機を見込んで価格を決める必要がある。2期間の例で、待機を無視した価格案と比較する。
+- 顧客の好みに応じた価格と、時間・在庫に応じた価格を区別する。両者は組み合わせられるが、必要なデータやモデルは異なる。
+- 残り販売期間と在庫を状態として、企業の価格設定をBellman方程式で表す。今売る利益と、在庫を残す価値を比較する。
+- 需要を推定してから価格を選び、その価格の収益を評価する。需要の推定誤差が意思決定にどう伝わるかを確認する。
+- 市場全体の需要、個人別の予測と施策、時間を通じた行動を、これまでの講義との関係から整理する。
 
 :::
 
 ## 前回とのつながり・今回のゴール
 
-第4回では、個人の好みの違いを集計した需要から、合併による価格や消費者余剰への影響を計算した。第6〜9回では同じ異質性を、購買履歴やコンジョイントの回答から「この人は何を好みそうか」を学ぶために使った。第10回ではその推定結果をクーポンの配布に使い、第11回では個人の履歴から学ぶ同じ発想を、購買率と離脱確率へ広げた。第12回のゲスト講義を挟み、今回は意思決定の時間軸をもう少し詳しく考える。
+第12回では、同じブランドを繰り返し選ぶ理由を、固定的な好みと状態依存に分けて考えた。さらに、セール時に買いだめする消費者をモデル化し、今の購入が増えても、その分だけ将来の購入が減る場合があることを確認した。
 
-まず、**分析者が将来を予測することと、消費者が将来を考えて行動することは、別の話である。** 第11回のBG/NBDでは、購買率や離脱確率の異質性を使って将来の購入回数を予測した。しかし、消費者が「来月の値下げを待とう」と考えて購入を遅らせる仕組みまでは入れていなかった。
+今回は、その消費者に商品を売る企業の側を考える。消費者が来月の値下げを待つなら、企業が今と来月の価格をそれぞれ独立に決めるわけにはいかない。また、企業に在庫と販売期限があるなら、今安く売るか、後で高く買う人のために残すかという判断も必要になる。
 
-例えば、同じスマートフォンを使い続けている人を考えよう。そのブランドが好きなのかもしれないし、まだ十分使えるのかもしれない。あるいは、次の新製品や値下げを待っているのかもしれない。購入履歴から好みを学ぶだけでは、この最後の理由は説明しきれない。今買うと、これからしばらく買い替えなくてよくなる。待つと、古い端末の不便を引き受ける代わりに、将来の選択肢を残せる。このように、現在の選択は将来の状態を変える。
+まず、価格を2期間分あらかじめ示す簡単な例で、消費者の待機を踏まえた値付けを計算する。その後、残り販売期間と在庫を状態とする企業の動的計画問題を解く。後者では仕組みを分けて理解するため、各期に新しい顧客が来て、その場で購入を決めると仮定する。消費者の待機と企業の在庫制約を一度に入れたモデルではないことに注意しよう。
 
-そこで、今の効用に、行動した先で得られる将来の効用を加えて比較する。これが**動学的離散選択（dynamic discrete choice, DDC）**の考え方である。第2回の「効用の高い選択肢を選ぶ」という枠組みに、将来価値を加えることになる。
+第7回のターゲティングでは、個人ごとの需要から、その人に行う施策を選んだ。今回はそこに時間と状態を加える。推定した需要を使って価格を決め、その価格で得られる収益を確かめるところまでがゴールである。
 
-今回は、仕組みを理解しやすいバスのエンジン交換問題で、状態・行動・価値関数を一つずつ導入する。維持費と交換費をデータから推定し、「交換費に補助が出たら、交換のタイミングはどう変わるか」まで計算する。ここでは動学に集中するため、維持費と交換費のパラメータは共通とする。個人の好みの違いと、過去の行動が作る状態の違いをどう分けるかは、第14回で考える。
+## 1. 「dynamic」の交通整理
+
+「dynamic pricing」という言葉は、いくつか異なる価格設定を指して使われる。ここでは、次の3つを区別しておこう。
+
+1. **時間帯・需給で価格が変わる**：電気料金のピーク時間帯課金、ライドシェアのサージ、深夜のタクシー割増。
+2. **販売期限と在庫で価格が変わる**：航空券やホテルの価格が、出発日・チェックイン日が近づくにつれて、また空席数に応じて変わる。revenue management (RM) と呼ばれる領域。
+3. **顧客ごとに価格が変わる**：会員ランクによる割引、購買履歴に基づくクーポン配布、過去の閲覧履歴を使ったパーソナライズ価格。
+
+この3つは共通の需要推定を使い得るが、主に解く状態・識別・制約が異なる。(1)(2)は「同じ商品を、同じ客に対して、状況に応じて違う価格で売る」問題であり、(3)は「同じ状況で、違う客に対して違う価格で売る」問題だ。ニュースで「AIが個人の購買履歴から価格を決めている」という話と「航空券が満席に近づくと値上がりする」という話は、企業がやっていることとしては別物なのに、同じ「ダイナミックプライシング」という言葉で語られてしまう。
+
+この講義では用語を曖昧にしないため、(1)(2)を **dynamic pricing**、(3)を **personalized pricing** と呼び分ける。両者を同時に実装することはできるが、同じ概念ではない。
+
+> **企業の価格「ルール」が、時間・在庫・市場需要などの運用状態の関数になっている。** これをこの講義では dynamic pricing と呼ぶ。顧客の属性・履歴に応じる personalized pricing は隣接領域だが、区別する。
+
+今日は主に(2)を扱う。(3)は第7回の個人別需要とクーポン配布に対応する。(1)のピーク時料金とサージ価格は、本文の後の補足で取り上げる。
 
 ::: {.callout-note}
-## 記法について：今日から $\beta$ は割引因子
+## ビジネスの現場で：「うちもダイナミックプライシングを」と言われたら
 
-第2〜9回では $\beta$ は「属性への選好パラメータ」だった（効用 $u = x'\beta - \alpha p + \cdots$ の $\beta$）。しかし**動学の文献では $\beta$ は割引因子（discount factor）を指すのが標準**である。この第13〜15回では、この文献の慣習に従い、**$\beta$ を割引因子**として使う。効用（flow utility）のパラメータは $\theta$ と書く。混乱しないよう、初出のここで明示的に断っておく。$\beta$ は $0 < \beta < 1$ の割引因子で、今日の1単位の効用に対して1期後の効用を $\beta$ 倍に割り引く、あの $\beta$ だ。
+「在庫が余っているので値下げしたい」と「価格に敏感な顧客に割引を出したい」では、知りたい需要が異なる。前者では、残り期間と在庫に応じて、今売る価値と待つ価値を比べる。後者では、第7回のように、個人の履歴で条件づけた需要が必要になる。まず何に応じて価格を変えるのかを決めると、用意すべきデータも明確になる。
 :::
 
-## バスのエンジンをいつ交換するか
+## 2. 静学ベンチマーク：逆弾力性ルールの復習
 
-Rust (1987) が扱ったのは、米国マディソン市のバス公社で整備を担当していたHarold Zurcherのエンジン交換判断である。走行距離が長くなると、エンジンの維持費がかかる。一方、交換すれば維持費は下がるが、その時点で大きな交換費を払うことになる。
+dynamic pricingを理解する前に、まず「動かない価格」つまり静学的な独占価格づけを復習しておく。すべてはここが出発点になる。
 
-今日だけを考えるなら、今日の維持費と交換費を比べればよい。しかし、今交換すると明日以降の維持費も変わる。少し高い交換費を払っても、今後の費用が十分下がるなら交換した方がよい。この判断を、毎月の走行距離と交換記録から推定する。
-
-Rustは、Zurcherが期待割引費用を最小化すると仮定し、観測された交換判断を説明する維持費・交換費のパラメータを推定した。一人の担当者による判断でも、多数のバスを長期間追えば、状態によって判断がどう変わるかを調べられる。
-
-::: {.callout-note}
-## 原論文のデータと、この講義のシミュレーション
-
-Rust の原標本はマディソン市バス公社の**162台、15,406 bus-month observations**である。ただし本講義で以降に出す交換費・維持費・状態数は、**説明用に設定したシミュレーション値**であって Rust の推定値ではない。ここでの狙いは、モデルの構造と推定の流れを手を動かして体感することにある。
-:::
-
-## モデルの部品
-
-Rust のバス問題を、我々のシミュレーション用に最小構成で組む。部品を一つずつ並べる。
-
-まず1期間の順序を固定する。添字の取り違えを防ぐため、Bellman方程式を書く前にこの5段階へ戻ろう。
-
-| 順序 | 時点 $t$ で起きること | 記号 |
-|---:|---|---|
-| 1 | 現在の走行距離を観測 | $x_t$ |
-| 2 | 維持か交換を選ぶ | $a_t\in\{0,1\}$ |
-| 3 | 当期効用と選択ショックを受け取る | $u(x_t,a_t)+\varepsilon_t(a_t)$ |
-| 4 | 行動と距離増分により次期状態へ移る | $x_{t+1}\sim P(\cdot\mid x_t,a_t)$ |
-| 5 | $t+1$で同じ問題を繰り返す | $\beta V(x_{t+1})$ |
-
-**状態 $x$（走行距離）**。エンジンの累積走行距離を、離散グリッド $x \in \{0, 1, \ldots, K-1\}$ で表す。$x=0$ は新品同様、$x$ が大きいほど走り込んだ状態だ。今日は $K = 20$ 状態でいく（現実には走行距離をビンに区切って離散化する）。
-
-**行動 $a$**。毎期、Zurcher は2択を迫られる：$a = 0$（**維持**＝そのまま使う）か $a = 1$（**交換**＝エンジンを載せ替える）か。
-
-**flow utility $u(x, a; \theta)$**（その期に得る「効用」＝コストの符号を反転したもの）。線形で十分だ：
+第2回で学んだように、企業が価格 $p$ の財を1つだけ売っている独占企業だとする。需要量を $q(p)$、限界費用を $mc$ とすると、利潤は
 
 $$
-u(x, 0) = -\theta_1\, x, \qquad u(x, 1) = -RC.
+\pi(p) = (p - mc)\, q(p)
 $$
 
-- 維持（$a=0$）すると、走行距離 $x$ に比例した維持費がかかる。$\theta_1 > 0$ は「1状態あたりの維持費の増分」。走り込んだバスほど維持が高くつく。
-- 交換（$a=1$）すると、載せ替え費用 $RC$（replacement cost）がかかる。これは走行距離によらず一定とする（新品エンジンの値段は今の距離と無関係）。
-
-**状態遷移**。行動によって、次期の走行距離が確率的に決まる。
-
-- 維持（$a=0$）：距離は進む。$x' = \min(x + j,\, K-1)$、$j \in \{0, 1, 2\}$ を確率 $(p_0, p_1, p_2)$ で引く（1ヶ月で0・1・2ビンぶん進む）。
-- 交換（$a=1$）：距離はリセットされる。$x' = \min(0 + j,\, K-1)$、$j$ は同じ分布。**新品エンジンなので $x=0$ から再スタートし、そこから距離が進む。**
-
-**T1EV ショック $\varepsilon_a$**。各行動 $a$ には、分析者に見えない効用ショック $\varepsilon_a$ が乗る。第2回と同じく、これを Type I 極値分布（Gumbel）と仮定する。これが今日の全ての「logit らしさ」の源になる。
-
-**割引因子 $\beta$**。将来の効用を $\beta$ 倍に割り引く。ここでは $\beta = 0.95$ に固定する（後で「なぜ推定せず固定するのか」を議論する）。
-
-## Bellman方程式とlogsum
-
-さて、意思決定者はどう行動を選ぶのか。「今日のコストだけ」を見るのではなく、「今日のコスト＋将来のコストの割引期待値」を見る。これを表すのが**価値関数（value function）**だ。
-
-まず、状態 $x$ で行動 $a$ を選んだときの価値を、**choice-specific value function** $v(x, a)$ で書く：
+これを $p$ について最大化する一階条件を整理すると、おなじみの**逆弾力性ルール**（Lerner指数）が出てくる。
 
 $$
-v(x, a) = u(x, a) + \beta \sum_{x'} P(x' \mid x, a)\, V(x').
+\frac{p - mc}{p} = \frac{1}{|\eta(p)|}, \qquad \eta(p) = \frac{dq}{dp}\frac{p}{q}
 $$
 
-第1項 $u(x,a)$ は今日の flow utility、第2項は「行動 $a$ の結果として遷移する次期状態 $x'$ での価値 $V(x')$ の割引期待値」だ。$P(x' \mid x, a)$ は上で定めた状態遷移確率。
+内点の最適価格では、マージン率は需要の価格弾力性の絶対値の逆数に等しくなる。したがって、需要が価格にどう反応するかを知らなければ、この価格は計算できない。第2〜4回で学んだ需要推定が、ここで価格設定に結びつく。単純logitの自己価格弾力性は $\eta_{jj} = -\alpha p_j(1-s_j)$ だった。
 
-では $V(x)$（状態 $x$ の価値、ショックを見る前の期待値）は何か。意思決定者は $\varepsilon_a$ を見てから、$v(x,a) + \varepsilon_a$ が最大になる $a$ を選ぶ。だから
+逆弾力性ルールは需要側の静学ベンチマークである。Revenue managementでは、これに状態ごとの在庫の機会費用（bid price）が加わる。surge pricingを二面市場として考えるなら、さらにドライバーの供給反応、空間的なマッチング摩擦、企業利潤か社会厚生かという目的関数も必要になる。したがってどちらも需要弾力性を無視できないが、静学的な逆弾力性ルールを適用し直すだけではない。
 
-$$
-V(x) = \mathbb{E}_{\varepsilon}\left[\max_{a \in \{0,1\}} \big(v(x, a) + \varepsilon_a\big)\right].
-$$
+### Rシミュ1：logit需要のもとでの最適価格
 
-ここで、第2回で使った誤差分布が役立つ。$\varepsilon_a$ が Type I 極値分布なら、この「ショック込みの最大値の期待値（Emax）」は、**logsumの式**で書ける：
+第2回のロジット需要を思い出そう。財1つ（買う/買わないの2択、outside optionが $j=0$）に対する購買確率を
 
 $$
-V(x) = \log\left(\sum_{a} \exp(v(x, a))\right) + \gamma
-= \log\big(\exp(v(x,0)) + \exp(v(x,1))\big) + \gamma,
+\lambda(p) = \frac{\exp(\theta_0 - \alpha p)}{1 + \exp(\theta_0 - \alpha p)}
 $$
 
-$\gamma \approx 0.5772$ は Euler 定数（Euler-Mascheroni 定数）だ。第4回の合併分析で消費者余剰を測ったあの inclusive value（logsum）と、まったく同じ数式である。
+とする。市場規模を $M$、限界費用を $mc = 0$ とすると（航空券1席のように限界費用がほぼゼロに近いケースを念頭に置く）、利潤は $\pi(p) = M \cdot \lambda(p) \cdot p$ になる。これを価格についてプロットし、最適価格を数値的に探す。
 
-そして選択確率も、今回もまた **logit** になる：
+```{r}
+#| label: lec13-static-profit
+theta0 <- 6.0
+alpha  <- 0.045
 
-$$
-P(a = 1 \mid x) = \frac{\exp(v(x, 1))}{\exp(v(x, 0)) + \exp(v(x, 1))}.
-$$
+lambda_p <- function(p, theta0, alpha) {
+  u <- theta0 - alpha * p
+  1 / (1 + exp(-u))
+}
 
-::: {.callout-important}
-## 将来価値を含めても、選択確率はlogitになる
+p_grid <- seq(1, 350, length.out = 400)
+profit_grid <- lambda_p(p_grid, theta0, alpha) * p_grid
 
-第2回で選択確率は $s_j = \exp(\delta_j) / \sum_k \exp(\delta_k)$ だった。$\delta_j$ は「財 $j$ の（今日の）平均効用」。
+static_df <- data.frame(price = p_grid, profit = profit_grid)
+p_star_static <- p_grid[which.max(profit_grid)]
 
-動学では、この $\delta_j$ が座っていた場所に、**将来価値まで織り込んだ choice-specific value $v(x,a) = u(x,a) + \beta \mathbb{E}[V(x')]$** が座る。ただそれだけで、選択確率は今回もまた logit の形をとる。$V$ を求めるのに Emax = logsum を使い、その $V$ が $v$ に入り、その $v$ で選択確率が決まる——**T1EV の親和性は、静学から動学へそのまま持ち越せる**。この性質により、価値関数を計算できれば、第2回と同じように選択確率から尤度を作れる。
-:::
+ggplot(static_df, aes(x = price, y = profit)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_vline(xintercept = p_star_static, linetype = "dashed", color = "firebrick") +
+  annotate("text", x = p_star_static + 30, y = max(profit_grid) * 0.9,
+           label = paste0("p* = ", round(p_star_static, 1)), color = "firebrick") +
+  labs(x = "価格 p", y = "期待収益（1人あたり）",
+       title = "logit需要のもとでの利潤カーブと最適価格")
+```
+
+この単一商品・二値logit・一定限界費用の設定では、$p\ge mc$ 上の利潤は1つの山を持つ。ただし、これはlogit**対数尤度**の凹性とは別の問題である。複数商品、非線形費用、制約を加えれば利潤が大域的に凹とは限らないので、グリッド上の利潤カーブと一階条件の両方を確認する。
 
 ::: {.callout-note collapse="true"}
-## 導出：Emax が logsum になる（第2回の再掲）
+## 導出：logit需要のもとでの一階条件
 
-$\varepsilon_0, \varepsilon_1$ が独立に Gumbel（位置0・尺度1）に従うとする。$W_a := v(x,a)$ と略記すると、Emax は
+$\pi(p) = M\lambda(p)(p-mc)$ を $p$ について微分してゼロと置くと
 
 $$
-\mathbb{E}\left[\max_a (W_a + \varepsilon_a)\right] = \log\left(\sum_a e^{W_a}\right) + \gamma.
+\lambda'(p)(p-mc) + \lambda(p) = 0
 $$
 
-証明のスケッチ：$\max_a(W_a + \varepsilon_a)$ 自体が、位置 $\log\sum_a e^{W_a}$・尺度1の Gumbel 分布に従う（独立 Gumbel の最大値は再び Gumbel、という max-stability）。Gumbel 分布の平均は「位置 $+\ \gamma$」なので、期待値は $\log\sum_a e^{W_a} + \gamma$ となる。選択確率が logit になるのも同じ max-stability の帰結で、第2回の導出をそのまま状態 $x$ ごとに適用すればよい。
+ロジットでは $\lambda'(p) = -\alpha\lambda(p)(1-\lambda(p))$ なので、これを代入すると
+
+$$
+p^* = mc + \frac{1}{\alpha(1 - \lambda(p^*))}
+$$
+
+という固定点方程式になる。初等関数だけでは閉形式にならないが、Lambert $W$ 関数を使えば
+
+$$
+p^*=mc+\frac{1+W\!\left(\exp(\theta_0-\alpha mc-1)\right)}{\alpha}
+$$
+
+とも書ける。本講義では特殊関数に依存せず、利潤を直接最大化する。なお本文の数値例は $mc=0$ なので、最初の式へ代入すればよい。
 :::
 
-Bellman 方程式は $V$ について**不動点（固定点）方程式**になっている：$V$ が右辺（$v$ を通じて）に現れ、左辺にも現れる。この $V$ を数値的に解くのが、次の「価値関数反復」だ。
+この静学の1点、「弾力性を知らないと価格は決められない」が、今日の話全体の土台になる。この後出てくる時間・在庫・需給の状態がどれだけ複雑になっても、やっていることは「その状態のもとでの実効的な弾力性・機会費用を計算し、逆弾力性ルールを適用する」ことの繰り返しでしかない。
 
-## Rシミュ1：価値関数反復で DP を解く
+## 3. 消費者が値下げを待つとき、価格はどう変わるか
 
-Bellman 方程式を解く最も基本的な方法が、**価値関数反復（value function iteration, VFI）**だ。$V$ の初期値（例えば全部0）から始めて、Bellman 作用素を繰り返し適用する。適当な $V$ を右辺に入れて左辺の新しい $V$ を計算し、それをまた右辺に入れる……を、$V$ が動かなくなる（収束する）まで繰り返す。
+新しいゲームを発売し、2期間だけ販売するとしよう。消費者は一人1本まで購入でき、企業の在庫は十分ある。企業は価格$p_1,p_2$を最初に公表し、その価格を守ると約束する。消費者は両方の価格を知っている。この約束ができる場合のモデルなので、2期目に企業が価格を変更するゲームとは区別しておこう。
 
-まず状態遷移行列を作る。$P_0$（維持したときの遷移）と $P_1$（交換したときの遷移）は、いずれも $K \times K$ 行列で、行が現在状態 $x$、列が次期状態 $x'$ だ。
+消費者$i$の評価額を$v_i$とし、$v_i$は0から20の一様分布に従うとする。価格と評価額の単位は千円である。1期目に買う効用は$v_i-p_1$、待って2期目に買う効用は$\beta_c(v_i-p_2)$、買わない効用は0とする。$\beta_c=0.8$は消費者の割引因子である。第11回の買い替え問題を2期間に縮めた例だが、今回は行動固有の効用ショックを省き、評価額の異質性だけを置く。
 
-```{r}
-# ---- モデルの基本設定 ----
-K     <- 20            # 走行距離の状態数（0..19）
-beta  <- 0.95          # 割引因子（固定）
-theta1_true <- 0.15    # 維持費の傾き（1状態あたり）
-RC_true     <- 8.0     # エンジン交換費
-p_trans <- c(0.30, 0.55, 0.15)   # 1期に +0/+1/+2 状態進む確率
-EULER   <- 0.5772156649015329    # Euler 定数（logsum の定数項）
-
-xs <- 0:(K - 1)        # 状態の値そのもの（走行距離）
-
-# 状態遷移行列を作る
-# P0: 維持したとき（x から距離が進む）, P1: 交換したとき（0 にリセットして進む）
-build_transition <- function(K, p) {
-  nj <- length(p)
-  P0 <- matrix(0, K, K)
-  P1 <- matrix(0, K, K)
-  for (x in 1:K) {          # R は 1-index。状態値は (x-1)
-    xv <- x - 1
-    for (j in 1:nj) {
-      jj <- j - 1
-      P0[x, min(xv + jj, K - 1) + 1] <- P0[x, min(xv + jj, K - 1) + 1] + p[j]
-      P1[x, min(0  + jj, K - 1) + 1] <- P1[x, min(0  + jj, K - 1) + 1] + p[j]
-    }
-  }
-  list(P0 = P0, P1 = P1)
-}
-tr <- build_transition(K, p_trans)
-P0 <- tr$P0; P1 <- tr$P1
-
-# 各行が確率分布になっているか確認
-cat("P0 の行和の範囲:", round(range(rowSums(P0)), 8), "\n")
-cat("P1 の行和の範囲:", round(range(rowSums(P1)), 8), "\n")
-cat("P1 は全行が同じ（交換=リセットなので現在状態によらない）:",
-    all(abs(sweep(P1, 2, P1[1, ], "-")) < 1e-12), "\n")
-```
-
-$P_1$ の全ての行が同じであることに注目してほしい。**交換すると、今どの状態にいようが $x=0$ にリセットされてから距離が進む**ので、次期状態の分布は現在状態 $x$ によらない。この性質が、後でCCPを使った推定式を簡単にする（renewal action と呼ぶ）。
-
-価値関数反復の本体だ。flow utility を作り、logsum で $V$ を更新する。数値安定化のため、logsum は「最大値を引いてから exp」する（第2回の overflow 対策と同じ）。
-
-```{r}
-# flow utility: u(x,0) = -theta1*x, u(x,1) = -RC
-flow_utils <- function(theta1, RC) {
-  list(u0 = -theta1 * xs, u1 = rep(-RC, K))
-}
-
-# 価値関数反復：Bellman 作用素を収束まで繰り返す
-# bta は割引因子。既定では大域の beta（=0.95）を使うが、myopic 比較のために引数化しておく。
-solve_vfi <- function(theta1, RC, tol = 1e-10, maxit = 2000, trace = FALSE, bta = beta) {
-  uu <- flow_utils(theta1, RC)
-  V  <- rep(0, K)
-  errs <- numeric(0)
-  for (it in 1:maxit) {
-    v0 <- uu$u0 + bta * as.vector(P0 %*% V)   # choice-specific value（維持）
-    v1 <- uu$u1 + bta * as.vector(P1 %*% V)   # choice-specific value（交換）
-    m  <- pmax(v0, v1)                         # 数値安定化：各状態で最大値を引く
-    Vnew <- m + log(exp(v0 - m) + exp(v1 - m)) + EULER   # logsum + Euler 定数
-    err  <- max(abs(Vnew - V))
-    errs <- c(errs, err)
-    V <- Vnew
-    if (err < tol) break
-  }
-  v0 <- uu$u0 + bta * as.vector(P0 %*% V)
-  v1 <- uu$u1 + bta * as.vector(P1 %*% V)
-  list(V = V, v0 = v0, v1 = v1, errs = errs, niter = length(errs))
-}
-
-# 交換確率（logit）
-ccp_replace <- function(v0, v1) {
-  m <- pmax(v0, v1)
-  exp(v1 - m) / (exp(v0 - m) + exp(v1 - m))
-}
-
-sol <- solve_vfi(theta1_true, RC_true, tol = 1e-10, trace = TRUE)
-cat("価値関数反復が収束するまでの反復数:", sol$niter, "\n")
-cat("最終更新幅:", sol$errs[sol$niter], "\n")
-```
-
-収束の様子を、反復ごとの更新幅の対数でプロットする。ここで**第4回の縮小写像との関係**を指摘したい。BLP の縮小写像（contraction mapping）で $\delta$ を解いたとき、誤差が対数目盛でほぼ直線に落ちる「幾何収束」を見た。今回も、縮小写像の性質を使って収束を説明できる。Bellman 作用素は係数 $\beta$ の縮小写像であり、だから初期値によらず一意の $V$ に幾何的に収束する。更新幅の比は $\beta = 0.95$ に近づくはずだ。
-
-```{r}
-#| fig-cap: "価値関数反復の収束。誤差が対数目盛でほぼ直線に落ちる = 幾何収束（縮小係数 = beta）。"
-df_conv <- data.frame(iter = seq_along(sol$errs), err = sol$errs)
-ggplot(df_conv, aes(iter, err)) +
-  geom_line(color = "#1f77b4", linewidth = 0.8) +
-  scale_y_log10() +
-  labs(title = "価値関数反復の収束（BLP 縮小写像と同じ幾何収束）",
-       x = "反復回数", y = "更新幅の最大値（対数目盛）")
-
-# 更新幅の比が beta に近づくことを確認
-ratios <- sol$errs[6:15] / sol$errs[5:14]
-cat("更新幅の比（beta=0.95 に近づくはず）:", round(ratios, 3), "\n")
-```
-
-解けた価値関数 $V(x)$ と、そこから出る交換確率 $P(\text{交換} \mid x)$ を見る。走行距離が伸びるほど交換確率が上がる**S字カーブ**が出るはずだ。「もう十分走った、そろそろ載せ替えよう」という直感が、DP の解として現れる。
-
-```{r}
-#| fig-cap: "解けた価値関数 V(x) と交換確率 P(交換|x)。距離が伸びるほど交換確率が上がる S 字。"
-library(patchwork)
-Pr <- ccp_replace(sol$v0, sol$v1)
-
-p_V <- ggplot(data.frame(x = xs, V = sol$V), aes(x, V)) +
-  geom_line(color = "#d62728", linewidth = 1) + geom_point(size = 1) +
-  labs(title = "価値関数 V(x)", x = "走行距離の状態 x", y = "V(x)")
-
-p_P <- ggplot(data.frame(x = xs, P = Pr), aes(x, P)) +
-  geom_line(color = "#1f77b4", linewidth = 1) + geom_point(size = 1) +
-  labs(title = "交換確率 P(交換 | x)", x = "走行距離の状態 x", y = "P(交換|x)")
-
-p_V + p_P
-
-cat("P(交換|x) が単調増加:", all(diff(Pr) >= -1e-12), "\n")
-cat("P(交換|x) の例（x=0,5,10,15,19）:", round(Pr[c(1, 6, 11, 16, 20)], 4), "\n")
-```
-
-交換確率は $x=0$ ではほぼゼロ（$\approx 0.0003$）、$x=19$ では $\approx 0.78$ まで上がる。DP は「早すぎる交換は交換費の無駄、遅すぎる維持は維持費の膨張」というトレードオフを解いて、この滑らかな交換方針を導いた。
-
-## Rシミュ2：データを生成する
-
-推定に進む前に、この方針に従って動く「バス群」のパネルデータを作る。**200台のバス**を、それぞれ**100ヶ月**追跡する。各期、各バスは自分の走行距離状態を見て、交換確率 $P(\text{交換}\mid x)$ に従って交換するかを決め、状態が遷移していく。
-
-```{r}
-# パネルシミュレーション：n_bus 台 x n_month ヶ月
-simulate_panel <- function(n_bus, n_month, theta1, RC, burn = 50) {
-  sol <- solve_vfi(theta1, RC, tol = 1e-10)
-  Pr  <- ccp_replace(sol$v0, sol$v1)
-  total_T <- n_month + burn
-  X <- matrix(0L, n_bus, total_T)   # 走行距離状態（値 0..K-1 を格納）
-  A <- matrix(0L, n_bus, total_T)   # 行動（0=維持, 1=交換）
-  x <- sample(0:(K - 1), n_bus, replace = TRUE)   # 初期状態をランダムに
-  for (t in 1:total_T) {
-    u <- runif(n_bus)
-    a <- as.integer(u < Pr[x + 1])                # 状態 x の交換確率で判定
-    X[, t] <- x
-    A[, t] <- a
-    jump <- sample(0:2, n_bus, replace = TRUE, prob = p_trans)   # 距離の進み
-    x <- ifelse(a == 1L, pmin(0 + jump, K - 1), pmin(x + jump, K - 1))
-  }
-  # burn-in を捨てて定常に近い部分だけ返す
-  list(X = X[, (burn + 1):total_T], A = A[, (burn + 1):total_T])
-}
-
-n_bus <- 200; n_month <- 100
-panel <- simulate_panel(n_bus, n_month, theta1_true, RC_true)
-X <- panel$X; A <- panel$A
-
-cat("パネルのセル数:", length(X), "（", n_bus, "台 x", n_month, "ヶ月 ）\n")
-cat("全体の交換率:", round(mean(A), 4), "\n")
-cat("平均走行距離（全セル）:", round(mean(X), 3), "\n")
-```
-
-交換でリセットされる **replacement cycle（載せ替えサイクル）**を可視化しよう。数台ぶんの走行距離の軌跡を描くと、じわじわ距離が伸びては、交換でストンと0付近に戻る「のこぎり歯」のパターンが見える。
-
-```{r}
-#| fig-cap: "数台のバスの走行距離の軌跡。距離が伸びては、交換でリセットされる（のこぎり歯 = replacement cycle）。"
-show_bus <- c(1, 2, 3, 4)
-df_traj <- do.call(rbind, lapply(show_bus, function(b) {
-  data.frame(month = 1:n_month, mileage = X[b, ], bus = paste0("バス", b),
-             replace = A[b, ])
-}))
-ggplot(df_traj, aes(month, mileage)) +
-  geom_line(color = "grey50") +
-  geom_point(data = subset(df_traj, replace == 1), aes(month, mileage),
-             color = "#d62728", size = 1.6) +
-  facet_wrap(~ bus, ncol = 2) +
-  labs(title = "走行距離の軌跡と交換タイミング（赤点 = 交換した月）",
-       x = "月", y = "走行距離の状態 x")
-```
-
-赤い点（交換した月）が、走行距離の高いところで打たれ、その直後に距離が0付近へ落ちているのが分かる。これが Zurcher の判断記録に相当する「観測データ」だ。実データでは、我々はこの $(X, A)$ しか見えず、$\theta_1$ や $RC$ は知らない。それを推定するのが仕事だ。
-
-状態ごとの交換頻度が、モデルの交換確率とどれくらい一致するかも見ておこう（これが後の CCP 推定の入力になる）。
-
-```{r}
-#| fig-cap: "状態ごとの経験交換頻度（点）とモデルの交換確率（線）。よく一致している。"
-freq_by_state <- sapply(0:(K - 1), function(xv) {
-  mask <- (X == xv)
-  if (sum(mask) > 0) mean(A[mask]) else NA_real_
-})
-count_by_state <- sapply(0:(K - 1), function(xv) sum(X == xv))
-
-df_freq <- data.frame(x = xs, emp = freq_by_state, model = Pr, n = count_by_state)
-ggplot(df_freq, aes(x)) +
-  geom_line(aes(y = model), color = "#1f77b4", linewidth = 1) +
-  geom_point(aes(y = emp), color = "#d62728", size = 1.8) +
-  labs(title = "経験交換頻度（赤点）vs モデル交換確率（青線）",
-       x = "走行距離の状態 x", y = "P(交換 | x)")
-
-cat("状態ごとの観測数:", count_by_state, "\n")
-```
-
-高走行距離の状態（$x = 14$ 以降）はデータが薄く、経験頻度がガタつく。逆に $x=0$ は「交換直後の新品」なので観測数は多いが、交換はまず起きない（経験頻度がほぼ0）。この「薄い／潰れる」問題は、Hotz-Miller のところで丁寧に扱う。
-
-## 推定1：NFXP（Rust の方法）
-
-いよいよ推定だ。観測データ $(X, A)$ から、深層パラメータ $\theta = (\theta_1, RC)$ を最尤法で推定する。ここで Rust が使った**Nested Fixed Point algorithm（NFXP、入れ子固定点アルゴリズム）**を実装する。名前は仰々しいが、構造はシンプルな**二重ループ**だ。
-
-- **外側（outer loop）**：最適化アルゴリズムが $\theta = (\theta_1, RC)$ を提案する。
-- **内側（inner loop）**：提案された $\theta$ に対して、価値関数反復で DP を**解き切って**、各状態の choice-specific value $v(x,0), v(x,1)$ を得る。
-- その $v$ から logit 尤度を計算し、外側に返す。外側はこれを最大化する $\theta$ を探す。
-
-対数尤度は、各バス・各期について「実際にとった行動の確率の対数」を足し上げたものだ（第2回の logit 尤度と同じ形）：
+消費者は、
 
 $$
-\ell(\theta) = \sum_{\text{bus } i} \sum_{\text{month } t}
-\Big[ a_{it} \log P(1 \mid x_{it}; \theta) + (1 - a_{it}) \log P(0 \mid x_{it}; \theta) \Big].
+\max\{v_i-p_1,\;\beta_c(v_i-p_2),\;0\}
 $$
 
-キモは「$P(a \mid x; \theta)$ を計算するのに、内側で毎回 DP を解き切る」点だ。外側が $\theta$ を1回提案するたびに、内側で価値関数反復が丸ごと1回走る。**これが NFXP の計算的な重さの正体**である。
+を比べる。評価額が高い人でも、値下げ幅が大きく、待つことの不利益が小さければ、発売時には買わない。したがって、1期目の需要は$p_1$だけでなく$p_2$にも依存する。
+
+企業の限界費用は0とし、この短い販売期間では企業の割引は省く。企業は
+
+$$
+\Pi(p_1,p_2)=p_1\Pr(\text{1期目に購入})+p_2\Pr(\text{2期目に購入})
+$$
+
+を最大にする価格の組を選ぶ。ここでは評価額の分布を既知として、価格の計算に集中する。実証分析なら、この分布や待つことの費用を需要データから推定する必要がある。将来価格の予想が価格判断に関わるという論点は、[Su (2007)](https://pubsonline.informs.org/doi/10.1287/mnsc.1060.0667)でも扱われている。以下はその論文の再現ではなく、この講義用の単純な数値例である。
 
 ```{r}
-# NFXP の負の対数尤度。theta = (theta1, RC)。内側で VFI を解き切る。
-neg_loglik_nfxp <- function(theta, X, A) {
-  theta1 <- theta[1]; RC <- theta[2]
-  if (theta1 <= 0 || RC <= 0) return(1e10)   # パラメータは正
-  sol <- solve_vfi(theta1, RC, tol = 1e-8, maxit = 1000)   # ← 内側で DP を解き切る
-  # 数値安定な log P：logaddexp(v0, v1)
-  m   <- pmax(sol$v0, sol$v1)
-  lae <- m + log(exp(sol$v0 - m) + exp(sol$v1 - m))   # log(exp v0 + exp v1)
-  logp1 <- sol$v1 - lae     # log P(交換|x)
-  logp0 <- sol$v0 - lae     # log P(維持|x)
-  xr <- as.vector(X) + 1    # 状態を 1-index に
-  ar <- as.vector(A)
-  ll <- sum(ifelse(ar == 1L, logp1[xr], logp0[xr]))
-  -ll
+#| label: strategic-waiting-prices
+values_wait <- (seq_len(5000) - 0.5) / 5000 * 20
+beta_consumer <- 0.8
+waiting_outcome <- function(p1, p2, forward = TRUE) {
+  now <- values_wait - p1
+  later <- beta_consumer * (values_wait - p2)
+  buy_now <- if (forward) now >= pmax(0, later) else now >= 0
+  buy_later <- !buy_now & values_wait >= p2
+  c(share_now = mean(buy_now), share_later = mean(buy_later),
+    profit = p1 * mean(buy_now) + p2 * mean(buy_later))
 }
-
-# 外側の最適化（Nelder-Mead）。実行時間を測る。
-t0 <- Sys.time()
-fit_nfxp <- optim(par = c(0.10, 5.0), fn = neg_loglik_nfxp,
-                  X = X, A = A, method = "Nelder-Mead",
-                  control = list(reltol = 1e-9, maxit = 2000),
-                  hessian = TRUE)
-t1 <- Sys.time()
-nfxp_time <- as.numeric(difftime(t1, t0, units = "secs"))
-
-theta_hat_nfxp <- fit_nfxp$par
-cat("NFXP 推定値 (theta1, RC):", round(theta_hat_nfxp, 4), "\n")
-cat("真値            (theta1, RC):", c(theta1_true, RC_true), "\n")
-cat("NFXP の実行時間:", round(nfxp_time, 2), "秒\n")
+price_pairs <- expand.grid(p1 = seq(4, 16, by = 0.25),
+                           p2 = seq(4, 16, by = 0.25))
+price_pairs$profit_forward <- mapply(function(a, b) waiting_outcome(a, b)[3],
+                                    price_pairs$p1, price_pairs$p2)
+price_pairs$profit_myopic <- mapply(function(a, b) waiting_outcome(a, b, FALSE)[3],
+                                   price_pairs$p1, price_pairs$p2)
+wait_best <- price_pairs[which.max(price_pairs$profit_forward), ]
+myopic_best <- price_pairs[which.max(price_pairs$profit_myopic), ]
+price_rules <- data.frame(rule = c("同じ価格を維持", "待機を無視して選ぶ", "待機を考慮して選ぶ"),
+                          p1 = c(10, myopic_best$p1, wait_best$p1),
+                          p2 = c(10, myopic_best$p2, wait_best$p2))
+wait_results <- t(mapply(waiting_outcome, price_rules$p1, price_rules$p2))
+wait_table <- cbind(price_rules, wait_results)
+kable(wait_table, digits = 3, row.names = FALSE,
+      col.names = c("価格の選び方", "1期目価格", "2期目価格", "1期目購入率", "2期目購入率", "顧客1人あたり利益"),
+      caption = "すべての価格案を、将来の価格を知っている同じ消費者に対して評価する（価格・利益：千円）")
 ```
 
-標準誤差は、第2回と同じく、最尤推定量の Hessian（の逆行列）から得る。`optim` に `hessian = TRUE` を渡すと、負の対数尤度の Hessian が返ってくるので、その逆行列が分散共分散行列になる。
+待機を無視したモデルは、まず高い価格で評価額の高い人に売り、その後大きく値下げすればよいと考える。しかし、その予定を知った消費者が待つと、想定していた1期目の売上を得られない。表では、どの価格案も実際には将来を考える消費者に対して評価している。価格案を作るときの予測と、その案を実施したときの結果を分けた比較である。
 
 ```{r}
-vcov_nfxp <- solve(fit_nfxp$hessian)
-se_nfxp   <- sqrt(diag(vcov_nfxp))
-
-recovery_nfxp <- data.frame(
-  parameter = c("theta1（維持費の傾き）", "RC（交換費）"),
-  truth     = c(theta1_true, RC_true),
-  estimate  = round(theta_hat_nfxp, 4),
-  se        = round(se_nfxp, 4),
-  ci_lower  = round(theta_hat_nfxp - 1.96 * se_nfxp, 4),
-  ci_upper  = round(theta_hat_nfxp + 1.96 * se_nfxp, 4)
-)
-kable(recovery_nfxp, caption = "NFXP：真値回収と標準誤差（真値は 95%CI 内）")
+#| label: fig-waiting-profit
+#| fig-cap: "将来の値下げを待つ消費者に対する利益。候補価格は0.25千円刻み。"
+ggplot(price_pairs, aes(p1, p2, fill = profit_forward)) +
+  geom_tile() +
+  geom_point(data = price_rules[-1, ], aes(p1, p2, shape = rule),
+             inherit.aes = FALSE, size = 3, color = "black", fill = "white") +
+  scale_shape_manual(values = c(21, 24)) +
+  scale_fill_viridis_c(breaks = c(3.5, 4, 4.5, 5)) +
+  labs(x = "1期目価格（千円）", y = "2期目価格（千円）", fill = "顧客1人あたり利益（千円）", shape = NULL) +
+  guides(fill = guide_colorbar(barwidth = grid::unit(5, "cm"),
+                             barheight = grid::unit(0.35, "cm"), order = 1),
+         shape = guide_legend(nrow = 1, order = 2)) +
+  theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
-真値 $(\theta_1, RC) = (0.15, 8.0)$ が、いずれも95%信頼区間の中に回収された。動学モデルでも、DGP を書いてシミュレーションし、真値を回収できることを確認する——この「真値回収」の作法は、推定手法がどれだけ複雑になっても変わらない。
+ここでの最適価格は、評価額の分布、割引因子、価格を守る約束ができることに依存する。常に値下げ幅を小さくすればよい、という一般則ではない。第12回の買いだめと同じく、価格の変更が購入の時点をどう変えるかを需要モデルに入れる必要がある、というのがこの例で確認したい点である。
+
+## 4. Revenue management：残り期間と在庫で変わる価格
+
+いよいよ今日の核心に入る。航空券やホテルの価格が、なぜ「予約が進むにつれて」「出発日が近づくにつれて」動くのかを、動的計画法で正面から解く。
+
+### 設定
+
+ある航空券1路線を考える。販売開始からの残り日数を $t$（$t=T$ が今日、$t=0$ が出発日＝販売終了）、残り座席数を $c$（$c=0$ なら完売）とする。毎期、確率 $\bar\lambda$（到着確率）で1人の客が訪れる。到着した客は、提示された価格 $p$ に対して、第2〜4回と同じ形のロジットで購買を決める。
+
+$$
+\Pr(\text{購入} \mid p, \text{到着}) = \frac{\exp(\theta_0 - \alpha p)}{1 + \exp(\theta_0 - \alpha p)}
+$$
+
+これに到着確率をかけたものを、この講義では**1期あたりの購買確率** $\lambda(p)$ と呼ぶ。
+
+$$
+\lambda(p) = \bar\lambda \cdot \frac{\exp(\theta_0 - \alpha p)}{1 + \exp(\theta_0 - \alpha p)}
+$$
+
+「客が来るかどうか」と「来た客が買うかどうか」を分けて書いているのは、実務データとの対応が良いからだ（POSやWebログでは「訪問数」と「訪問あたり購買率」を別々に観測できることが多い）。
+
+::: {.callout-note collapse="true"}
+## 記法の補足：動学の $\theta$ と $\beta$、この回の $t$ と $c$
+
+第11回で断った通り、この3回では効用パラメータに $\theta$ を使い、割引因子には $\beta$ を予約している（需要推定の回では $\beta$ は製品属性への選好パラメータだったが、動学の慣習に合わせて割引因子に転用している）。今日の設定では**企業は近視眼的ではなく将来の座席の価値まで織り込んで今日の価格を決める**ので、実質的に割引因子 $\beta=1$（将来の座席が売れる価値を割り引かない）の動学最適化を解いていると考えてよい。長期在庫や与信のように将来価値を割り引く必要がある文脈では $\beta<1$ を入れるが、今日の航空券・ホテルの例（販売期限が数十日程度）ではこの単純化で十分である。
+
+状態は「残り期間 $t$」と「残り在庫 $c$」の組 $(t,c)$、行動は「価格 $p$」。第11回の記法に合わせれば、状態 $x = (t,c)$、行動 $a = p$ にあたる。
+:::
+
+### Bellman方程式
+
+企業の問題は、残り期間 $t$・残り在庫 $c$ のもとで、今期の価格 $p$ をいくらにすれば、今期の期待収益と将来の期待収益の合計が最大になるか、である。第11回のBellman方程式の形を思い出そう。今日の設定に翻訳すると
+
+$$
+V(t, c) = \max_{p} \Big\{ \lambda(p)\,\big[p + V(t-1, c-1)\big] + \big(1-\lambda(p)\big)\,V(t-1, c) \Big\}
+$$
+
+解釈は単純だ。今期、確率 $\lambda(p)$ で客が来て $p$ 円で買ってくれる。そのときは席が1つ減るので、続きは $V(t-1, c-1)$。確率 $1-\lambda(p)$ で客が来ないか、来ても買わない。そのときは席がそのまま残るので、続きは $V(t-1,c)$。境界条件は「在庫が尽きたら以後の収益はゼロ」（$V(t,0)=0$）、「期限が来たら以後の収益はゼロ」（$V(0,c)=0$）。
+
+第11回と同じく、今の収益と行動後の将来価値を足し合わせるBellman方程式である。ただし、第11回は無限期間の問題を価値関数反復で解いた。今回は有限期間なので、販売期限での価値をゼロと置き、そこから後ろ向きに解ける。状態は残り期間と在庫の2次元、行動は価格となる。
+
+初めてこの式を見ると4つの添字が一度に出てくるので、1期の順序を先に固定しておこう。
+
+| 順序 | その期に起きること | Bellman式で対応する部分 |
+|---:|---|---|
+| 1 | 期首に状態 $(t,c)$ を観察する | $V(t,c)$ |
+| 2 | 価格 $p$ を提示する | $\max_p$ |
+| 3a | 確率 $\lambda(p)$ で販売し、収益 $p$ を得る | $p+V(t-1,c-1)$ |
+| 3b | 確率 $1-\lambda(p)$ で販売しない | $V(t-1,c)$ |
+
+この「状態を見る → 価格を決める → 売れたかで次状態が分岐する」という順序が、後でbid priceの時間添字を判断する基準になる。
 
 ::: {.callout-warning}
-## NFXP の計算的な重さを体感する
+## 計算上の落とし穴：Rの1始まり索引でのズレに要注意
 
-上で実行時間を測ったのには意味がある。NFXP は「外側の1評価ごとに、内側で DP を解き切る」。今回は状態が $K=20$ と小さいので数秒で終わるが、**現実の問題では状態空間が爆発する**。状態が (走行距離 × ブランド × 在庫 × 競合価格 × ……) と多次元になると、価値関数反復1回だけで莫大な計算になり、それを最適化の反復のたびに繰り返すと、推定が何時間・何日もかかる。これが「**状態空間の呪い（curse of dimensionality）**」で、次の Hotz-Miller が生まれた最大の動機だ。
+ここでは、Bellman方程式の右辺をそのまま計算して最大化する。Rの配列は1から始まる一方、残り期間と在庫の状態には0が含まれるため、数式とコードの添字が1つずれる。例えば、状態 $(t,c)$ の価値は `V[t + 1, c + 1]` に保存する。販売後の $V(t-1,c-1)$ と非販売時の $V(t-1,c)$ を参照するときも、この対応を確認しよう。後のコードでは、動的価格の期待収益が最適な固定価格の期待収益以上になることも確認する。
 :::
 
-## 推定2：選択確率を使うCCPアプローチ
+### Rシミュ2（i）：backward inductionで解く
 
-NFXP の重さは、突き詰めれば「**価値関数を毎回解いている**」ことに尽きる。Hotz and Miller (1993) の発想は、逆転の一手だ。
-
-> 価値関数を解かずに、**データの選択確率（conditional choice probability, CCP）から、価値の差を逆算する**。
-
-なぜそんなことができるのか。T1EV のもとでは、選択確率と価値の間に、**閉じた関係式**があるからだ。二値選択（維持 vs 交換）の場合、logit の反転から
-
-$$
-\log P(1 \mid x) - \log P(0 \mid x) = v(x, 1) - v(x, 0).
-$$
-
-「交換確率と維持確率の対数の差」が、そのまま「choice-specific value の差」に等しい。**データから CCP を頻度で推定できれば、左辺は観測できる。すると右辺の $v(x,1) - v(x,0)$ が、価値関数を解かずに手に入る。**
-
-だが、$v(x,1) - v(x,0)$ には将来項が残っている：
-
-$$
-v(x,1) - v(x,0) = \big[u(x,1) - u(x,0)\big] + \beta\Big(\mathbb{E}[V(x') \mid x, 1] - \mathbb{E}[V(x') \mid x, 0]\Big).
-$$
-
-将来価値 $V$ が残っているなら、結局 $V$ を解かないといけないのでは？——ここで、このモデルの交換行動に特有の性質を使う。
-
-### 交換は renewal action：finite dependence で将来項が消える
-
-思い出そう。**交換（$a=1$）すると、状態は現在の $x$ によらず $x=0$ にリセットされる**（$P_1$ の全行が同じだった）。これを **renewal action（更新行動）**と呼ぶ。renewal action があると、将来項が驚くほど簡単に打ち消せる。これを **finite dependence（有限依存）**という。
-
-具体的にこのモデルで導出しよう。Hotz-Miller の補題より、任意の行動 $a$ を使って価値を書き直せる。とくに**次期状態 $x'$ で「交換」を選んだ**ときの表現を使うと：
-
-$$
-V(x') = v(x', 1) + \gamma - \log P(1 \mid x').
-$$
-
-（logit の反転：$V(x) = v(x,a) + \gamma - \log P(a\mid x)$ が任意の $a$ で成り立つ。導出は下の callout。）
-
-ここで $v(x', 1) = u(x', 1) + \beta\, \mathbb{E}[V(x'') \mid x', 1]$。そして交換は $x'$ によらず $x=0$ にリセットするので、$\mathbb{E}[V(x'') \mid x', 1]$ は**$x'$ に依存しない定数**（$\bar{W}$ と呼ぶ）になる。したがって
-
-$$
-V(x') = \underbrace{-RC + \beta \bar{W} + \gamma}_{\text{$x'$ によらない定数}} - \log P(1 \mid x').
-$$
-
-これを $v(x,1) - v(x,0)$ の将来項に代入する。定数部分は、$\mathbb{E}[\cdot \mid x, 1]$ と $\mathbb{E}[\cdot \mid x, 0]$ のどちらでも「確率の和 = 1」なので、**差をとると綺麗に消える**。残るのは $-\log P(1\mid x')$ の項だけ：
-
-$$
-\mathbb{E}[V(x') \mid x, 1] - \mathbb{E}[V(x') \mid x, 0]
-= -\sum_{x'} \big[P_1(x'\mid x) - P_0(x'\mid x)\big] \log P(1 \mid x').
-$$
-
-$V$ が消えた！ 残ったのは、遷移確率（既知）と CCP（データから推定可能）だけ。これらを全部代入すると、$u(x,1) - u(x,0) = \theta_1 x - RC$ を使って、**線形回帰の形**になる：
-
-$$
-\underbrace{\log P(1\mid x) - \log P(0\mid x) + \beta \sum_{x'}\big[P_1 - P_0\big](x'\mid x)\,\log P(1\mid x')}_{=:\ y(x)\ \text{（データから計算できる）}}
-\;=\; \theta_1\, x - RC.
-$$
-
-左辺 $y(x)$ を、経験 CCP $\hat P(1\mid x)$ から状態ごとに計算し、それを $x$ に回帰する。**傾きが $\theta_1$、切片が $-RC$**。価値関数反復は一切登場しない。最適化すらいらない（ただの OLS だ）。
-
-::: {.callout-note collapse="true"}
-## 導出：Hotz-Miller の反転 $V(x) = v(x,a) + \gamma - \log P(a\mid x)$
-
-T1EV のもとで、$V(x) = \log\sum_{a'} e^{v(x,a')} + \gamma$（logsum）であり、$P(a\mid x) = e^{v(x,a)} / \sum_{a'} e^{v(x,a')}$（logit）だった。後者から $\log P(a\mid x) = v(x,a) - \log\sum_{a'} e^{v(x,a')}$、すなわち $\log\sum_{a'} e^{v(x,a')} = v(x,a) - \log P(a\mid x)$。これを logsum の式に代入すると
-
-$$
-V(x) = v(x,a) - \log P(a\mid x) + \gamma.
-$$
-
-任意の $a$ で成り立つ（左辺は $a$ によらないので、右辺の $a$ 依存が打ち消し合う）。これが Hotz-Miller の「CCP から価値を復元する」核心の恒等式だ。この式のおかげで、$V$ を「観測できる CCP」で書き換えられる。renewal action があると、書き換えた先の将来項がさらに定数化して消える——これが finite dependence の仕組みである。
-:::
-
-まず**恒等式が本当に成り立つか**を、真の CCP（DP を解いて得た $P(1\mid x)$）で確認しよう。左辺 $y(x)$ が、本当に $\theta_1 x - RC$ に一致すれば、導出が正しいことの決定的な証拠になる。
+残り期間がゼロの $t=0$ から出発し、$t$ を1つずつ増やしながら $V(t,\cdot)$ を埋めていく。各 $(t,c)$ で、価格のグリッドを全部試して一番良い価格を選ぶ。
 
 ```{r}
-# 真の CCP で finite-dependence 恒等式を検算する
-diffP <- P1 - P0                       # (K x K) 各行 x
-sol_true <- solve_vfi(theta1_true, RC_true, tol = 1e-12)   # 真値で DP を精密に解く
-P1c <- ccp_replace(sol_true$v0, sol_true$v1)               # 真の CCP P(交換|x)
-P0c <- 1 - P1c
-logP1 <- log(P1c); logP0 <- log(P0c)
+#| label: lec13-dp-setup
+# パラメータ設定：航空券1路線のイメージ
+theta0      <- 6.0     # 価格ゼロでの基準効用
+alpha       <- 0.045   # 価格係数（第2回以来の記法、alpha > 0）
+lambda_bar  <- 0.95    # 1期あたりの客の到着確率
+T_period    <- 60      # 販売期間（残り日数の最大値）
+C_capacity  <- 30      # 座席数
 
-# y(x) = [logP1 - logP0] + beta * (P1 - P0) 行 x logP1
-y_true <- logP1 - logP0 + beta * as.vector(diffP %*% logP1)
-target <- theta1_true * xs - RC_true    # あるべき値
+p_grid <- seq(1, 350, length.out = 300)
 
-cat("恒等式の最大誤差 max|y - (theta1*x - RC)|:", max(abs(y_true - target)), "\n")
-
-# y を (1, x) に回帰 → 傾き=theta1, 切片=-RC
-fit_check <- lm(y_true ~ xs)
-cat("検算：theta1 =", round(coef(fit_check)[2], 6),
-    " RC =", round(-coef(fit_check)[1], 6), "（真値 0.15, 8.0）\n")
+purchase_prob <- function(p, theta0, alpha, lambda_bar) {
+  u <- theta0 - alpha * p
+  lambda_bar * (1 / (1 + exp(-u)))
+}
 ```
 
-恒等式は機械精度（$10^{-14}$ オーダー）で成立し、真値 $(\theta_1, RC) = (0.15, 8.0)$ をぴたりと復元した。導出は正しい。「価値関数を解かずに、CCP から深層パラメータへ」が、このモデルでは本当にただの線形回帰になる。
+```{r}
+#| label: lec13-dp-solve
+solve_dp <- function(T_period, C_capacity, theta0, alpha, lambda_bar, p_grid) {
+  # 行:t=0..T, 列:c=0..C。R索引はt+1, c+1にずれることに注意。
+  V      <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  pstar  <- matrix(NA_real_, nrow = T_period + 1, ncol = C_capacity + 1)
+  lamstar <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
 
-### データの頻度 CCP で推定する
+  lam_grid <- purchase_prob(p_grid, theta0, alpha, lambda_bar)  # 価格に依存、(t,c)に依らないので外で計算
 
-次は実践だ。真の CCP は使えない（それは知りたい答えの一部）。代わりに、観測データから**頻度で CCP を推定**する：$\hat P(1\mid x) = (\text{状態 } x \text{ で交換した回数}) / (\text{状態 } x \text{ の観測回数})$。
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      # Bellman方程式の右辺をそのまま評価（bid priceへの簡略化はしない）
+      # V[t, c]     = V(t-1, c-1) （購入時：1期進み、在庫が1つ減る）
+      # V[t, c + 1] = V(t-1, c)   （非購入時：1期進み、在庫は変わらない）
+      obj <- lam_grid * (p_grid + V[t, c]) + (1 - lam_grid) * V[t, c + 1]
+      best_idx <- which.max(obj)
+      V[t + 1, c + 1]      <- obj[best_idx]
+      pstar[t + 1, c + 1]  <- p_grid[best_idx]
+      lamstar[t + 1, c + 1] <- lam_grid[best_idx]
+    }
+    V[t + 1, 1] <- 0  # 在庫ゼロ(c=0)なら収益なし
+  }
+  list(V = V, pstar = pstar, lamstar = lamstar)
+}
+```
 
-ここで前に見た問題が効く。$x=0$ では交換頻度がほぼ0で、$\log \hat P(1\mid x)$ が $-\infty$ に飛ぶ。高走行距離の状態は観測が薄く、頻度がガタつく。ここでは教育用に2つの安定化を施す：(1) $\hat P=(n_1+0.5)/(n+1)$ という**Jeffreys/add-half smoothing**を使う（Laplace/add-oneなら $(n_1+1)/(n+2)$）、(2) 観測数が十分ある状態だけをWLSに使う。閾値や平滑化は推定法の本質ではなく、実務では帯域・series/logitによる第一段階と感度分析が必要である。
+::: {.callout-warning}
+## Rの1始まり索引と、DPの0始まり状態の対応関係
+
+DPの状態は $t=0,\dots,T$、$c=0,\dots,C$ と0始まりで書くのが自然だが、Rの行列は1始まりの索引しか使えない。このノートでは「行 `t+1` が状態 $t$」「列 `c+1` が状態 $c$」という対応で統一する。この対応のもとでは、ループ変数`t, c`（1始まりで回る）に対して、状態 $(t-1,c-1)$（購入時の1期前）は `V[t, c]`、状態 $(t-1,c)$（非購入時の1期前）は `V[t, c + 1]` と書かなければならない。計算結果の代入先は状態 $(t,c)$ を指す `V[t + 1, c + 1]` になる。上のコードで `V[t, c]`・`V[t, c + 1]`・`V[t + 1, c + 1]` という3つの似た添字が並んでいるのはこのズレのせいであり、バグではない。**base Rでこの手のDPを書くときは、常に「今書いている添字が、数式のどの $t,c$ に対応するか」を紙に書いてから実装する**ことを強く勧める。これを怠ると、今日のこのノートの検証段階で実際に踏んだような「非購入時の項のつもりで書いた添字が、実は計算中の状態自身を指してしまっていた」というバグに悩まされる。
+:::
 
 ```{r}
-# 状態ごとの交換回数 n1 と観測回数 n
-n_x  <- sapply(0:(K - 1), function(xv) sum(X == xv))
-n1_x <- sapply(0:(K - 1), function(xv) sum(A[X == xv]))
+#| label: lec13-dp-run
+dp_result <- solve_dp(T_period, C_capacity, theta0, alpha, lambda_bar, p_grid)
+V_mat      <- dp_result$V
+pstar_mat  <- dp_result$pstar
+lamstar_mat <- dp_result$lamstar
 
-# Jeffreys/add-half 平滑化した CCP
-Psm  <- (n1_x + 0.5) / (n_x + 1.0)
-logP1h <- log(Psm); logP0h <- log(1 - Psm)
+cat("期待総収益 V(T=60, C=30):", round(V_mat[T_period + 1, C_capacity + 1], 1), "\n")
+cat("残り60日・満席時の最適価格:", round(pstar_mat[T_period + 1, C_capacity + 1], 1), "\n")
+cat("残り60日・残り1席時の最適価格:", round(pstar_mat[T_period + 1, 2], 1), "\n")
+cat("出発前日・満席時の最適価格:", round(pstar_mat[2, C_capacity + 1], 1), "\n")
+```
 
-# 将来項には全到達状態の logP1 が必要。未観測状態は最も近い観測状態で補完。
-logP1h_full <- logP1h
-observed_idx <- which(n_x > 0)
-if (length(observed_idx) == 0) stop("CCPを計算できる観測状態がない")
-for (idx in which(n_x == 0)) {
-  nearest <- observed_idx[which.min(abs(observed_idx - idx))]
-  logP1h_full[idx] <- logP1h[nearest]
+この実行で期待総収益は `r round(V_mat[T_period + 1, C_capacity + 1], 1)`、残り60日・満席時の価格は `r round(pstar_mat[T_period + 1, C_capacity + 1], 1)`、残り60日・残り1席では `r round(pstar_mat[T_period + 1, 2], 1)`、出発前日・満席では `r round(pstar_mat[2, C_capacity + 1], 1)` である。絶対額は $\theta_0,\alpha$ と価格グリッドに依存するので、状態に沿った相対的な動きを読む。
+
+### Rシミュ2（ii）：最適価格のヒートマップ
+
+この $(t,c)$ に対する最適価格 $p^*(t,c)$ を、残り期間×残り座席の全ての組み合わせについて図示する。
+
+```{r}
+#| label: lec13-heatmap-price
+#| fig-cap: "最適価格 p*(t,c) のヒートマップ：残り期間×残り座席"
+heat_df <- expand.grid(t = 1:T_period, c = 1:C_capacity) %>%
+  rowwise() %>%
+  mutate(price = pstar_mat[t + 1, c + 1]) %>%
+  ungroup()
+
+ggplot(heat_df, aes(x = t, y = c, fill = price)) +
+  geom_tile() +
+  scale_fill_viridis_c(name = "最適価格", option = "magma") +
+  scale_x_continuous(breaks = seq(0, 60, 10)) +
+  labs(x = "残り期間（日）", y = "残り座席数",
+       title = "航空券の最適価格ヒートマップ",
+       subtitle = "横軸が0（出発直前）に近く、縦軸が下（在庫僅少）に近いほど、価格の挙動が対照的になる")
+```
+
+図の見方はこうだ。横軸を**右**へ行くほど残り期間が長く、縦軸を**上**へ行くほど残り座席が多い。したがって「期間が長く在庫が少ない」は右下、「期限直前で在庫が多い」は左上である。前者では将来の高WTP客へ座席を残す価値が高く、後者では売れ残りを避ける圧力が強い。
+
+### Rシミュ2（iii）：bid price（席1つの機会費用）
+
+RM実務でよく使われる概念に**bid price**がある。状態 $(t,c)$ で今1席売ると、次期は $(t-1,c-1)$、売らなければ $(t-1,c)$ へ進む。したがって今期の販売判断に入る機会費用は
+
+$$
+b(t,c)=V(t-1,c)-V(t-1,c-1)
+$$
+
+である。これは「売らずに $c$ 席を次期へ持ち越す価値」と「今売って $c-1$ 席を次期へ持ち越す価値」の差だ。一方、$V(t,c)-V(t,c-1)$ は**同じ期首時点で追加1席を持つ価値**であり、有用な限界在庫価値だが、今期販売のBellman式へ直接入るbid priceとは時間添字が違う。
+
+Bellman方程式をこのbid priceで書き直すと
+
+$$
+V(t,c)=V(t-1,c)+\max_p\lambda(p)\{p-b(t,c)\}.
+$$
+
+条件付き購買確率を $s(p)=\operatorname{logit}^{-1}(\theta_0-\alpha p)$、$\lambda(p)=\bar\lambda s(p)$ とすれば、内部解の一階条件は
+
+$$
+p^*(t,c)=b(t,c)+\frac{1}{\alpha\{1-s(p^*(t,c))\}}.
+$$
+
+つまり価格はbid priceに等しいのでも、静学価格へ単純にbid priceを足したものでもない。bid priceを「限界費用」の位置へ入れたlogit markupの固定点である。
+
+```{r}
+#| label: lec13-bidprice
+bid_price_df <- expand.grid(t = 1:T_period, c = 1:C_capacity) %>%
+  rowwise() %>%
+  mutate(bid_price = V_mat[t, c + 1] - V_mat[t, c]) %>%
+  ungroup()
+
+ggplot(bid_price_df, aes(x = t, y = c, fill = bid_price)) +
+  geom_tile() +
+  scale_fill_viridis_c(name = "bid price", option = "viridis") +
+  scale_x_continuous(breaks = seq(0, 60, 10)) +
+  labs(x = "残り期間（日）", y = "残り座席数",
+       title = "座席1つの機会費用（bid price）のヒートマップ")
+```
+
+bid priceが高い状態では、「今安く売ると、将来高く売る機会を失う」コストが大きい。最適価格は、この機会費用を限界費用として扱い、その上に需要弾力性で決まるmarkupを載せる。上式は連続価格の内部解であり、実装では価格グリッド・上下限制約により境界解になる場合がある。
+
+### Rシミュ2（iv）：予約パスのシミュレーション
+
+実際にこの価格政策のもとで、日々どのように価格が動いていくかを、いくつかのシミュレーションパスで見てみる。
+
+```{r}
+#| label: lec13-booking-paths
+simulate_booking_path <- function(seed, T_period, C_capacity, pstar_mat, lamstar_mat) {
+  set.seed(seed)
+  c_remain <- C_capacity
+  t_remain <- T_period
+  path <- data.frame(day = integer(0), t_remain = integer(0), c_remain = integer(0), price = numeric(0))
+  day <- 0
+  while (t_remain >= 1 && c_remain >= 1) {
+    day <- day + 1
+    p   <- pstar_mat[t_remain + 1, c_remain + 1]
+    lam <- lamstar_mat[t_remain + 1, c_remain + 1]
+    path <- rbind(path, data.frame(day = day, t_remain = t_remain, c_remain = c_remain, price = p))
+    bought <- runif(1) < lam
+    if (bought) c_remain <- c_remain - 1
+    t_remain <- t_remain - 1
+  }
+  path
 }
 
-# y(x) をデータの CCP で計算
-y_hat <- logP1h - logP0h + beta * as.vector(diffP %*% logP1h_full)
+paths_list <- lapply(1:4, function(i) {
+  p <- simulate_booking_path(30000 + i, T_period, C_capacity, pstar_mat, lamstar_mat)
+  p$path_id <- factor(i)
+  p
+})
+paths_df <- bind_rows(paths_list)
 
-# 観測数 >= 30 の状態だけ、観測数で重み付けして回帰（WLS）
-good <- n_x >= 30
-t0 <- Sys.time()
-fit_ccp <- lm(y_hat ~ xs, weights = n_x, subset = good)
-t1 <- Sys.time()
-ccp_time <- as.numeric(difftime(t1, t0, units = "secs"))
-
-theta1_ccp <- as.numeric(coef(fit_ccp)[2])
-RC_ccp     <- as.numeric(-coef(fit_ccp)[1])
-cat("CCP 推定値：theta1 =", round(theta1_ccp, 4), " RC =", round(RC_ccp, 4), "\n")
-cat("使った状態数:", sum(good), " / ", K, "\n")
-cat("CCP の実行時間:", signif(ccp_time, 3), "秒（回帰1本）\n")
+ggplot(paths_df, aes(x = day, y = price, color = path_id)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 1.2) +
+  labs(x = "販売開始からの日数", y = "提示価格",
+       title = "予約パスに沿った価格の推移（シミュレーション4本）",
+       color = "パスID")
 ```
 
-CCP 推定は、$\theta_1 \approx 0.15$、$RC \approx 8$ 近傍を回収する（乱数の引かれ方で $\pm 0.5$ 程度は揺れる。ここが CCP の弱点＝ノイズで、後述する）。そして**実行時間は回帰1本、事実上ゼロ秒**だ。価値関数反復を一度も回していない。
+各パスで、売れ行きが良ければ在庫が早く減って価格が早めに上がり、売れ行きが悪ければ価格が抑えられたまま推移する。**同じ価格ルール $p^*(t,c)$ から出発しても、実現する需要のばらつき次第で価格の軌道は変わる**。これがブッキングカーブ（累積販売数の推移）を毎日眺めながら価格を微調整する、RM実務の日常の姿そのものだ。
 
-### NFXP と CCP を並べる
+### Rシミュ2（v）：最適固定価格 vs 動的価格
 
-2つの推定法を、推定値と計算時間で直接比べる。
+では、この動的な価格づけは、期間中ずっと同じ価格を使い続ける「最適固定価格」と比べてどれだけ得なのか。固定価格 $p$ を1つ選んで使い続けたときの期待収益も、同じ形の再帰式で評価できる。
+
+$$
+W_p(t,c) = \lambda(p)\big[p + W_p(t-1,c-1)\big] + (1-\lambda(p))\,W_p(t-1,c)
+$$
+
+これは価格を最適化せず、外から与えられた固定の $p$ について評価するだけなので、$\max_p$ が無い分だけ単純だ。
 
 ```{r}
-compare_tbl <- data.frame(
-  method   = c("NFXP (Rust)", "CCP (Hotz-Miller)"),
-  theta1   = round(c(theta_hat_nfxp[1], theta1_ccp), 4),
-  RC       = round(c(theta_hat_nfxp[2], RC_ccp), 4),
-  time_sec = signif(c(nfxp_time, ccp_time), 3),
-  DP_solve = c("毎評価で解き切る", "一度も解かない")
+#| label: lec13-fixed-price
+evaluate_fixed_price <- function(p, T_period, C_capacity, theta0, alpha, lambda_bar) {
+  lam <- purchase_prob(p, theta0, alpha, lambda_bar)  # スカラー
+  W <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      W[t + 1, c + 1] <- lam * (p + W[t, c]) + (1 - lam) * W[t, c + 1]
+    }
+    W[t + 1, 1] <- 0
+  }
+  W[T_period + 1, C_capacity + 1]
+}
+
+fixed_p_grid <- seq(1, 350, length.out = 150)
+fixed_revenues <- sapply(fixed_p_grid, evaluate_fixed_price,
+                          T_period = T_period, C_capacity = C_capacity,
+                          theta0 = theta0, alpha = alpha, lambda_bar = lambda_bar)
+
+best_fixed_idx <- which.max(fixed_revenues)
+best_fixed_p   <- fixed_p_grid[best_fixed_idx]
+best_fixed_rev <- fixed_revenues[best_fixed_idx]
+
+dynamic_rev <- V_mat[T_period + 1, C_capacity + 1]
+lift_pct <- 100 * (dynamic_rev - best_fixed_rev) / best_fixed_rev
+
+comparison_df <- data.frame(
+  方式 = c("最適固定価格", "動的価格（DP最適）"),
+  価格の目安 = c(round(best_fixed_p, 1), "状態に応じて変動"),
+  期待収益 = c(round(best_fixed_rev, 1), round(dynamic_rev, 1))
 )
-kable(compare_tbl, caption = "NFXP vs CCP：推定値と計算時間",
-      row.names = FALSE)
-
-# 速度比（ccp_time が測定精度以下でも安定するよう下限を置く）
-speed_ratio <- nfxp_time / max(ccp_time, 1e-4)
-cat("CCP は NFXP のおよそ", format(round(speed_ratio), big.mark = ","),
-    "分の1の時間で、近い答えを出した（回帰1本 vs DP を何十回も解き直す）。\n")
+kable(comparison_df, caption = "固定価格 vs 動的価格の期待収益比較")
+cat("\n動的価格による収益リフト:", round(lift_pct, 2), "%\n")
 ```
 
-::: {.callout-important}
-## 推定値と計算時間を比較する
-
-- **NFXP**：外側の最適化 × 内側の価値関数反復。「$\theta$ を1回変えるたびに DP を丸ごと解き直す」ので重い。状態の数が多いほど、計算時間が長くなる。
-- **CCP**：データから CCP を頻度推定 → renewal action の finite dependence で将来項を消す → 線形回帰1本。**DP を一度も解かない**。この例では計算量を大きく減らせる。
-
-代償は第一段階でCCPを推定するノイズである。この単純な頻度CCP＋WLSは、正しく指定されたfull-solution MLEより一般に効率が低く、薄い状態で不安定になる。ただし「CCP法は必ずこの回帰」「必ず一定の効率順位」という意味ではない。最適な重み付けや反復擬似尤度で改善できる。実務ではCCPで当たりをつけ、NPLなどで更新する選択肢がある。
-:::
-
-::: {.callout-note collapse="true"}
-## CCP のノイズについて正直に
-
-上の1回の推定はたまたま真値に近かったが、頻度推定・平滑化・薄い状態の切り捨てにより有限標本のノイズとバイアスが出る。Hotz and Miller (1993) が示した要点は、条件の下でCCPを代入した構造パラメータ推定量が**一致性と漸近正規性**を持つことである。これはNFXP/MLEと同じ推定量・同じ漸近分散という意味ではない。本講義の簡便WLSのばらつきは、標本を繰り返して確認する。
-:::
-
-## 識別と反実仮想
-
-### 何が識別され、何が識別されないか
-
-動学モデルの識別には、静学にはない固有の難所がある。
-
-**割引因子 $\beta$ は、普通は識別が難しい。** 直感的には、$\beta$（将来をどれだけ重視するか）と flow utility の形（今日のコスト）が**もつれて**しまうからだ。「早めに交換する」という行動は、「交換費 $RC$ が安い」からかもしれないし、「$\beta$ が大きくて将来の維持費を強く恐れている」からかもしれない。この2つを、選択データだけから分離するのは一般に困難だ。そこで実務では、**$\beta$ を外から与えて固定する**（今回は $0.95$）のが標準的な慣習になっている。金利や意思決定の頻度から、$\beta$ を先験的に決めるわけだ。
-
-**効用の水準は正規化が要る。** 静学 logit で outside option の効用を0に置いたのと同じで、動学でも効用の絶対水準には意味がなく、差だけが識別される。ここでは維持の flow utility を $-\theta_1 x$、交換を $-RC$ と置くことで、水準を固定している。
-
-### 交換費に補助が出た場合を計算する
-
-維持費と交換費のパラメータ $(\theta_1,RC)$ が推定できたので、交換費に補助が出る場合を計算しよう。第4回の合併分析と同じく、何を変えて何を固定するかを先に決める。ここでは補助によって意思決定者が負担する交換費だけが下がり、維持費の係数や走行距離の遷移は変わらないと仮定する。
-
-問い：**もし政府（あるいは本社）が、エンジン交換費 $RC$ を20%補助したら、交換頻度と平均走行距離はどう変わるか。**
-
-これは観測データには無い状況（$RC$ を人為的に下げた世界）だ。このモデルでは、補助が費用だけを変え、$\theta_1$ や遷移は変えないと仮定する。その仮定のもとで $RC$ を $0.8 \times RC$ に置き換えて **DP を解き直し**、新しい交換方針のもとでの長期的な状態分布を計算する。
-
-長期的な交換頻度・平均走行距離は、新しい交換方針が誘導するマルコフ連鎖の**定常分布（ergodic distribution）**から計算する。定常分布 $d$ は、状態遷移行列 $M$（方針込み）に対して $d = d\,M$ を満たすベクトルだ。
-
-```{r}
-# 方針（交換確率 Pr）が誘導する状態遷移行列 M と、その定常分布
-policy_transition <- function(Pr) {
-  # 状態 x から：確率 Pr で交換（P1 の行）、1-Pr で維持（P0 の行）
-  (1 - Pr) * P0 + Pr * P1        # 各行を Pr[x], (1-Pr[x]) で重み付け（R のリサイクルに注意）
-}
-ergodic_dist <- function(M) {
-  # d M = d, sum d = 1 を解く（(M' - I) の零空間 + 正規化）
-  A <- rbind(t(M) - diag(K), rep(1, K))
-  b <- c(rep(0, K), 1)
-  d <- qr.solve(A, b)             # 最小二乗で解く
-  d / sum(d)
-}
-
-summarize_policy <- function(theta1, RC, label, bta = beta) {
-  s  <- solve_vfi(theta1, RC, tol = 1e-10, bta = bta)
-  Pr <- ccp_replace(s$v0, s$v1)
-  M  <- policy_transition(Pr)
-  d  <- ergodic_dist(M)
-  rep_rate <- sum(d * Pr)         # 長期交換率
-  mean_mi  <- sum(d * xs)         # 長期平均走行距離
-  cat(sprintf("  %s：長期交換率 = %.4f, 平均走行距離 = %.3f\n", label, rep_rate, mean_mi))
-  list(rep_rate = rep_rate, mean_mi = mean_mi, d = d, Pr = Pr)
-}
-
-cat("反実仮想：交換費 RC を 20% 補助（推定した動学モデルで解き直す）\n")
-base_cf <- summarize_policy(theta_hat_nfxp[1], theta_hat_nfxp[2], "補助前")
-sub_cf  <- summarize_policy(theta_hat_nfxp[1], theta_hat_nfxp[2] * 0.8, "20%補助後")
-
-cat(sprintf("  => 交換率:   %.4f -> %.4f  (%+.1f%%)\n",
-            base_cf$rep_rate, sub_cf$rep_rate,
-            (sub_cf$rep_rate / base_cf$rep_rate - 1) * 100))
-cat(sprintf("  => 平均走行距離: %.3f -> %.3f  (%+.1f%%)\n",
-            base_cf$mean_mi, sub_cf$mean_mi,
-            (sub_cf$mean_mi / base_cf$mean_mi - 1) * 100))
-```
-
-推定したモデルでは、交換費を20%補助すると、長期交換率は `r sprintf("%.1f", 100 * base_cf$rep_rate)`% から `r sprintf("%.1f", 100 * sub_cf$rep_rate)`% へ上昇し、平均走行距離の状態は `r sprintf("%.2f", base_cf$mean_mi)` から `r sprintf("%.2f", sub_cf$mean_mi)` へ低下する。交換が安くなると、より頻繁に、走行距離が短いうちにエンジンを載せ替えるようになる。補助前後の状態分布も比較しよう。
-
-```{r}
-#| fig-cap: "交換費 20% 補助の前後で、走行距離の定常分布がどう変わるか。補助後は低走行距離側に寄る。"
-df_cf <- rbind(
-  data.frame(x = xs, dens = base_cf$d, policy = "補助前"),
-  data.frame(x = xs, dens = sub_cf$d,  policy = "20%補助後")
-)
-ggplot(df_cf, aes(x, dens, fill = policy)) +
-  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
-  scale_fill_manual(values = c("補助前" = "grey55", "20%補助後" = "#1f77b4")) +
-  labs(title = "走行距離の定常分布：交換費補助の効果",
-       x = "走行距離の状態 x", y = "定常分布の確率", fill = NULL) +
-  theme(legend.position = "top")
-```
-
-### myopic（$\beta = 0$）で推定すると反実仮想を外す
-
-ここで、動学を無視する危険を数値で見せる。もし分析者が「消費者は近視眼的（myopic）で、将来を一切見ない」と誤って仮定し、$\beta = 0$ でパラメータを推定したら、どうなるか。
-
-$\beta = 0$ だと、choice-specific value は将来項が消えて $v(x,0) = -\theta_1 x$、$v(x,1) = -RC$ になる。これはただの**静学 logit** だ。この静学モデルを、実は forward-looking な Zurcher が生成したデータに当てはめると、パラメータが歪む。
-
-```{r}
-# 大きめの標本で myopic の系統的バイアスを見る（ノイズではなく偏りを見たい）
-panel_big <- simulate_panel(2000, 300, theta1_true, RC_true)
-Xb <- panel_big$X; Ab <- panel_big$A
-
-# myopic (beta=0) の logit MLE：v0=-theta1*x, v1=-RC を直接使う
-neg_loglik_myopic <- function(theta, X, A) {
-  theta1 <- theta[1]; RC <- theta[2]
-  if (theta1 <= 0 || RC <= 0) return(1e10)
-  v0 <- -theta1 * xs; v1 <- rep(-RC, K)
-  m  <- pmax(v0, v1)
-  lae <- m + log(exp(v0 - m) + exp(v1 - m))
-  logp1 <- v1 - lae; logp0 <- v0 - lae
-  xr <- as.vector(X) + 1; ar <- as.vector(A)
-  -sum(ifelse(ar == 1L, logp1[xr], logp0[xr]))
-}
-fit_myopic <- optim(c(0.10, 5.0), neg_loglik_myopic, X = Xb, A = Ab,
-                    method = "Nelder-Mead", control = list(reltol = 1e-9))
-# 参照：同じ大標本での動学（正しい）推定
-fit_dyn_big <- optim(c(0.10, 5.0), neg_loglik_nfxp, X = Xb, A = Ab,
-                     method = "Nelder-Mead", control = list(reltol = 1e-9))
-
-est_tbl <- data.frame(
-  model  = c("真値", "動学 (beta=0.95, 正しい)", "myopic (beta=0, 誤り)"),
-  theta1 = round(c(theta1_true, fit_dyn_big$par[1], fit_myopic$par[1]), 4),
-  RC     = round(c(RC_true,     fit_dyn_big$par[2], fit_myopic$par[2]), 4)
-)
-kable(est_tbl, caption = "同じデータを動学 vs myopic で推定：myopic は theta1 を大きく歪める",
-      row.names = FALSE)
-```
-
-myopic モデルは、$\theta_1$ を真値の**3倍近く**に過大推定してしまう。理由はこうだ。データの交換確率が走行距離に対して立ち上がる勾配を、forward-looking モデルは「将来の維持費を恐れて早めに交換する」で一部説明する。だが myopic モデルには将来項が無いので、**同じ勾配を全部 flow utility の傾き $\theta_1$ に押し付ける**しかない。結果、$\theta_1$ が水増しされる。
-
-この歪んだパラメータで反実仮想を回すと、答えも外れる。myopic 分析者は、自分のモデル（$\beta=0$）で補助の効果を予測する。
-
-```{r}
-cat("反実仮想（RC 20%補助）の予測：正しい動学 vs myopic\n")
-# 正しい動学：真の theta を、正しい beta=0.95 の DP で解いて予測
-truth0 <- summarize_policy(theta1_true, RC_true,       "真実 補助前")
-truth1 <- summarize_policy(theta1_true, RC_true * 0.8, "真実 補助後")
-
-# myopic 分析者：歪んだ推定 theta を、自分のモデル（beta=0）で解いて予測
-myo0 <- summarize_policy(fit_myopic$par[1], fit_myopic$par[2],       "myopic 補助前", bta = 0)
-myo1 <- summarize_policy(fit_myopic$par[1], fit_myopic$par[2] * 0.8, "myopic 補助後", bta = 0)
-
-cf_compare <- data.frame(
-  analysis = c("正しい動学", "myopic (誤り)"),
-  rep_before = round(c(truth0$rep_rate, myo0$rep_rate), 4),
-  rep_after  = round(c(truth1$rep_rate, myo1$rep_rate), 4),
-  rep_change_pct = round(c((truth1$rep_rate / truth0$rep_rate - 1) * 100,
-                           (myo1$rep_rate / myo0$rep_rate - 1) * 100), 1)
-)
-kable(cf_compare, caption = "RC 20%補助の効果予測：myopic は交換率の増加を大きく過大評価",
-      row.names = FALSE)
-```
-
-交換率の増加は、真の動学モデルでは`r sprintf("%.1f", cf_compare$rep_change_pct[1])`%、myopicモデルでは`r sprintf("%.1f", cf_compare$rep_change_pct[2])`%となった。同じ購買・交換履歴に当てはめても、将来価値を省いたモデルは、その影響を当期効用の係数に含めてしまう。その係数を使って補助の効果を計算すると、政策への反応まで変わる。これは、第4回で異質性や代替性の指定によって合併の予測が変わったことと、同じ種類の問題である。
-
-## 動学モデルで何が分かり、何を仮定しているか
-
-動学モデルを使うことで計算できる反実仮想が増える。その分、将来の予想や状態遷移についての仮定も必要になる。
-
-**利点：政策不変性が信頼できる範囲で反実仮想を構成できる。** flow utility のパラメータ $(\theta_1, RC)$ を意思決定者の「好み・技術」と解釈し、補助は $RC$ だけを変えて $\theta_1$ や遷移を変えない、と仮定する。この仮定が妥当なら、$RC$ を人為的に動かした世界を同じ $\theta_1$ のもとでシミュレートできる。政策不変性は「深層」と名付ければ自動的に保証される性質ではなく、制度知識と感度分析で吟味すべき識別・外挿仮定である。
-
-**状態の数と計算量。** 状態が多次元になると、価値関数反復の計算量が爆発する。NFXP はこれに真正面からぶつかる。CCP や、その発展（Aguirregabiria-Mira の擬似尤度、Arcidiacono-Ellickson の実践的手法）は、この計算負担を減らす方法である。
-
-**割引因子の識別。** 上で見た通り、割引因子は選択データだけからは識別しにくく、固定する慣習になっている。$\beta$ の値を変えると推定も反実仮想も動くので、感度分析が要る。
-
-**コスト3：モデル誤設定リスク。** 状態遷移や flow utility の形を間違えると、深層パラメータも反実仮想も歪む。myopic の例は「$\beta$ を間違えると壊れる」極端なケースだが、遷移確率や状態の離散化のミスも同様に効く。
-
-::: {.callout-important}
-## 実務指針：静学で足りる問いには静学を、状態を動かすなら動学を
-
-- **今日の効用だけで説明できる選択**（今の価格・属性への反応、直近の代替パターン）なら、静学の logit/BLP（第2〜4回）で十分。速いし、識別も素直だ。
-- **今日の選択が将来の関連状態を動かし、意思決定者がそれを予見する問い**（在庫、契約残期間、走行距離、ポイント残高、耐久財の保有年数を変える政策）では、forward-looking を無視すると予測を外しうる。このDGPでmyopicの反実仮想が大きくずれた例を思い出してほしい。
-
-「動学が要るか」の判定は、**現在の選択が将来の状態と利得を動かし、意思決定者がそれを先読みするか**で決まる。棚の一回限りの値付けなら静学で足りることが多く、解約金の設計や買いだめ誘発のように将来行動が変わる問いでは動学を検討する。
-:::
-
-## 実証研究コーナー
-
-::: {.callout-tip}
-## 実証研究コーナー：Rust (1987) — Harold Zurcher とバスエンジン
-
-**問い**：マディソン市バス公社の整備責任者 Harold Zurcher は、どんな費用構造のもとで、いつエンジンを載せ替えるかを決めているのか。それを構造モデルとして復元できるか。
-
-**データ**：1970年代〜80年代前半のマディソン市バス公社の車両整備記録。各バスの累積走行距離とエンジン載せ替えを月次で追った、162台・15,406 bus-month observations。
-
-**識別戦略・モデル**：まさに本講義のモデルだ。走行距離を状態、載せ替えを行動とし、Zurcher が「期待割引費用を最小化する」ように行動する動学的離散選択モデルを立てた。T1EV ショックで logit 構造を得て、NFXP（内側で価値関数反復、外側で最尤）で維持費・交換費のパラメータを推定した。
-
-**主要な発見**：走行距離が伸びるほど交換確率が上がる S 字の交換方針が、データとよく整合することを示した。推定された費用構造のもとで、「もし維持費や交換費が違ったら交換行動がどう変わるか」という反実仮想を計算してみせた。**構造推定の枠組みで、たった一人の意思決定者の内部パラメータを復元し、政策シミュレーションを可能にした**——これが動学的離散選択という分野の出発点になった。
-
-**なぜこの回と繋がるか**：今日の講義そのものの原典だ。バス公社の地味な台帳が、実証IO・quantitative marketing の動学分析すべての祖先である。
-:::
-
-::: {.callout-tip}
-## 実証研究コーナー：Hotz and Miller (1993) — CCP で価値関数を迂回する
-
-**問い**：動学的離散選択の推定で、毎回価値関数を解き切る（NFXP の）重さを避けられないか。選択確率から、価値関数を解かずにパラメータを推定できないか。
-
-**データ・設定**：理論的な貢献が中心だが、女性のライフサイクルにおける避妊・出産の選択など、動学的な意思決定への応用も示した。
-
-**識別戦略・モデル**：本講義で導出した**Hotz-Miller の反転**——$V(x) = v(x,a) + \gamma - \log P(a\mid x)$——を確立した。条件付き選択確率（CCP）と価値関数の間に閉じた関係があることを使い、CCP を頻度で推定してから、それを価値の代理として推定に流し込む。これにより、価値関数反復を回さずにパラメータを推定できる（本講義の renewal action の例が、その最も鮮やかな特殊ケース）。
-
-**主要な発見**：真のCCPを非parametricな頻度推定量で置き換えた構造パラメータ推定量について、条件の下で一致性と漸近正規性を示した。計算負荷を大きく下げられるが、NFXPのfull-solution MLEと同じ漸近分散を持つと一般には言えない。今日の「回帰1本」は、renewal/finite-dependenceを加えた特に簡単な特殊例である。
-
-**この講義との関係**：データから選択確率を推定し、そこから価値の差を取り出す方法の根拠になる。NFXPとの比較では、計算量を減らせることに加え、最初に推定した選択確率の誤差が次の推定に伝わることも確認したい。
-
-:::
-
-::: {.callout-tip}
-## 実証研究コーナー：Gowrisankaran and Rysman (2012) — 耐久財の動学需要
-
-**問い**：デジタルカメラ（カムコーダ）のような耐久財では、消費者は「今は高いから、値下がりを待とう」と**買い控える**。この forward-looking な購買延期を無視すると、需要弾力性や新製品の価値評価を誤る。動学需要をどう推定するか。
-
-**データ**：米国のデジタルカムコーダ市場、複数年の製品ごとの価格・スペック・販売数の集計データ。技術進歩で品質が上がり価格が下がっていく、典型的な耐久財市場。
-
-**識別戦略・モデル**：random coefficient logit需要に動学を組み込んだ。消費者は「今買う」か「待つ」かを将来の価格低下・品質向上の期待を織り込んで選び、持続的な嗜好異質性と**時間を通じたrepeat purchase**も許す。買ったら永久に市場から退出する一回限りモデルではない。
-
-**主要な発見**：静学モデルは、耐久財の価格弾力性を系統的に誤る。動学を入れると、「値下がり期待による買い控え」が識別され、価格変化への反応がより現実的になった。新製品導入の便益評価も、動学を入れると変わる。
-
-**なぜこの回と繋がるか**：今日の道具（forward-looking な状態依存の選択）を、一人の意思決定者（Zurcher）から**市場全体の消費者**へ拡張した好例だ。第4回の BLP と第13回の動学が合流する地点であり、次回（第14回）の買いだめ・state dependence への直接の橋渡しになる。
-:::
-
-::: {.callout-tip}
-## 実証研究コーナー：Aguirregabiria and Mira (2010) — 実務者のための地図
-
-**問い**：動学的離散選択の推定法は、NFXP・CCP・擬似尤度・その拡張と数多くある。実務者はどれを、いつ使うべきか。全体像を整理できないか。
-
-**データ・設定**：サーベイ論文であり、特定のデータではなく、分野全体の手法を体系化する。
-
-**識別戦略・モデル**：単一エージェントの動学（今日の Rust）から、複数エージェントの動学ゲーム（企業の参入退出・投資競争）まで、推定法を統一的に整理する。NFXP、Hotz-Miller の CCP、Aguirregabiria-Mira 自身の **NPL（nested pseudo-likelihood、擬似尤度を反復して効率を上げる）**、Bajari-Benkard-Levin などを、計算コストと統計的性質の軸で位置づける。
-
-**主要な発見（この分野の指針として）**：full-solution MLE、2段階CCP、反復擬似尤度などを、計算負荷・第一段階誤差・統計効率の軸で整理する。単純な頻度CCPは速い反面ノイズを受けやすく、NPLはCCPを反復更新して改善を狙う。効率順位は仮定・重み付け・実装を明記して比較すべきである。
-
-**なぜこの回と繋がるか**：今日学んだ NFXP と CCP を、より広い手法群の中に位置づける「地図」だ。動学構造推定を実務で使うなら、まずこのサーベイ（と Arcidiacono-Ellickson 2011 の実践ガイド）で全体像を掴むとよい。第15回の dynamic pricing（企業側の動学）へ進む前の、見取り図でもある。
-:::
-
-## ビジネスの現場で
+動的価格は最適固定価格に対して、この設定で `r round(lift_pct, 2)`% の収益リフトをもたらす。動的政策は固定価格を選べる政策集合を含むので、同じ真のモデル・同じ価格集合で正しく計算すればリフトは負にならない。
 
 ::: {.callout-note}
-## ビジネスの現場で：設備保全・車両リプレースの意思決定支援
+## なぜリフトは「意外と小さい」のか
 
-Rust のバス問題は、比喩ではなく**そのまま現代の設備保全（predictive maintenance）**だ。工場の生産設備、航空機のエンジン、鉄道車両、社用車のフリート——「今リプレース／オーバーホールするか、あと1年使い倒すか」は、まさに走行距離（や稼働時間・故障履歴）を状態とする動学的離散選択である。IoT センサーで稼働データが取れる今、各設備の「状態」をリアルタイムに把握し、推定した維持費・交換費のもとで最適な載せ替えタイミングを提案するシステムが実際に動いている。「補助金や税制で設備更新を促したら、更新頻度がどう変わるか」という政策評価も、今日の反実仮想そのものだ。
+動的価格の価値は、到着・WTPの不確実性、有限在庫と期限の厳しさ、需要タイプの時間変化、利用できる価格集合に依存する。ただし「在庫を減らせば必ずリフトが単調に増える」とは限らない。導入判断では、複数の容量・需要シナリオについて同じコードでリフトを再計算し、推定誤差と運用費用も差し引く。
 :::
 
-::: {.callout-note}
-## ビジネスの現場で：解約金のあるサブスク解約と、ポイント有効期限の設計
+::: {.callout-tip}
+## 実証研究コーナー：Gallego and van Ryzin (1994)
 
-「解約金があるサブスクの解約」は、典型的な forward-looking の意思決定だ。今解約すると違約金を払うが、契約を続ければ毎月の料金がかかる。合理的な顧客は「あと何ヶ月で無料期間・割引期間が終わるか」という**契約残期間という状態**を見て、今解約するか待つかを決める。だから「解約金を値上げしたら解約率がどう変わるか」という反実仮想には、動学が要る。静学モデルは「今月の効用」しか見ないので、契約残期間に応じた駆け込み解約・解約延期を捉えられず、政策効果を誤る。
+**研究の問い**：残り期間・残り在庫という2つの状態のもとで、企業はどのような価格政策をとれば期待収益を最大化できるか。また、それは実務でよく使われる「良い固定価格」とどれだけ違うのか。
 
-**ポイント有効期限の設計**も同じ構造だ。顧客は「ポイント残高」と「失効までの期間」という状態を見て、失効前に駆け込みで使う。有効期限の変更が購入のタイミングや将来のポイント利用を変えるなら、その経路を含むモデルが必要になる。期限の前後だけを比較する分析で、どの反実仮想まで答えられるかを考えてみよう。
+**モデル**：価格に敏感な確率的需要のもとで、期限までに所与の在庫を売る問題をintensity controlとして定式化し、有限期間・有限在庫の最適政策を分析する。本講義の離散時間Bellman方程式は、この問題を1期1人までの到着へ単純化した類似物である。
+
+**主要な発見**：最適な需要強度（したがって価格）が在庫と残り期間にどう反応するかについて単調性を導く。さらに、決定論版から得る上界を用い、**期待販売量を大きくスケールさせる漸近領域**では、単純な固定価格政策が漸近的に最適になることを示す。本講義の有限標本シミュレーションでリフトが2〜3%だからこの定理が実証された、という関係ではない。ここでは、固定価格も有力なベンチマークになりうることを数値で確認した、と読む。
+
+**なぜこの講義のトピックと繋がるか**：この論文はrevenue managementという実務分野の理論的支柱であり、今日のBellman方程式・backward inductionによる価格政策の構成は、この論文の枠組みを最小構成に単純化したものである。「動的最適化がいつ本当に重要になるか」という実務的な問い（在庫逼迫度・需要不確実性の大きさで判断する）も、この論文の理論的結果から直接導かれる。
 :::
+
+::: {.callout-tip}
+## 実証研究コーナー：Williams (2022)
+
+**研究の問い**：航空会社が実際に行っている動的価格設定は、消費者の厚生（welfare）にどのような影響を与えているか。動的価格は「価格差別の道具」なのか、それとも「効率的な配分の道具」なのか。
+
+**データ・識別戦略**：米国の航空市場における、出発日までの日数・残り座席数と実際の運賃の関係を、詳細な予約データを用いて分析している。需要側の異質性（早めに予約する価格に敏感なレジャー客と、直前に予約する価格に鈍感なビジネス客）を明示的にモデル化し、動的価格が無かった場合（一物一価で運営した場合）の反実仮想と比較する、という枠組みを取っている。
+
+**主要な発見**：動的価格は、価格に敏感な客ほど早期に安く購入し、価格に鈍感な客ほど直前に高く購入する、という形で異なるタイプの客に異なる価格を配分している。これは一種の価格差別だが、同時に、限られた座席を「支払意思額が高い客」に優先的に配分するという効率性の側面も持つ。動的価格を一律価格に置き換えた反実仮想では、総余剰・消費者余剰・企業収益のバランスが変化し、動的価格には価格差別的な側面と効率改善的な側面の両方が併存することが示されている。
+
+**なぜこの講義のトピックと繋がるか**：本講義で構築したRMのDPモデルは「企業が収益を最大化する」という一方向の視点だったが、Williams (2022) はそこに「消費者にとってどうなのか」という厚生の視点を持ち込んでいる。第7回で学んだ個人の需要と施策の視点と、今日の動学の視点（いつ・どの状態で）を組み合わせると、価格政策の「儲かるかどうか」だけでなく「誰が得をして誰が損をするか」まで問えるようになる、というこの講義の終盤にふさわしい統合的な研究である。
+:::
+
+## 5. 需要を推定して価格を選ぶ
+
+コース最後の数値例として、今日学んだRMの枠組みと、コース前半の需要推定を1つのパイプラインでつなげる。ここでのメッセージは1つ。**需要推定の誤差は、消えてなくなるわけではなく、価格政策の収益ロスという「金額」に変換される。**
+
+パイプラインは次の3段階だ。
+
+1. 真の需要パラメータ $(\theta_0,\alpha)$ のもとで生成された予約データから、$(\hat\theta_0,\hat\alpha)$ を最尤推定する（第2回の再演）。
+2. $(\hat\theta_0,\hat\alpha)$ を真の値だと思い込んで、backward inductionで価格政策 $\hat p^*(t,c)$ を作る。
+3. その政策 $\hat p^*(t,c)$ を、**真のモデル**の上で走らせたときの期待収益を評価する。
+
+$(\hat\theta_0,\hat\alpha)$ が真値からずれていれば、政策 $\hat p^*(t,c)$ も真に最適な政策 $p^*(t,c)$ からずれうる。その同時推定誤差が、どれだけの収益の目減りになるかを数値で確認する。
+
+```{r}
+#| label: lec13-pipeline-mle
+# ステップ0：価格実験データの生成（複数の価格水準をランダムに割り当てて需要を観測する）
+price_menu <- c(90, 110, 130, 150, 170)
+
+generate_booking_data <- function(seed, T_period, C_capacity, theta0, alpha, lambda_bar, price_menu) {
+  set.seed(seed)
+  c_remain <- C_capacity
+  prices_obs   <- numeric(0)
+  purchase_obs <- numeric(0)
+  for (t in T_period:1) {
+    if (c_remain == 0) break
+    p <- sample(price_menu, 1)
+    arrived <- runif(1) < lambda_bar
+    if (arrived) {
+      u <- theta0 - alpha * p
+      prob_buy <- 1 / (1 + exp(-u))
+      purchased <- as.numeric(runif(1) < prob_buy)
+      prices_obs   <- c(prices_obs, p)
+      purchase_obs <- c(purchase_obs, purchased)
+      if (purchased == 1) c_remain <- c_remain - 1
+    }
+  }
+  list(prices = prices_obs, purchase = purchase_obs)
+}
+
+booking_data <- generate_booking_data(20265, T_period, C_capacity, theta0, alpha, lambda_bar, price_menu)
+cat("観測された到着客数：", length(booking_data$prices), "\n")
+```
+
+```{r}
+#| label: lec13-newton-mle
+# ステップ1：ニュートン法による自作MLE（logitの対数尤度は大域的に凹なので、
+# 解析的な勾配・ヘシアンを使うと安定して速く収束する）
+sigmoid <- function(x) 1 / (1 + exp(-x))
+
+fit_logit_newton <- function(prices, purchase, theta_init = c(0, 0.01), max_iter = 100, tol = 1e-10) {
+  n <- length(prices)
+  X <- cbind(1, -prices)  # u = X %*% c(const, alpha)
+  theta <- theta_init
+  for (it in 1:max_iter) {
+    u     <- as.vector(X %*% theta)
+    p_hat <- sigmoid(u)
+    resid <- purchase - p_hat
+    grad  <- as.vector(t(X) %*% resid)
+    W     <- p_hat * (1 - p_hat)
+    H     <- -t(X * W) %*% X
+    step  <- solve(H, grad)
+    theta_new <- theta - step
+    if (max(abs(theta_new - theta)) < tol) {
+      theta <- theta_new
+      break
+    }
+    theta <- theta_new
+  }
+  list(theta = theta, n_iter = it)
+}
+
+mle_result <- fit_logit_newton(booking_data$prices, booking_data$purchase)
+const_hat <- mle_result$theta[1]
+alpha_hat <- mle_result$theta[2]
+
+cat("真の (theta0, alpha):", theta0, alpha, "\n")
+cat("推定 (theta0_hat, alpha_hat):", round(const_hat, 3), round(alpha_hat, 4), "\n")
+cat("収束までの反復回数:", mle_result$n_iter, "\n")
+```
+
+```{r}
+#| label: lec13-pipeline-evaluate
+# ステップ2：推定した(theta0_hat, alpha_hat)でDPを解いて価格政策を作る
+dp_hat <- solve_dp(T_period, C_capacity, const_hat, alpha_hat, lambda_bar, p_grid)
+pstar_hat <- dp_hat$pstar
+
+# ステップ3：その政策を「真のモデル」の上で評価する
+evaluate_policy_on_true_model <- function(pstar_policy, T_period, C_capacity, theta0, alpha, lambda_bar) {
+  W <- matrix(0, nrow = T_period + 1, ncol = C_capacity + 1)
+  for (t in 1:T_period) {
+    for (c in 1:C_capacity) {
+      p <- pstar_policy[t + 1, c + 1]
+      lam_true <- purchase_prob(p, theta0, alpha, lambda_bar)
+      W[t + 1, c + 1] <- lam_true * (p + W[t, c]) + (1 - lam_true) * W[t, c + 1]
+    }
+    W[t + 1, 1] <- 0
+  }
+  W[T_period + 1, C_capacity + 1]
+}
+
+revenue_true_policy <- V_mat[T_period + 1, C_capacity + 1]
+revenue_hat_policy   <- evaluate_policy_on_true_model(pstar_hat, T_period, C_capacity, theta0, alpha, lambda_bar)
+revenue_loss <- revenue_true_policy - revenue_hat_policy
+
+cat("真の政策の期待収益:", round(revenue_true_policy, 1), "\n")
+cat("推定需要パラメータで作った政策を真のモデルで評価した期待収益:", round(revenue_hat_policy, 1), "\n")
+cat("収益ロス:", round(revenue_loss, 1), "（真の収益の", round(100*revenue_loss/revenue_true_policy, 2), "%）\n")
+```
+
+1回のデータ生成・推定だと、この収益ロスがたまたま大きいか小さいかは分からない。そこで、この一連のパイプライン（データ生成→MLE→DP→評価）を200回繰り返すモンテカルロで、**推定誤差がどんな収益ロスの分布を生むか**を可視化する。
+
+```{r}
+#| label: lec13-montecarlo-pipeline
+n_mc <- 200
+theta0_hat_vec   <- rep(NA_real_, n_mc)
+alpha_hat_vec    <- rep(NA_real_, n_mc)
+revenue_loss_vec <- rep(NA_real_, n_mc)
+
+for (m in 1:n_mc) {
+  bd <- generate_booking_data(10000 + m, T_period, C_capacity, theta0, alpha, lambda_bar, price_menu)
+  if (length(bd$prices) < 5 || sd(bd$prices) < 1e-8) {
+    next
+  }
+  fit_m <- fit_logit_newton(bd$prices, bd$purchase)
+  a_hat_m <- fit_m$theta[2]
+  c_hat_m <- fit_m$theta[1]
+  theta0_hat_vec[m] <- c_hat_m
+  alpha_hat_vec[m] <- a_hat_m
+  if (!is.finite(c_hat_m) || !is.finite(a_hat_m) || a_hat_m <= 0 || a_hat_m > 1) {
+    next
+  }
+  dp_m <- solve_dp(T_period, C_capacity, c_hat_m, a_hat_m, lambda_bar, p_grid)
+  rev_m <- evaluate_policy_on_true_model(dp_m$pstar, T_period, C_capacity, theta0, alpha, lambda_bar)
+  revenue_loss_vec[m] <- revenue_true_policy - rev_m
+}
+
+mc_df <- data.frame(theta0_hat = theta0_hat_vec,
+                    alpha_hat = alpha_hat_vec,
+                    revenue_loss = revenue_loss_vec) %>%
+  filter(!is.na(revenue_loss))
+
+cat("有効な反復数:", nrow(mc_df), "/", n_mc, "\n")
+cat("theta0_hatの平均:", round(mean(mc_df$theta0_hat), 3), "（真値:", theta0, "）\n")
+cat("theta0_hatの標準偏差:", round(sd(mc_df$theta0_hat), 3), "\n")
+cat("alpha_hatの平均:", round(mean(mc_df$alpha_hat), 4), "（真値:", alpha, "）\n")
+cat("alpha_hatの標準偏差:", round(sd(mc_df$alpha_hat), 4), "\n")
+cat("収益ロスの平均:", round(mean(mc_df$revenue_loss), 1),
+    "（真の収益の", round(100*mean(mc_df$revenue_loss)/revenue_true_policy, 2), "%）\n")
+cat("収益ロスの中央値:", round(median(mc_df$revenue_loss), 1), "\n")
+```
+
+```{r}
+#| label: lec13-montecarlo-hist
+#| fig-cap: "推定誤差から生まれる収益ロスの分布（モンテカルロ200回）"
+p1 <- ggplot(mc_df, aes(x = alpha_hat)) +
+  geom_histogram(bins = 25, fill = "steelblue", alpha = 0.8) +
+  geom_vline(xintercept = alpha, linetype = "dashed", color = "firebrick") +
+  labs(x = expression(hat(alpha)), y = "頻度", title = "alpha_hatの標本分布")
+
+p2 <- ggplot(mc_df, aes(x = revenue_loss)) +
+  geom_histogram(bins = 25, fill = "darkorange", alpha = 0.8) +
+  labs(x = "収益ロス（真の政策の収益 − 推定政策の収益）", y = "頻度",
+       title = "収益ロスの分布")
+
+p1 + p2
+```
+
+この図が今日、そしてこのコース全体の最後のメッセージだ。政策は $(\hat\theta_0,\hat\alpha)$ の両方から作られるため、**需要パラメータの同時推定誤差がDPの政策選択を通じて非線形に収益ロスへ変換される。** 左図の $\hat\alpha$ はその同時分布の一つの周辺分布を見せているだけで、左図と右図のばらつきが一対一に対応するわけではない。収益ロスの分布は右に長く裾を引いており、「たいていはそこそこうまくいくが、稀に推定が大きく外れると収益が大きく毀損する」という構造になっている。需要推定・因果推論・異質性のモデリングにどれだけ手を抜くかが、巡り巡って「いくら儲け損なうか」という金額に直結する。**推定・推論の質が、意思決定を経てお金に変わる。**
+
+### フィードバックループ問題：本当に内生な価格DGPを作る
+
+価格が単に時間・在庫の決定論的関数で、当期の需要ショックがiidなら、価格変動が狭くても、それだけで価格内生性は生じない。識別が弱くなることと、誤差項との相関は別である。第3回の価格内生性を再現するには、**企業には見えるが分析者には見えない当期需要ショック**が、需要と価格の両方に入る必要がある。
+
+複数の販売シーズン $s$ を作り、需要ショックを
+
+$$
+\xi_{s,t}=\rho\xi_{s,t+1}+\nu_{s,t}
+$$
+
+と持続的にする。企業は $\xi_{s,t}$ を予約検索や競合情報から把握し、高需要時に価格を上げるが、分析者は $\xi_{s,t}$ を観測できない：
+
+ここで $t$ は残り期間なので、カレンダー時間が1期進むと添字は $t+1$ から $t$ へ減る。このため通常のAR(1)と見た目の添字方向が逆になっている。
+
+$$
+p_{s,t}=p^*(t,c)+\gamma\xi_{s,t},\qquad
+\Pr(y_{s,t}=1)=\Lambda(\theta_0+\xi_{s,t}-\alpha p_{s,t}).
+$$
+
+```{r}
+#| label: lec13-feedback-loop
+generate_price_panel <- function(seed, n_seasons, pricing,
+                                 T_period, C_capacity, theta0, alpha,
+                                 lambda_bar, pstar_policy, price_menu,
+                                 rho_xi = 0.75, sigma_nu = 0.55,
+                                 gamma_xi = 10) {
+  set.seed(seed)
+  out <- vector("list", n_seasons)
+  for (s in 1:n_seasons) {
+    c_remain <- C_capacity
+    xi <- rnorm(1, 0, sigma_nu / sqrt(1 - rho_xi^2))
+    rows <- vector("list", T_period)
+    k <- 0
+    for (t in T_period:1) {
+      if (c_remain == 0) break
+      xi <- rho_xi * xi + rnorm(1, 0, sigma_nu)
+      base_price <- pstar_policy[t + 1, c_remain + 1]
+      p <- if (pricing == "endogenous") {
+        pmin(max(p_grid), pmax(min(p_grid), base_price + gamma_xi * xi))
+      } else {
+        sample(price_menu, 1)  # xiと独立にランダム割当
+      }
+      if (runif(1) < lambda_bar) {
+        purchased <- as.numeric(runif(1) < sigmoid(theta0 + xi - alpha * p))
+        k <- k + 1
+        rows[[k]] <- data.frame(season = s, t = t, c = c_remain,
+                                price = p, purchase = purchased, xi = xi)
+        if (purchased == 1) c_remain <- c_remain - 1
+      }
+    }
+    out[[s]] <- bind_rows(rows[seq_len(k)])
+  }
+  bind_rows(out)
+}
+
+obs_panel <- generate_price_panel(
+  15015, 300, "endogenous", T_period, C_capacity, theta0, alpha,
+  lambda_bar, pstar_mat, price_menu)
+exp_panel <- generate_price_panel(
+  15016, 300, "randomized", T_period, C_capacity, theta0, alpha,
+  lambda_bar, pstar_mat, price_menu)
+
+fit_obs <- fit_logit_newton(obs_panel$price, obs_panel$purchase)
+fit_exp <- fit_logit_newton(exp_panel$price, exp_panel$purchase)
+# xiを観測できたと仮定する診断用のoracle。価格係数の符号を反転してalphaに直す。
+fit_exp_oracle <- glm(purchase ~ price + xi, family = binomial(), data = exp_panel)
+alpha_exp_oracle <- -unname(coef(fit_exp_oracle)["price"])
+
+endog_tbl <- data.frame(
+  data = c("企業がxiを見て価格設定（分析者はxiを欠落）",
+           "価格をxiと独立にランダム化（xiを欠落）",
+           "ランダム化＋xiを含むoracle", "構造パラメータの真値"),
+  alpha_hat = c(fit_obs$theta[2], fit_exp$theta[2], alpha_exp_oracle, alpha),
+  cor_price_xi = c(cor(obs_panel$price, obs_panel$xi),
+                   cor(exp_panel$price, exp_panel$xi),
+                   cor(exp_panel$price, exp_panel$xi), 0)
+)
+kable(endog_tbl, digits = 4,
+      caption = "価格支持の狭さではなく、価格と欠落需要ショックの相関が内生性を作る")
+```
+
+観察価格では高需要ショック時に高価格を付けるため、価格と欠落した $\xi$ が正に相関し、価格の負の効果を過小評価する方向へ働く。ランダム価格ではこの相関が切れ、各価格での**周辺的な購買確率**は因果的に比較できる。ただし、$\xi$ を積分した周辺需要曲線は一般に単純なlogitではない。logit係数は非可約（non-collapsible）でもあるので、$\xi$ を欠落した2行目の係数は標本を増やしても一般に真の構造係数 $\alpha$ へは一致しない。これはランダム化の失敗ではなく、構造logitと周辺的なworking logitのestimandが違うためである。構造係数を回収するには、oracle行のように $\xi$ を条件づけるか、その分布を明示して積分する必要がある。
+
+推論を行うなら同一シーズン内の系列相関を考慮し、シーズン単位でクラスタ化する。実務では完全なランダム化だけでなく、許容範囲内の探索価格、IV、需要ショックのproxy、方策の既知な割当確率を使う方法もある。
+
+## 6. 市場の需要から個人への施策、動学的な判断へ
+
+講義全体を、何を知り、何を計算したかったかという順番で振り返ろう。
+
+| 回 | データから知りたいこと | その推定を使った判断 |
+|---|---|---|
+| 2〜4 | 価格反応、代替性、好みの分布、費用 | 合併や投入価格の変化が市場に与える影響 |
+| 6 | 母集団分布と個人の履歴を合わせた好みの推定 | 個人について分かることと残る不確実性の整理 |
+| 7 | 個人別需要の予測と施策の増分利益 | クーポンの配布と実験による評価 |
+| 8 | 購買頻度・離脱の異質性 | 将来購買と長期の顧客価値の予測 |
+| 9 | 選択課題から分かる属性評価 | 新商品の設計、個人について集めたい情報 |
+| 11〜12 | 将来を考えた選択、固定的な好みと状態依存 | 購入時点や継続購買を変える施策 |
+| 13 | 消費者の待機、企業の在庫と販売期限 | 時間を通じた価格設定 |
+
+第4回では、個人の好みの違いが市場全体の代替性を変えた。第6回では、同じ異質性を、個人の履歴からその人について学ぶために使った。第7回で施策の増分利益を考え、第8回で時間軸を延ばし、第11回以降では消費者自身の先読みや状態の変化を加えた。対象は広がったが、モデルを推定して、条件を変えたときの行動を計算するという作業は共通している。
+
+因果推論も、この流れを通じて必要だった。価格がどう決まったのか、選択課題の属性をどう割り当てたのか、施策をどの顧客に配ったのかによって、データから学べる反応は変わる。モデルを詳しくすることと、介入への反応を識別できることは、別々に確認しよう。
 
 ## まとめ
 
 ::: {.callout-important}
-## この回のポイント
+## この講義のまとめ
 
-- **動学的離散選択**は「今日の行動が明日の状態を変え、その状態が将来の効用を左右する」forward-looking な意思決定を扱う。部品は、状態 $x$・行動 $a$・状態遷移 $P(x'\mid x,a)$・choice-specific value $v(x,a)$・価値関数 $V(x)$・Bellman 方程式。
-- **静学logitとの関係**：T1EV のもとで、Emax は logsum、選択確率は logit。静学で $\delta$ が座っていた場所に、将来価値込みの $v(x,a)$ が座るだけ。$V(x) = \log\sum_a e^{v(x,a)} + \gamma$。
-- **価値関数反復**は $\beta$ を縮小係数とする縮小写像（第4回 BLP contraction と同じ数学）。幾何収束する。走行距離が伸びるほど交換確率が上がる S 字が、DP の解として出る。
-- **NFXP**（Rust）：外側でパラメータを最適化し、内側で価値関数を解く最尤法である。状態空間が大きくなると、繰り返し価値関数を解く計算負担が増える。
-- **CCP**（Hotz-Miller）：$V(x) = v(x,a) + \gamma - \log P(a\mid x)$ を使い、選択確率から価値を表す。今回の交換モデルでは、交換後の状態が元の走行距離に依存しない性質を利用して線形回帰に帰着した。計算を短縮できる一方、最初に推定した選択確率の誤差にも注意が要る。
-- **反実仮想**：交換費を20%下げ、価値関数と選択確率を解き直した。将来価値を無視して推定すると、当期効用の係数も補助への反応も変わる。現在の行動が将来の状態を変え、意思決定者がそれを予見する場合には、その仕組みをモデルに入れる必要がある。
+- 消費者が将来価格を見て待つ場合、現在の需要は将来の価格にも依存する。待機を無視して作った価格案は、実施したときの利益を過大に予測しうる。
+- 在庫と販売期限を持つ企業は、今売る利益と在庫を残す価値を比べる。Bellman方程式から状態に応じた価格を計算できる。
+- 需要を推定して価格を選ぶと、その推定誤差が価格と収益に伝わる。価格案の作成と評価を分けて確認する。
+- 個人別の価格を選ぶときには個人の条件付き需要、時間や在庫に応じた価格を選ぶときには状態と需要の関係が必要になる。
+- 市場全体の需要から個人への施策、時間を通じた選択へと対象を広げても、何を変え、何を固定する反実仮想なのかを明確にすることは共通である。
+
 :::
+
+このコースでは、logit需要、IV、階層モデル、動的計画法について、モデルからデータを作り、そのデータを使って推定と反実仮想を確かめてきた。真の仕組みが分かるシミュレーションなら、どの仮定が結果を左右しているかを調べられる。新しい手法を学ぶときにも、小さな例を自分で動かして確かめることから始めてほしい。
 
 ## 宿題
 
 - ブラウザ実験室（[playground13.html](playground13.html)）で、今回のシミュレーションの数値を自分でいじって遊んでみよう。インストール不要、ブラウザだけでRが動く（初回ロードのみ30秒〜1分かかる）。
-1. **状態空間の呪いを体感する**。本文のコードで `K <- 20` を `K <- 100` に変えて価値関数反復を実行し、収束の反復数と実行時間がどう変わるか観察せよ。さらに NFXP を回すと、CCP との速度差がどう開くか。
-2. **CCP のノイズを見る**。本文の CCP 推定を、`set.seed` を変えて（あるいは `simulate_panel` を何度も呼んで）5回ほど繰り返し、推定値 $(\theta_1, RC)$ がどれくらいばらつくかを見よ。NFXP のばらつきと比べて、どちらが安定しているか。
-3. ChatGPT に「動学的離散選択モデルで割引因子 $\beta$ が識別しにくいのはなぜか、直感的に説明して」と聞いてみて、本文の説明（$\beta$ と flow utility がもつれる）と突き合わせよ。
-4. **反実仮想を変えて遊ぶ**。本文の反実仮想を「交換費を20%**値上げ**」（$RC \times 1.2$）に変えて、交換率・平均走行距離がどう動くか見よ。補助のときと符号が逆になるはずだ。
-5. coding 課題は `assignment13.qmd` を参照。$K=15$・$\beta=0.95$ 固定の縮小版 Rust モデルを自作し、NFXP と CCP を両方実装して比較し、交換費補助の反実仮想を動学と myopic で比べる。今日のすべてを自分の手で通す課題だ。
+1. 今日のRシミュ2のヒートマップで、`lambda_bar`（到着確率）を0.95から0.5まで下げるとヒートマップの色の分布がどう変わるか、手元で動かして確認してみよう。需要が弱くなると、在庫と期限による価格差はどうなるだろうか。
+2. Uber、JAL、ANA、あるいは身近なECサイトの価格が「いつ」「どんな条件で」動いているように見えるか、思い出してChatGPTに「この価格変動は、状態依存の価格ルールとして、どんな状態変数に反応していそうか」と聞いてみよう。今日の交通整理（(a)(b)(c)のどれに近いか）を当てはめて考えてみるとよい。
+3. coding課題は `assignment13.qmd` を参照。航空券1路線の予約データを自分で生成し、backward inductionで価格政策を作り、推定誤差が収益ロスにどう変換されるかをモンテカルロで確認してもらう。
 
-## 次回予告
+このコースの最後の課題でもある。期末レポート（research proposal）を書く上でも、「市場の需要→個人別の予測と施策→動学的な意思決定」のどこか1つの軸を深掘りするだけでなく、「その先にどんな意思決定（価格、ターゲティング、在庫）が待っているか」まで考えてみると、問いの立て方に厚みが出るはずだ。
 
-第14回では、購買履歴にもう一度戻る。第6〜9回では、固定的な個人差が繰り返しの選択を生むと考えた。それに対して、過去に選んだ経験そのものが、次の選択を変えている可能性もある。この2つを区別しないと、一度クーポンで買ってもらった後の効果を見誤る。
+## 補足1：ピーク時料金と時間帯ごとの機会費用
 
-前半では固定的な異質性と状態依存を区別し、後半では在庫を状態とする買いだめモデルを解く。セールによる売上増のどこまでが購入時点の移動なのかを考えたうえで、第15回の企業の価格設定へ進む。
+### Steinerの最小モデル
+
+電力会社を考える。需要は昼と夜で違う。昼の需要 $q_{\text{day}}(p)$ は夜の需要 $q_{\text{night}}(p)$ より大きいとしよう。発電容量 $K$ を1単位用意するコストを $c_K$（固定費、季節や時間帯によらない）、実際に発電する限界費用を $c_v$（可変費）とする。
+
+Steiner (1957) の洞察はシンプルだ。**容量は「一番厳しい期」のために用意しなければならない。** 昼の需要が容量制約に当たっているなら、容量費用 $c_K$ を負担すべきなのは昼の客だけであり、夜の客は可変費用 $c_v$ だけを払えばよい。逆に言えば、需要が少ない時間帯の客に容量費用を負担させるのは非効率だ。
+
+最小の数値例で確認する。
+
+```{r}
+#| label: lec13-peakload
+# 昼と夜、2期間の需要（線形、簡易的に）
+q_day   <- function(p) pmax(100 - 2 * p, 0)
+q_night <- function(p) pmax(40 - 2 * p, 0)
+
+c_v <- 5   # 可変費用（発電1単位あたり）
+c_K <- 20  # 容量費用（容量1単位を用意するコスト、固定費）
+K_capacity <- 50
+
+# ケースA: 容量費用を両期間で分担すると仮定した場合の価格
+# （素朴な「平均費用」的発想、非効率の例として）
+p_naive <- c_v + c_K / 2
+
+# ケースB: Steinerのルール。容量を「使う」期（昼）だけが容量費用を負担する。
+# 夜は可変費用のみ。昼は可変費用＋容量費用。
+p_night_efficient <- c_v
+p_day_efficient    <- c_v + c_K
+
+peak_df <- data.frame(
+  ルール = c("素朴な平均費用配分", "Steinerの効率的配分（昼）", "Steinerの効率的配分（夜）"),
+  価格   = c(p_naive, p_day_efficient, p_night_efficient),
+  需要量 = c(q_day(p_naive), q_day(p_day_efficient), q_night(p_night_efficient)),
+  注記 = c("比較用：昼需要", paste0("K=", K_capacity, "に一致（容量制約がbinding）"),
+           paste0("30<K=", K_capacity, "（slack）"))
+)
+kable(peak_df, digits = 1, caption = "peak-load pricing：ピークだけが容量の影価格を負担")
+```
+
+効率的ルールでは昼の需要は $q_D(25)=50$ なので設備容量 $K=50$ をちょうど使い切り、夜は $q_N(5)=30<K$ なので容量制約が緩い。昼の価格に入る $c_K$ は、容量投資の限界費用と一致する影価格である。素朴に容量費用を両期間へ機械的に折半すると、どの期が実際に限界容量を必要としているかを反映できない。
+
+### Real-time pricing と日本の実例
+
+Borenstein (2005) は、電力のreal-time pricing（RTP：卸売市場の変動をそのまま小売価格に反映させる仕組み）について、長期的な効率性の観点から論じている。多くの家庭は現在も「時間帯によらない一律料金」で電気を買っており、これはピーク時間帯の需要を過大にし、オフピーク時間帯の需要を過小にする非効率を生む。RTPを導入して価格が需給の逼迫を正しく反映するようにすれば、需要側が自然にピークを平準化するインセンティブを持つ、というのが基本的な主張である。
+
+日本でも時間帯別電力料金（深夜電力割引など）は昔からあるし、近年は再エネの出力変動に対応するためのダイナミックプライシング実証実験も各地で行われている。考え方はSteinerのモデルと同じで、「容量が逼迫する時間帯には高い価格を、余裕がある時間帯には低い価格を」という原理の実装だ。
+
+::: {.callout-note}
+## ビジネスの現場で：コンビニの発注と「時間帯別の機会費用」
+
+電力の話は大掛かりに聞こえるが、同じ発想は身近な小売にもある。コンビニの弁当売り場を考えると、昼のピーク時間帯に売り切れることは大きな機会損失（来た客が買えずに他店に流れる）だが、深夜に売れ残ることも廃棄コストという別の損失を生む。値引きのタイミングを「時間帯別の需給逼迫度」で決める、というのは発想としてはpeak-load pricingと同じ機会費用の考え方に立っている。この後のRMのbid price（席1つの機会費用）の考え方も、根っこは同じだ。
+:::
+
+
+## 補足2：サージ価格と需給の調整
+
+ride-hailing（配車サービス）のsurge pricing（需要急増時の価格上乗せ）は、航空券のRMとは少し違う顔をしている。RMは「限られた在庫を、期限までにどう配分するか」という問題だったが、surge pricingは「今この瞬間の需要と供給を、どうマッチさせるか」という問題だ。
+
+コンサートやスポーツイベントの終演直後を想像してほしい。何千人もの人が同時に配車を呼ぼうとするのに、その場にいるドライバーの数は限られている。価格を動かさなければ何が起きるか。まず、需要が供給をはるかに上回るので、多くの客が配車されずに待たされる。次に、通常価格のままだと、遠方のドライバーがわざわざそこまで向かうインセンティブがない。結果として、需給のミスマッチが解消されないまま待ち時間だけが伸びていく。
+
+サージ価格の役割は3つに整理できる。
+
+1. **需要抑制**：価格が上がることで、「今すぐでなくてもいい」客は配車を諦めたり、時間をずらしたりする。
+2. **供給喚起**：価格が上がることで、周辺エリアのドライバーがそのエリアに向かうインセンティブが生まれる。
+3. **マッチング摩擦の緩和**：需給が均衡に近づくことで、客とドライバーが出会うまでの待ち時間（マッチング摩擦）が短くなる。
+
+Uber自身は、需要が供給を上回ると価格が上がり、一部の利用者が待つ一方で混雑地域へ向かうドライバーの誘因が強まり、市場が再均衡へ向かう、と[公式ページ](https://www.uber.com/us/en/marketplace/pricing/surge-pricing/)で説明している。ただし、これは企業による制度説明であって因果効果の推定ではない。「サージを止めた技術障害で待ち時間が何倍になった」といった出典不明の逸話を実証結果として扱わず、次の査読論文が示す理論機序と実証的証拠を区別して読む。
+
+サージ価格をめぐっては、単純に「価格が上がれば供給が増える」というモデルだけでは説明しきれない現象も報告されている。
+
+::: {.callout-tip}
+## 研究コーナー：Castillo, Knoepfle, and Weyl (2024)
+
+**研究の問い**：サージ価格が発動していない、あるいは価格が低すぎる状況では、ride-hailing市場の需給調整はどのように失敗しうるか。
+
+**モデル・メカニズム**：需要が高いのに価格が低いままだと、空車の減少、迎車時間の増加、ドライバー収益の低下が互いを悪化させるフィードバックが起きうる。このマッチング失敗を"wild goose chase"（無駄足）と呼ぶ。迎車時間の増加は個々のドライバーの手間を増やすだけでなく、供給側の実効的な処理能力（単位時間あたりに対応できる客数）も引き下げる。
+
+**主要な発見**：価格が低すぎることは、単に「需要超過を放置する」だけでなく、この"wild goose chase"を通じて「供給側の効率そのものを壊す」方向に作用しうる。逆に言えば、適切なサージ価格は、需要を抑えるだけでなく、マッチングの空間的な効率性を保つことで、供給側の処理能力を守る役割も果たしている。
+
+**なぜこの講義のトピックと繋がるか**：RMの文脈では「価格は将来の座席という資源の機会費用を反映すべきだ」という話をしたが、surge pricingの文脈では「価格はマッチングの効率性（誰と誰がどれだけの手間で出会えるか）にも影響する」という、RMには無かった側面が登場する。今日学んだ「状態に応じて価格を変える」という枠組みが、在庫だけでなく空間的なマッチング効率にまで応用されている例として押さえておいてほしい。
+:::
+
+Galichon and Hsieh (2017) は、価格が規制されて市場を清算できず、待ち時間が非価格配分の役割を持つ分権的マッチング市場を分析する。その上で、ランダムな需要・供給についての信念が与えられたとき、市場設計者が期待非効率を小さくする価格をどう設定すべきか、というsurge pricing問題を考える。したがって、この論文は「あらゆる配車市場でサージが均衡を実現する」と保証するものではなく、待ち時間による配分と価格設計のトレードオフを明示する理論である。
+
+::: {.callout-important}
+## サージの再フレーミング
+
+「サージ価格は企業が儲けるための値上げだ」という理解だけでは不十分である。**サージは、需要を抑え、供給を呼び込み、マッチング摩擦を緩和することで、市場を「回す」役割を持ち得る価格**でもある。価格を動かさなければ超過需要が残り、多くの客が長く待つか、配車を受けられない可能性が高まる。もちろん、サージ価格が実際にどこまで「市場を回す」役に立っているか、どこからが単なる超過利潤の徴収になっているかは、実証的に検証すべき問いであり、規制当局や研究者の関心が今も続いている論点である。
+:::
+
+
+## 補足3：アルゴリズムによる価格競争
+
+Calvano, Calzolari, Denicolò and Pastorello (2020) は、反復価格競争のシミュレーションで、独立に学習するQ-learningのエージェントが競争的な水準を上回る価格を学ぶ場合を示した。これは、今回の一企業による在庫管理とは異なり、複数の企業が相手の反応を学習する問題である。企業ごとの価格設定を分析した先には、そうした相互作用も残っている。
 
 ## 参考文献
 
-- Rust, John (1987). "Optimal Replacement of GMC Bus Engines: An Empirical Model of Harold Zurcher." *Econometrica*, 55(5), 999–1033.
-- Hotz, V. Joseph, and Robert A. Miller (1993). "Conditional Choice Probabilities and the Estimation of Dynamic Models." *Review of Economic Studies*, 60(3), 497–529. https://doi.org/10.2307/2298122
-- Aguirregabiria, Victor, and Pedro Mira (2010). "Dynamic Discrete Choice Structural Models: A Survey." *Journal of Econometrics*, 156(1), 38–67.
-- Arcidiacono, Peter, and Paul B. Ellickson (2011). "Practical Methods for Estimation of Dynamic Discrete Choice Models." *Annual Review of Economics*, 3, 363–394.
-- Gowrisankaran, Gautam, and Marc Rysman (2012). "Dynamics of Consumer Demand for New Durable Goods." *Journal of Political Economy*, 120(6), 1173–1219. https://doi.org/10.1086/669540
-- 上武康亮・遠山祐太・若森直樹・渡辺安虎『実証ビジネス・エコノミクス』日本評論社。
+- Su, X. (2007). "Intertemporal Pricing with Strategic Customer Behavior." *Management Science*, 53(5), 726–741. https://doi.org/10.1287/mnsc.1060.0667
+- Steiner, P. O. (1957). "Peak Loads and Efficient Pricing." *Quarterly Journal of Economics*, 71(4), 585–610. https://doi.org/10.2307/1885712
+- Borenstein, S. (2005). "The Long-Run Efficiency of Real-Time Electricity Pricing." *Energy Journal*, 26(3), 93–116.
+- Gallego, G., and van Ryzin, G. (1994). "Optimal Dynamic Pricing of Inventories with Stochastic Demand over Finite Horizons." *Management Science*, 40(8), 999–1020. https://doi.org/10.1287/mnsc.40.8.999
+- Galichon, A., and Hsieh, Y.-W. (2017). "A Theory of Decentralized Matching Markets without Transfers, with an Application to Surge Pricing." USC-INET Research Paper 17-03. https://doi.org/10.2139/ssrn.2908532
+- Williams, K. R. (2022). "The Welfare Effects of Dynamic Pricing: Evidence from Airline Markets." *Econometrica*, 90(2), 831–858. https://doi.org/10.3982/ECTA16180
+- Castillo, J. C., Knoepfle, D., and Weyl, E. G. (2024). "Matching and Pricing in Ride Hailing: Wild Goose Chases and How to Solve Them." *Management Science*, 71(5), 4377–4395. https://doi.org/10.1287/mnsc.2022.00096 (previous drafts were titled "Surge Pricing Solves the Wild Goose Chase.")
+- Calvano, E., Calzolari, G., Denicolò, V., and Pastorello, S. (2020). "Artificial Intelligence, Algorithmic Pricing, and Collusion." *American Economic Review*, 110(10), 3267–3297.

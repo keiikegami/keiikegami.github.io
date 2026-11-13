@@ -1,5 +1,5 @@
 ---
-title: "課題11：BG/NBDによる顧客ベース分析とCLV試算"
+title: "課題11：動学的離散選択 — Rust の NFXP と Hotz-Miller の CCP"
 subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -26,7 +26,7 @@ library(dplyr)
 library(tidyr)
 library(knitr)
 
-set.seed(202611)
+set.seed(202613)
 
 theme_lecture <- function() {
   fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
@@ -40,292 +40,402 @@ options(scipen = 8)
 ::: {.callout-important}
 ## この課題のねらい
 
-第11回でやったBG/NBDモデル（購買頻度・離脱・顧客価値の推定）を、講義ノートとは別のパラメータ設定で最初から最後まで通す。
+第11回でやった **動学的離散選択**（Rust のバスエンジン交換モデル）を、自分の手で最初から最後まで通す。価値関数反復で DP を解き、パネルを生成し、**NFXP**（Rust）と **Hotz-Miller の CCP**（renewal action の finite dependence）の両方でパラメータを推定し、そして交換費補助の**反実仮想**を、正しい動学モデルと myopic（$\beta=0$）モデルとで比べる。今日の技術を全部使う、重めの課題だ。焦らず、まず DP を解いて S 字が出ることを確かめ、それから推定・反実仮想へ進もう。
 
-- **Part 1**：ネットスーパーの顧客ベース（N=2,000、calibration 52週+holdout 26週）を自作する（30点）。
-- **Part 2**：自作対数尤度でのMLE、P(alive)、holdout検証、CLV試算、そして「このリストで何をしてはいけないか」という解釈問題（70点）。
+- **Part 1**：$K=15$・$\beta=0.95$ 固定の縮小版 Rust モデルを自作し、DP を解き、200台×100ヶ月のパネルを生成する（40点）。
+- **Part 2**：NFXP と CCP で真値を回収し、交換費補助の反実仮想を動学と myopic で比べる（60点）。
 
-配点は合計100点。手を動かせば2〜4時間で終わる分量。ヒントcalloutを随所に置くので、困ったら参照すること。
+配点は合計100点。手を動かせば2〜4時間で終わる分量。穴埋めコードの骨格を惜しみなく与えるので、まず埋めることから始めよ。
 :::
 
-この課題は講義ノート（`lecture11.qmd`）と同じ構造だが、**真のパラメータ値と文脈は変えてある**。ノートのコードをコピペするだけでは正しい答えにならないので、自分で理解して埋めること。
+この課題は講義ノート（`lecture11.qmd`）と同じ構造だが、**設定（状態数・パラメータ値・状態遷移）は変えてある**。ノートのコードをコピペするだけでは通らないので、自分で理解して埋めること。とくに $K=15$、$\theta_1=0.25$、$RC=5.0$、状態遷移の確率が講義と違う点に注意。
+
+::: {.callout-note}
+## 記法（第11回の再掲）
+
+$\beta$ は**割引因子**（$=0.95$ に固定）。効用のパラメータは $\theta$。状態 $x$（走行距離、$0 \ldots K-1$）、行動 $a \in \{0=\text{維持}, 1=\text{交換}\}$。flow utility は $u(x,0) = -\theta_1 x$、$u(x,1) = -RC$。T1EV ショックのもとで $V(x) = \log(e^{v(x,0)} + e^{v(x,1)}) + \gamma$、選択確率は logit。
+:::
 
 ---
 
-# Part 1：ネットスーパーの顧客ベースを自作する（30点）
-
-初回購買の直後を時点0とし、その時点では全員が活動中とする。シミュレーションで数えるのは、その後の反復購買である。初回購買自体での離脱は置かず、反復購買直後だけに離脱が起きる。このため、反復購買が0回ならモデル上のP(alive)は1となる。
+# Part 1：縮小版 Rust モデルを自作する（40点）
 
 ## 舞台設定
 
-あるネットスーパーの顧客N=2,000人について、52週間のcalibration期間と、その後26週間のholdout期間の購買履歴をシミュレーションする。
-
-モデル（条件付き分布の束）はBG/NBDそのものである。
-
-- 顧客が生きている間、購買はPoisson過程に従う：週あたり購買率 $\lambda_i \sim \text{Gamma}(r, \alpha)$ で異質。
-- 各購買の直後、確率 $p_i$ でこの顧客は離脱する：$p_i \sim \text{Beta}(a, b)$ で異質。
+社用車フリートの整備担当を考える。各車両のエンジンについて、毎月「維持（そのまま使う）」か「交換（載せ替える）」かを決める。走行距離を $K=15$ 状態のグリッド $x \in \{0, \ldots, 14\}$ で表す。
 
 **真のパラメータ**（あなたはこれを後で推定で回収する）：
 
 | 記号 | 意味 | 値 |
 |---|---|---|
-| $r$ | 購買率Gammaの形状パラメータ | 0.9 |
-| $\alpha$ | 購買率Gammaのrateパラメータ（scaleではない） | 7.0 |
-| $a$ | 離脱確率Betaの形状パラメータ1 | 0.9 |
-| $b$ | 離脱確率Betaの形状パラメータ2 | 3.2 |
+| $\beta$ | 割引因子（**固定、推定しない**） | 0.95 |
+| $\theta_1$ | 維持費の傾き（1状態あたり） | 0.25 |
+| $RC$ | エンジン交換費 | 5.0 |
 
-::: {.callout-tip}
-## ヒント：パラメータのスケール感覚
+**状態遷移**（講義とは確率が違う）：維持すると距離は $+0/+1/+2$ 状態進み、その確率は $(0.25, 0.50, 0.25)$。交換すると $x=0$ にリセットしてから同じ分布で進む。
 
-$E[\lambda] = r/\alpha$、$E[p] = a/(a+b)$ は、このパラメータ化のもとでの正確な平均である。ここで$\alpha$は**rate**なので、Rでは`rgamma(..., rate = alpha)`と書く。上の値から週あたり平均購買率と平均離脱確率を計算し、DGPのスケールを検算してから先へ進もう。
-:::
+## 問1（15点）：状態遷移行列と価値関数反復
 
-## 問1（10点）：購買イベントをシミュレーションする
-
-以下の骨格を埋めて、N=2,000人・観測期間78週（calibration 52週 + holdout 26週）の購買イベント履歴を生成せよ。各顧客について、`rgamma()`で$\lambda_i$を、`rbeta()`で$p_i$を引き、Poisson過程＋幾何離脱で購買イベントの時刻列を生成する関数を完成させること。
+状態遷移行列 $P_0$（維持）・$P_1$（交換）を作り、価値関数反復で DP を解く関数 `solve_vfi` を完成させよ。$V(x)$ の更新は Emax = logsum：$V^{\text{new}}(x) = \log(e^{v(x,0)} + e^{v(x,1)}) + \gamma$。数値安定化のため「最大値を引いてから exp」すること。
 
 ```{r}
-#| eval: false
-N <- 2000
-T_cal <- 52
-T_holdout <- 26
-T_total <- T_cal + T_holdout
+# ---- 基本設定 ----
+K     <- 15
+beta  <- 0.95
+theta1_true <- 0.25
+RC_true     <- 5.0
+p_trans <- c(0.25, 0.50, 0.25)          # 維持で +0/+1/+2 進む確率（講義と違う！）
+EULER   <- 0.5772156649015329
+xs <- 0:(K - 1)
 
-r_true <- 0.9; alpha_true <- 7.0; a_true <- 0.9; b_true <- 3.2
-
-lambda_true <- ______   # 【穴埋め】rgamma()でN人分の週次購買率を引く
-p_true      <- ______   # 【穴埋め】rbeta()でN人分の離脱確率を引く
-
-simulate_full_history <- function(lambda, p_drop, T) {
-  t <- 0
-  events <- c()
-  repeat {
-    wait <- ______              # 【穴埋め】次の購買までの待ち時間(指数分布)
-    t_next <- t + wait
-    if (t_next > T) break
-    t <- t_next
-    events <- c(events, t)
-    if (______) break           # 【穴埋め】確率p_dropで離脱(runif()を使う)
+# 状態遷移行列（1-index に注意。状態値は x-1）
+build_transition <- function(K, p) {
+  nj <- length(p)
+  P0 <- matrix(0, K, K); P1 <- matrix(0, K, K)
+  for (x in 1:K) {
+    xv <- x - 1
+    for (j in 1:nj) {
+      jj <- j - 1
+      P0[x, min(xv + jj, K - 1) + 1] <- P0[x, min(xv + jj, K - 1) + 1] + p[j]
+      P1[x, min(0  + jj, K - 1) + 1] <- P1[x, min(0  + jj, K - 1) + 1] + p[j]
+    }
   }
-  events
+  list(P0 = P0, P1 = P1)
+}
+tr <- build_transition(K, p_trans)
+P0 <- tr$P0; P1 <- tr$P1
+
+flow_utils <- function(theta1, RC) list(u0 = -theta1 * xs, u1 = rep(-RC, K))
+```
+
+```{r}
+#| eval: false
+# ---- この関数を完成させる ----
+solve_vfi <- function(theta1, RC, tol = 1e-10, maxit = 2000, bta = beta) {
+  uu <- flow_utils(theta1, RC)
+  V  <- rep(0, K)
+  errs <- numeric(0)
+  for (it in 1:maxit) {
+    v0 <- uu$u0 + bta * as.vector(P0 %*% V)     # choice-specific value（維持）
+    v1 <- ______                                # 【穴埋め】choice-specific value（交換）
+    m  <- pmax(v0, v1)
+    Vnew <- ______                              # 【穴埋め】logsum + Euler 定数（数値安定化込み）
+    err  <- max(abs(Vnew - V))
+    errs <- c(errs, err)
+    V <- Vnew
+    if (err < tol) break
+  }
+  v0 <- uu$u0 + bta * as.vector(P0 %*% V)
+  v1 <- uu$u1 + bta * as.vector(P1 %*% V)
+  list(V = V, v0 = v0, v1 = v1, errs = errs, niter = length(errs))
 }
 
-all_events <- vector("list", N)
-for (i in 1:N) {
-  all_events[[i]] <- simulate_full_history(lambda_true[i], p_true[i], T_total)
+ccp_replace <- function(v0, v1) {
+  m <- pmax(v0, v1)
+  ______                                        # 【穴埋め】P(交換|x) の logit
 }
+```
+
+```{r}
+#| eval: false
+# ---- 動作確認（穴埋め後に eval: true にして実行）----
+sol <- solve_vfi(theta1_true, RC_true)
+Pr  <- ccp_replace(sol$v0, sol$v1)
+cat("収束反復数:", sol$niter, "\n")
+cat("P(交換|x) が単調増加:", all(diff(Pr) >= -1e-12), "\n")
+cat("P(交換|x):", round(Pr, 3), "\n")
+
+# 収束（対数目盛）と S 字を1枚ずつ
+library(patchwork)
+p_conv <- ggplot(data.frame(iter = seq_along(sol$errs), err = sol$errs), aes(iter, err)) +
+  geom_line(color = "#1f77b4") + scale_y_log10() +
+  labs(title = "価値関数反復の収束", x = "反復", y = "更新幅（対数）")
+p_scurve <- ggplot(data.frame(x = xs, P = Pr), aes(x, P)) +
+  geom_line(color = "#d62728", linewidth = 1) + geom_point() +
+  labs(title = "交換確率 P(交換|x)", x = "走行距離 x", y = "P(交換|x)")
+p_conv + p_scurve
 ```
 
 ::: {.callout-tip}
-## ヒント：待ち時間の分布
+## ヒント：状態遷移行列の作り方と logsum
 
-率$\lambda$のPoisson過程では、次のイベントまでの待ち時間は指数分布 $\text{Exp}(\lambda)$ に従う。Rでは`rexp(1, rate = lambda)`で1つ引ける。
+- **遷移行列**：各行 $x$ が「次期状態の確率分布」になる（行和=1）。維持は今の $x$ から距離が進む、交換は $x=0$ から進む。`min(..., K-1)` で上限に張り付かせるのを忘れずに。$P_1$ は**全行が同じ**になるはず（交換=リセットなので現在状態に依存しない）。これが renewal action の性質で、Part 2 の CCP で効いてくる。
+- **logsum の数値安定化**：`log(exp(v0) + exp(v1))` は、$v$ が大きいと `exp` がオーバーフローする。各状態で `m <- pmax(v0, v1)` を引いてから `m + log(exp(v0 - m) + exp(v1 - m))` とする（第2回の overflow 対策と同じ）。最後に `+ EULER`（Euler 定数 $\gamma$）を足す。
 :::
 
-## 問2（10点）：calibration期間のRFM要約統計量を作る
+## 問2（15点）：パネルを生成し、replacement cycle を可視化する
 
-観測期間全体のイベント履歴`all_events`から、**calibration期間(52週)だけを見た**購買回数 $x$ と最終購買時点 $t_x$ を計算せよ（holdout期間の情報を使ってはいけない）。
+解いた交換方針に従って動く 200台×100ヶ月のパネルを生成せよ。各期、各車両は自分の状態 $x$ の交換確率 $P(\text{交換}\mid x)$ に従って交換を決め、状態が遷移する。数台ぶんの走行距離の軌跡（のこぎり歯 = replacement cycle）を描くこと。
 
 ```{r}
 #| eval: false
-x_cal  <- sapply(all_events, function(ev) ______)      # 【穴埋め】52週以内のイベント数
-tx_cal <- sapply(all_events, function(ev) {
-  ev_cal <- ev[ev <= T_cal]
-  if (length(ev_cal) == 0) 0 else ______                # 【穴埋め】52週以内の最終購買時点
-})
+simulate_panel <- function(n_bus, n_month, theta1, RC, burn = 50) {
+  sol <- solve_vfi(theta1, RC)
+  Pr  <- ccp_replace(sol$v0, sol$v1)
+  total_T <- n_month + burn
+  X <- matrix(0L, n_bus, total_T); A <- matrix(0L, n_bus, total_T)
+  x <- sample(0:(K - 1), n_bus, replace = TRUE)
+  for (t in 1:total_T) {
+    u <- runif(n_bus)
+    a <- ______                                 # 【穴埋め】状態 x の交換確率で交換判定（0/1）
+    X[, t] <- x
+    A[, t] <- a
+    jump <- sample(0:2, n_bus, replace = TRUE, prob = p_trans)
+    x <- ______                                 # 【穴埋め】交換なら 0+jump にリセット、維持なら x+jump（上限 K-1）
+  }
+  list(X = X[, (burn + 1):total_T], A = A[, (burn + 1):total_T])
+}
+
+n_bus <- 200; n_month <- 100
+panel <- simulate_panel(n_bus, n_month, theta1_true, RC_true)
+X <- panel$X; A <- panel$A
+cat("全体の交換率:", round(mean(A), 4), "  平均走行距離:", round(mean(X), 3), "\n")
+
+# 数台の軌跡（赤点 = 交換した月）
+show_bus <- c(1, 2, 3, 4)
+df_traj <- do.call(rbind, lapply(show_bus, function(b)
+  data.frame(month = 1:n_month, mileage = X[b, ], bus = paste0("車", b), replace = A[b, ])))
+ggplot(df_traj, aes(month, mileage)) +
+  geom_line(color = "grey50") +
+  geom_point(data = subset(df_traj, replace == 1), color = "#d62728", size = 1.6) +
+  facet_wrap(~ bus, ncol = 2) +
+  labs(title = "走行距離の軌跡と交換タイミング", x = "月", y = "走行距離 x")
 ```
 
-## 問3（10点）：可視化と記述統計
+::: {.callout-tip}
+## ヒント：交換判定と状態リセット
 
-次の2つの図を作成せよ。
+- **交換判定**：`u < Pr[x + 1]` で `TRUE/FALSE` が出るので `as.integer(...)` で 0/1 に。`Pr` は 1-index なので状態 $x$ の確率は `Pr[x + 1]`。
+- **状態更新**：`ifelse(a == 1L, pmin(0 + jump, K - 1), pmin(x + jump, K - 1))`。交換したら 0 から、維持なら今の $x$ から距離が進む。
+- **burn-in**：初期状態をランダムに置いたので、最初の数十期は定常分布に落ち着くまでの過渡期。`burn = 50` 期を捨てて、定常に近い部分だけ残す。
+:::
 
-(a) 20人分程度をサンプリングした「購買タイムライン図」（横軸=週、点=購買イベント、講義ノートのRシミュ1と同じ形式）。
-(b) 全顧客の $(t_x, x)$ 散布図（講義ノートと同じ形式）。
+## 問3（10点）：状態ごとの交換頻度を確認する
 
-加えて、次の記述統計を出力せよ：$x=0$の顧客の割合、$x$の平均・最大値、calibration期間の総購買回数。
+状態ごとの経験交換頻度 $\hat P(\text{交換}\mid x)$ を計算し、モデルの交換確率 $P(\text{交換}\mid x)$ と重ねて描け。観測数の少ない（薄い）状態がどこか、$x=0$ の交換頻度がどうなっているかを確認し、2〜3文でコメントせよ（この観察が Part 2 の CCP 推定で効いてくる）。
 
 ```{r}
 #| eval: false
-# ---- ここに(a)(b)の図と記述統計を書く ----
+freq_by_state  <- sapply(0:(K - 1), function(xv) { m <- (X == xv); if (sum(m) > 0) mean(A[m]) else NA })
+count_by_state <- sapply(0:(K - 1), function(xv) sum(X == xv))
+
+df_freq <- data.frame(x = xs, emp = freq_by_state, model = Pr)
+ggplot(df_freq, aes(x)) +
+  geom_line(aes(y = model), color = "#1f77b4", linewidth = 1) +
+  geom_point(aes(y = emp), color = "#d62728", size = 1.8) +
+  labs(title = "経験頻度（赤）vs モデル（青）", x = "走行距離 x", y = "P(交換|x)")
+cat("状態ごとの観測数:", count_by_state, "\n")
 ```
 
 ::: {.callout-note}
 ## この課題での記述統計の意味
 
-$x=0$の顧客が何%いるかを確認しておくことは重要である。この割合が極端に高い（例えば80%以上）なら、観測期間やパラメータの設定を見直すべきサインかもしれない。適度に購買のバリエーションがあるデータになっているか、この段階で確認しておこう。
+高走行距離の状態は観測が薄く、経験頻度がガタつく（交換でリセットされるので、そもそも高い $x$ に長居しない）。逆に $x=0$（交換直後）は観測は多いが交換はまず起きず、経験頻度がほぼ0になる。この「$\hat P = 0$（$\log$ が $-\infty$）」と「薄い状態のノイズ」が、CCP 推定で対処すべき2つの問題だ。
 :::
 
 ---
 
-# Part 2：推定・P(alive)・holdout検証・CLV（70点）
+# Part 2：推定と反実仮想（60点）
 
-## 問4（20点）：BG/NBD対数尤度の実装とMLE
+## 問4（15点）：NFXP（Rust の方法）で推定する
 
-BG/NBDの対数尤度
-
-$$
-L(r,\alpha,a,b \mid x, t_x, T) = \frac{B(a, b+x)}{B(a,b)} \cdot \frac{\Gamma(r+x)\,\alpha^r}{\Gamma(r)} \cdot \frac{1}{(\alpha+T)^{r+x}}
-\;+\; \mathbb{1}[x>0] \cdot \frac{B(a+1, b+x-1)}{B(a,b)} \cdot \frac{\Gamma(r+x)\,\alpha^r}{\Gamma(r)} \cdot \frac{1}{(\alpha+t_x)^{r+x}}
-$$
-
-を自作し、`optim()`でパラメータを推定せよ。真値との比較表、およびHessianからのSE・95%信頼区間の表を作ること。
+NFXP の負の対数尤度を完成させ、`optim` で $(\theta_1, RC)$ を推定せよ。**内側で価値関数反復を解き切る**のがキモ。$\beta = 0.95$ に固定すること（**推定しない**）。真値回収表と Hessian からの標準誤差を出し、実行時間を測れ。
 
 ```{r}
 #| eval: false
-logsumexp2 <- function(log_a, log_b) {
-  m <- pmax(log_a, log_b)
-  m + log(exp(log_a - m) + exp(log_b - m))
+# ---- NFXP の負の対数尤度（内側で DP を解き切る）----
+neg_loglik_nfxp <- function(theta, X, A) {
+  theta1 <- theta[1]; RC <- theta[2]
+  if (theta1 <= 0 || RC <= 0) return(1e10)
+  sol <- solve_vfi(theta1, RC, tol = 1e-8, maxit = 1000)   # ← 内側の DP
+  m   <- pmax(sol$v0, sol$v1)
+  lae <- m + log(exp(sol$v0 - m) + exp(sol$v1 - m))        # log(exp v0 + exp v1)
+  logp1 <- ______                                          # 【穴埋め】log P(交換|x)
+  logp0 <- ______                                          # 【穴埋め】log P(維持|x)
+  xr <- as.vector(X) + 1; ar <- as.vector(A)
+  ll <- sum(ifelse(ar == 1L, logp1[xr], logp0[xr]))
+  -ll
 }
 
-bgnbd_loglik <- function(r, alpha, a, b, x, tx, T) {
-  ln_Bab <- lbeta(a, b)
+t0 <- Sys.time()
+fit_nfxp <- optim(par = c(0.15, 3.0), fn = neg_loglik_nfxp, X = X, A = A,
+                  method = "Nelder-Mead", control = list(reltol = 1e-9, maxit = 2000),
+                  hessian = TRUE)
+t1 <- Sys.time()
+nfxp_time <- as.numeric(difftime(t1, t0, units = "secs"))
 
-  ln_A0 <- ______                       # 【穴埋め】第1項(常に生きている経路)の対数
-
-  ln_A1 <- rep(-Inf, length(x))
-  idx <- x > 0
-  ln_A1[idx] <- ______                  # 【穴埋め】x>0の行だけ第2項を計算
-
-  logsumexp2(ln_A0, ln_A1)
-}
-
-neg_loglik_bgnbd <- function(theta_log, x, tx, T) {
-  params <- exp(theta_log)
-  r <- params[1]; alpha <- params[2]; a <- params[3]; b <- params[4]
-  -sum(bgnbd_loglik(r, alpha, a, b, x, tx, T))
-}
-
-theta_init <- log(c(r = 1, alpha = 1, a = 1, b = 1))
-
-opt_result <- optim(
-  par = theta_init, fn = neg_loglik_bgnbd,
-  x = x_cal, tx = tx_cal, T = rep(T_cal, N),
-  method = "L-BFGS-B", hessian = TRUE
+se_nfxp <- sqrt(diag(solve(fit_nfxp$hessian)))
+recovery <- data.frame(
+  parameter = c("theta1", "RC"),
+  truth     = c(theta1_true, RC_true),
+  estimate  = round(fit_nfxp$par, 4),
+  se        = round(se_nfxp, 4),
+  ci_lower  = round(fit_nfxp$par - 1.96 * se_nfxp, 4),
+  ci_upper  = round(fit_nfxp$par + 1.96 * se_nfxp, 4)
 )
-
-theta_hat <- exp(opt_result$par)
-names(theta_hat) <- c("r", "alpha", "a", "b")
-
-# ---- ここにHessianからのSE・信頼区間の計算と、真値との比較表を書く ----
+kable(recovery, caption = "NFXP：真値回収と標準誤差")
+cat("NFXP 実行時間:", round(nfxp_time, 2), "秒\n")
 ```
 
-::: {.callout-tip}
-## ヒント：x=0の場合分けとlogsumexpの安定化
+::: {.callout-warning}
+## 識別上の注意：$\beta$ を選択データだけで推定する難しさ
 
-$x=0$のときに第2項を計算してはいけない理由を、講義ノートに戻って確認しよう。また、`ln_A0`と`ln_A1`を単純に`exp()`してから足して`log()`を取ると、パラメータの初期値次第で数値がオーバーフロー・アンダーフローしうる。`logsumexp2()`を必ず経由すること。`ifelse(x > 0, ..., -Inf)`は非採用行の式まで評価して警告を出しうるので、上の骨格のように`idx <- x > 0`で対象行だけ計算する。
-
-Hessianの逆行列から得るSEは、正しく特定された独立同分布の尤度を前提にした**モデルベースSE**であることも1文で明記せよ。
+この課題では **$\beta$ を推定対象に加えない**。選択データだけでは割引因子とflow utilityを一般に分離できず、追加の除外制約・外部情報・正規化が要る。ここの尤度へ無制約に$\beta$を足すと目的関数が平坦・不安定になり、探索が$\beta>1$や負の値へ飛ぶこともある。$\beta=0.95$を固定して$(\theta_1,RC)$だけを推定し、必要なら別の固定値で感度分析する。
 :::
 
-## 問5（15点）：P(alive)の計算と解釈
+## 問5（15点）：Hotz-Miller の CCP で推定する
 
-全顧客にP(alive)を付与し、その分布をヒストグラムで示せ。さらに、**「$t_x$は同じだが$x$が大きく異なる2人の顧客」を探し出し（または講義ノートのように架空の例を作り）、P(alive)がどう変わるかを示して、その理由を3〜4文で解釈せよ**。
-
-```{r}
-#| eval: false
-palive_bgnbd <- function(r, alpha, a, b, x, tx, T) {
-  ratio <- (alpha + T) / (alpha + tx)
-  term <- ifelse(x > 0, (a / (b + x - 1)) * ratio^(r + x), 0)
-  1 / (1 + term)
-}
-
-# ---- ここにP(alive)の付与・ヒストグラム・recency同一/frequency違いの例を書く ----
-```
-
-::: {.callout-tip}
-## ヒント：「recency同じ、frequency違い」のペアの探し方
-
-実データに近い形で探すなら、`tx_cal`が近い値（例えば±1週以内）の顧客を集め、その中で`x_cal`が最小の人と最大の人を比較するとよい。あるいは講義ノートのように、$t_x$を固定した架空の$x$の値（例：1, 5, 10, 20）でP(alive)を計算し比較する方法でもよい。
-:::
-
-## 問6（15点）：holdout 26週の検証
-
-推定したパラメータを使い、次の2つの検証を行え。
-
-(i) holdout期間(26週)の**週次累積購買数**について、実績と予測を重ねた折れ線図（トラッキングプロット）。
-(ii) 個人レベルの**予測購買数デシル別の実績平均**（校正確認の棒グラフ）。
-
-将来購買数の予測には、講義ノートと同じ方針を使うこと。具体的には、calibration終了時点で生存している経路について
+CCP アプローチを実装せよ。**renewal action（交換=リセット）の finite dependence** で、価値関数を解かずに線形回帰で $\theta$ を得る。恒等式は
 
 $$
-\lambda\mid x,T,\mathrm{alive}\sim\mathrm{Gamma}(r+x,\ \mathrm{rate}=\alpha+T),\qquad
-p\mid x,\mathrm{alive}\sim\mathrm{Beta}(a,b+x)
+\underbrace{\log \hat P(1\mid x) - \log \hat P(0\mid x) + \beta \sum_{x'}\big[P_1 - P_0\big](x'\mid x)\,\log \hat P(1\mid x')}_{=:\ y(x)}
+\;=\; \theta_1\, x - RC.
 $$
 
-から$\lambda,p$を引き、P(alive)で開始時点の活動状態を引く。生存パスでは、待ち時間を$\mathrm{Exp}(\lambda)$から引き、**予測期間内の各購買直後に確率$p$で離脱判定**を行うこと。開始時点で生存した顧客を26週間ずっと生存扱いしてはいけない。
+$y(x)$ を経験 CCP から計算し、$x$ に回帰する（傾き=$\theta_1$、切片=$-RC$）。$\hat P=0$対策にはJeffreys/add-half平滑化 $(n_1+0.5)/(n+1)$ を使う（Laplace/add-oneは $(n_1+1)/(n+2)$）。薄い状態対策として観測数 $\geq30$ の状態をWLSに使う。
 
 ```{r}
 #| eval: false
-simulate_future_path <- function(lambda, p_drop, horizon_weeks) {
-  # 【穴埋め】待ち時間→購買を記録→確率p_dropで離脱、を期間終了まで繰り返す
+diffP <- P1 - P0
+
+# 状態ごとの交換回数 n1 と観測回数 n
+n_x  <- sapply(0:(K - 1), function(xv) sum(X == xv))
+n1_x <- sapply(0:(K - 1), function(xv) sum(A[X == xv]))
+
+# Jeffreys/add-half 平滑化した CCP
+Psm    <- (n1_x + 0.5) / (n_x + 1.0)
+logP1h <- log(Psm); logP0h <- log(1 - Psm)
+
+# 将来項の logP1（未観測状態は最も近い観測状態で代用。境界も安全に処理）
+logP1h_full <- logP1h
+observed_idx <- which(n_x > 0)
+if (length(observed_idx) == 0) stop("CCPを計算できる観測状態がない")
+for (idx in which(n_x == 0)) {
+  nearest <- observed_idx[which.min(abs(observed_idx - idx))]
+  logP1h_full[idx] <- logP1h[nearest]
 }
 
-simulate_holdout_weekly <- function(r_hat, alpha_hat, a_hat, b_hat,
-                                    x, T_cal, p_alive, n_weeks, S = 20) {
-  # 【穴埋め】事後lambda・事後p・開始時点の活動状態を引き、
-  # event timeを(w-1,w]へ集計してS本の平均を返す
-}
+# y(x) を計算 → 観測数>=30 の状態で重み付き回帰
+y_hat <- ______                                 # 【穴埋め】logP1h - logP0h + beta * (P1-P0) 行 x logP1h_full
+good  <- n_x >= 30
+fit_ccp <- lm(y_hat ~ xs, weights = n_x, subset = good)
 
-# ---- ここに(i)(ii)の全顧客への適用と図を書く ----
+theta1_ccp <- coef(fit_ccp)[2]
+RC_ccp     <- -coef(fit_ccp)[1]                 # 切片が -RC
+cat("CCP：theta1 =", round(theta1_ccp, 4), " RC =", round(RC_ccp, 4),
+    "  （使った状態数:", sum(good), "）\n")
+```
+
+```{r}
+#| eval: false
+# NFXP と CCP を並べる
+compare_tbl <- data.frame(
+  method = c("NFXP", "CCP"),
+  theta1 = round(c(fit_nfxp$par[1], theta1_ccp), 4),
+  RC     = round(c(fit_nfxp$par[2], RC_ccp), 4)
+)
+kable(compare_tbl, caption = "NFXP vs CCP", row.names = FALSE)
 ```
 
 ::: {.callout-tip}
-## ヒント：なぜシミュレーションで評価するのか
+## ヒント：finite dependence がなぜ効くか（講義の復習）
 
-将来購買数の条件付き期待値には、教科書的にはガウス超幾何関数を含む閉形式が存在するが、この課題では実装しない。イベントツリーは「T時点で離脱済みなら0、生存なら次の待ち時間、期間内なら購買、購買直後に離脱なら終了、生存なら次の待ち時間へ」である。予測でもDGPと同じ順序を保つこと。
+交換すると状態が $x=0$ にリセットされる（$P_1$ が全行同じ）。だから「交換後の将来価値」は現在状態によらない定数になり、$v(x,1)-v(x,0)$ の将来項の差をとると**打ち消える**。残るのは遷移確率（既知）と CCP（データから推定可能）だけ。だから価値関数反復なしで $\theta$ が線形回帰で出る。まず**真の CCP**（`ccp_replace(sol$v0, sol$v1)`）で $y(x) = \theta_1 x - RC$ が厳密に成り立つことを確認すると、恒等式の実装が正しいか検算できる（講義ノート参照）。
 :::
 
-## 問7（10点）：上位10%顧客のCLV試算
+::: {.callout-warning}
+## よくあるバグ：$\gamma$ 定数の扱いと将来項の符号
 
-1回の購買あたりの粗利を`margin = 1200`円、実効年率を`10%`として、全顧客のCLV（2年間のホライズン）を計算し、CLV上位10%の顧客の一覧（顧客ID、x、t_x、P(alive)、CLV）を表として示せ。ここでのCLVは無限期間の生涯価値ではなく、104週で打ち切った予測価値である。$\lambda$、待ち時間、ホライズン、割引率の単位をすべて週に揃えること。
+- **$\gamma$（Euler 定数）**：CCP の恒等式には $\gamma$ が現れない（$v(x,1)-v(x,0)$ の差で $\gamma$ が消えるから）。`y_hat` に $\gamma$ を足さないこと。$\gamma$ が要るのは価値関数反復（logsum）の方だけ。
+- **将来項の符号**：$y(x)$ の第3項は $+\beta (P_1 - P_0) \log \hat P(1\mid x')$ で、**プラス**（導出で $-\log P(1\mid x')$ が2回符号を変える）。ここを間違えると $\theta_1$・$RC$ が真値から大きく外れる。真の CCP での検算（$y = \theta_1 x - RC$）が一致するかで検知できる。
+:::
+
+## 問6（15点）：反実仮想を動学と myopic で比べる
+
+交換費 $RC$ を20%補助したときの効果を、(a) 正しい動学モデル（$\beta=0.95$）と (b) myopic モデル（$\beta=0$ で推定したパラメータを $\beta=0$ の DP で使う）とで比べよ。長期交換率・平均走行距離は、方針が誘導するマルコフ連鎖の定常分布から計算する。
 
 ```{r}
 #| eval: false
-margin <- 1200
-annual_discount <- 0.10
-weekly_discount <- (1 + annual_discount)^(1 / 52) - 1
-horizon_weeks <- 104
-
-compute_clv <- function(r_hat, alpha_hat, a_hat, b_hat, x, T_cal, p_alive,
-                        horizon_weeks, weekly_d, margin, S = 200) {
-  ______   # 【穴埋め】問6と同じ将来パスを使い、各購買を週単位で割り引く
+# 方針が誘導する状態遷移 M と定常分布
+policy_transition <- function(Pr) (1 - Pr) * P0 + Pr * P1
+ergodic_dist <- function(M) {
+  A <- rbind(t(M) - diag(K), rep(1, K)); b <- c(rep(0, K), 1)
+  d <- qr.solve(A, b); d / sum(d)
+}
+summarize_policy <- function(theta1, RC, label, bta = beta) {
+  s  <- solve_vfi(theta1, RC, bta = bta)
+  Pr <- ccp_replace(s$v0, s$v1)
+  d  <- ergodic_dist(policy_transition(Pr))
+  rep_rate <- sum(d * Pr); mean_mi <- sum(d * xs)
+  cat(sprintf("  %s：交換率=%.4f, 平均走行距離=%.3f\n", label, rep_rate, mean_mi))
+  list(rep_rate = rep_rate, mean_mi = mean_mi, d = d)
 }
 
-# ---- 全顧客のCLVを計算し、上位10%を表にする ----
+# (a) 正しい動学の反実仮想（真値 or NFXP 推定値を使ってよい）
+base_dyn <- summarize_policy(theta1_true, RC_true,       "動学 補助前")
+sub_dyn  <- summarize_policy(theta1_true, RC_true * 0.8, "動学 補助後")
+
+# (b) myopic 推定：大きめの標本で beta=0 の logit MLE
+panel_big <- simulate_panel(2000, 300, theta1_true, RC_true)
+Xb <- panel_big$X; Ab <- panel_big$A
+neg_loglik_myopic <- function(theta, X, A) {
+  theta1 <- theta[1]; RC <- theta[2]
+  if (theta1 <= 0 || RC <= 0) return(1e10)
+  v0 <- -theta1 * xs; v1 <- rep(-RC, K)
+  m  <- pmax(v0, v1); lae <- m + log(exp(v0 - m) + exp(v1 - m))
+  xr <- as.vector(X) + 1; ar <- as.vector(A)
+  -sum(ifelse(ar == 1L, (v1 - lae)[xr], (v0 - lae)[xr]))
+}
+fit_myopic <- optim(c(0.15, 3.0), neg_loglik_myopic, X = Xb, A = Ab, method = "Nelder-Mead")
+cat("myopic 推定 theta1 =", round(fit_myopic$par[1], 4),
+    " RC =", round(fit_myopic$par[2], 4), "（真値 0.25, 5.0）\n")
+
+# myopic 分析者は beta=0 のモデルで反実仮想を予測する
+base_myo <- summarize_policy(fit_myopic$par[1], fit_myopic$par[2],       "myopic 補助前", bta = 0)
+sub_myo  <- summarize_policy(fit_myopic$par[1], fit_myopic$par[2] * 0.8, "myopic 補助後", bta = 0)
+
+cf_tbl <- data.frame(
+  analysis   = c("正しい動学", "myopic (誤り)"),
+  rep_before = round(c(base_dyn$rep_rate, base_myo$rep_rate), 4),
+  rep_after  = round(c(sub_dyn$rep_rate,  sub_myo$rep_rate), 4),
+  rep_change_pct = round(c((sub_dyn$rep_rate / base_dyn$rep_rate - 1) * 100,
+                           (sub_myo$rep_rate / base_myo$rep_rate - 1) * 100), 1)
+)
+kable(cf_tbl, caption = "RC 20%補助の効果予測：動学 vs myopic", row.names = FALSE)
 ```
 
-## 問8（10点）：「このリストで何をしてはいけないか」
+::: {.callout-warning}
+## よくあるバグ：交換後の状態リセットのバグ
 
-問7で作った「CLV上位10%リスト」を経営陣に提出したところ、「この10%に来月から広告を集中的に出そう」という提案が出た。この提案の何が問題かを、**3行で**述べよ。第10・11回講義ノートの該当箇所を踏まえて答えること。
+反実仮想でも DP を解き直す（`solve_vfi` を新しい $RC$ で呼ぶ）ことを忘れずに。$RC$ を下げても価値関数を再計算しなければ、交換方針が変わらず、反実仮想が意味をなさない。また `policy_transition` の `(1 - Pr) * P0 + Pr * P1` は、R の列方向リサイクルで「行 $x$ を $Pr[x]$ 倍」になる（行和=1）。ここは R の癖に助けられている箇所なので、`rowSums(policy_transition(Pr))` が全部1になるか確認するとよい。
+:::
+
+## 問7（10点）：設備保全担当への提言を3行で
+
+あなたは社用車フリートの設備保全を統括する立場だとする。問6の結果（動学 vs myopic の反実仮想の食い違い、NFXP・CCP の推定値）に基づいて、**経営・政策への含意を3行**で書け。とくに「交換費補助という施策の効果を、なぜ動学モデルで評価すべきか（myopic だと何を誤るか）」に触れること。数値を1つは根拠に引くこと。
 
 ```{r}
 #| eval: false
-# 回答はコードチャンクではなく、テキストで記述してよい
+# ここに、判断材料を1つの表にまとめておくと書きやすい
+# （交換率の変化・平均走行距離の変化・myopic とのズレ）
 ```
-
-::: {.callout-note}
-## 経営・政策への含意（この課題の締め）
-
-問8への回答が、そのまま「経営・政策への含意を3行で書け」の役割を果たす。CLVという「予測」と、施策の「因果効果」を混同しないという視点は、第10回のターゲティングで扱った考え方でもある。
-:::
 
 ---
 
 ## 提出方法
 
-- この`.qmd`の穴埋め（`______`と`#| eval: false`）をすべて埋め、`#| eval: false`を外して最後まで render できる状態にする。
+- この `.qmd` の穴埋め（`______` と `#| eval: false`）をすべて埋め、`#| eval: false` を外して最後まで render できる状態にする。
 - 各問の出力（表・図）とコメントを含めること。
 - render した HTML を提出。
 
 ::: {.callout-important}
 ## 配点（合計100点）
 
-- 問1（10）：購買イベントのシミュレーション実装
-- 問2（10）：calibration期間のRFM要約統計量の作成
-- 問3（10）：可視化と記述統計
-- 問4（20）：BG/NBD対数尤度の実装、`optim()`でのMLE、Hessian SE、真値回収
-- 問5（15）：P(alive)の計算・分布・recency-frequency交互作用の解釈
-- 問6（15）：事後$\lambda,p$と予測中の離脱を含むholdout週次トラッキング、予測デシル校正
-- 問7（10）：時間単位と将来離脱を整合させたCLV試算、上位10%リストの作成
-- 問8（10）：CLVに基づく施策提案の問題点を3行で指摘
+- 問1（15）：状態遷移行列と価値関数反復（S 字・幾何収束）
+- 問2（15）：パネル生成と replacement cycle の可視化
+- 問3（10）：状態ごとの交換頻度の確認とコメント
+- 問4（15）：NFXP の実装・真値回収・SE（$\beta$ 固定）
+- 問5（15）：CCP（finite dependence）の実装・NFXP との比較
+- 問6（15）：反実仮想を動学 vs myopic で比較
+- 問7（10）：設備保全担当への提言（数値に基づく3行）
 :::

@@ -8,7 +8,7 @@
 
 <meta name="author" content="Kei Ikegami">
 
-<title>課題6：短い購買履歴から需要を予測する</title>
+<title>課題6：購買履歴から個人の好みを学ぶ</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -2315,17 +2315,17 @@ window.Quarto = {
   <li><a href="#提出するもの" id="toc-提出するもの" class="nav-link active" data-scroll-target="#提出するもの">提出するもの</a></li>
   <li><a href="#part-1シミュレーション設計40点" id="toc-part-1シミュレーション設計40点" class="nav-link" data-scroll-target="#part-1シミュレーション設計40点">Part 1：シミュレーション設計（40点）</a>
   <ul class="collapse">
-  <li><a href="#問1選択確率と生成コード15点" id="toc-問1選択確率と生成コード15点" class="nav-link" data-scroll-target="#問1選択確率と生成コード15点">問1：選択確率と生成コード（15点）</a></li>
-  <li><a href="#問2データの確認10点" id="toc-問2データの確認10点" class="nav-link" data-scroll-target="#問2データの確認10点">問2：データの確認（10点）</a></li>
-  <li><a href="#問3履歴の可視化15点" id="toc-問3履歴の可視化15点" class="nav-link" data-scroll-target="#問3履歴の可視化15点">問3：履歴の可視化（15点）</a></li>
+  <li><a href="#問1選択確率とデータ生成20点" id="toc-問1選択確率とデータ生成20点" class="nav-link" data-scroll-target="#問1選択確率とデータ生成20点">問1：選択確率とデータ生成（20点）</a></li>
+  <li><a href="#問2データの確認と可視化20点" id="toc-問2データの確認と可視化20点" class="nav-link" data-scroll-target="#問2データの確認と可視化20点">問2：データの確認と可視化（20点）</a></li>
   </ul></li>
   <li><a href="#part-2推定推論60点" id="toc-part-2推定推論60点" class="nav-link" data-scroll-target="#part-2推定推論60点">Part 2：推定・推論（60点）</a>
   <ul class="collapse">
-  <li><a href="#問4母集団のタイプ割合15点" id="toc-問4母集団のタイプ割合15点" class="nav-link" data-scroll-target="#問4母集団のタイプ割合15点">問4：母集団のタイプ割合（15点）</a></li>
-  <li><a href="#問5履歴による重みの更新15点" id="toc-問5履歴による重みの更新15点" class="nav-link" data-scroll-target="#問5履歴による重みの更新15点">問5：履歴による重みの更新（15点）</a></li>
-  <li><a href="#問6予測評価15点" id="toc-問6予測評価15点" class="nav-link" data-scroll-target="#問6予測評価15点">問6：予測評価（15点）</a></li>
-  <li><a href="#問7顧客単位のブートストラップ10点" id="toc-問7顧客単位のブートストラップ10点" class="nav-link" data-scroll-target="#問7顧客単位のブートストラップ10点">問7：顧客単位のブートストラップ（10点）</a></li>
-  <li><a href="#問8経営への含意5点" id="toc-問8経営への含意5点" class="nav-link" data-scroll-target="#問8経営への含意5点">問8：経営への含意（5点）</a></li>
+  <li><a href="#問3既知の事前割合からの更新10点" id="toc-問3既知の事前割合からの更新10点" class="nav-link" data-scroll-target="#問3既知の事前割合からの更新10点">問3：既知の事前割合からの更新（10点）</a></li>
+  <li><a href="#問4未知の割合と個人の好み15点" id="toc-問4未知の割合と個人の好み15点" class="nav-link" data-scroll-target="#問4未知の割合と個人の好み15点">問4：未知の割合と個人の好み（15点）</a></li>
+  <li><a href="#問5支点も未知の場合のem15点" id="toc-問5支点も未知の場合のem15点" class="nav-link" data-scroll-target="#問5支点も未知の場合のem15点">問5：支点も未知の場合のEM（15点）</a></li>
+  <li><a href="#問6顧客単位のブートストラップ15点" id="toc-問6顧客単位のブートストラップ15点" class="nav-link" data-scroll-target="#問6顧客単位のブートストラップ15点">問6：顧客単位のブートストラップ（15点）</a></li>
+  <li><a href="#問7経営への含意5点" id="toc-問7経営への含意5点" class="nav-link" data-scroll-target="#問7経営への含意5点">問7：経営への含意（5点）</a></li>
+  <li><a href="#発展任意採点対象外" id="toc-発展任意採点対象外" class="nav-link" data-scroll-target="#発展任意採点対象外">発展（任意・採点対象外）</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -2336,7 +2336,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">課題6：短い購買履歴から需要を予測する</h1>
+<h1 class="title">課題6：購買履歴から個人の好みを学ぶ</h1>
 <p class="subtitle lead">計量経済学II</p>
 </div>
 
@@ -2362,68 +2362,65 @@ window.Quarto = {
 
 <section id="提出するもの" class="level2">
 <h2 class="anchored" data-anchor-id="提出するもの">提出するもの</h2>
-<p>Rコード、図・表、設問への回答をまとめたHTMLを提出する。講義ノートの関数を使ってよいが、データ生成部分は自分で書くこと。乱数シードは <code>2026062</code> とする。解答は自分の言葉で書き、真の係数を使う箇所と推定した係数を使う箇所を区別する。</p>
+<p>Rコード、図・表、設問への回答をまとめたHTMLを提出する。データ生成部分は自分で書くこと。乱数シードは <code>2026062</code> とする。講義ノートの関数を参考にしてよいが、何を計算しているかも自分の言葉で説明する。真のタイプは生成データの確認と推定結果の検証にのみ使う。</p>
 </section>
 <section id="part-1シミュレーション設計40点" class="level2">
 <h2 class="anchored" data-anchor-id="part-1シミュレーション設計40点">Part 1：シミュレーション設計（40点）</h2>
-<p>飲料サービスが、無糖のお茶Aと甘いお茶Bを提案する場面を考える。顧客はA、B、購入しない（0）のいずれかを選ぶ。顧客数は300人、価格の単位は100円である。</p>
+<p>飲料サービスの顧客300人が、苦いコーヒーA、甘いコーヒーB、買わない（0）から12機会にわたって選ぶ。同じ機会には全員に同じ価格 <span class="math inline">\(p_{At},p_{Bt}\)</span> が提示される。価格の単位は100円で、各機会の各商品の価格は独立に <span class="math inline">\(U[1,2.5]\)</span> から発生させる。</p>
 <p><span class="math display">\[
-u_{iAt}=1.5-\theta_i-p_{iAt}+\varepsilon_{iAt},\qquad
-u_{iBt}=1.5+\theta_i-p_{iBt}+\varepsilon_{iBt},\qquad
+u_{iAt}=1.5-\theta_i-p_{At}+\varepsilon_{iAt},\qquad
+u_{iBt}=1.5+\theta_i-p_{Bt}+\varepsilon_{iBt},\qquad
 u_{i0t}=\varepsilon_{i0t}.
 \]</span></p>
-<p><span class="math inline">\(\varepsilon_{ijt}\)</span> は互いに独立な標準Type I極値分布に従う。<span class="math inline">\(\theta_i\)</span> は <span class="math inline">\((-1.2,0,1.2)\)</span> のいずれかであり、その割合は <span class="math inline">\((0.2,0.3,0.5)\)</span> とする。各価格は独立に <span class="math inline">\(U[1,2.5]\)</span> から引く。同じ人の <span class="math inline">\(\theta_i\)</span> は全期間で固定する。定数1.5、価格係数1、タイプの位置は推定でも既知とし、母集団の割合だけを未知とする。</p>
-<section id="問1選択確率と生成コード15点" class="level3">
-<h3 class="anchored" data-anchor-id="問1選択確率と生成コード15点">問1：選択確率と生成コード（15点）</h3>
-<p>条件付き選択確率を式で示し、顧客ごとに一度だけタイプを引くコードを書け。各人12回の学習用候補データと、それとは別に20回の評価用データを生成せよ。両方で同じタイプを使うこと。推定に最初に使うのは、学習用のうち最初の3回だけである。</p>
+<p>ショック <span class="math inline">\(\varepsilon_{ijt}\)</span> は個人・商品・機会で独立な標準Gumbel分布とし、タイプおよび価格と独立とする。顧客の <span class="math inline">\(\theta_i\)</span> は <span class="math inline">\((-1.2,0,1.2)\)</span> のいずれかで、その母集団割合は <span class="math inline">\((0.2,0.3,0.5)\)</span> とする。各人のタイプは一度だけ抽選し、全12機会で固定する。定数1.5と価格係数1は既知である。</p>
+<section id="問1選択確率とデータ生成20点" class="level3">
+<h3 class="anchored" data-anchor-id="問1選択確率とデータ生成20点">問1：選択確率とデータ生成（20点）</h3>
+<p>タイプを固定したときの3つの選択確率を式で示せ。<code>id, occasion, pA, pB, y</code> を持つ300人×12機会のデータを発生させよ。<code>y</code> は0、1（A）、2（B）とする。各機会の価格を一組だけ引き、全員に同じ値を割り当てること。</p>
 </section>
-<section id="問2データの確認10点" class="level3">
-<h3 class="anchored" data-anchor-id="問2データの確認10点">問2：データの確認（10点）</h3>
-<p><code>id, occasion, pA, pB, y</code> を持つデータを作り、行数、選択割合、価格の範囲を確認せよ。学習用と評価用で価格や一時的ショックを引き直す理由を説明せよ。</p>
-</section>
-<section id="問3履歴の可視化15点" class="level3">
-<h3 class="anchored" data-anchor-id="問3履歴の可視化15点">問3：履歴の可視化（15点）</h3>
-<p>最初の3回にBを選んだ回数の分布を図示せよ。シミュレーションで保存した真のタイプ別にその分布を比較し、「Bを多く買った人なら必ず <span class="math inline">\(\theta_i=1.2\)</span>」とは言えない理由を書け。真のタイプはこの診断だけで使い、推定には渡さないこと。</p>
+<section id="問2データの確認と可視化20点" class="level3">
+<h3 class="anchored" data-anchor-id="問2データの確認と可視化20点">問2：データの確認と可視化（20点）</h3>
+<p>行数、ID数、機会ごとに各価格が一種類だけであること、各選択肢の全体割合を確認せよ。真のタイプ別に各選択肢の選択割合を図示せよ。分母・分子を述べ、「甘さ好きは必ずBを選ぶ」とはいえない理由を説明せよ。</p>
 </section>
 </section>
 <section id="part-2推定推論60点" class="level2">
 <h2 class="anchored" data-anchor-id="part-2推定推論60点">Part 2：推定・推論（60点）</h2>
-<section id="問4母集団のタイプ割合15点" class="level3">
-<h3 class="anchored" data-anchor-id="問4母集団のタイプ割合15点">問4：母集団のタイプ割合（15点）</h3>
-<p>履歴の尤度 <span class="math inline">\(L_i(\theta_k)=\prod_t P_{iy_{it}t}(\theta_k)\)</span> を計算し、</p>
-<p><span class="math display">\[
-\hat\pi=\arg\max_\pi\sum_i\log\left\{\sum_{k=1}^3\pi_k L_i(\theta_k)\right\}
-\]</span></p>
-<p>を推定せよ。割合が非負で合計1になるよう、講義のsoftmaxによるパラメータ化を使ってよい。推定値と真値を表にまとめよ。</p>
+<p><span class="math inline">\(H_i\)</span> を顧客 <span class="math inline">\(i\)</span> の12機会の価格と選択の履歴とする。タイプを <span class="math inline">\(\theta_k\)</span> に固定した履歴の尤度は <span class="math inline">\(L(\theta_k;H_i)=\prod_{t=1}^{12}P_{y_{it},t}(\theta_k)\)</span> である。</p>
+<section id="問3既知の事前割合からの更新10点" class="level3">
+<h3 class="anchored" data-anchor-id="問3既知の事前割合からの更新10点">問3：既知の事前割合からの更新（10点）</h3>
+<p>支点 <span class="math inline">\((-1.2,0,1.2)\)</span> と事前割合 <span class="math inline">\((0.2,0.3,0.5)\)</span> が分かっていると仮定する。顧客1のタイプごとの履歴尤度を計算し、ベイズの公式で事後確率を求めよ。事前・尤度・事後がそれぞれ何を表すか説明せよ。尤度が非常に小さい場合は、対数尤度から最大値を引いてよい。</p>
 </section>
-<section id="問5履歴による重みの更新15点" class="level3">
-<h3 class="anchored" data-anchor-id="問5履歴による重みの更新15点">問5：履歴による重みの更新（15点）</h3>
-<p>各人の重み <span class="math inline">\(w_{ik}=\hat\pi_kL_i(\theta_k)/\sum_l\hat\pi_lL_i(\theta_l)\)</span> を計算し、行ごとの合計が1であることを確認せよ。また、全員を別々に扱い、<span class="math inline">\(\theta_i\in[-5,5]\)</span> の範囲で個人の最尤推定値を求めよ。いくつの推定値が区間の端に近いか（<span class="math inline">\(|\hat\theta_i|&gt;4.9\)</span>）を数えよ。</p>
+<section id="問4未知の割合と個人の好み15点" class="level3">
+<h3 class="anchored" data-anchor-id="問4未知の割合と個人の好み15点">問4：未知の割合と個人の好み（15点）</h3>
+<p>支点は既知、割合 <span class="math inline">\(\pi\)</span> は未知とする。全員の履歴から <span class="math inline">\(\sum_i\log\{\sum_k\pi_kL(\theta_k;H_i)\}\)</span> を最大化し、真の割合と比べよ。その推定値を固定して各人の事後確率と事後平均を求めよ。さらに、同じ3支点の中で各人の尤度が最大となるタイプを一つ選ぶ個人別最尤推定を計算せよ。真の <span class="math inline">\(\theta_i\)</span> とのRMSEを両方法で比較し、異なる点を説明せよ。</p>
 </section>
-<section id="問6予測評価15点" class="level3">
-<h3 class="anchored" data-anchor-id="問6予測評価15点">問6：予測評価（15点）</h3>
-<p>評価用20回の選択について、母集団の割合だけを使う予測、個人別最尤推定値を使う予測、履歴で更新した重みを使う予測を比べよ。指標は選ばれた選択肢の予測確率の負の対数（log loss）の平均とし、小さいほどよい。学習履歴を3回から12回へ増やした場合も比較せよ。</p>
+<section id="問5支点も未知の場合のem15点" class="level3">
+<h3 class="anchored" data-anchor-id="問5支点も未知の場合のem15点">問5：支点も未知の場合のEM（15点）</h3>
+<p>タイプ数は3としたまま、支点の位置と割合をともに未知としてEMで推定せよ。対数尤度を反復ごとに記録して、減少していないことを確認せよ。支点を昇順に並べ、初期値を3組以上試して、対数尤度が最大の結果を真値と比較する。支点は <span class="math inline">\([-6,6]\)</span> から探してよい。初期値を変えても同じ結果になったことは大域的な最大値の証明になるか。</p>
 </section>
-<section id="問7顧客単位のブートストラップ10点" class="level3">
-<h3 class="anchored" data-anchor-id="問7顧客単位のブートストラップ10点">問7：顧客単位のブートストラップ（10点）</h3>
-<p>最初の3回のデータで、顧客を復元抽出して母集団の割合を80回推定し直せ。各割合の2.5、97.5パーセンタイルで区間を作れ。個々の選択行を独立に抽出してはいけない理由を説明せよ。</p>
+<section id="問6顧客単位のブートストラップ15点" class="level3">
+<h3 class="anchored" data-anchor-id="問6顧客単位のブートストラップ15点">問6：顧客単位のブートストラップ（15点）</h3>
+<p>問4の支点既知モデルについて、顧客を履歴ごと復元抽出し、割合の推定を100回繰り返せ。各割合の標準偏差と2.5・97.5パーセンタイルを示せ。区間は実現した共通価格列を所与としたものである。一回の購入をばらばらに抽出しない理由を説明せよ。100回は授業用の簡略化で、精密な報告には反復数を増やして安定性を確認する。</p>
 </section>
-<section id="問8経営への含意5点" class="level3">
-<h3 class="anchored" data-anchor-id="問8経営への含意5点">問8：経営への含意（5点）</h3>
-<p>「少ない履歴から極端な好みを推定し、そのまま商品を提案する」方法の問題を3行で述べよ。今回の予測比較だけで、実際に提案を送ることの売上効果まで分かるかにも触れること。</p>
+<section id="問7経営への含意5点" class="level3">
+<h3 class="anchored" data-anchor-id="問7経営への含意5点">問7：経営への含意（5点）</h3>
+<p>顧客の少ない履歴と集団の情報を合わせると何が分かり、どんな仮定や限界に注意すべきか、企業の担当者に3行で説明せよ。個人の好みの推定と施策の因果効果の識別を区別すること。</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>実装のヒント
+<span class="screen-reader-only">ノート</span>ヒント
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>積を直接計算すると小さい値になりやすい。各タイプの対数尤度を先に計算し、行最大値を引いてから指数を取ると安定する。学習用と評価用のデータを別のオブジェクトにしておくと、評価用の選択を推定に混ぜずに済む。</p>
+<p>個人と支点の組み合わせごとに対数尤度を先に計算する。尤度の和には各行の最大値を引いてから指数を取り、計算を安定させよう。EMのEステップでは事後確率を計算し、Mステップではその重みで支点を更新する。個人の種類は機会ごとに引き直さない。</p>
 </div>
 </div>
+</section>
+<section id="発展任意採点対象外" class="level3">
+<h3 class="anchored" data-anchor-id="発展任意採点対象外">発展（任意・採点対象外）</h3>
+<p><span class="math inline">\(\theta_i\sim N(\mu,\tau^2)\)</span> の場合に、有限タイプの事後確率の式を積分を用いた事後密度の式へ書き換えよ。<span class="math inline">\(\mu,\tau\)</span> の推定値を固定する経験ベイズと、それらの不確実性も積分するフルベイズの違いを説明せよ。</p>
 <p><a href="lecture6.html">講義ノートへ</a> / <a href="playground6.html">Playgroundへ</a></p>
 </section>
 </section>

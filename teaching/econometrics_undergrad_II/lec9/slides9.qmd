@@ -1,5 +1,5 @@
 ---
-title: "Lecture 9：階層ベイズによる個人の選択と需要の推定"
+title: "Lecture 9：商品設計とコンジョイント分析"
 subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -16,6 +16,7 @@ format:
     margin: 0.08
     fig-width: 8
     fig-height: 4.2
+    code-line-numbers: false
 execute:
   echo: false
   warning: false
@@ -26,16 +27,20 @@ execute:
 #| include: false
 library(ggplot2)
 library(dplyr)
-library(tidyr)
-set.seed(202608)
-font_family <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
-theme_set(theme_minimal(base_size = 13, base_family = font_family))
+library(knitr)
+library(fixest)
+
+set.seed(202607)
+
+theme_lecture <- function() {
+  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+  theme_minimal(base_size = 13, base_family = fam)
+}
+theme_set(theme_lecture())
 knitr::opts_chunk$set(fig.align = "center", dpi = 144)
 options(scipen = 8)
-```
 
-```{r}
-#| include: false
+# === CBC_DGP ===
 choice_prob <- function(quality, price, alpha) {
   v <- quality - price * alpha
   vmax <- pmax(0, v[, 1], v[, 2])
@@ -64,212 +69,355 @@ simulate_cbc <- function(seed = 202607, N = 300, Ttrain = 8, Thold = 8) {
   list(train = make_tasks(Ttrain), test = make_tasks(Thold), N = N,
        beta_known = beta_known, theta_true = theta_true, mu_true = mu_true, tau_true = tau_true)
 }
-individual_loglik <- function(theta, tasks, N) {
-  v <- tasks$quality - tasks$price * exp(theta[tasks$id])
-  vmax <- pmax(0, v[, 1], v[, 2])
-  logden <- vmax + log(exp(-vmax) + rowSums(exp(v - vmax)))
-  chosen <- numeric(length(tasks$choice))
-  inside <- which(tasks$choice > 0)
-  chosen[inside] <- v[cbind(inside, tasks$choice[inside])]
-  as.vector(rowsum(chosen - logden, tasks$id, reorder = FALSE))
-}
-fit_hb <- function(dat, seed = 202609, n_iter = 16000, burn = 4000, thin = 4,
-                   prior_mu = log(0.2), prior_mu_sd = 1.5,
-                   prior_shape = 2, prior_rate = 0.5) {
-  keep <- seq(burn + thin, n_iter, by = thin)
-  one_chain <- function(chain) {
-    set.seed(seed + chain)
-    theta <- rep(prior_mu + c(-0.4, 0.4)[chain], dat$N)
-    mu <- mean(theta); tau2 <- 0.5
-    ll <- individual_loglik(theta, dat$train, dat$N)
-    theta_draw <- matrix(NA_real_, length(keep), dat$N)
-    mu_draw <- tau_draw <- numeric(length(keep))
-    accepted <- numeric(dat$N); saved <- 0
-    for (iteration in seq_len(n_iter)) {
-      proposal <- theta + rnorm(dat$N, 0, 0.7)
-      ll_new <- individual_loglik(proposal, dat$train, dat$N)
-      logratio <- ll_new - ll + dnorm(proposal, mu, sqrt(tau2), log = TRUE) -
-        dnorm(theta, mu, sqrt(tau2), log = TRUE)
-      accept <- log(runif(dat$N)) < logratio
-      theta[accept] <- proposal[accept]; ll[accept] <- ll_new[accept]
-      if (iteration > burn) accepted <- accepted + accept
-      variance_mu <- 1 / (dat$N / tau2 + 1 / prior_mu_sd^2)
-      mean_mu <- variance_mu * (sum(theta) / tau2 + prior_mu / prior_mu_sd^2)
-      mu <- rnorm(1, mean_mu, sqrt(variance_mu))
-      tau2 <- 1 / rgamma(1, shape = prior_shape + dat$N / 2,
-        rate = prior_rate + sum((theta - mu)^2) / 2)
-      if (iteration %in% keep) {
-        saved <- saved + 1
-        theta_draw[saved, ] <- theta
-        mu_draw[saved] <- mu; tau_draw[saved] <- sqrt(tau2)
-      }
-    }
-    list(theta = theta_draw, mu = mu_draw, tau = tau_draw,
-         acceptance = accepted / (n_iter - burn))
-  }
-  chains <- lapply(1:2, one_chain)
-  list(theta = rbind(chains[[1]]$theta, chains[[2]]$theta),
-       mu = c(chains[[1]]$mu, chains[[2]]$mu), tau = c(chains[[1]]$tau, chains[[2]]$tau),
-       chain = rep(1:2, each = length(keep)), chains = chains,
-       settings = c(n_iter = n_iter, burn = burn, thin = thin))
-}
-predict_existing <- function(fit, tasks) {
-  answer <- matrix(0, length(tasks$id), 3)
-  for (b in seq_len(nrow(fit$theta))) {
-    answer <- answer + choice_prob(tasks$quality, tasks$price, exp(fit$theta[b, tasks$id]))
-  }
-  answer / nrow(fit$theta)
-}
-predict_new <- function(fit, quality, price, n_integration = 80) {
-  # 母集団パラメータの不確実性と新しい個人の異質性の両方を積分。
-  nodes <- qnorm((seq_len(n_integration) - 0.5) / n_integration)
-  answer <- matrix(0, nrow(price), 3)
-  for (b in seq_along(fit$mu)) {
-    for (z in nodes) {
-      answer <- answer + choice_prob(quality, price, exp(fit$mu[b] + fit$tau[b] * z))
-    }
-  }
-  answer / (length(fit$mu) * n_integration)
-}
-log_score <- function(prob, choice) -mean(log(pmax(prob[cbind(seq_along(choice), choice + 1)], 1e-12)))
-split_rhat <- function(chain1, chain2) {
-  n <- floor(length(chain1) / 2)
-  z <- cbind(chain1[1:n], tail(chain1, n), chain2[1:n], tail(chain2, n))
-  W <- mean(apply(z, 2, var)); B <- n * var(colMeans(z))
-  sqrt(((n - 1) * W / n + B / n) / W)
-}
-dat <- simulate_cbc()
-fit <- fit_hb(dat)
-pooled_theta <- optimize(function(theta) -sum(individual_loglik(rep(theta, dat$N), dat$train, dat$N)),
-                          interval = c(log(0.01), log(1)))$minimum
-individual_theta <- vapply(seq_len(dat$N), function(i) {
-  tasks_i <- lapply(dat$train, function(z) if (is.matrix(z)) z[dat$train$id == i, , drop = FALSE] else z)
-  tasks_i$id <- rep(1, dat$train$T); tasks_i$choice <- dat$train$choice[dat$train$id == i]
-  optimize(function(theta) -individual_loglik(theta, tasks_i, 1),
-           interval = c(log(0.01), log(1)))$minimum
-}, numeric(1))
-p_hb <- predict_existing(fit, dat$test)
-p_pool <- choice_prob(dat$test$quality, dat$test$price, rep(exp(pooled_theta), length(dat$test$id)))
-p_no <- choice_prob(dat$test$quality, dat$test$price, exp(individual_theta[dat$test$id]))
 
+dat <- simulate_cbc()
+train <- dat$train
+
+example <- data.frame(profile = c("A", "B"), price = train$price[1, ],
+  battery_hours = 6 + 6 * train$battery12[1, ], nc = train$nc[1, ], major_brand = train$major_brand[1, ])
+kable(example, caption = "回答者1の最初の問")
+share <- as.data.frame(prop.table(table(factor(train$choice, levels = 0:2, labels = c("買わない", "A", "B")))))
+names(share) <- c("choice", "share")
+ggplot(share, aes(choice, share)) + geom_col(fill = "#4C72B0") +
+  labs(x = NULL, y = "選択割合")
+
+alpha_distribution <- data.frame(alpha = exp(dat$theta_true))
+ggplot(alpha_distribution, aes(alpha)) + geom_histogram(bins = 30, fill = "#4C72B0") +
+  geom_vline(xintercept = .12, linetype = 2) + labs(x = "価格係数 alpha", y = "人数")
+
+to_long <- function(tasks) {
+  do.call(rbind, lapply(1:2, function(j) data.frame(
+    id = tasks$id, profile = j, price = tasks$price[, j],
+    battery12 = tasks$battery12[, j], nc = tasks$nc[, j],
+    major_brand = tasks$major_brand[, j], chosen = as.integer(tasks$choice == j))))
+}
+cbc_long <- to_long(train)
+cbc_long$price12 <- as.integer(cbc_long$price == 12)
+cbc_long$price16 <- as.integer(cbc_long$price == 16)
+fit_amce <- feols(chosen ~ price12 + price16 + battery12 + nc + major_brand,
+                  data = cbc_long, cluster = ~id)
+
+population_amce <- function(M = 100000, seed = 2026071) {
+  set.seed(seed)
+  alpha <- exp(rnorm(M, dat$mu_true, dat$tau_true))
+  price <- matrix(sample(c(8, 12, 16), 2 * M, TRUE), M, 2)
+  x <- lapply(1:3, function(k) matrix(rbinom(2 * M, 1, .5), M, 2))
+  probability <- function(p, xx) choice_prob(.5 * xx[[1]] + .8 * xx[[2]] + .3 * xx[[3]], p, alpha)[, 2]
+  baseprice <- price; baseprice[, 1] <- 8
+  price_effect <- sapply(c(12, 16), function(level) {
+    changed <- price; changed[, 1] <- level
+    mean(probability(changed, x) - probability(baseprice, x))
+  })
+  attribute_effect <- sapply(1:3, function(k) {
+    low <- high <- x; low[[k]][, 1] <- 0; high[[k]][, 1] <- 1
+    mean(probability(price, high) - probability(price, low))
+  })
+  c(price_effect, attribute_effect)
+}
+truth_amce <- population_amce()
+b <- coef(fit_amce)[-1]; se <- sqrt(diag(vcov(fit_amce)))[-1]
+amce_result <- data.frame(attribute = names(b), estimate = unname(b), truth = truth_amce,
+                         lower = b - 1.96 * se, upper = b + 1.96 * se)
+kable(amce_result, digits = 3, row.names = FALSE)
+ggplot(amce_result, aes(attribute, estimate)) +
+  geom_hline(yintercept = 0, color = "gray60") + geom_point(size = 3, color = "#4C72B0") +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = .1) +
+  geom_point(aes(y = truth), shape = 4, size = 3, color = "#C44E52") +
+  labs(x = NULL, y = "AMCE", subtitle = "点と区間：推定値と95%信頼区間、×：数値積分した真値")
+
+fit_rows <- feols(chosen ~ price12 + price16 + battery12 + nc + major_brand,
+                  data = cbc_long, vcov = "hetero")
+se_compare <- data.frame(attribute = names(coef(fit_amce))[-1],
+  cluster = sqrt(diag(vcov(fit_amce)))[-1], row_independent = sqrt(diag(vcov(fit_rows)))[-1])
+kable(se_compare, digits = 4, row.names = FALSE)
+
+fit_logit <- function(tasks) {
+  XA <- cbind(tasks$battery12[, 1], tasks$nc[, 1], tasks$major_brand[, 1], -tasks$price[, 1])
+  XB <- cbind(tasks$battery12[, 2], tasks$nc[, 2], tasks$major_brand[, 2], -tasks$price[, 2])
+  loss <- function(b) {
+    vA <- drop(XA %*% b); vB <- drop(XB %*% b)
+    mx <- pmax(0, vA, vB)
+    logden <- mx + log(exp(-mx) + exp(vA - mx) + exp(vB - mx))
+    -sum(vA * (tasks$choice == 1) + vB * (tasks$choice == 2) - logden)
+  }
+  op <- optim(c(.4, .6, .2, .1), loss, method = "L-BFGS-B",
+              lower = c(-Inf, -Inf, -Inf, 1e-5), hessian = TRUE)
+  stopifnot(op$convergence == 0)
+  b <- op$par
+  vA <- drop(XA %*% b); vB <- drop(XB %*% b)
+  mx <- pmax(0, vA, vB)
+  den <- exp(-mx) + exp(vA - mx) + exp(vB - mx)
+  score <- XA * ((tasks$choice == 1) - exp(vA - mx) / den) +
+           XB * ((tasks$choice == 2) - exp(vB - mx) / den)
+  S <- rowsum(score, tasks$id); G <- nrow(S)
+  bread <- solve(op$hessian)
+  V <- G / (G - 1) * bread %*% crossprod(S) %*% bread
+  names(b) <- c("battery12", "nc", "major_brand", "alpha")
+  list(coef = b, vcov = V, model_vcov = bread)
+}
+wtp_delta <- function(fit) {
+  b <- fit$coef; gradient <- c(0, 1 / b[4], 0, -b[2] / b[4]^2)
+  value <- unname(b[2] / b[4])
+  se <- sqrt(drop(t(gradient) %*% fit$vcov %*% gradient))
+  c(estimate = value, se = se, lower = value - 1.96 * se, upper = value + 1.96 * se)
+}
+fit_work <- fit_logit(train)
+kable(data.frame(parameter = names(fit_work$coef),
+  dgp_mean = c(dat$beta_known, .12), working_estimate = fit_work$coef,
+  cluster_se = sqrt(diag(fit_work$vcov))), digits = 3, row.names = FALSE)
+
+wtp_table <- data.frame(quantity = c("個人WTPの平均（真値）", "個人WTPの中央値（真値）", "平均係数の比（真値）", "同質logitで推定した比"),
+  thousand_yen = c(.8 * exp(-dat$mu_true + dat$tau_true^2 / 2), .8 * exp(-dat$mu_true), .8 / .12,
+                   fit_work$coef[2] / fit_work$coef[4]))
+kable(wtp_table, digits = 3)
+wtp_individual <- data.frame(wtp = .8 / exp(dat$theta_true))
+ggplot(wtp_individual, aes(wtp)) + geom_histogram(bins = 30, fill = "#4C72B0") +
+  geom_vline(xintercept = .8 / .12, linetype = 2) +
+  labs(x = "ノイズキャンセリングへの個人WTP（千円）", y = "人数", subtitle = "破線は平均係数の比")
+
+working_wtp <- wtp_delta(fit_work)
+kable(as.data.frame(t(working_wtp)), digits = 3, caption = "同質logitによるWTP要約とデルタ法区間（千円）")
+
+set.seed(2026072)
+hom <- train
+prob_hom <- choice_prob(hom$quality, hom$price, rep(.12, length(hom$id)))
+hom$choice <- vapply(seq_len(nrow(prob_hom)), function(i) sample(0:2, 1, prob = prob_hom[i, ]), integer(1))
+fit_hom <- fit_logit(hom)
+wtp_hom <- wtp_delta(fit_hom)
+kable(data.frame(parameter = names(fit_hom$coef), truth = c(dat$beta_known, .12), estimate = fit_hom$coef), digits = 3, row.names = FALSE)
+ci_data <- data.frame(estimate = wtp_hom[1], lower = wtp_hom[3], upper = wtp_hom[4])
+ggplot(ci_data, aes(x = "同質logit", y = estimate)) + geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = .1) +
+  geom_hline(yintercept = .8 / .12, linetype = 2) +
+  labs(x = NULL, y = "WTP（千円）", subtitle = "破線：真値、区間：95%信頼区間")
+
+nodes <- qnorm((seq_len(1000) - .5) / 1000)
+alpha_nodes <- exp(dat$mu_true + dat$tau_true * nodes)
+design <- expand.grid(price = seq(8, 16, .5), nc = c(0, 1))
+design$share <- mapply(function(p, nc) {
+  q <- cbind(rep(.5 + .8 * nc, 1000), rep(0, 1000))
+  prices <- cbind(rep(p, 1000), rep(12, 1000))
+  mean(choice_prob(q, prices, alpha_nodes)[, 2])
+}, design$price, design$nc)
+ggplot(design, aes(price, share, color = factor(nc))) + geom_line(linewidth = 1) +
+  labs(x = "商品Aの価格（千円）", y = "商品Aの選択確率", color = "ノイキャン")
 ```
 
 ## 今日の問い
 
-同じ顧客の次の選択を、個人の履歴を使って予測できるか。
+既存商品の購買履歴にない比較を、どう作るか。
 
-- 第7回のイヤホンCBCへ戻る。
-- 第8回の情報共有を、離散選択の尤度と組み合わせる。
-- 推定した事後分布は次回のクーポン施策に使う。
+価格と機能を変えた仮想の商品を提示し、選んでもらう。
 
-::: {.notes}
-Quiz 9で尤度×事前、縮小、予測分布を復習する。属性係数既知という教材上の限定を、後の実務の話と混同しない。
-:::
+平均効果から、個人の好みと商品設計へ進む。
 
-## 何を固定し、何を推定するか
+## まずQuiz 9
 
-$$u_{ijt}=x_{ijt}'\beta-\exp(\theta_i)p_{ijt}+\varepsilon_{ijt}$$
+[購買履歴・施策・顧客価値の復習](quiz9.html)
 
-- 価格は千円、外部選択肢あり。
-- 属性係数 $\beta=(.5,.8,.3)$ は既知に固定。
-- $\theta_i\sim N(\mu,\tau^2)$ の個人係数と母集団を推定。
+## ここまでの分析とのつながり
 
-## 300人、推定8問・検証8問
+購買履歴から好みを学び、施策や顧客価値の分析に使った。
 
-同じ個人には同じ真の係数。課題の属性・価格と選択誤差は新しく引く。
+コンジョイント：既存の履歴にない比較を作り、必要な好みを測る。
 
-```{r}
-knitr::kable(data.frame(sample = c("推定", "検証"), N = dat$N, tasks = c(dat$train$T, dat$test$T)))
-```
+どちらも、一人の情報が少ないという問題を持つ。
 
-## 個人の尤度
+## Revealed preferenceとstated preference
 
-$$L_i(\theta_i)=\prod_t P_{i,y_{it},t}(\theta_i)$$
+| | RP | SP |
+|---|---|---|
+| 行動 | 実際の購入 | 仮想商品の選択 |
+| 価格・機能 | 市場で観測 | 調査で割り付け |
+| 注意 | 価格内生性など | 実際の購入との違い |
 
-一人の複数回答を、同じ係数で説明する。
+## ワイヤレスイヤホン
 
-個人の回答が少なくても、母集団の分布を他の人から学べる。
-
-## 事後分布
-
-$$p(\theta,\mu,\tau^2\mid D)\propto\prod_i L_i(\theta_i)\phi(\theta_i;\mu,\tau^2)p(\mu)p(\tau^2)$$
-
-本人の尤度 × 母集団の分布 × 母集団パラメータの事前。
-
-## MetropolisとGibbs
-
-- 個人係数は近くに候補を作り、尤度と母集団密度で採用を決める。
-- 母集団平均と分散は条件付き分布から引く。
-- 最大値へ収束させるのではなく、事後分布を探索する。
-
-## 母集団の真値と事後平均
-
-```{r}
-knitr::kable(data.frame(parameter = c("mu", "tau"), truth = c(dat$mu_true, dat$tau_true),
-  posterior_mean = c(mean(fit$mu), mean(fit$tau)),
-  lower = c(quantile(fit$mu,.025),quantile(fit$tau,.025)),
-  upper = c(quantile(fit$mu,.975),quantile(fit$tau,.975))), digits = 3)
-```
-
-## 個人の区間は広い
-
-```{r}
-a <- exp(fit$theta[, 1:12])
-p <- data.frame(id = factor(1:12), mean = colMeans(a),
-  lower = apply(a,2,quantile,.025), upper = apply(a,2,quantile,.975))
-ggplot(p, aes(id, mean)) + geom_errorbar(aes(ymin = lower, ymax = upper),width=.2) +
-  geom_point() + labs(x="顧客",y="価格係数と95%信用区間")
-```
-
-## 計算を診断する
-
-```{r}
-knitr::kable(data.frame(parameter=c("mu","tau"),
-  split_Rhat=c(split_rhat(fit$chains[[1]]$mu,fit$chains[[2]]$mu),
-  split_rhat(fit$chains[[1]]$tau,fit$chains[[2]]$tau))), digits=3)
-```
-
-1に近いことは望ましいが、証明ではない。時系列、探索速度、事前感度も見る。
-
-## 予測は確率を平均する
-
-$$\Pr(y_i^{new}=j\mid D)\approx\frac1B\sum_bP_{ij}^{new}(\theta_i^{(b)})$$
-
-- 各抽出値から選択確率を計算する。
-- その後で平均する。
-- 事後平均の係数を1回代入する計算とは違う。
-
-## 未使用の回答で比較する
-
-```{r}
-knitr::kable(data.frame(method=c("complete","no pooling","HB"),
-  log_loss=c(log_score(p_pool,dat$test$choice),log_score(p_no,dat$test$choice),
-             log_score(p_hb,dat$test$choice))),digits=4)
-```
-
-この比較では、3方法とも同じ属性係数を固定している。個別MLEには計算上の範囲制限がある。
-
-## 既存顧客と新規顧客
-
-| 対象 | 積分する分布 |
+| 属性 | 水準 |
 |---|---|
-| 既存 | 本人の係数の事後分布 |
-| 新規 | 母集団パラメータの事後＋新しい個人の分布 |
+| 価格 | 8、12、16千円 |
+| バッテリー | 6、12時間 |
+| ノイキャン | なし、あり |
+| ブランド | 新興、大手 |
 
-新規顧客を、根拠なく特定のタイプへ分類しない。
+A、B、どちらも買わない、から選ぶ。
 
-## 個人推定と個人識別は違う
+## 選択課題の例
 
-個人の履歴が固定されたまま全体人数が増えても、その人の係数が完全に分かるとは限らない。
+```{r}
+kable(example)
+```
 
-母集団の推定、個人の区間、予測精度を分けて評価する。
+## 同じデータから異なる量を推定する
 
-## 次回：予測から施策へ
+- AMCE：属性による選択確率の平均変化。
+- 効用係数：選択モデルでの属性評価。
+- WTP：属性係数と価格係数の比。
+- 個人予測：本人の係数の分布を使う。
 
-購入しやすい人に配ればよい、とは限らない。
+これらを同じ数値として読まない。
 
-- 値引きなしでも買う人には、割引が利益の減少になる。
-- 値引きによる需要増と、1個あたり利益の低下を比べる。
-- 事後分布で期待増分利益を計算し、配布方針をRCTで検証する。
+## AMCE
 
-出典と実証例は [講義ノート](lecture9.html) を参照。
+$$E_{i,W}[Y_{iA}(1,W)-Y_{iA}(0,W)]$$
+
+ノイキャンを付けたときの変化を、他の属性・相手の商品・回答者について平均する。
+
+平均に使うのは、調査で設定した割付分布。
+
+## ランダム化でできること
+
+提示価格は、企業が商品人気を見越して決めた価格とは異なる。
+
+独立した属性割付のもとで、水準ダミーのOLSからAMCEを推定できる。
+
+実市場への予測には別途検証が必要。
+
+## データ生成のモデル
+
+$$v_{ijt}=.5\,battery12_{ijt}+.8\,nc_{ijt}+.3\,brand_{ijt}-\alpha_i p_{ijt}$$
+
+$$\alpha_i=e^{\theta_i},\quad\theta_i\sim N(\mu,.6^2)$$
+
+$E[\alpha_i]=.12$ になるよう $\mu$ を設定。
+
+## 何を簡単にしているか
+
+属性係数は共通、価格係数だけが人によって違う。
+
+同じ人の係数は8問を通じて固定。
+
+300人×8問で分析。別の8問は使わず、ターゲティングの回と同じ生成手順を保つ。
+
+## 価格感応度の分布
+
+```{r}
+ggplot(alpha_distribution, aes(alpha)) + geom_histogram(bins = 30, fill = "#4C72B0") + labs(x = "価格係数", y = "人数")
+```
+
+## 回答を2行にする
+
+Aを選ぶ：$(Y_A,Y_B)=(1,0)$。
+
+Bを選ぶ：$(0,1)$。
+
+買わない：$(0,0)$。
+
+outsideの回答も落とさない。
+
+## AMCEを回収できたか
+
+```{r}
+ggplot(amce_result, aes(attribute, estimate)) + geom_point(size = 3) + geom_errorbar(aes(ymin = lower, ymax = upper), width = .1) + geom_point(aes(y = truth), shape = 4, size = 3, color = "red") + labs(x = NULL, y = "AMCE", subtitle = "×が数値積分した真値")
+```
+
+## 4,800行は独立ではない
+
+300人×8問×2商品。
+
+同じ人の回答は同じ係数を共有し、同じ問のAとBも依存する。
+
+標準誤差を回答者単位で計算する。
+
+## 買わない回答を落とすと
+
+購入するかどうか自体が属性の影響を受ける。
+
+購入した問だけを残すと、割付後の結果で標本を選ぶことになる。
+
+最初からA/Bの強制選択を求めた調査とも異なる。
+
+## 同質logitを当てはめる
+
+今回の真のデータには係数の異質性がある。
+
+$$E_\theta[P_j(\theta)]\ne P_j(E[\theta])$$
+
+同質logitはworking modelとしての近似であり、係数平均の推定ではない。
+
+## WTPを定義する
+
+$$\mathrm{WTP}_i=\beta_i/\alpha_i$$
+
+機能による効用増加を打ち消す価格上昇分。
+
+価格単位が千円なら、WTPも千円。
+
+## 平均する順序で違う
+
+$$E[\beta_i/\alpha_i]\ne E[\beta_i]/E[\alpha_i]$$
+
+```{r}
+kable(wtp_table, digits = 2)
+```
+
+## 個人WTPには幅がある
+
+```{r}
+ggplot(wtp_individual, aes(wtp)) + geom_histogram(bins = 30, fill = "#4C72B0") + labs(x = "個人WTP（千円）", y = "人数")
+```
+
+## WTPの推定誤差
+
+$$\nabla g=(1/\alpha,-\beta/\alpha^2)'$$
+
+$$\operatorname{SE}(\hat g)\simeq\sqrt{\nabla g'\widehat V\nabla g}$$
+
+2つの係数の分散だけでなく、共分散も使う。
+
+## デルタ法を使うとき
+
+- 何のWTPを推定しているかを先に決める。
+- working modelの区間は、そのモデルの比の区間。
+- 価格係数が0に近いと比は不安定。
+
+デルタ法が異質性の誤指定を解消するわけではない。
+
+## 商品設計では特定の組合せを比べる
+
+```{r}
+ggplot(design, aes(price, share, color = factor(nc))) + geom_line(linewidth = 1) + labs(x = "Aの価格（千円）", y = "Aの選択確率", color = "ノイキャン")
+```
+
+## 標準版と上位版
+
+価格に敏感な人と、機能のためなら高い価格を払う人。
+
+標準版を残すと購入を保てるが、上位版から移る人もいる。
+
+異質性は、誰に勧めるかだけでなく商品群の設計にも関係する。
+
+## 調査回答と実行動
+
+Hainmueller, Hangartner, and Yamamoto (2015) は、スイスの帰化投票と調査を比較。
+
+属性効果の差はpaired conjointで平均2ポイント。一方、拒否率の水準は調査予測21%、実際37%。
+
+効果の比較と、水準の予測を区別する。
+
+[一次論文](https://doi.org/10.1073/pnas.1416587112)
+
+## 8問から個人係数を知りたい
+
+$$L_i(\theta_i)=\prod_{t=1}^8P_{iy_{it}t}(e^{\theta_i})$$
+
+本人の尤度と、母集団の分布を組み合わせる。
+
+短い購買履歴のときと同じ情報共有の問題。
+
+## 施策に必要な情報をどう得るか
+
+ターゲティングでは、値引きへの反応を知る必要があった。
+
+コンジョイントでは、必要な属性・価格の比較を調査内に作る。
+
+第6回の階層モデルを組み合わせれば、少ない回答から個人の好みを学べる。
+
+## まとめ
+
+- CBCは比較を作るための選択実験。
+- AMCE、効用係数、WTPは異なる量。
+- 異質性は商品設計にも必要。
+- 個人の少ない回答を、集団の情報と組み合わせる。
+
+[講義ノート](lecture9.html) / [課題9](assignment9.html) / [Playground](playground9.html)

@@ -1,5 +1,5 @@
 ---
-title: "Lecture 6：購買履歴と個人の需要"
+title: "Lecture 6：個人の履歴から好みを学ぶ"
 subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -26,30 +26,12 @@ execute:
 ```{r}
 #| include: false
 library(ggplot2)
-library(dplyr)
 library(knitr)
-
 set.seed(202606)
-
-theme_lecture <- function() {
-  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
-  theme_minimal(base_size = 13, base_family = fam)
-}
-theme_set(theme_lecture())
+fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+theme_set(theme_minimal(base_size = 13, base_family = fam))
 knitr::opts_chunk$set(fig.align = "center", dpi = 144)
-options(scipen = 8)
-```
-
-```{r}
-#| include: false
-set.seed(202606)
-theta_grid <- c(-1.5, 0, 1.5)
-pi_true <- c(.25, .5, .25)
-N <- 400; T_total <- 36; T_train <- 16; T_test <- 20
-type_true <- sample(1:3, N, replace = TRUE, prob = pi_true)
-prices <- data.frame(occasion = seq_len(T_total),
-                     pA = runif(T_total, 1, 2.5),
-                     pB = runif(T_total, 1, 2.5))
+# Finite-type panel logit: all calculations condition on common prices.
 choice_prob <- function(theta, pA, pB, beta0 = 1.5, alpha = 1) {
   va <- beta0 - theta - alpha * pA
   vb <- beta0 + theta - alpha * pB
@@ -57,279 +39,479 @@ choice_prob <- function(theta, pA, pB, beta0 = 1.5, alpha = 1) {
   ev <- cbind(exp(-mx), exp(va - mx), exp(vb - mx))
   ev / rowSums(ev)
 }
-id <- rep(seq_len(N), each = T_total)
-occasion <- rep(seq_len(T_total), times = N)
-pA <- prices$pA[occasion]; pB <- prices$pB[occasion]
-prob <- choice_prob(theta_grid[type_true[id]], pA, pB)
-u <- runif(N * T_total)
-y <- as.integer(u > prob[, 1]) + as.integer(u > prob[, 1] + prob[, 2])
-panel <- data.frame(id, occasion, pA, pB, y)
-train_all <- subset(panel, occasion <= T_train)
-test <- subset(panel, occasion > T_train)
-panel_loglik <- function(dat, grid = theta_grid) {
+sim_finite <- function(n = 400, nt = 16, seed = 202606) {
+  set.seed(seed)
+  grid <- c(-1.5, 0, 1.5)
+  pi <- c(.25, .5, .25)
+  type <- sample(seq_along(grid), n, replace = TRUE, prob = pi)
+  prices <- data.frame(occasion = seq_len(nt), pA = runif(nt, 1, 2.5),
+                       pB = runif(nt, 1, 2.5))
+  id <- rep(seq_len(n), each = nt)
+  occasion <- rep(seq_len(nt), times = n)
+  pA <- prices$pA[occasion]; pB <- prices$pB[occasion]
+  prob <- choice_prob(grid[type[id]], pA, pB)
+  u <- runif(n * nt)
+  y <- as.integer(u > prob[, 1]) + as.integer(u > prob[, 1] + prob[, 2])
+  list(data = data.frame(id, occasion, pA, pB, y),
+       type = type, theta = grid[type], grid = grid, pi = pi, prices = prices)
+}
+# Each row is a person, each column a proposed value of theta.
+panel_loglik <- function(dat, grid) {
   sapply(grid, function(th) {
     pr <- choice_prob(th, dat$pA, dat$pB)
     drop(rowsum(log(pr[cbind(seq_len(nrow(dat)), dat$y + 1)]), dat$id))
   })
 }
-fit_mixture <- function(ell) {
+# Stable type probabilities and observed-data log likelihood.
+mixture_eval <- function(ell, pi) {
+  z <- sweep(ell, 2, log(pi), "+")
+  rowmax <- apply(z, 1, max)
+  e <- exp(z - rowmax)
+  totals <- rowSums(e)
+  list(weights = e / totals, loglik = sum(rowmax + log(totals)))
+}
+fit_known_pi <- function(ell) {
   softmax <- function(a) { z <- c(a, 0); z <- exp(z - max(z)); z / sum(z) }
-  rowmax <- apply(ell, 1, max); e <- exp(ell - rowmax)
-  loss <- function(a) -sum(rowmax + log(drop(e %*% softmax(a))))
-  op <- optim(c(0, 0), loss, method = 'BFGS')
-  if(op$convergence != 0) stop('mixture fit did not converge')
-  pi <- softmax(op$par)
-  ww <- sweep(e, 2, pi, '*'); ww <- ww / rowSums(ww)
-  list(pi = pi, weights = ww, Q = op$value)
+  opt <- optim(rep(0, ncol(ell) - 1),
+               function(a) -mixture_eval(ell, softmax(a))$loglik,
+               method = "BFGS", control = list(reltol = 1e-11, maxit = 1000))
+  if (opt$convergence != 0) stop("Known-support MLE did not converge")
+  pi <- softmax(opt$par)
+  c(list(pi = pi), mixture_eval(ell, pi))
 }
-no_pool <- function(dat, grid = theta_grid) {
-  ell_i <- panel_loglik(dat, grid)
-  best_k <- max.col(ell_i, ties.method = "first")
-  grid[best_k]
+# No pooling uses the same fixed candidate values as the EB comparison.
+individual_mle <- function(ell, grid) {
+  grid[max.col(ell, ties.method = "first")]
 }
-predict_mix <- function(dat, weights, grid = theta_grid) {
-  out <- matrix(0, nrow(dat), 3)
-  for(k in seq_along(grid)) {
-    out <- out + weights[dat$id, k] * choice_prob(grid[k], dat$pA, dat$pB)
+# EM for an unknown 3-point distribution; each M-step increases Q.
+fit_em_once <- function(dat, start, maxit = 2000, tol = 1e-8, bounds = c(-6, 6)) {
+  theta <- sort(start)
+  pi <- rep(1 / length(theta), length(theta))
+  ell <- panel_loglik(dat, theta)
+  current <- mixture_eval(ell, pi)
+  trace <- current$loglik
+  converged <- FALSE
+  for (iter in seq_len(maxit)) {
+    w <- current$weights
+    pi_new <- colMeans(w)
+    theta_new <- vapply(seq_along(theta), function(k) {
+      optimize(function(th) -sum(w[, k] * panel_loglik(dat, th)),
+               interval = bounds, tol = 1e-8)$minimum
+    }, numeric(1))
+    order_new <- order(theta_new)
+    theta_new <- theta_new[order_new]; pi_new <- pi_new[order_new]
+    ell_new <- panel_loglik(dat, theta_new)
+    next_fit <- mixture_eval(ell_new, pi_new)
+    gain <- next_fit$loglik - current$loglik
+    if (gain < -1e-6) stop("EM log likelihood decreased")
+    trace <- c(trace, next_fit$loglik)
+    theta <- theta_new; pi <- pi_new; ell <- ell_new; current <- next_fit
+    if (abs(gain) < tol) { converged <- TRUE; break }
   }
-  out
+  list(theta = theta, pi = pi, loglik = current$loglik,
+       weights = current$weights, trace = trace, converged = converged,
+       iterations = iter, bounds = bounds)
 }
-score_prob <- function(prob, dat) {
-  loss <- -log(pmax(prob[cbind(seq_len(nrow(dat)), dat$y + 1)], 1e-12))
-  drop(rowsum(loss, dat$id)) / as.numeric(table(dat$id))
+fit_em_multistart <- function(dat, starts = list(c(-2, 0, 2), c(-1, .5, 2.5),
+                                                  c(-2.5, -.5, 1))) {
+  fits <- lapply(starts, function(st) fit_em_once(dat, st))
+  best <- which.max(vapply(fits, `[[`, numeric(1), "loglik"))
+  list(best = fits[[best]], fits = fits, best_start = best)
 }
 
-train <- subset(train_all, occasion <= 4)
-fit <- fit_mixture(panel_loglik(train))
-np <- no_pool(train)
+
+d <- sim_finite()
+ell <- panel_loglik(d$data, d$grid)
+fit <- fit_known_pi(ell)
+em <- fit_em_multistart(d$data)
+np <- individual_mle(ell, d$grid)
+eb <- drop(fit$weights %*% d$grid)
+
+# 連続的な好み：同じ選択モデルで独立のデータを生成する
+set.seed(202607)
+N_c <- 200; T_c <- 8
+mu_true_c <- 0.2; tau_true_c <- 1
+id_c <- rep(seq_len(N_c), each = T_c)
+time_c <- rep(seq_len(T_c), times = N_c)
+price_c <- data.frame(pA = runif(T_c, 1, 2.5), pB = runif(T_c, 1, 2.5))
+theta_true_c <- rnorm(N_c, mu_true_c, tau_true_c)
+pA_c <- price_c$pA[time_c]; pB_c <- price_c$pB[time_c]
+prob_c <- function(theta, pA, pB) {
+  va <- 1.5 - theta - pA; vb <- 1.5 + theta - pB
+  m <- pmax(0, va, vb)
+  e <- cbind(exp(-m), exp(va - m), exp(vb - m))
+  e / rowSums(e)
+}
+probs_c <- prob_c(theta_true_c[id_c], pA_c, pB_c)
+u_c <- runif(N_c * T_c)
+y_c <- as.integer(u_c > probs_c[,1]) + as.integer(u_c > probs_c[,1] + probs_c[,2])
+dat_c <- data.frame(id = id_c, time = time_c, pA = pA_c, pB = pB_c, y = y_c)
+# 台形則で係数空間を積分する。両端に半分の重みを付ける。
+theta_nodes_c <- seq(-6, 6, length.out = 241)
+trap_weights_c <- function(x) {
+  dx <- diff(x)
+  stopifnot(max(abs(dx - dx[1])) < 1e-10)
+  c(dx[1] / 2, rep(dx[1], length(x) - 2), dx[1] / 2)
+}
+theta_w_c <- trap_weights_c(theta_nodes_c)
+log_lik_c <- function(dat, nodes = theta_nodes_c) {
+  sapply(nodes, function(th) {
+    pr <- prob_c(th, dat$pA, dat$pB)
+    drop(rowsum(log(pr[cbind(seq_len(nrow(dat)), dat$y + 1)]), dat$id))
+  })
+}
+ell_c <- log_lik_c(dat_c)
+rowmax_c <- apply(ell_c, 1, max)
+lik_c <- exp(ell_c - rowmax_c)
+# 全員の周辺対数尤度。各列に共通する標準化分を足し戻す。
+marginal_loglik_c <- function(mu, log_tau, nodes = theta_nodes_c,
+                              node_w = theta_w_c, lik = lik_c, rowmax = rowmax_c) {
+  weights <- dnorm(nodes, mu, exp(log_tau)) * node_w
+  values <- drop(lik %*% weights)
+  if (any(values <= 0) || any(!is.finite(values))) return(-Inf)
+  sum(rowmax + log(values))
+}
+fit_c <- optim(c(0, 0), function(a) -marginal_loglik_c(a[1], a[2]),
+               method = "L-BFGS-B", lower = c(-2, log(.1)), upper = c(2, log(3)))
+stopifnot(fit_c$convergence == 0)
+mu_hat_c <- fit_c$par[1]; tau_hat_c <- exp(fit_c$par[2])
+post_weights_c <- function(mu, tau, lik = lik_c, nodes = theta_nodes_c, node_w = theta_w_c) {
+  weights <- dnorm(nodes, mu, tau) * node_w
+  z <- sweep(lik, 2, weights, "*")
+  z / rowSums(z)
+}
+post_eb_c <- post_weights_c(mu_hat_c, tau_hat_c)
+theta_eb_c <- drop(post_eb_c %*% theta_nodes_c)
+# フルベイズ：ハイパーパラメータと個人の係数をグリッド上で積分する。
+# mu ~ N(0, 2^2), log(tau) ~ N(0, .7^2), 互いに独立。
+mu_grid_c <- seq(-1, 1.4, length.out = 49)
+logtau_grid_c <- seq(-1.2, .6, length.out = 49)
+mu_w_c <- trap_weights_c(mu_grid_c); logtau_w_c <- trap_weights_c(logtau_grid_c)
+hyper_c <- expand.grid(mu = mu_grid_c, logtau = logtau_grid_c)
+hyper_c$log_joint <- vapply(seq_len(nrow(hyper_c)), function(g) {
+  mu <- hyper_c$mu[g]; z <- hyper_c$logtau[g]
+  marginal_loglik_c(mu, z) + dnorm(mu, 0, 2, log = TRUE) + dnorm(z, 0, .7, log = TRUE)
+}, numeric(1))
+hyper_c$quad_w <- rep(mu_w_c, times = length(logtau_grid_c)) *
+  rep(logtau_w_c, each = length(mu_grid_c))
+hyper_c$post <- exp(hyper_c$log_joint - max(hyper_c$log_joint)) * hyper_c$quad_w
+hyper_c$post <- hyper_c$post / sum(hyper_c$post)
+# 一人分の条件付き分布を混合し、母集団パラメータの不確実性を伝える。
+customer_c <- 1
+post_full_c <- numeric(length(theta_nodes_c))
+for (g in seq_len(nrow(hyper_c))) {
+  if (hyper_c$post[g] > 1e-12) {
+    w <- lik_c[customer_c, ] * dnorm(theta_nodes_c, hyper_c$mu[g], exp(hyper_c$logtau[g])) * theta_w_c
+    post_full_c <- post_full_c + hyper_c$post[g] * w / sum(w)
+  }
+}
+post_full_c <- post_full_c / sum(post_full_c)
 ```
 
 ## 今日の問い
 
-- 市場の平均的な需要から、一人の次の選択をどう予測するか。
-- 同じ離散選択モデルに、その人の履歴を加える。
-- 履歴が短いとき、集団の情報は何に役立つか。
+- 集団の好みの分布が分かっていても、一人の好みは分からない。
+- その人の購買履歴を見ると、どんな好みがどれだけもっともらしくなるか。
+- 母集団の分布も未知なら、全員の履歴から先に学ぶ。
 
-## 前回まで
+## 一人の選択を読む
 
-第4回：好みの分布を推定し、市場全体の代替関係と合併後の価格を計算した。
+ブラックを何度も買った人は、苦味を好むかもしれない。
 
-第5回：ゲスト講義。
+しかし、偶然そう選んだ可能性もある。価格や、選べた商品も履歴と一緒に見る必要がある。
 
-今回：同じ分布を、個人の購買履歴に応じて更新する。
+## 今日の道筋
 
-## まずQuiz 6
+1. 母集団分布が既知：事前・尤度・事後
+2. タイプの位置は既知、割合は未知：経験ベイズ
+3. タイプの位置も未知：EM
+4. 連続分布へ、さらに階層ベイズへ
 
-[問題を開く](quiz6.html)
+## 同じコーヒーのモデル
 
-## 市場と個人で平均する分布が変わる
+苦い A の甘さ $x_A=-1$、甘い B の甘さ $x_B=1$。買わない選択肢を 0 とする。
 
-$$s_j=\int P_j(\theta)dF(\theta)$$
+$$u_{ijt}=1.5+\theta_i x_j-p_{jt}+\varepsilon_{ijt},\quad j=A,B.$$
 
-$$P_{ij}^{\mathrm{history}}=\int P_j(\theta)dF(\theta\mid H_i)$$
+同じ機会には全員に同じ価格。$\theta_i$ はその人の全機会に共通する。
 
-履歴を説明しやすい好みに、大きな重みを付ける。
+## ショックと好みは違う
 
-::: {.notes}
-ここで計算するのは選択ダミーの条件付き平均、すなわち選択確率である。確率を答えるタスクと、商品を一つ選ぶタスクを区別する。
-:::
+- $\theta_i$ は観測期間を通じて固定された甘さの好み。
+- $\varepsilon_{ijt}$ は個人・選択肢・機会ごとに独立な標準Gumbelショック。
+- 同じ好みでも毎回同じ選択になるわけではない。
 
-## 何を「予測」するのか
+## タイプを固定した選択確率
 
-- 今回は、本人の履歴に条件づけた**選択確率**を計算する。
-- 商品を一つ当てるなら、最大の確率の商品を答える。
-- 数値を答える場合も、二乗損失なら平均、絶対損失なら中央値。
+$$P_{jt}(\theta)=\frac{\exp(1.5+\theta x_j-p_{jt})}{1+\exp(1.5-\theta-p_{At})+\exp(1.5+\theta-p_{Bt})}.$$
 
-何を答えるかと、どんな損失で評価するかを決める。
+買わない確率は同じ分母で分子を1にする。価格係数と定数は既知とする。
 
-## 企業のデータで必要なもの
+## 同じ人の履歴
 
-- 誰が、いつ、何を選んだか。
-- そのとき提示されていた選択肢と価格。
-- 買わないという選択も含む機会。
+$H_i$ は価格と選択の列。タイプを固定した履歴の尤度は
 
-購入した行だけでは、購入機会に対する確率をそのまま推定できない。
+$$L(\theta;H_i)=\prod_{t=1}^{T_i}P_{y_{it},t}(\theta).$$
 
-## コーヒーの選択
+同じ人の好みを固定して確率を掛ける。まず平均してから掛けると、毎回好みを引き直す別のモデルになる。
 
-Aはブラック、Bは甘いコーヒー。価格は100円単位。
+## まず3つのタイプを仮定する
 
-$$v_{iAt}=1.5-\theta_i-p_{At},\quad v_{iBt}=1.5+\theta_i-p_{Bt}$$
+好みの候補値を $\vartheta_k$、その割合を $\pi_k$ と書く。
 
-$$\theta_i\in\{-1.5,0,1.5\},\quad \pi^{\mathrm{true}}=(.25,.5,.25)$$
+$$\theta_i\in\{-1.5,0,1.5\},\quad \pi=(0.25,0.50,0.25).$$
 
-outsideの効用は一時的ショックのみ。
+- 負は苦味好き、正は甘さ好き、0は中間。
+- まず母集団の割合 $\pi$ が分かっている場合を考える。
 
-## 簡略化している部分
+## ベイズの公式
 
-- タイプの位置、定数、価格係数は既知。
-- 母集団のタイプ割合を推定する。
-- 価格は各機会で全員共通かつ外生的。同じ人のタイプは固定。
+$$\Pr(\theta_i=\vartheta_k\mid H_i,\pi)
+=\frac{\pi_k L(\vartheta_k;H_i)}{\sum_\ell\pi_\ell L(\vartheta_\ell;H_i)}.$$
 
-価格内生性や習慣形成を同時に扱う例ではない。
+事前確率 $\pi_k$ に本人の履歴の尤度を掛け、合計が1になるよう割る。
 
-## 同じ価格でも選択が違う
+## 事前・尤度・事後
 
-```{r}
-pr <- choice_prob(theta_grid, 1.5, 1.5)
-plot_pr <- data.frame(type = rep(theta_grid, each = 3), choice = rep(c("買わない", "A", "B"), 3), probability = as.vector(t(pr)))
-ggplot(plot_pr, aes(factor(type), probability, fill = choice)) + geom_col(position = "dodge") + labs(x = "タイプ", y = "選択確率", fill = NULL)
-```
+- **事前**：本人の履歴を見る前のタイプ割合。
+- **尤度**：各タイプのもとで、その履歴が出る確率。
+- **事後**：履歴を見た後のタイプの確率。
 
-## 同じ選好が複数の選択を生む
+尤度はタイプについて合計1になる必要はない。
 
-履歴は $H_i=\{(y_{it},p_{At},p_{Bt})\}_{t=1}^{T_i}$。価格に条件づける。
+## データを作ってみる
 
-$$L(\theta_k;H_i)=\prod_{t=1}^{T_i}P_{y_{it},t}(\theta_k)$$
+400人を16機会観察する。各人のタイプを一度だけ抽選し、各機会の価格を一度だけ抽選して全員に提示する。
 
-まずタイプを固定して各回の確率を掛ける。
+分析時には真のタイプを使わない。シミュレーションでは後で結果を確認できる。
 
-$$L(\pi;H_i)=\sum_k\pi_kL(\theta_k;H_i)$$
-
-その後に、タイプについて平均する。
-
-## 平均と積の順序
-
-$$\sum_k\pi_k\prod_tP_{y_{it},t}(\theta_k)
-\ne\prod_t\sum_k\pi_kP_{y_{it},t}(\theta_k)$$
-
-右辺では、各回でタイプを引き直すことになる。
-
-## データを作ってから、使い方を分ける
-
-1. 400人のタイプを一度だけ抽選する。
-2. 36機会の共通価格を100〜250円から独立に抽選する。
-3. タイプと価格からlogit確率を計算し、各人の選択を抽選する。
-
-前半16機会が学習用、後半20機会が評価用。
-
-まず最初の4機会を使う。真の個人タイプは推定に渡さない。
-
-## 母集団の割合を推定する
-
-$$\hat\pi\in\arg\max_{\pi_k\geq0,\,\sum_k\pi_k=1}
-\sum_i\log L(\pi;H_i)$$
-
-400人の最初の4回を使い、既知の3タイプの**割合だけ**を推定する。
+## 履歴による重みの変化 {.nostretch}
 
 ```{r}
-kable(data.frame(type = theta_grid, truth = pi_true, estimate = fit$pi), digits = 3)
-```
-
-## 履歴を見た後の重み
-
-$$w_{ik}=\frac{\hat\pi_kL(\theta_k;H_i)}
-{\sum_l\hat\pi_lL(\theta_l;H_i)}$$
-
-母集団で多いタイプと、その人の履歴を説明しやすいタイプの両方に重みが付く。
-
-## なぜこの重みなのか：ベイズの公式
-
-$$\Pr(A\mid B)=\frac{\Pr(B\mid A)\Pr(A)}{\Pr(B)}$$
-
-- $A$：本人がタイプ $k$。$B$：本人の選択列を観測した。
-- 既知の $\pi$ なら、履歴を見た後のタイプの**事後確率**になる。
-- 未知の $\pi$ に推定値 $\hat\pi$ を代入するのが**経験ベイズ**。
-
-$\hat\pi$ 自体の不確実性まで積分する計算とは区別する。
-
-## 一人の例
-
-```{r}
-i <- 1
-kable(train[train$id == i, ])
-kable(data.frame(type = theta_grid, population = fit$pi, history = fit$weights[i, ]), digits = 3)
-```
-
-## 一人ずつ推定すると {.nostretch}
-
-同じ3タイプの中で、本人の履歴の尤度が最大のものを選ぶ。
-
-$$\widehat k_i^{\mathrm{NP}}\in\arg\max_{k\in\{1,2,3\}}
-\log L(\theta_k;H_i)$$
-
-短い履歴で一つに決めると、誤分類しても他の可能性を残せない。
-
-```{r}
-#| fig-height: 3.0
 #| out-width: "750px"
-ggplot(data.frame(estimate = factor(np, levels = theta_grid)), aes(estimate)) +
-  geom_bar(fill = "#4C72B0") +
-  labs(x = "個人別最尤で選んだタイプ", y = "人数")
+i <- 1
+plot_data <- data.frame(theta = factor(rep(d$grid, 2)),
+                        weight = c(d$pi, mixture_eval(ell, d$pi)$weights[i, ]),
+                        distribution = rep(c("事前", "事後"), each = 3))
+ggplot(plot_data, aes(theta, weight, fill = distribution)) +
+  geom_col(position = "dodge") + labs(x = "甘さの好み", y = "確率", fill = NULL)
 ```
 
-## 予測の方法を比べる
+## 一つの数字にするなら
 
-1. 母集団の割合のみ。
-2. 個人別最尤で選んだ一つのタイプ。
-3. 履歴で更新したタイプの重み。
+事後平均 $\sum_k w_{ik}\vartheta_k$ は、二乗誤差に対応する要約である。
 
-各タイプの選択確率を、それぞれの重みで平均する。
+事後最頻タイプ $\arg\max_k w_{ik}$ は、タイプを一つ答え、間違いを等しく数える場合の答えである。目的によって要約は違う。
 
-同じ顧客の後半20回で評価する。評価中は重みを更新しない。
+## 割合も分からないとき
 
-## log loss
+支点 $\vartheta_k$ を既知として、400人の履歴から $\pi$ を推定する。
 
-$$-\frac1{N T_{\mathrm{test}}}\sum_{i=1}^N\sum_{t=17}^{36}
-\log\widehat P_{i,y_{it},t},\qquad T_{\mathrm{test}}=20$$
+$$\widehat\pi=\arg\max_{\pi_k\geq0,\,\sum_k\pi_k=1}
+\sum_i\log\left[\sum_k\pi_k L(\vartheta_k;H_i)\right].$$
 
-実際に選ばれた選択肢に高い確率を付けるほど小さくなる。
+同じ人の履歴の確率を先に作り、その後でタイプを平均する。
 
-学習用の当てはまりだけでは比較しない。
-
-## 4回の履歴から予測
+## 推定したタイプの割合
 
 ```{r}
-preds <- list("母集団" = predict_mix(test, matrix(fit$pi, N, 3, byrow = TRUE)), "個人別" = choice_prob(np[test$id], test$pA, test$pB), "履歴で重みを更新" = predict_mix(test, fit$weights))
-result <- data.frame(method = names(preds), loss = sapply(preds, function(p) mean(score_prob(p, test))))
-ggplot(result, aes(method, loss)) + geom_col(fill = "#4C72B0") + labs(x = NULL, y = "評価用log loss")
+knitr::kable(data.frame(type = d$grid, truth = d$pi, estimate = fit$pi),
+             digits = 3, col.names = c("甘さの好み", "真の割合", "推定した割合"))
 ```
 
-## 結果をどう読むか
+真値はデータを生成した側だけが知っている。推定に使ったのは観測された価格と選択の履歴である。
 
-短い履歴で一つのタイプに決めると、誤分類が次の選択確率にも影響する。
+## 経験ベイズ
 
-母集団の情報と本人の履歴を合わせることで改善した。
+推定した割合を固定して、本人の履歴による更新に使う。
 
-これはタイプ分布の指定が妥当な今回の設定での結果である。
+$$\widehat w_{ik}=\frac{\widehat\pi_k L(\vartheta_k;H_i)}{\sum_\ell\widehat\pi_\ell L(\vartheta_\ell;H_i)}.$$
 
-## 推定誤差も残る
+**集団の分布を推定し、それを使って個人の事後分布を作る**ところまでが経験ベイズである。
 
-$\hat\pi$ は400人の標本から推定した値。
+## 一人ずつ推定する方法もある
 
-顧客単位で履歴全体を復元抽出し、推定を繰り返す。
+同じ3つの候補の中で、本人の尤度を最大にするタイプを選ぶ。
 
-選択行をばらばらに抽出すると、個人内の依存を壊してしまう。
+$$\widehat k_i^{\rm NP}\in\arg\max_k L(\vartheta_k;H_i).$$
 
-## 実証研究との接続
+これは個人別最尤（no pooling）。他人の履歴や母集団割合は使わない。
 
-Rossi, McCulloch, and Allenby (1996) は、購買履歴を使ったクーポン配布を分析した。
+## 方法の違い
 
-短い履歴を使う配布の純便益は、一律配布の約2.5倍だった。これはその研究の市場・施策での結果である。
+| 方法 | 個人への情報 | 何を残すか |
+|---|---|---|
+| 個人別最尤 | 本人の尤度 | 一つのタイプ |
+| 経験ベイズ | 推定した割合と本人の尤度 | タイプの事後分布 |
 
-出典：[Marketing Science](https://pubsonline.informs.org/doi/10.1287/mksc.15.4.321)
+経験ベイズは母集団の分布が適切であるかに依存する。
 
-## 履歴の予測と施策の効果
+## 個人の好みを要約する {.nostretch}
 
-「この人は買いそうだ」と「この人へ送ると購入が増える」は異なる。
+```{r}
+#| out-width: "750px"
+est <- data.frame(truth = rep(d$theta, 2), estimate = c(np, eb),
+                  method = rep(c("個人別最尤", "経験ベイズ事後平均"), each = length(np)))
+ggplot(est, aes(truth, estimate)) + geom_jitter(width = .10, height = 0, alpha = .2) +
+  geom_abline(slope = 1, intercept = 0, colour = "#bb4444") + facet_wrap(~method) +
+  labs(x = "真の好み", y = "一人の好みの要約")
+```
 
-施策の比較には、送らなかった場合の行動が必要になる。第10回で扱う。
+## 同じ誤差で比べる
 
-## 固定的な好みと状態依存
+```{r}
+knitr::kable(data.frame(method = c("個人別最尤", "経験ベイズ事後平均"),
+  rmse = c(sqrt(mean((np - d$theta)^2)), sqrt(mean((eb - d$theta)^2)))),
+  digits = 3, col.names = c("方法", "真値とのRMSE"))
+```
 
-同じ商品を繰り返し買う理由は、もともとの好みかもしれない。
+真の係数を使った診断はシミュレーションだから可能。短い履歴では事前の影響が大きく、母集団の仮定が誤れば結果にも影響する。
 
-過去に買ったこと自体が次の選択を変える場合もある。
+## タイプの位置も未知なら
 
-今回は前者のみ。後者との区別は第14回で扱う。
+候補値（位置）$\vartheta_1,\vartheta_2,\vartheta_3$ と割合 $\pi_1,\pi_2,\pi_3$ を、全員の履歴から同時に推定する。
 
-## まとめと次回
+今回はタイプ数3を所与とする。位置の推定は、個人ごとに別々の係数を最適化することではない。
 
-- 同じ個人係数が履歴全体に入る。
-- 履歴を使ってタイプの重みを更新する。
-- 短い履歴では集団の情報が役立つ。
-- 予測は別の選択で評価する。
+## EM：見えないタイプを交互に扱う
 
-次回は好みを測る選択課題を設計するコンジョイント分析。
+1. **Eステップ**：現在の位置と割合から、各人のタイプの重みを計算。
+2. **Mステップ**：その重みを使って、割合と各タイプの位置を更新。
+3. 対数尤度がほぼ変わらなくなるまで繰り返す。
 
-[講義ノート](lecture6.html) / [課題6](assignment6.html) / [Playground](playground6.html)
+## Eステップ：ベイズの公式を使う
+
+反復 $r$ の候補値と割合から、一人ずつ所属確率を計算する。
+
+$$w_{ik}^{(r)}=\frac{\pi_k^{(r)}L(\vartheta_k^{(r)};H_i)}{\sum_\ell\pi_\ell^{(r)}L(\vartheta_\ell^{(r)};H_i)}.$$
+
+所属を一つに決めず、3タイプの重みを残す。
+
+## Mステップ：重み付きの推定にする
+
+Eステップで得た重みを固定して、割合と候補値を更新する。
+
+$$\begin{aligned}
+\pi_k^{(r+1)}&=\frac{1}{N}\sum_i w_{ik}^{(r)},\\
+\vartheta_k^{(r+1)}&\in\arg\max_\vartheta\sum_iw_{ik}^{(r)}\log L(\vartheta;H_i).
+\end{aligned}$$
+
+重み0.7の人は、そのタイプの推定に0.7人分として参加する。
+
+## EMの推定結果
+
+```{r}
+knitr::kable(data.frame(theta = em$best$theta, pi = em$best$pi), digits = 3,
+             col.names = c("推定した位置", "推定した割合"))
+```
+
+探索範囲は $[-6,6]$。位置は小さい順に並べる。3種類の初期値から始めて結果を比べた。
+
+## 尤度の改善を確かめる {.nostretch}
+
+```{r}
+#| out-width: "750px"
+traces <- do.call(rbind, lapply(seq_along(em$fits), function(k)
+  data.frame(iteration = seq_along(em$fits[[k]]$trace) - 1,
+             loglik = em$fits[[k]]$trace, start = factor(k))))
+ggplot(traces, aes(iteration, loglik, color = start)) + geom_line() + geom_point() +
+  labs(x = "反復回数", y = "対数尤度", color = "初期値")
+```
+
+## EMの結果を読むとき
+
+- タイプ番号を入れ替えても同じ分布：位置を順序付ける。
+- 複数初期値の一致は、大域最適の証明ではない。
+- タイプ数、支点の識別、母集団分布の形も仮定している。
+- [Kasahara and Shimotsu (2009)](https://doi.org/10.3982/ECTA6763) は動的離散選択の有限混合で、パネルの長さなどがタイプの識別に果たす役割を分析している。今回の静的logitと同一の設定ではない。
+
+## 好みを連続分布にする
+
+$$\theta_i\sim N(\mu,\tau^2).$$
+
+変えたのは甘さの好みの分布であり、価格係数ではない。同じコーヒーと同じ選択モデルを使う。
+
+## 和を積分に置き換える
+
+$$\ell(\mu,\tau)=\sum_i\log\int L(\theta;H_i)\frac1\tau\phi\!\left(\frac{\theta-\mu}{\tau}\right)d\theta.$$
+
+各人の履歴を固定した $\theta$ のもとでまとめ、その後で $\theta$ を積分する。
+
+## 連続分布の経験ベイズ
+
+周辺尤度を最大にして $\widehat\mu,\widehat\tau$ を得る。本人の事後密度は
+
+$$f_i^{\rm EB}(\theta\mid H_i)\propto L(\theta;H_i)\frac1{\widehat\tau}\phi\!\left(\frac{\theta-\widehat\mu}{\widehat\tau}\right).$$
+
+logit尤度と正規分布の積は一般に正規分布ではない。ここでは数値積分する。
+
+## 別の連続分布データを使う
+
+200人・各8機会、真の $(\mu,\tau)=(0.2,1)$ で生成。価格は機会ごとに全員共通。
+
+```{r}
+knitr::kable(data.frame(parameter = c("平均 μ", "標準偏差 τ"),
+  truth = c(mu_true_c, tau_true_c), estimate = c(mu_hat_c, tau_hat_c)),
+  digits = 3, col.names = c("母集団", "真値", "経験ベイズの推定値"))
+```
+
+## 連続分布でも本人の履歴で変わる {.nostretch}
+
+```{r}
+#| out-width: "850px"
+pc <- do.call(rbind, lapply(1:3, function(i) {
+  data.frame(theta = rep(theta_nodes_c, 2), customer = paste0("顧客", i),
+    density = c(dnorm(theta_nodes_c, mu_hat_c, tau_hat_c), post_eb_c[i, ] / theta_w_c),
+    information = factor(rep(c("母集団", "本人の履歴を反映"), each = length(theta_nodes_c)),
+                         levels = c("母集団", "本人の履歴を反映")))
+}))
+ggplot(pc, aes(theta, density, color = information, linetype = information)) +
+  geom_line(linewidth = .9) + facet_wrap(~customer, nrow = 1) +
+  scale_linetype_manual(values = c(2, 1)) + coord_cartesian(xlim = c(-3, 3)) +
+  labs(x = "甘さの好み θ", y = "密度", color = NULL, linetype = NULL) +
+  theme(legend.position = "bottom")
+```
+
+## 発展：母集団も不確実
+
+有限タイプでも連続タイプでも、**母集団の好み → 個人の好み → 本人の履歴** という階層構造がある。
+
+経験ベイズは推定した母集団パラメータを固定する。フルベイズはそこにも事前分布を置く。
+
+## フルベイズで個人を更新する
+
+$\eta=(\mu,\log\tau)$ と書けば、全員の履歴 $\mathcal H$ を使い
+
+$$p(\theta_i\mid\mathcal H)=\int p(\theta_i\mid H_i,\eta)\,p(\eta\mid\mathcal H)\,d\eta.$$
+
+母集団パラメータの事後分布で平均し、その不確実性を個人の分布へ伝える。
+
+## 経験ベイズとフルベイズ {.nostretch}
+
+```{r}
+#| out-width: "750px"
+pd <- data.frame(theta = rep(theta_nodes_c, 2),
+  density = c(post_eb_c[customer_c, ] / theta_w_c, post_full_c / theta_w_c),
+  method = rep(c("経験ベイズ", "フルベイズ"), each = length(theta_nodes_c)))
+ggplot(subset(pd, abs(theta) <= 4), aes(theta, density, colour = method)) +
+  geom_line(linewidth = 1) + labs(x = "甘さの好み", y = "事後密度", colour = NULL)
+```
+
+## 数値計算とモデルの確認
+
+格子の幅・細かさを変え、端に重みが残っていないかを確かめる。事前分布や母集団の分布形状に対する感度も確認する。
+
+好みを学んでも、企業が価格を決める内生性や、過去の購入が好みを変える可能性は自動的には解決しない。
+
+## 今日のまとめ
+
+- 個人の好みは、事前分布を本人の履歴の尤度で更新して考える。
+- 経験ベイズは、集団の分布を推定してから個人を更新する。
+- 未知の有限支点はEMで扱え、連続分布では和が積分になる。
+- フルベイズは母集団パラメータの不確実性も考慮する。
+
+## 次回：ターゲティング
+
+個人の購買履歴から得た情報を、誰にどの施策を行うかという意思決定へつなげる。
+
+施策の費用や利益、効果をどう確かめるかも考える。[ターゲティングの講義](../lec7/lecture7.html)

@@ -42,7 +42,7 @@ FORCE="${FORCE:-0}"
 if [ $# -ge 1 ]; then
   dirs=("$@")
 else
-  dirs=(lec1 lec2 lec3 lec4 lec6 lec7 lec8 lec9 lec10 lec11 lec13 lec14 lec15)
+  dirs=(lec1 lec2 lec3 lec4 lec6 lec7 lec8 lec9 lec11 lec12 lec13)
 fi
 
 for d in "${dirs[@]}"; do

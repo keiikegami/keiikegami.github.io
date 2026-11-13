@@ -8,7 +8,7 @@
 
 <meta name="author" content="Kei Ikegami">
 
-<title>Playground 7：コンジョイントと個人の好み</title>
+<title>Playground 7：個人の不確実性とクーポン配分</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -41,6 +41,35 @@ ul.task-list li input[type="checkbox"] {
 <script type="module" src="playground7_files/libs/quarto-ojs/quarto-ojs-runtime.js"></script>
 <link href="playground7_files/libs/quarto-ojs/quarto-ojs.css" rel="stylesheet">
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 </head>
 
@@ -52,11 +81,11 @@ ul.task-list li input[type="checkbox"] {
     <h2 id="toc-title">目次</h2>
    
   <ul class="collapse">
-  <li><a href="#使い方" id="toc-使い方" class="nav-link active" data-scroll-target="#使い方">使い方</a></li>
-  <li><a href="#価格への反応が違う人" id="toc-価格への反応が違う人" class="nav-link" data-scroll-target="#価格への反応が違う人">1. 価格への反応が違う人</a></li>
-  <li><a href="#回答者数とamceの精度" id="toc-回答者数とamceの精度" class="nav-link" data-scroll-target="#回答者数とamceの精度">2. 回答者数とAMCEの精度</a></li>
-  <li><a href="#wtpの平均と平均係数の比" id="toc-wtpの平均と平均係数の比" class="nav-link" data-scroll-target="#wtpの平均と平均係数の比">3. WTPの平均と、平均係数の比</a></li>
-  <li><a href="#問で一人の好みを決められるか" id="toc-問で一人の好みを決められるか" class="nav-link" data-scroll-target="#問で一人の好みを決められるか">4. 8問で一人の好みを決められるか</a></li>
+  <li><a href="#実験1係数を平均して代入すると同じか" id="toc-実験1係数を平均して代入すると同じか" class="nav-link active" data-scroll-target="#実験1係数を平均して代入すると同じか">実験1：係数を平均して代入すると同じか</a></li>
+  <li><a href="#実験2よく買う人とクーポンが効く人" id="toc-実験2よく買う人とクーポンが効く人" class="nav-link" data-scroll-target="#実験2よく買う人とクーポンが効く人">実験2：よく買う人とクーポンが効く人</a></li>
+  <li><a href="#実験3原価と配信費用を入れる" id="toc-実験3原価と配信費用を入れる" class="nav-link" data-scroll-target="#実験3原価と配信費用を入れる">実験3：原価と配信費用を入れる</a></li>
+  <li><a href="#実験4一律と個人別を比べる" id="toc-実験4一律と個人別を比べる" class="nav-link" data-scroll-target="#実験4一律と個人別を比べる">実験4：一律と個人別を比べる</a></li>
+  <li><a href="#次に読むもの" id="toc-次に読むもの" class="nav-link" data-scroll-target="#次に読むもの">次に読むもの</a></li>
   </ul>
 </nav>
 </div>
@@ -64,7 +93,7 @@ ul.task-list li input[type="checkbox"] {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Playground 7：コンジョイントと個人の好み</h1>
+<h1 class="title">Playground 7：個人の不確実性とクーポン配分</h1>
 <p class="subtitle lead">計量経済学II（ブラウザ上でRが動きます）</p>
 </div>
 
@@ -88,76 +117,92 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<section id="使い方" class="level2">
-<h2 class="anchored" data-anchor-id="使い方">使い方</h2>
-<p>セルを上から実行する。価格や回答者数を書き換えて「Run Code」を押すと結果が変わる。<a href="lecture7.html">講義ノート</a>と同じイヤホンのモデルを使う。標準誤差は、ブラウザ版でも回答者単位のクラスター分散を計算する。</p>
-<div class="cell" data-edit="false" data-autorun="true" data-timelimit="120">
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">重要</span>このページの使い方
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>コードの数字を変えて実行すると、グラフや表が変わる。ここでは計算を軽くするため、個人の <span class="math inline">\(\theta_i\)</span> の事後分布を正規分布で近似した例を入力する。実際に履歴から推定するコードと結果は<a href="lecture7.html">講義ノート</a>にある。このページの入力分布は、講義のMCMC結果そのものではない。</p>
+<p>最初の共通コードを実行した後、各実験の数字を変えてみよう。</p>
+</div>
+</div>
+<div class="cell" data-autorun="true">
 <div>
 <div id="webr-1" class="exercise-cell">
 
 </div>
 <script type="webr-1-contents">
-eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVkaXQiOmZhbHNlLCJldmFsIjp0cnVlLCJvdXRwdXQiOmZhbHNlLCJ0aW1lbGltaXQiOjEyMH0sImNvZGUiOiIjID09PSBDQkNfREdQID09PVxuY2hvaWNlX3Byb2IgPC0gZnVuY3Rpb24ocXVhbGl0eSwgcHJpY2UsIGFscGhhKSB7XG4gIHYgPC0gcXVhbGl0eSAtIHByaWNlICogYWxwaGFcbiAgdm1heCA8LSBwbWF4KDAsIHZbLCAxXSwgdlssIDJdKVxuICBldiA8LSBleHAodiAtIHZtYXgpXG4gIGNiaW5kKG91dHNpZGUgPSBleHAoLXZtYXgpLCBldikgLyAoZXhwKC12bWF4KSArIHJvd1N1bXMoZXYpKVxufVxuc2ltdWxhdGVfY2JjIDwtIGZ1bmN0aW9uKHNlZWQgPSAyMDI2MDcsIE4gPSAzMDAsIFR0cmFpbiA9IDgsIFRob2xkID0gOCkge1xuICBzZXQuc2VlZChzZWVkKVxuICBiZXRhX2tub3duIDwtIGMoYmF0dGVyeTEyID0gMC41LCBuYyA9IDAuOCwgbWFqb3JfYnJhbmQgPSAwLjMpXG4gIG11X3RydWUgPC0gbG9nKDAuMTIpIC0gMC42XjIgLyAyXG4gIHRhdV90cnVlIDwtIDAuNlxuICB0aGV0YV90cnVlIDwtIHJub3JtKE4sIG11X3RydWUsIHRhdV90cnVlKVxuICBtYWtlX3Rhc2tzIDwtIGZ1bmN0aW9uKFQpIHtcbiAgICBpZCA8LSByZXAoc2VxX2xlbihOKSwgZWFjaCA9IFQpXG4gICAgbnIgPC0gbGVuZ3RoKGlkKVxuICAgIHByaWNlIDwtIG1hdHJpeChzYW1wbGUoYyg4LCAxMiwgMTYpLCBuciAqIDIsIHJlcGxhY2UgPSBUUlVFKSwgbnIsIDIpXG4gICAgYmF0dGVyeTEyIDwtIG1hdHJpeChyYmlub20obnIgKiAyLCAxLCAwLjUpLCBuciwgMilcbiAgICBuYyA8LSBtYXRyaXgocmJpbm9tKG5yICogMiwgMSwgMC41KSwgbnIsIDIpXG4gICAgbWFqb3JfYnJhbmQgPC0gbWF0cml4KHJiaW5vbShuciAqIDIsIDEsIDAuNSksIG5yLCAyKVxuICAgIHF1YWxpdHkgPC0gYmV0YV9rbm93blsxXSAqIGJhdHRlcnkxMiArIGJldGFfa25vd25bMl0gKiBuYyArIGJldGFfa25vd25bM10gKiBtYWpvcl9icmFuZFxuICAgIHByb2IgPC0gY2hvaWNlX3Byb2IocXVhbGl0eSwgcHJpY2UsIGV4cCh0aGV0YV90cnVlW2lkXSkpXG4gICAgY2hvaWNlIDwtIHZhcHBseShzZXFfbGVuKG5yKSwgZnVuY3Rpb24ocikgc2FtcGxlKDA6MiwgMSwgcHJvYiA9IHByb2JbciwgXSksIGludGVnZXIoMSkpXG4gICAgbGlzdChpZCA9IGlkLCBwcmljZSA9IHByaWNlLCBiYXR0ZXJ5MTIgPSBiYXR0ZXJ5MTIsIG5jID0gbmMsXG4gICAgICAgICBtYWpvcl9icmFuZCA9IG1ham9yX2JyYW5kLCBxdWFsaXR5ID0gcXVhbGl0eSwgY2hvaWNlID0gY2hvaWNlLCBUID0gVClcbiAgfVxuICBsaXN0KHRyYWluID0gbWFrZV90YXNrcyhUdHJhaW4pLCB0ZXN0ID0gbWFrZV90YXNrcyhUaG9sZCksIE4gPSBOLFxuICAgICAgIGJldGFfa25vd24gPSBiZXRhX2tub3duLCB0aGV0YV90cnVlID0gdGhldGFfdHJ1ZSwgbXVfdHJ1ZSA9IG11X3RydWUsIHRhdV90cnVlID0gdGF1X3RydWUpXG59XG5cbnRvX2xvbmcgPC0gZnVuY3Rpb24odGFza3MpIHtcbiAgZG8uY2FsbChyYmluZCwgbGFwcGx5KDE6MiwgZnVuY3Rpb24oaikgZGF0YS5mcmFtZShcbiAgICBpZCA9IHRhc2tzJGlkLCBwcm9maWxlID0gaiwgcHJpY2UgPSB0YXNrcyRwcmljZVssIGpdLFxuICAgIGJhdHRlcnkxMiA9IHRhc2tzJGJhdHRlcnkxMlssIGpdLCBuYyA9IHRhc2tzJG5jWywgal0sXG4gICAgbWFqb3JfYnJhbmQgPSB0YXNrcyRtYWpvcl9icmFuZFssIGpdLCBjaG9zZW4gPSBhcy5pbnRlZ2VyKHRhc2tzJGNob2ljZSA9PSBqKSkpKVxufVxuXG5jbHVzdGVyX2xtIDwtIGZ1bmN0aW9uKGQpIHtcbiAgZCRwcmljZTEyIDwtIGFzLmludGVnZXIoZCRwcmljZSA9PSAxMik7IGQkcHJpY2UxNiA8LSBhcy5pbnRlZ2VyKGQkcHJpY2UgPT0gMTYpXG4gIGZpdCA8LSBsbShjaG9zZW4gfiBwcmljZTEyICsgcHJpY2UxNiArIGJhdHRlcnkxMiArIG5jICsgbWFqb3JfYnJhbmQsIGRhdGEgPSBkKVxuICBYIDwtIG1vZGVsLm1hdHJpeChmaXQpOyBTIDwtIHJvd3N1bShYICogcmVzaWR1YWxzKGZpdCksIGQkaWQpXG4gIEcgPC0gbnJvdyhTKTsgYnJlYWQgPC0gc29sdmUoY3Jvc3Nwcm9kKFgpKVxuICBWIDwtIEcgLyAoRyAtIDEpICogKG5yb3coWCkgLSAxKSAvIChucm93KFgpIC0gbmNvbChYKSkgKiBicmVhZCAlKiUgY3Jvc3Nwcm9kKFMpICUqJSBicmVhZFxuICBkYXRhLmZyYW1lKHRlcm0gPSBuYW1lcyhjb2VmKGZpdCkpLCBlc3RpbWF0ZSA9IGNvZWYoZml0KSwgc2UgPSBzcXJ0KGRpYWcoVikpKVxufSJ9
+eyJhdHRyIjp7ImF1dG9ydW4iOnRydWUsImVjaG8iOmZhbHNlLCJlZGl0IjpmYWxzZSwiZXZhbCI6dHJ1ZSwibGFiZWwiOiJ0YXJnZXRpbmctdG9vbHMifSwiY29kZSI6ImxpYnJhcnkoZ2dwbG90MilcbnNldC5zZWVkKDIwMjYxMClcbiMg5q2j6KaP5YiG5biD44Gu562J56K6546H54K544Gn56mN5YiG44GZ44KL44CC5Lmx5pWw44Gr44KI44KL5o+644KM44KS6YG/44GR44KL44CCXG5ub2RlcyA8LSBxbm9ybSgoc2VxX2xlbigxMDAwKS0uNSkvMTAwMClcbnFBIDwtIGZ1bmN0aW9uKHRoZXRhLGNvdXBvbixwQT0xMixwQj0xMikge1xuIHZBIDwtIDEuNi1leHAodGhldGEpKihwQS1jb3Vwb24pXG4gdkIgPC0gLjgtZXhwKHRoZXRhKSpwQlxuIHZtYXggPC0gcG1heCgwLHZBLHZCKVxuIGV4cCh2QS12bWF4KS8oZXhwKC12bWF4KStleHAodkEtdm1heCkrZXhwKHZCLXZtYXgpKVxufVxuZXZhbHVhdGVfY3VzdG9tZXIgPC0gZnVuY3Rpb24obXUsc2lnbWEsY29zdD0xLHNlbmRfY29zdD0wKSB7XG4gdGhldGEgPC0gbXUrc2lnbWEqbm9kZXNcbiBjb3Vwb24gPC0gMDozXG4gcSA8LSBzYXBwbHkoY291cG9uLGZ1bmN0aW9uKGMpIG1lYW4ocUEodGhldGEsYykpKVxuIHByb2ZpdCA8LSAoMTItY291cG9uLWNvc3QpKnEtaWZlbHNlKGNvdXBvbj4wLHNlbmRfY29zdCwwKVxuIGRhdGEuZnJhbWUoY291cG9uPWNvdXBvbixwcm9iYWJpbGl0eT1xLHByb2ZpdD1wcm9maXQsZ2Fpbj1wcm9maXQtcHJvZml0WzFdKVxufSJ9
 </script>
 </div>
 </div>
-</section>
-<section id="価格への反応が違う人" class="level2">
-<h2 class="anchored" data-anchor-id="価格への反応が違う人">1. 価格への反応が違う人</h2>
-<p>Aはバッテリー12時間、ノイズキャンセリングあり、新興ブランド。Bはすべて基準の機能で、価格12千円とする。<code>alpha</code> を変えると、同じAの値上げに対する反応がどう変わるだろうか。</p>
+<section id="実験1係数を平均して代入すると同じか" class="level2">
+<h2 class="anchored" data-anchor-id="実験1係数を平均して代入すると同じか">実験1：係数を平均して代入すると同じか</h2>
 <div class="cell">
 <div>
 <div id="webr-2" class="exercise-cell">
 
 </div>
 <script type="webr-2-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWV9LCJjb2RlIjoiYWxwaGEgPC0gMC4xMlxucHJpY2VfYSA8LSBzZXEoOCwgMTYsIC41KVxucXVhbGl0eSA8LSBjYmluZChyZXAoLjUgKyAuOCwgbGVuZ3RoKHByaWNlX2EpKSwgcmVwKDAsIGxlbmd0aChwcmljZV9hKSkpXG5wcmljZSA8LSBjYmluZChwcmljZV9hLCByZXAoMTIsIGxlbmd0aChwcmljZV9hKSkpXG5wcm9iIDwtIGNob2ljZV9wcm9iKHF1YWxpdHksIHByaWNlLCBhbHBoYSlcbm1hdHBsb3QocHJpY2VfYSwgcHJvYiwgdHlwZSA9IFwibFwiLCBsdHkgPSAxLCBjb2wgPSBjKFwiZ3JheTQwXCIsIFwiYmx1ZVwiLCBcInJlZFwiKSxcbiAgICAgICAgeGxhYiA9IFwiQeOBruS+oeagvO+8iOWNg+WGhu+8iVwiLCB5bGFiID0gXCLpgbjmip7norrnjodcIiwgeWxpbSA9IGMoMCwgMSkpXG5sZWdlbmQoXCJ0b3ByaWdodFwiLCBjKFwi6LK344KP44Gq44GEXCIsIFwiQVwiLCBcIkJcIiksIGNvbCA9IGMoXCJncmF5NDBcIiwgXCJibHVlXCIsIFwicmVkXCIpLCBsdHkgPSAxKSJ9
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsImxhYmVsIjoicG9zdGVyaW9yLWludGVncmF0aW9uIn0sImNvZGUiOiJtdSA8LSBsb2coLjE4KVxuc2lnbWEgPC0gLjVcbmNvdXBvbiA8LSAwOjNcbmludGVncmF0ZWQgPC0gc2FwcGx5KGNvdXBvbixmdW5jdGlvbihjKSBtZWFuKHFBKG11K3NpZ21hKm5vZGVzLGMpKSlcbnBsdWdpbiA8LSBzYXBwbHkoY291cG9uLGZ1bmN0aW9uKGMpIHFBKG11LGMpKVxucmVzdWx0IDwtIGRhdGEuZnJhbWUoY291cG9uPWNvdXBvbixpbnRlZ3JhdGVkPWludGVncmF0ZWQscGx1Z2luPXBsdWdpbilcbnByaW50KHJlc3VsdClcbmdncGxvdChyZXN1bHQsYWVzKGNvdXBvbixpbnRlZ3JhdGVkKSkrZ2VvbV9saW5lKGNvbG9yPVwiIzRDNzJCMFwiKStnZW9tX3BvaW50KCkrXG4gZ2VvbV9saW5lKGFlcyh5PXBsdWdpbiksY29sb3I9XCIjQzQ0RTUyXCIsbGluZXR5cGU9MikrXG4gbGFicyh4PVwiY291cG9uICh0aG91c2FuZCB5ZW4pXCIseT1cInB1cmNoYXNlIHByb2JhYmlsaXR5XCIsXG4gICAgICBzdWJ0aXRsZT1cImJsdWU6IHBvc3RlcmlvciBpbnRlZ3JhdGlvbjsgcmVkOiBwb3N0ZXJpb3IgbWVhbiBwbHVnLWluXCIpIn0=
 </script>
 </div>
 </div>
+<p><code>sigma</code> を0にすると、2つは一致するだろうか。<code>sigma</code> を大きくすると、どのように変わるか。ここで平均している係数は <span class="math inline">\(\theta\)</span> であり、価格係数自体は <span class="math inline">\(\exp(\theta)\)</span> である。</p>
 </section>
-<section id="回答者数とamceの精度" class="level2">
-<h2 class="anchored" data-anchor-id="回答者数とamceの精度">2. 回答者数とAMCEの精度</h2>
-<p><code>N</code> を100、300、1000に変える。<code>Ttrain</code> は一人の回答数である。推定に使うのは学習用だけであり、<code>test</code> の選択を混ぜない。</p>
-<div class="cell" data-timelimit="120">
+<section id="実験2よく買う人とクーポンが効く人" class="level2">
+<h2 class="anchored" data-anchor-id="実験2よく買う人とクーポンが効く人">実験2：よく買う人とクーポンが効く人</h2>
+<div class="cell">
 <div>
 <div id="webr-3" class="exercise-cell">
 
 </div>
 <script type="webr-3-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsInRpbWVsaW1pdCI6MTIwfSwiY29kZSI6Ik4gPC0gMzAwXG5UdHJhaW4gPC0gOFxuZGF0IDwtIHNpbXVsYXRlX2NiYyhOID0gTiwgVHRyYWluID0gVHRyYWluKVxuZCA8LSB0b19sb25nKGRhdCR0cmFpbilcbnJlc3VsdCA8LSBjbHVzdGVyX2xtKGQpXG5yb3VuZChyZXN1bHRbLCBjKFwiZXN0aW1hdGVcIiwgXCJzZVwiKV0sIDMpXG5yIDwtIHJlc3VsdFtyZXN1bHQkdGVybSAhPSBcIihJbnRlcmNlcHQpXCIsIF1cbnBsb3Qoc2VxX2xlbihucm93KHIpKSwgciRlc3RpbWF0ZSwgeGF4dCA9IFwiblwiLCB4bGFiID0gXCJcIiwgeWxhYiA9IFwiQU1DRVwiLFxuICAgICB5bGltID0gcmFuZ2UociRlc3RpbWF0ZSArIDEuOTYgKiByJHNlLCByJGVzdGltYXRlIC0gMS45NiAqIHIkc2UpLCBwY2ggPSAxOSlcbmF4aXMoMSwgc2VxX2xlbihucm93KHIpKSwgbGFiZWxzID0gciR0ZXJtKVxuYXJyb3dzKHNlcV9sZW4obnJvdyhyKSksIHIkZXN0aW1hdGUgLSAxLjk2ICogciRzZSwgc2VxX2xlbihucm93KHIpKSwgciRlc3RpbWF0ZSArIDEuOTYgKiByJHNlLFxuICAgICAgIGFuZ2xlID0gOTAsIGNvZGUgPSAzLCBsZW5ndGggPSAuMDUpXG5hYmxpbmUoaCA9IDAsIGx0eSA9IDIpIn0=
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsImxhYmVsIjoiY3VzdG9tZXJzLWFuZC1wcm9maXQifSwiY29kZSI6ImN1c3RvbWVyX2xvdyA8LSBldmFsdWF0ZV9jdXN0b21lcihsb2coLjA2KSwuMjUsY29zdD0xKVxuY3VzdG9tZXJfaGlnaCA8LSBldmFsdWF0ZV9jdXN0b21lcihsb2coLjIyKSwuMjUsY29zdD0xKVxuY3VzdG9tZXJfbG93JGN1c3RvbWVyIDwtIFwibGVzcyBwcmljZSBzZW5zaXRpdmVcIlxuY3VzdG9tZXJfaGlnaCRjdXN0b21lciA8LSBcIm1vcmUgcHJpY2Ugc2Vuc2l0aXZlXCJcbnogPC0gcmJpbmQoY3VzdG9tZXJfbG93LGN1c3RvbWVyX2hpZ2gpXG5wcmludCh6KVxuZ2dwbG90KHosYWVzKGNvdXBvbixnYWluLGNvbG9yPWN1c3RvbWVyKSkrZ2VvbV9saW5lKCkrZ2VvbV9wb2ludCgpK1xuIGdlb21faGxpbmUoeWludGVyY2VwdD0wLGxpbmV0eXBlPTIpK2xhYnMoeD1cImNvdXBvbiAodGhvdXNhbmQgeWVuKVwiLHk9XCJpbmNyZW1lbnRhbCBwcm9maXRcIikifQ==
 </script>
 </div>
 </div>
+<p>通常価格で買う確率と、増分利益が最大になる値引きを比べよう。どちらも「価格感応度が低いほどよい」という同じ順位になるだろうか。</p>
 </section>
-<section id="wtpの平均と平均係数の比" class="level2">
-<h2 class="anchored" data-anchor-id="wtpの平均と平均係数の比">3. WTPの平均と、平均係数の比</h2>
-<p>平均価格係数を0.12に保って、ばらつき <code>tau</code> を変える。平均係数の比が変わらないのに、個人WTPの平均が変わる理由を考えよう。</p>
+<section id="実験3原価と配信費用を入れる" class="level2">
+<h2 class="anchored" data-anchor-id="実験3原価と配信費用を入れる">実験3：原価と配信費用を入れる</h2>
 <div class="cell">
 <div>
 <div id="webr-4" class="exercise-cell">
 
 </div>
 <script type="webr-4-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWV9LCJjb2RlIjoic2V0LnNlZWQoMjAyNjA3MylcbnRhdSA8LSAwLjZcbm11IDwtIGxvZyguMTIpIC0gdGF1XjIgLyAyXG5hbHBoYSA8LSBleHAocm5vcm0oMTAwMDAsIG11LCB0YXUpKVxud3RwIDwtIC44IC8gYWxwaGFcbmMobWVhbl9pbmRpdmlkdWFsX3d0cCA9IG1lYW4od3RwKSwgcmF0aW9fb2ZfbWVhbnMgPSAuOCAvIG1lYW4oYWxwaGEpLCBtZWRpYW5fd3RwID0gbWVkaWFuKHd0cCkpXG5oaXN0KHd0cCwgYnJlYWtzID0gNDAsIHhsYWIgPSBcIuWAi+S6uldUUO+8iOWNg+WGhu+8iVwiLCBtYWluID0gXCLjg47jgqTjgrrjgq3jg6Pjg7Pjgrvjg6rjg7PjgrDjga5XVFBcIilcbmFibGluZSh2ID0gLjggLyAuMTIsIGNvbCA9IFwicmVkXCIsIGx3ZCA9IDIpIn0=
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsImxhYmVsIjoiY29zdC1hbmQtb2ZmZXIifSwiY29kZSI6ImNvc3QgPC0gM1xuc2VuZF9jb3N0IDwtIC4xICAjIOWNg+WGhuOAguizvOWFpeOBl+OBquOBj+OBpuOCguOAgeaPkOekuuOBmeOCi+OBqOeZuueUn+OBmeOCi+OAglxueiA8LSBldmFsdWF0ZV9jdXN0b21lcihsb2coLjIyKSwuMzUsY29zdD1jb3N0LHNlbmRfY29zdD1zZW5kX2Nvc3QpXG5wcmludCh6KVxuY2F0KFwiYmVzdCBjb3Vwb246XCIseiRjb3Vwb25bd2hpY2gubWF4KHokcHJvZml0KV0sXCJ0aG91c2FuZCB5ZW5cXG5cIilcbmdncGxvdCh6LGFlcyhmYWN0b3IoY291cG9uKSxwcm9maXQpKStnZW9tX2NvbChmaWxsPVwiIzRDNzJCMFwiKStcbiBsYWJzKHg9XCJjb3Vwb24gKHRob3VzYW5kIHllbilcIix5PVwiZXhwZWN0ZWQgcHJvZml0XCIpIn0=
 </script>
 </div>
 </div>
+<p>原価を1〜6千円、配信費用を0〜0.5千円で変えてみよう。同じ需要でも選ぶクーポンが変わることを確かめる。</p>
 </section>
-<section id="問で一人の好みを決められるか" class="level2">
-<h2 class="anchored" data-anchor-id="問で一人の好みを決められるか">4. 8問で一人の好みを決められるか</h2>
-<p>最初の8問を使い、回答者1の価格係数を変えたときの対数尤度を描く。山が狭いか広いか、端まで増え続けるかを確認しよう。今回は他の属性係数を既知としているので、実際に全係数を一人ずつ推定する場合より簡単な問題である。</p>
+<section id="実験4一律と個人別を比べる" class="level2">
+<h2 class="anchored" data-anchor-id="実験4一律と個人別を比べる">実験4：一律と個人別を比べる</h2>
 <div class="cell">
 <div>
 <div id="webr-5" class="exercise-cell">
 
 </div>
 <script type="webr-5-contents">
-eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWV9LCJjb2RlIjoiY3VzdG9tZXIgPC0gMVxucm93cyA8LSB3aGljaChkYXQkdHJhaW4kaWQgPT0gY3VzdG9tZXIpXG50aGV0YV9ncmlkIDwtIHNlcShsb2coLjAxKSwgbG9nKDEpLCBsZW5ndGgub3V0ID0gMjAwKVxubG9nbGlrIDwtIHNhcHBseSh0aGV0YV9ncmlkLCBmdW5jdGlvbih0aGV0YSkge1xuICBwIDwtIGNob2ljZV9wcm9iKGRhdCR0cmFpbiRxdWFsaXR5W3Jvd3MsICwgZHJvcCA9IEZBTFNFXSwgZGF0JHRyYWluJHByaWNlW3Jvd3MsICwgZHJvcCA9IEZBTFNFXSwgZXhwKHRoZXRhKSlcbiAgc3VtKGxvZyhwW2NiaW5kKHNlcV9hbG9uZyhyb3dzKSwgZGF0JHRyYWluJGNob2ljZVtyb3dzXSArIDEpXSkpXG59KVxucGxvdChleHAodGhldGFfZ3JpZCksIGxvZ2xpaywgdHlwZSA9IFwibFwiLCB4bGFiID0gXCLkvqHmoLzkv4LmlbAgYWxwaGFcIiwgeWxhYiA9IFwi5pys5Lq644Gu5Zue562U44Gu5a++5pWw5bCk5bqmXCIpIn0=
+eyJhdHRyIjp7ImVkaXQiOnRydWUsImV2YWwiOnRydWUsImxhYmVsIjoidW5pZm9ybS1wZXJzb25hbGl6ZWQifSwiY29kZSI6Im1lYW5zIDwtIGxvZyhjKC4wNSwuMDgsLjEyLC4xOCwuMjQsLjMwKSlcbnNpZ21hIDwtIC4zNVxuY29zdCA8LSAxXG5wcm9maXRzIDwtIHQoc2FwcGx5KG1lYW5zLGZ1bmN0aW9uKG0pIGV2YWx1YXRlX2N1c3RvbWVyKG0sc2lnbWEsY29zdCkkcHJvZml0KSlcbnVuaWZvcm0gPC0gd2hpY2gubWF4KGNvbE1lYW5zKHByb2ZpdHMpKVxuaW5kaXZpZHVhbCA8LSBtYXguY29sKHByb2ZpdHMsdGllcy5tZXRob2Q9XCJmaXJzdFwiKVxucHJpbnQoZGF0YS5mcmFtZShjdXN0b21lcj1zZXFfYWxvbmcobWVhbnMpLGNvdXBvbj1pbmRpdmlkdWFsLTEpKVxucHJpbnQoYyhub19jb3Vwb249bWVhbihwcm9maXRzWywxXSksdW5pZm9ybT1tZWFuKHByb2ZpdHNbLHVuaWZvcm1dKSxcbiAgICAgICAgcGVyc29uYWxpemVkPW1lYW4ocHJvZml0c1tjYmluZChzZXFfYWxvbmcobWVhbnMpLGluZGl2aWR1YWwpXSkpKSJ9
 </script>
 </div>
 </div>
-<p>この曲線に、母集団でどの係数がどれくらいありそうかという情報を組み合わせる。その計算を第8・9回で扱う。</p>
+<p>ここで個別化が一律以上になるのは、同じ期待利益を目的にして、選べるルールを増やしたからである。実際の購買でも必ず改善するとは限らない。個別化の運用費用を引くと、どこまで改善が残るだろうか。</p>
+</section>
+<section id="次に読むもの" class="level2">
+<h2 class="anchored" data-anchor-id="次に読むもの">次に読むもの</h2>
+<ul>
+<li><a href="lecture7.html">講義ノート</a>：同じHB推定結果からの施策比較とRCT。</li>
+<li><a href="assignment7.html">課題7</a>：別の個人差・原価で推定から施策まで実装する。</li>
+</ul>
 <script type="webr-data">
 eyJvcHRpb25zIjp7ImJhc2VVcmwiOiJodHRwczovL3dlYnIuci13YXNtLm9yZy92MC42LjAvIn0sInBhY2thZ2VzIjp7InBrZ3MiOlsiZXZhbHVhdGUiLCJrbml0ciIsImh0bWx0b29scyIsImdncGxvdDIiLCJkcGx5ciIsInRpZHlyIl0sInJlcG9zIjpbImh0dHBzOi8vcmVwby5yLXdhc20ub3JnIiwiaHR0cHM6Ly9jcmFuLnItdW5pdmVyc2UuZGV2Il19LCJyZW5kZXJfZGYiOiJkZWZhdWx0In0=
 </script>
