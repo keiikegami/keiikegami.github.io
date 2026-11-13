@@ -1,6 +1,6 @@
 ---
-title: "Lecture 7：個人別需要からターゲティングへ"
-subtitle: "計量経済学II"
+title: "Lecture 7：データを意思決定に使う"
+subtitle: "ターゲティング・顧客価値・コンジョイント｜計量経済学II"
 author: "Kei Ikegami"
 lang: ja
 format:
@@ -23,17 +23,10 @@ execute:
 #| include: false
 library(ggplot2)
 library(dplyr)
-library(tidyr)
 library(knitr)
-
-set.seed(202610)
-
-theme_lecture <- function() {
-  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
-  theme_minimal(base_size = 13, base_family = fam) +
-    theme(plot.margin = margin(8, 14, 8, 14))
-}
-theme_set(theme_lecture())
+set.seed(20260701)
+fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+theme_set(theme_minimal(base_size = 13, base_family = fam))
 knitr::opts_chunk$set(fig.align = "center", dpi = 144)
 options(scipen = 8)
 ```
@@ -41,516 +34,659 @@ options(scipen = 8)
 ::: {.callout-important}
 ## この講義で押さえたいこと
 
-- 個人の需要が推定できたら、それを使って「誰に、どれくらい値引きするか」を比較できる。
-- 比較するのは購入確率だけではない。値引きで失うマージンを含めた、施策あり・なしの期待利益の差である。
-- 個人パラメータの事後分布から、施策ごとの購買確率を平均して計算する。事後平均の係数を1回代入するだけでは、この計算にならない。
-- 推定した需要を価格変更に使うには、価格がどのように割り当てられたかが重要になる。最後は、固定した施策ルールを別のランダム化実験で評価する。
+- 何を決めたいかを先に定め、その判断に必要な量、データ、モデルを選ぶ。
+- ターゲティングでは、買いそうな人を探すだけでなく、施策による利益の増分を比べる。
+- 顧客価値では、将来の購買と利益を考える。現状でのCLVと、施策によって増えるCLVを区別する。
+- コンジョイントでは、知りたい商品属性の比較ができるよう、データの集め方を設計する。
+- 当てはまり、将来の予測、施策を採用したときの利益は、同じ評価基準ではない。
 :::
 
-## 前回とのつながり・今回のゴール
+## 前回とのつながり・今回の問い
 
-第6回では、母集団の分布と個人の購買履歴を組み合わせ、コーヒーの甘さへの好みを推定した。母集団パラメータを固定する経験ベイズと、その不確実性も含める完全ベイズを区別した。今回は、その推定を購買確率の予測と施策の比較へつなげる。
+第2〜4回では、商品の選択を説明する需要モデルを推定し、価格や商品構成が変わったときの行動を計算した。第6回では、母集団の好みの分布と本人の履歴を組み合わせ、個人の好みについての分布を更新した。広い範囲の反実仮想を考えるには、そのような行動モデルが役に立つ。
 
-今回は、価格と商品属性を変えてイヤホンを提示したときの選択履歴を作り、個人の価格感応度の事後分布を求める。その分布を使ってクーポンを比較する。商品Aを買いそうな人に配るべきか。それとも、まだ買いそうにない人に配るべきか。価格を下げれば購買確率は上がるが、買ってくれたときの利益は減る。この2つを合わせて考えないと、配る相手は決まらない。
+しかし、データ分析を依頼する人は、いつも需要モデルそのものを欲しがっているわけではない。コーヒー店の担当者なら、「来週、誰にクーポンを送るか」「顧客との関係にどれだけ投資するか」「新商品のどの機能を採用するか」を決めたいかもしれない。今回の問いは、**その判断のために、何をどこまで知る必要があるのか**である。
 
-ゴールは、価格感応度の階層logitをこの回で定義・推定し、クーポンなし、一律のクーポン、個人別のクーポンの期待利益を比較することである。後半では、この計算を実際の施策につなげるために必要な仮定と、ランダム化実験での確かめ方を整理する。
+三つの相談を、意思決定 → 必要な量 → データとモデル → 判断の順に考える。同じコーヒー店を題材にするが、三つのシミュレーションは別のデータであり、別の仮定を置く。顧客番号や推定値を実験間で流用しない。共通するのは、目的から分析を組み立てる考え方である。
 
-## よく買う人に配ればよいか
+## 1. 何を決めるための分析か
 
-まずは仮の数字で考えよう。通常価格で売れたときのマージンは300円で、100円引きのクーポンを用意する。クーポンは買ったときだけ使われ、送る費用はないとする。
+### 1.1 モデルの詳しさを目的から考える
 
-| 顧客 | 通常の購買確率 | クーポンあり | 通常の期待利益 | クーポンありの期待利益 | 増分 |
+| 相談 | 選ぶ行動 | 知りたい量 | 今回使うデータ |
+|---|---|---|---|
+| 誰にクーポンを送るか | 顧客ごとに配る／配らない | クーポンによる期待利益の増分 | 配布をランダム化した実験と施策前の履歴 |
+| 顧客との関係にいくら使えるか | 獲得・維持への支出 | 将来利益と、施策によるその変化 | 購買時点・回数・粗利、必要に応じた施策実験 |
+| どんな新商品を作るか | 機能と価格の組合せ | 候補商品への反応と費用を含む利益 | 属性・価格を割り付けた選択課題 |
+
+一種類のクーポンを配るかどうかだけ決めるなら、あらゆる価格での需要曲線を推定する必要はないかもしれない。現状の将来購買を予測するなら、購買の頻度と継続に絞ったモデルが使える。一方、新商品の属性を組み替えたいなら、属性と選択を結ぶモデルが役に立つ。
+
+**目的によって、必要な情報も、モデルの詳しさも、適切なデータも変わる。** 単純なモデルなら常によい、という主張ではない。判断に必要な反応を落とせば、単純化によって意思決定を誤る。観測していない価格や制度変更まで考えるなら、より広い行動モデルと追加の仮定が必要になる。
+
+### 1.2 「よく当たる」と「よい判断ができる」は何が違うか
+
+例えば、購買確率が0.90の人を0.89と推定する誤差と、クーポンの増分利益が+2円の人を−2円と推定する誤差を考える。前者では配布判断が変わらないかもしれないが、後者では「配る／配らない」が逆転する。全体の予測誤差が小さいことだけでは、決定に必要な比較が正しいとは限らない。
+
+選べる行動を $a$、顧客の施策前の情報を $X_i$、行動を取ったときの利益を $R_i(a)$ とすれば、期待利益を重視する判断は
+
+$$
+a^*(X_i)\in\arg\max_{a\in\mathcal A}E[R_i(a)\mid X_i]
+$$
+
+と書ける。計量Iの潜在アウトカムと同じく、同じ人について全部の $R_i(a)$ を観測できるわけではない。どの比較をデータから識別できるかが問題になる。
+
+評価も目的に合わせる。購買の予測なら推定に使わなかった期間の購買と比べる。施策の採否なら、その施策ルールによる利益を確かめる。商品設計なら、調査内での適合だけでなく、想定する販売環境へ結果を移せるかも考える。
+
+## 2. ターゲティング：誰に働きかけるか
+
+### 2.1 よく買う人に配ればよいか
+
+通常の一杯から得る粗利を300円、クーポンの値引きを100円、送付費用を5円とする。値引きは購入したときだけ発生し、送付費は購入しなくても発生する。ここでは一回の購買機会だけを考える。
+
+| 顧客の施策前の履歴 | 配布なしの購買確率 | 配布ありの購買確率 | 配布なしの期待利益 | 配布ありの期待利益 | 増分 |
 |---|---:|---:|---:|---:|---:|
-| A | 0.90 | 0.95 | 270円 | 190円 | −80円 |
-| B | 0.30 | 0.60 | 90円 | 120円 | +30円 |
+| よく買う | 0.90 | 0.95 | 270円 | 185円 | −85円 |
+| 時々買う | 0.30 | 0.60 | 90円 | 115円 | +25円 |
+| まれに買う | 0.08 | 0.10 | 24円 | 15円 | −9円 |
 
-Aはよく買う顧客だが、クーポンがなくても買う可能性が高い。その人に値引きすると、購買確率の上昇よりも失うマージンが大きい。Bについては逆になる。**買う確率が高い人と、クーポンによって利益が増える人は同じとは限らない。**
+よく買う人にもクーポンは効く。しかし、もともと通常価格で買うはずだった人への値引きが大きい。購入確率の上昇だけでなく、購入時のマージンと送付費も含めて考える必要がある。
+
+施策を $D_i\in\{0,1\}$、購買の潜在アウトカムを $Y_i(d)$ と書く。上の条件なら、利益は
+
+$$
+R_i(d)=(300-100d)Y_i(d)-5d.
+$$
+
+施策前の履歴 $X_i=x$ を持つ人の期待利益の増分は
+
+$$
+\Delta(x)=E[R_i(1)-R_i(0)\mid X_i=x]
+=200q_1(x)-300q_0(x)-5,
+$$
+
+ただし $q_d(x)=\Pr(Y_i(d)=1\mid X_i=x)$ である。容量や予算の制約がなければ、$\Delta(x)>0$ の人に配ればよい。配れる人数に上限がある場合、同じ送付費・同じ資源使用量なら、正の増分が大きい人から配る。顧客ごとに必要な資源が違えば、その制約を含めた最適化が必要になる。
 
 ::: {.callout-note}
-## ビジネスの現場で：購入者数だけでクーポンを評価しない
+## ビジネスの現場で：クーポン利用者だけを見ない
 
-キャンペーン後の購入者が増えていても、利益が増えたとは限らない。元々通常価格で買うはずだった人も、クーポンを使うからである。クーポン利用者だけを見て「購入があったから成功」とするのも同じ問題を含む。比較対象は、同じ顧客にクーポンを出さなかった場合の利益である。配信費やポイント原資がある場合は、それも含めて比較する。
+利用者の売上を全部クーポンの成果にすると、クーポンがなくても買ったはずの売上まで数えることになる。送付した人全員の利益を、送付しなかった場合と比べる必要がある。ここでは譲渡や家族への波及がないと仮定する。施策が別の人の購買も変えるなら、実験の単位と評価する利益の範囲も見直す必要がある。
 :::
 
-## 個人の需要から期待利益へ
+### 2.2 どんなデータなら増分が分かるか
 
-### 何を変えるかを決める
-
-イヤホンAを販売する企業を考える。Aの通常価格は12千円、原価は1千円とする。Bは他社の商品で、その価格は12千円のまま固定する。この企業はAだけの利益を最大化する。AとBを両方売る小売店なら、Bからの利益も含める必要がある。
-
-値引き額の候補は $c\in\mathcal C=\{0,1,2,3\}$ 千円とする。$c=0$ は何もしない選択肢である。価格や値引きはすべて千円単位なので、後で期待利益も千円で出てくる。ここでは1回の購買機会だけを考え、在庫制約、他社の価格反応、顧客間のクーポン譲渡は扱わない。
-
-ここで、イヤホンの選択を表す効用を定義する。顧客 $i$ が課題 $t$ で商品 $j$ を選ぶとき、
+履歴群は施策前に観測できる属性であり、第6回の見えないタイプとは違う。ここでは履歴群の比率を $(.3,.4,.3)$ とし、各人へ確率1/2でクーポンを無作為に送る。そうすれば、同じ履歴群の配布あり・なしの平均利益の差から、群別の増分を推定できる。
 
 $$
-u_{ijt}=x_{ijt}'\beta-\alpha_i p_{ijt}+\varepsilon_{ijt},\qquad
-\alpha_i=\exp(\theta_i)>0
+D_i\perp (Y_i(0),Y_i(1),X_i),\qquad
+\widehat\Delta(x)=\overline R_{D=1,X=x}-\overline R_{D=0,X=x}.
 $$
 
-と置く。outsideの効用は $\varepsilon_{i0t}$、ショックは個人・課題・選択肢を通じて独立な標準Gumbelとする。属性 $x$ はバッテリー、ノイズキャンセリング、ブランドの3つのダミーである。課題の属性と価格は回答者ごとに無作為に割り付けるため、ここでは $i$ の添字が付く。
+この比較で分かるのは、**同じ観測情報を持つ人の平均効果**である。一人の二つの潜在アウトカムを観測し、その人固有の効果を知ったわけではない。履歴が豊富なら、より細かい条件付き平均効果（CATE）を考えられるが、データの少ない区分の不確実性も増える。
 
-**この回の $\theta_i$ は対数価格感応度であり、第6回の甘さ係数とは別のパラメータである。** 第6回の推定値や事後drawを流用するのではなく、今回の回答データから推定する。商品Aへの値引きを $c$ とすると、Aの購買確率は
-
-$$
-q_i(c;\theta_i)=
-\frac{\exp(x_A'\beta-\exp(\theta_i)(p_A-c))}
-{1+\exp(x_A'\beta-\exp(\theta_i)(p_A-c))
- +\exp(x_B'\beta-\exp(\theta_i)p_B)}.
-$$
-
-分母の1は「どちらも買わない」の選択肢である。この例ではAのバッテリー・ノイズキャンセリング・ブランドの属性をすべて1、Bはバッテリーとブランドを1、ノイズキャンセリングを0とする。したがって、価格以外の効用はAが1.6、Bが0.8になる。
-
-### 事後分布を使って平均する
-
-これまでの全顧客の履歴を $D$ と書く。保存した事後drawを $\theta_i^{(1)},\ldots,\theta_i^{(B)}$ とすると、予測購買確率は
-
-$$
-\bar q_i(c)=E[q_i(c;\theta_i)\mid D]
-\approx\frac1B\sum_{b=1}^B q_i(c;\theta_i^{(b)})
-$$
-
-である。個人係数の事後分布について、各係数のもとでの選択確率を平均する。このように、未観測の選択を事後分布から計算することを**事後予測**という。logitは非線形なので、係数の事後平均を一度だけ代入した確率とは一般に異なる。個人の履歴が少なくても、集団の情報を借りながら計算できる。ただし、本人の好みが正確に分かったわけではない。
-
-クーポンの配信費用を $k(c)$、原価を $m$ とすると、期待利益は
-
-$$
-\bar\pi_i(c)=(p_A-c-m)\bar q_i(c)-k(c)
-$$
-
-になる。今回の数値例では $k(c)=0$ とする。通常価格との差を
-
-$$
-\bar\Delta_i(c)=\bar\pi_i(c)-\bar\pi_i(0)
-$$
-
-と書こう。個人別に選べるなら
-
-$$c_i^*=\arg\max_{c\in\mathcal C}\bar\pi_i(c)$$
-
-を使い、全員同じクーポンにするなら
-
-$$c^{\mathrm{uniform}}=\arg\max_{c\in\mathcal C}\sum_i\bar\pi_i(c)$$
-
-を使う。いずれも期待利益を最大にするという基準は同じで、全員に同じものを配るという制約があるかどうかが違う。
-
-## どこまで価格変更の予測に使えるか
-
-今回のデータでは、提示する属性と価格を実験者が無作為に割り当てた。そのため、価格の高い場面にたまたま購買意欲の高い人が集まる、といった問題を避けている。実際の購買履歴を使うなら、価格が需要ショックと独立なのか、実験なのか、あるいは第3・4回のような内生性への対応が必要なのかを確認する。階層ベイズに変えても、この問題は自動的には解消しない。
-
-もう1つ、今回の履歴は、仮想の商品を並べて選んでもらう調査の回答を模したものである。そこから実際の売上を予測するには、**仮想的な選択と実際の購買で同じ需要モデルが成り立つ**という追加の仮定が必要になる。以下は、その仮定のもとで計算の流れを学ぶ教育用シミュレーションである。調査で推定した係数を、そのまま実際のクーポン施策の効果だと判断してはいけない。
-
-また、推定時の価格は8・12・16千円である。ここで提示する9〜12千円はその範囲内だが、9・10・11千円の反応にはlogitの関数形による補間が入る。クーポンという表示自体に心理的な効果がある場合も、単なる価格変更のモデルから外れる。その確認が、後で行う実験の役割になる。
-
-## 選択履歴を作り、価格感応度を推定する
-
-以下のコードだけでデータ生成から推定まで実行できる。各問ではAとBを提示し、「A」「B」「どちらも買わない」から選んでもらう。価格は8・12・16千円から等確率で選ぶ。バッテリーが12時間か6時間か、ノイズキャンセリングがあるか、大手ブランドかという3属性は、それぞれ確率1/2で0または1にする。これらは個人の好みと独立に割り付ける。このような選択課題の設計は、後のコンジョイント分析で詳しく扱う。300人について、推定用8問とholdout用8問の回答を作る。平均的な価格感応度は0.12、$\theta_i$ の標準偏差は0.6とする。属性係数 $\beta=(0.5,0.8,0.3)$ は既知と置き、今回は価格感応度の異質性に絞って推定する。実際の分析で属性係数も未知なら、それも推定して不確実性を含める必要がある。
-
-共通の事前分布は $\mu\sim N(\log(0.2),1.5^2)$、$\tau^2\sim\mathrm{InverseGamma}(2,0.5)$ とし、$\theta_i\mid\mu,\tau\sim N(\mu,\tau^2)$ を使う。ここでの $\mu$ は対数価格感応度の母集団平均であり、第6回の甘さ係数の平均とは異なる。InverseGammaの第2引数は、$1/\tau^2\sim\mathrm{Gamma}(2,\mathrm{rate}=0.5)$ となるパラメータ化である。2本のチェーンを走らせ、初期部分を除いたdrawを保存する。
-
-計算する分布を明示しよう。個人 $i$ の回答と提示条件の履歴を $H_i$、全員の履歴を $D=(H_1,\ldots,H_N)$ とする。提示条件に条件づけた個人の尤度は
-
-$$
-L(\theta_i;H_i)=\prod_{t=1}^{8}P_{i,y_{it},t}(e^{\theta_i})
-$$
-
-である。$\phi(\theta;\mu,\tau^2)$ を正規密度と書くと、求める同時事後密度は
-
-$$
-p(\theta_1,\ldots,\theta_N,\mu,\tau^2\mid D)
-\propto p(\mu)p(\tau^2)\prod_{i=1}^N
-L(\theta_i;H_i)\phi(\theta_i;\mu,\tau^2).
-$$
-
-第6回の連続分布の階層モデルと同じ構造で、尤度だけを今回の効用へ合わせている。下の `fit_hb()` は、個人係数をMetropolis法で更新し、母集団の平均と分散をそれぞれの条件付き事後分布から更新する。初期値の異なる2本のチェーンを走らせ、初期4,000回を除き、その後の反復を4回おきに保存する。データ生成に使った真の個人係数は、この推定に入力しない。
-
-holdoutは、推定に使わずに残した同じ人の別の8問である。その回答に対する平均負の対数予測確率を
-
-$$
--\frac{1}{8N}\sum_{i=1}^N\sum_{t=1}^{8}
-\log\widehat P_{i,y_{it}^{\mathrm{hold}},t}^{\mathrm{hold}}
-$$
-
-で測る。値が小さいほど、実際の回答に高い確率を付けたことになる。これは回答の予測を確かめる指標であり、クーポンの増分利益を直接検証する指標ではない。
-
-::: {.callout-note collapse="true"}
-## データ生成・階層logitの推定関数
+次のデータでは、分析者に観測されるのは履歴群、配布の有無、購買、利益である。`q0_tg` と `q1_tg` は生成側の真値で、推定には渡さない。学習用の実験2,400人と、独立な評価用の実験6,000人を用意する。
 
 ```{r}
-# === CBC_DGP ===
-choice_prob <- function(quality, price, alpha) {
-  v <- quality - price * alpha
-  vmax <- pmax(0, v[, 1], v[, 2])
-  ev <- exp(v - vmax)
-  cbind(outside = exp(-vmax), ev) / (exp(-vmax) + rowSums(ev))
-}
-simulate_cbc <- function(seed = 202607, N = 300, Ttrain = 8, Thold = 8) {
+groups_tg <- c("よく買う", "時々買う", "まれに買う")
+shares_tg <- c(.3, .4, .3)
+q0_tg <- c(.90, .30, .08)
+q1_tg <- c(.95, .60, .10)
+gain_true_tg <- 200 * q1_tg - 300 * q0_tg - 5
+simulate_tg <- function(n, seed) {
   set.seed(seed)
-  beta_known <- c(battery12 = 0.5, nc = 0.8, major_brand = 0.3)
-  mu_true <- log(0.12) - 0.6^2 / 2
-  tau_true <- 0.6
-  theta_true <- rnorm(N, mu_true, tau_true)
-  make_tasks <- function(T) {
-    id <- rep(seq_len(N), each = T)
-    nr <- length(id)
-    price <- matrix(sample(c(8, 12, 16), nr * 2, replace = TRUE), nr, 2)
-    battery12 <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
-    nc <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
-    major_brand <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
-    quality <- beta_known[1] * battery12 + beta_known[2] * nc + beta_known[3] * major_brand
-    prob <- choice_prob(quality, price, exp(theta_true[id]))
-    choice <- vapply(seq_len(nr), function(r) sample(0:2, 1, prob = prob[r, ]), integer(1))
-    list(id = id, price = price, battery12 = battery12, nc = nc,
-         major_brand = major_brand, quality = quality, choice = choice, T = T)
-  }
-  list(train = make_tasks(Ttrain), test = make_tasks(Thold), N = N,
-       beta_known = beta_known, theta_true = theta_true, mu_true = mu_true, tau_true = tau_true)
+  group <- sample(1:3, n, replace = TRUE, prob = shares_tg)
+  treatment <- rbinom(n, 1, .5)
+  probability <- ifelse(treatment == 1, q1_tg[group], q0_tg[group])
+  purchase <- rbinom(n, 1, probability)
+  profit <- (300 - 100 * treatment) * purchase - 5 * treatment
+  data.frame(group, treatment, purchase, profit)
 }
-# === HB_ESTIMATION ===
-individual_loglik <- function(theta, tasks, N) {
-  v <- tasks$quality - tasks$price * exp(theta[tasks$id])
-  vmax <- pmax(0, v[, 1], v[, 2])
-  logden <- vmax + log(exp(-vmax) + rowSums(exp(v - vmax)))
-  chosen <- numeric(length(tasks$choice))
-  inside <- which(tasks$choice > 0)
-  chosen[inside] <- v[cbind(inside, tasks$choice[inside])]
-  as.vector(rowsum(chosen - logden, tasks$id, reorder = FALSE))
-}
-fit_hb <- function(dat, seed = 202609, n_iter = 16000, burn = 4000, thin = 4,
-                   prior_mu = log(0.2), prior_mu_sd = 1.5,
-                   prior_shape = 2, prior_rate = 0.5) {
-  keep <- seq(burn + thin, n_iter, by = thin)
-  one_chain <- function(chain) {
-    set.seed(seed + chain)
-    theta <- rep(prior_mu + c(-0.4, 0.4)[chain], dat$N)
-    mu <- mean(theta); tau2 <- 0.5
-    ll <- individual_loglik(theta, dat$train, dat$N)
-    theta_draw <- matrix(NA_real_, length(keep), dat$N)
-    mu_draw <- tau_draw <- numeric(length(keep))
-    accepted <- numeric(dat$N); saved <- 0
-    for (iteration in seq_len(n_iter)) {
-      proposal <- theta + rnorm(dat$N, 0, 0.7)
-      ll_new <- individual_loglik(proposal, dat$train, dat$N)
-      logratio <- ll_new - ll + dnorm(proposal, mu, sqrt(tau2), log = TRUE) -
-        dnorm(theta, mu, sqrt(tau2), log = TRUE)
-      accept <- log(runif(dat$N)) < logratio
-      theta[accept] <- proposal[accept]; ll[accept] <- ll_new[accept]
-      if (iteration > burn) accepted <- accepted + accept
-      variance_mu <- 1 / (dat$N / tau2 + 1 / prior_mu_sd^2)
-      mean_mu <- variance_mu * (sum(theta) / tau2 + prior_mu / prior_mu_sd^2)
-      mu <- rnorm(1, mean_mu, sqrt(variance_mu))
-      tau2 <- 1 / rgamma(1, shape = prior_shape + dat$N / 2,
-        rate = prior_rate + sum((theta - mu)^2) / 2)
-      if (iteration %in% keep) {
-        saved <- saved + 1
-        theta_draw[saved, ] <- theta
-        mu_draw[saved] <- mu; tau_draw[saved] <- sqrt(tau2)
-      }
-    }
-    list(theta = theta_draw, mu = mu_draw, tau = tau_draw,
-         acceptance = accepted / (n_iter - burn))
-  }
-  chains <- lapply(1:2, one_chain)
-  list(theta = rbind(chains[[1]]$theta, chains[[2]]$theta),
-       mu = c(chains[[1]]$mu, chains[[2]]$mu), tau = c(chains[[1]]$tau, chains[[2]]$tau),
-       chain = rep(1:2, each = length(keep)), chains = chains,
-       settings = c(n_iter = n_iter, burn = burn, thin = thin))
-}
-# === PREDICTION ===
-predict_existing <- function(fit, tasks) {
-  answer <- matrix(0, length(tasks$id), 3)
-  for (b in seq_len(nrow(fit$theta))) {
-    answer <- answer + choice_prob(tasks$quality, tasks$price, exp(fit$theta[b, tasks$id]))
-  }
-  answer / nrow(fit$theta)
-}
-predict_new <- function(fit, quality, price, n_integration = 80) {
-  # 母集団パラメータの不確実性と新しい個人の異質性の両方を積分。
-  nodes <- qnorm((seq_len(n_integration) - 0.5) / n_integration)
-  answer <- matrix(0, nrow(price), 3)
-  for (b in seq_along(fit$mu)) {
-    for (z in nodes) {
-      answer <- answer + choice_prob(quality, price, exp(fit$mu[b] + fit$tau[b] * z))
-    }
-  }
-  answer / (length(fit$mu) * n_integration)
-}
-log_score <- function(prob, choice) -mean(log(pmax(prob[cbind(seq_along(choice), choice + 1)], 1e-12)))
-split_rhat <- function(chain1, chain2) {
-  n <- floor(length(chain1) / 2)
-  z <- cbind(chain1[1:n], tail(chain1, n), chain2[1:n], tail(chain2, n))
-  W <- mean(apply(z, 2, var)); B <- n * var(colMeans(z))
-  sqrt(((n - 1) * W / n + B / n) / W)
-}
-
+train_tg <- simulate_tg(2400, 20260701)
+test_tg <- simulate_tg(6000, 20260702)
 ```
+
+各群の平均との差と標準誤差を計算する。標準誤差は、独立な二群の平均差について計量Iで使った式だ。群内の配布人数・非配布人数を $n_{1x},n_{0x}$、利益の標本分散を $s_{1x}^2,s_{0x}^2$ とすると、$\widehat{\mathrm{se}}(\widehat\Delta(x))=\sqrt{s_{1x}^2/n_{1x}+s_{0x}^2/n_{0x}}$ である。
+
+```{r}
+estimate_tg <- do.call(rbind, lapply(1:3, function(g) {
+  z <- subset(train_tg, group == g)
+  r1 <- z$profit[z$treatment == 1]; r0 <- z$profit[z$treatment == 0]
+  data.frame(group = g, q0 = mean(z$purchase[z$treatment == 0]),
+    q1 = mean(z$purchase[z$treatment == 1]),
+    gain = mean(r1) - mean(r0), se = sqrt(var(r1) / length(r1) + var(r0) / length(r0)))
+}))
+knitr::kable(data.frame(history = groups_tg, estimate_tg[, -1], truth = gain_true_tg),
+  digits = 3, col.names = c("履歴群", "配布なし購買率", "配布あり購買率", "利益差の推定", "標準誤差", "真の利益差"))
+```
+
+```{r}
+#| fig-cap: "同じ実験から、購買率と利益の増分を区別する。点は推定値、誤差棒は近似95%信頼区間、×は生成時の真値。"
+estimate_tg$history <- factor(groups_tg, levels = groups_tg)
+estimate_tg$truth <- gain_true_tg
+ggplot(estimate_tg, aes(history, gain)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(aes(ymin = gain - 1.96 * se, ymax = gain + 1.96 * se), width = .12) +
+  geom_point(size = 2.5, color = "#2878a0") + geom_point(aes(y = truth), shape = 4, size = 3) +
+  labs(x = NULL, y = "配布による利益の増分（円／人）")
+```
+
+信頼区間は、それぞれの群の平均効果についての区間である。全員の個人効果を覆う区間ではない。また、推定した増分が正の群だけ選んで、その同じデータ上の利益差を報告すると、都合のよい推定誤差も選びやすくなる。
+
+### 2.3 ルールを固定し、別の実験で利益を確かめる
+
+学習用データで四つの配布ルールを作る。「誰にも配らない」「全員」「配布なしでも最も買いそうな群」「推定した増分が正の群」である。評価用データを見てルールを変更しない。
+
+評価実験でも配布は確率 $e=1/2$ なので、ルール $a(X_i)\in\{0,1\}$ の、配布なしに対する平均利益の増分を
+
+$$
+\widehat G(a)=\frac1{N_{\rm test}}\sum_i a(X_i)
+\left\{\frac{D_iR_i}{e}-\frac{(1-D_i)R_i}{1-e}\right\}
+$$
+
+で推定できる。ルールが配ると決めた人について、実験の配布群・非配布群を比較する。各群は全員の一部しか観測していないため、割付確率の逆数で重み付けする。これを**逆確率重み付け（IPW）**という。ルールが配らない人は、基準の「配布なし」と同じなので利益差に寄与しない。
+
+```{r}
+likely_group_tg <- which.max(estimate_tg$q0)
+rules_tg <- list("配布なし" = rep(0, 3), "全員" = rep(1, 3),
+  "買いそうな群" = as.integer(1:3 == likely_group_tg),
+  "増分が正の群" = as.integer(estimate_tg$gain > 0))
+policy_tg <- do.call(rbind, lapply(names(rules_tg), function(nm) {
+  rule <- rules_tg[[nm]]
+  score <- rule[test_tg$group] *
+    (test_tg$treatment * test_tg$profit / .5 - (1 - test_tg$treatment) * test_tg$profit / .5)
+  data.frame(rule = nm, estimate = mean(score), se = sd(score) / sqrt(length(score)),
+    truth = sum(shares_tg * rule * gain_true_tg))
+}))
+policy_tg$rule <- factor(policy_tg$rule, levels = names(rules_tg))
+knitr::kable(policy_tg, digits = 2,
+  col.names = c("配布ルール", "独立実験での増分推定", "標準誤差", "真の平均増分"))
+```
+
+```{r}
+#| fig-cap: "独立な評価実験で比べたルールの増分利益。利益は対象顧客全員一人当たり。誤差棒は固定した各ルールの近似95%信頼区間。"
+ggplot(policy_tg, aes(rule, estimate)) + geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(aes(ymin = estimate - 1.96 * se, ymax = estimate + 1.96 * se), width = .12) +
+  geom_point(size = 2.5, color = "#2878a0") + geom_point(aes(y = truth), shape = 4, size = 3) +
+  labs(x = NULL, y = "配布なしからの利益増分（円／人）")
+```
+
+真の平均増分は、シミュレーションなので答え合わせできる量である。実際には独立実験での推定と不確実性を見て判断する。ここでの信頼区間は、学習済みのルールを固定した評価の不確実性を表す。学習データを変えたときのルールの揺れは、別に検討する必要がある。
+
+### 2.4 第6回のモデルを使う方法との関係
+
+価格変更への需要を正しく推定できれば、第6回の個人の分布から購買確率を計算する方法もある。例えば、好みが $\theta$ の人に施策 $d$ を行うときの購買確率を $q(d;\theta)$ と書けば、
+
+$$
+\overline q_i(d)=\int q(d;\theta)\,d\widehat F_i(\theta\mid H_i)
+$$
+
+を利益の式に代入する。非線形の選択確率では、事後平均の係数を一回代入することと、確率を事後分布について平均することは一般に違う。価格への反応を調べるには、価格の内生性や外挿の問題も確認する必要がある。
+
+今回は配布するかどうかという限られた比較を、ランダム化実験から直接推定した。すべての商品の需要や一人の効用係数を推定し直さなくても、この比較に必要な量は得られる。一方、実験で試していない値引き額には、そのまま答えられない。より細かいCATEの推定に機械学習を使う場合も、施策前の情報を使うこと、比較を識別できるデータを用意すること、学習と評価を分けることは同じである。
+
+::: {.callout-tip}
+## 研究コラム：Ascarza — 離脱リスクと、引き止める効果
+
+Ascarza (2018) は、通信と会員制サービスの2つのフィールド実験を使い、離脱しそうな人と、施策によって離脱を防げる人を区別した。実験から施策への反応の異質性を学び、それに基づく配分と、離脱リスクを基準にした配分を比較する。同じ施策でも対象者を変えることで、離脱率をさらに4.1ポイント、8.7ポイント下げられると試算した。これは他の市場でも同じ改善幅になるという意味ではない。目的が離脱の防止なら、必要なのは離脱リスクだけでなく、介入による変化だという例である。[著者公開論文](https://www.hbs.edu/ris/Publication%20Files/ascarza_jmr_18_783d54d4-e548-41ed-b1d7-8a180f1ae85a.pdf)
 :::
 
+ここまでは一回の購買から得る利益を比べた。しかしコーヒー店と顧客の関係は、その一杯で終わるとは限らない。次は、将来まで利益を足し合わせる。
+
+## 3. 顧客価値：今日の購入から将来の利益へ
+
+### 3.1 目的：半年後までに、どれくらい利益が生まれるか
+
+コーヒー店チェーンが、会員向けサービスの運営費を計画している。今日一回の購入だけでなく、この顧客が今後も何回店を利用し、そのたびにどれくらいの利益を生むかを知りたい。ここで必要なのは、**現在の事業環境が続くとしたときの将来利益の予測**である。最初に目的を決めたので、全商品の好みやすべての購買の理由を再現しなくても、必要な将来購買と利益を計算できる場合がある。
+
+顧客が将来もたらす利益の現在価値を、顧客生涯価値（customer lifetime value、CLV）と呼ぶ。ここでは無限の将来まで予測せず、今後 $H$ か月の購買から生じる粗利益に区切った、有限期間の顧客価値を使う。将来の粗利益を $M_{ih}$、月ごとの割引係数を $\delta\in(0,1]$、観測済みの履歴を $H_i$ と書くと、
+
+$$
+V_i(H)=E\left[\left.\sum_{h=1}^{H}\delta^h M_{ih}\,\right|H_i\right].
+$$
+
+$\delta$ は一か月先の利益を現在の価値に換算する係数で、$\delta=0.99$ なら1か月先の100円は現在の99円と扱う。これは、指定した期間内の利益の予測であり、期間外の価値や獲得費・施策費を自動的に含むわけではない。以下では粗利益が1購入あたり400円で固定され、価格や施策も変わらないと仮定する。購買回数を予測すれば金額に直せる。
+
+必要なデータは、同じ顧客を追えるID、観測期間、各購入の時刻、利益に関する情報である。会員登録時点が違えば一人ずつ観測期間も違う。店舗外の購入、退会しても使い続ける人、販促、季節などが見えなければ、そのデータの範囲で予測することになる。
+
+### 3.2 必要量を求める：まずは離脱を入れないモデル
+
+まず、一人の購入は月あたり一定の率 $\lambda_i$ で起きるとする。観測期間 $T_i$ か月の購買数を $x_i$ とすると、
+
+$$
+x_i\mid\lambda_i\sim\operatorname{Poisson}(\lambda_iT_i),
+\qquad \lambda_i\sim\operatorname{Gamma}(r,\operatorname{rate}=\alpha).
+$$
+
+$\lambda_i$ は顧客によって異なるが、同じ人については変わらない。Gammaの $\alpha$ はrateであり、需要モデルの価格係数ではない。母集団平均は $r/\alpha$ である。このモデルは、顧客が後に離脱しない・購買率が変化しないという強い仮定を含む。まずはその制約のもとで計算し、後で何が足りないかを見る。
+
+第6回と同じように、母集団分布と本人の履歴を組み合わせる。$r,\alpha$ が既知なら、本人の購買率についての条件付き分布と平均は
+
+$$
+\lambda_i\mid x_i,T_i\sim\operatorname{Gamma}(r+x_i,\operatorname{rate}=\alpha+T_i),
+\qquad
+E[\lambda_i\mid x_i,T_i]=\frac{r+x_i}{\alpha+T_i}
+=\frac{\alpha}{\alpha+T_i}\frac{r}{\alpha}
++\frac{T_i}{\alpha+T_i}\frac{x_i}{T_i}.
+$$
+
+最後の式は、母集団平均と本人の実績 $x_i/T_i$ の加重平均だ。履歴が短ければ本人の回数だけに強く依存せず、母集団の情報を使う。実際には $r,\alpha$ も不明なので、全顧客のデータから推定し、その値を使う**経験ベイズ**とする。母集団パラメータを固定しており、その推定誤差のすべては個人の分布に反映されない。
+
+同じ購買率が将来も続くなら、次の1か月の条件付き期待購買数は上の平均である。1回あたり粗利益 $m$ が固定なら、
+
+$$
+\widehat V_i(H)
+=m\left(\sum_{h=1}^{H}\delta^h\right)
+\frac{\widehat r+x_i}{\widehat\alpha+T_i}.
+$$
+
+これは、モデルと事業環境を固定したときの期待利益だ。将来の購買回数自体はランダムなので、個人の実現利益がこの値と一致するとは限らない。
+
+### 3.3 データと推定：短い履歴を集団情報と組み合わせる
+
+1500人の会員について、最初の1か月の購買から推定し、その後の6か月を検証用に分ける。生成に使う真の購買率は、各人について一度だけ $\operatorname{Gamma}(2,\operatorname{rate}=4)$ から引き、7か月を通して固定する。観測側が知るのは最初の1か月の回数である。真の購買率は後でシミュレーションを確認するためにだけ使う。
+
 ```{r}
-#| label: lec7-hb-fit
-dat <- simulate_cbc()
-fit <- fit_hb(dat)
-parameter_table <- data.frame(
-  parameter = c("mu", "tau"), truth = c(dat$mu_true, dat$tau_true),
-  posterior_mean = c(mean(fit$mu), mean(fit$tau)),
-  lower = c(quantile(fit$mu, .025), quantile(fit$tau, .025)),
-  upper = c(quantile(fit$mu, .975), quantile(fit$tau, .975)),
-  split_Rhat = c(split_rhat(fit$chains[[1]]$mu,fit$chains[[2]]$mu),
-                 split_rhat(fit$chains[[1]]$tau,fit$chains[[2]]$tau)))
-kable(parameter_table, digits=3)
-cat("holdoutの平均負の対数予測確率:",
-    log_score(predict_existing(fit,dat$test),dat$test$choice),"\n")
+set.seed(20260707)
+N_clv <- 1500
+T_clv <- 1
+H_clv <- 6
+r_true_clv <- 2
+alpha_true_clv <- 4
+margin_clv <- 400
+discount_clv <- 0.99
+lambda_true_clv <- rgamma(N_clv, shape = r_true_clv, rate = alpha_true_clv)
+x_clv <- rpois(N_clv, lambda_true_clv * T_clv)
+y_future_clv <- sapply(seq_len(H_clv), function(h_clv) rpois(N_clv, lambda_true_clv))
+profit_future_clv <- drop(y_future_clv %*% (margin_clv * discount_clv ^ seq_len(H_clv)))
 ```
 
-推定結果が真値の周辺にあるか、2本のチェーンで同じ領域を探索しているかを確かめる。ここで示す $\widehat R$ は簡単なsplit診断であり、これだけで収束が保証されるわけではない。各チェーンの反復に沿った動き（トレース）や、近い反復の相関（自己相関）も合わせて確認する必要がある。holdoutの回答は、個人パラメータの推定には使っていない。
+母集団パラメータは、最初の1か月の全員の回数だけから求める。$\lambda_i$ をGamma分布で平均すると、$x_i$ は負の二項分布になる。その対数尤度を最大化し、$r,\alpha$ の正値制約は対数を使って満たす。後の6か月の回数は推定に使わない。
 
 ```{r}
-#| label: fig-lec7-posteriors
-#| fig-cap: "履歴から得た3人の価格感応度の事後分布"
-alpha_mean <- colMeans(exp(fit$theta))
-selected <- order(alpha_mean)[c(30,150,270)]
-post_df <- data.frame(alpha=as.vector(exp(fit$theta[,selected])),
-  customer=factor(rep(paste0("顧客",selected),each=nrow(fit$theta))))
-ggplot(post_df,aes(alpha,color=customer))+geom_density(linewidth=.8)+
-  coord_cartesian(xlim=c(0,.5))+labs(x="価格感応度 alpha",y="密度",color="顧客")
-```
-
-個人差は見えるが、分布は重なっている。この不確実性を残したまま、施策ごとの確率を計算しよう。
-
-## 施策ごとの購買確率と期待利益
-
-```{r}
-#| label: lec7-decision-functions
-make_offer_tasks <- function(N, coupon) {
-  list(id=seq_len(N), quality=matrix(rep(c(1.6,.8),each=N),N,2),
-       price=matrix(rep(c(12-coupon,12),each=N),N,2))
+likelihood_clv <- function(a_clv) {
+  r_clv <- exp(a_clv[1]); alpha_clv <- exp(a_clv[2])
+  -sum(dnbinom(x_clv, size = r_clv, mu = r_clv * T_clv / alpha_clv, log = TRUE))
 }
-coupons <- 0:3
-cost <- 1
-# draw × 顧客 × 施策。同じdrawで各施策を比較する。
-q_draw <- array(NA_real_,c(nrow(fit$theta),dat$N,length(coupons)))
-for (k in seq_along(coupons)) {
-  tasks <- make_offer_tasks(dat$N,coupons[k])
-  for (b in seq_len(nrow(fit$theta)))
-    q_draw[b,,k] <- choice_prob(tasks$quality,tasks$price,exp(fit$theta[b,]))[,2]
-}
-q_mean <- apply(q_draw,c(2,3),mean)
-profit_mean <- sweep(q_mean,2,12-coupons-cost,"*")
-gain_mean <- profit_mean-profit_mean[,1]
-best_index <- max.col(profit_mean,ties.method="first")
-uniform_index <- which.max(colMeans(profit_mean))
-chosen_coupon <- coupons[best_index]
-kable(data.frame(coupon=coupons, purchase_probability=colMeans(q_mean),
-                 profit=colMeans(profit_mean)),digits=4,
-      caption="全員に同じクーポンを配った場合。金額は千円/人。")
+fit_clv <- optim(log(c(1, 2)), likelihood_clv, method = "BFGS", hessian = TRUE)
+stopifnot(fit_clv$convergence == 0)
+r_hat_clv <- exp(fit_clv$par[1]); alpha_hat_clv <- exp(fit_clv$par[2])
+pop_hat_clv <- r_hat_clv / alpha_hat_clv
+knitr::kable(data.frame(parameter_clv = c("形状 r", "rate α", "平均 r/α"),
+  truth_clv = c(r_true_clv, alpha_true_clv, r_true_clv / alpha_true_clv),
+  estimate_clv = c(r_hat_clv, alpha_hat_clv, pop_hat_clv)), digits = 3,
+  col.names = c("母集団の量", "真値", "1か月からの推定"))
 ```
 
-値引きすると購入確率は上がる。しかしマージンも減るので、期待利益が上がるとは限らない。選択肢に0円の値引きを入れることは、「配らない」という意思決定を残すために必要である。
+推定値は真値に必ず一致するわけではない。1500人を抽選したことに加え、一人ひとりの1か月の購買にも偶然がある。次に、本人の回数だけを使った $x_i/T_i$ と、母集団情報も使った経験ベイズの平均を比べる。
 
 ```{r}
-#| label: fig-lec7-demand-curves
-#| fig-cap: "同じ価格変更でも、予測される反応は顧客によって異なる"
-curve_df <- expand.grid(coupon=coupons,customer=selected)
-curve_df$prob <- mapply(function(c,i) q_mean[i,match(c,coupons)],
-                       curve_df$coupon,curve_df$customer)
-ggplot(curve_df,aes(coupon,prob,color=factor(customer)))+
-  geom_line()+geom_point()+labs(x="値引き額（千円）",y="Aの事後予測購買確率",color="顧客")
-```
-
-### 事後平均を代入すると何が違うか
-
-```{r}
-#| label: fig-lec7-integrate
-#| fig-cap: "事後平均の係数を代入した予測と、事後分布で積分した予測の差"
-tasks0 <- make_offer_tasks(dat$N,0)
-plugin_q <- choice_prob(tasks0$quality,tasks0$price,exp(colMeans(fit$theta)))[,2]
-ggplot(data.frame(alpha=alpha_mean,difference=100*(q_mean[,1]-plugin_q)),
-       aes(alpha,difference))+geom_point(alpha=.6)+geom_hline(yintercept=0,linetype=2)+
-  labs(x="価格感応度の事後平均",y="積分 − 係数代入（パーセントポイント）")
-```
-
-指数関数とlogitはいずれも非線形なので、平均してから変換する場合と、変換してから平均する場合は一致しない。差が小さく見える顧客でも、施策間の利益差がさらに小さければ、選ぶクーポンに影響しうる。
-
-```{r}
-#| label: fig-lec7-gains
-#| fig-cap: "個人別の期待増分利益。値引きゼロの利益差は0。"
-gain_df <- data.frame(id=rep(seq_len(dat$N),times=length(coupons)),
-  alpha=rep(alpha_mean,times=length(coupons)),
-  coupon=factor(rep(coupons,each=dat$N)),gain=as.vector(gain_mean))
-ggplot(gain_df,aes(alpha,gain,color=coupon))+geom_point(alpha=.45,size=1)+
-  geom_hline(yintercept=0,linetype=2)+
-  labs(x="価格感応度の事後平均",y="期待増分利益（千円）",color="値引き（千円）")
-```
-
-原価や通常価格が違えば、同じ需要でも最適な値引きは変わる。価格感応度が高いという情報だけで配布を決めるのではなく、上の利益を計算する。
-
-## 一律と個別のルールを比較する
-
-```{r}
-#| label: lec7-policy-table
-policy_index <- list("配布なし"=rep(1,dat$N),
-  "全員に3千円"=rep(4,dat$N),
-  "最適な一律"=rep(uniform_index,dat$N),"個人別"=best_index)
-# 真値を使うのは検算だけ。施策の選択には使わない。
-truth_q <- sapply(coupons,function(c) {
-  z <- make_offer_tasks(dat$N,c)
-  choice_prob(z$quality,z$price,exp(dat$theta_true))[,2]
-})
-truth_profit <- sweep(truth_q,2,12-coupons-cost,"*")
-policy_table <- data.frame(policy=names(policy_index),
-  posterior=sapply(policy_index,function(k) mean(profit_mean[cbind(seq_len(dat$N),k)])),
-  truth=sapply(policy_index,function(k) mean(truth_profit[cbind(seq_len(dat$N),k)])))
-kable(policy_table,digits=4,row.names=FALSE,caption="1人当たり期待利益（千円）")
+lambda_individual_clv <- x_clv / T_clv
+lambda_eb_clv <- (r_hat_clv + x_clv) / (alpha_hat_clv + T_clv)
+weight_clv <- alpha_hat_clv / (alpha_hat_clv + T_clv)
+stopifnot(max(abs(lambda_eb_clv - (weight_clv * pop_hat_clv +
+                     (1 - weight_clv) * lambda_individual_clv))) < 1e-10)
+clv_factor_clv <- margin_clv * sum(discount_clv ^ seq_len(H_clv))
+clv_expected_clv <- lambda_eb_clv * clv_factor_clv
+clv_pooled_clv <- rep(pop_hat_clv * clv_factor_clv, N_clv)
+clv_nopool_clv <- lambda_individual_clv * clv_factor_clv
+dat_clv <- data.frame(x_clv = x_clv, lambda_true_clv = lambda_true_clv,
+  eb_clv = lambda_eb_clv, individual_clv = lambda_individual_clv,
+  clv_expected_clv = clv_expected_clv, clv_pooled_clv = clv_pooled_clv,
+  clv_nopool_clv = clv_nopool_clv, profit_future_clv = profit_future_clv,
+  group_clv = factor(pmin(x_clv, 3), levels = 0:3,
+                     labels = c("0回", "1回", "2回", "3回以上")))
+group_clv <- dat_clv |>
+  group_by(group_clv) |>
+  summarise(n_clv = n(), lambda_true_mean_clv = mean(lambda_true_clv),
+    eb_mean_clv = mean(eb_clv), individual_mean_clv = mean(individual_clv),
+    predicted_value_clv = mean(clv_expected_clv),
+    observed_value_clv = mean(profit_future_clv), .groups = "drop")
 ```
 
 ```{r}
-#| label: fig-lec7-policy
-#| fig-cap: "一律の施策と、個人別に選んだ施策の比較"
-policy_table %>% pivot_longer(c(posterior,truth),names_to="evaluation",values_to="profit") %>%
-  ggplot(aes(policy,profit,fill=evaluation))+geom_col(position="dodge")+
-  scale_fill_discrete(labels=c(posterior="事後期待値",truth="真値での評価"))+
-  labs(x=NULL,y="期待利益（千円/人）",fill="評価")
+#| fig-cap: "最初の1か月の回数別に見た購買率。真の購買率はシミュレーションでのみ確認できる。"
+rate_plot_clv <- rbind(
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$lambda_true_mean_clv, method_clv = "真の率の平均"),
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$individual_mean_clv, method_clv = "本人の回数だけ"),
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$eb_mean_clv, method_clv = "経験ベイズ"))
+ggplot(rate_plot_clv, aes(group_clv, value_clv, fill = method_clv)) +
+  geom_col(position = "dodge") +
+  labs(x = "最初の1か月の購買回数", y = "月あたり購買率", fill = "方法")
+```
+
+1か月に0回だったからといって、購買率が必ず0とは限らない。逆に、その月に3回以上買った人が毎月同じ回数を買うとも限らない。短い履歴には偶然が入るため、本人の回数だけで推定すると極端になりやすい。真の率の平均は、実データで直接観測できないシミュレーション上の基準である。
+
+### 3.4 別の期間で予測を確かめる
+
+最初の1か月で作った予測を固定し、後の6か月で実際に生じた粗利益の割引合計と比べる。下の集計は、**最初の1か月の回数だけ**で作ったグループごとの平均だ。3回以上のグループには3回・4回以上の人も入り、各人の予測を平均している。
+
+```{r}
+knitr::kable(group_clv[, c("group_clv", "n_clv", "predicted_value_clv", "observed_value_clv")],
+  digits = 1, col.names = c("1か月の回数", "人数", "予測した6か月価値（円）", "後の6か月の実績（円）"))
 ```
 
 ```{r}
-#| label: lec7-coupon-counts
-kable(data.frame(coupon=coupons,customers=tabulate(best_index,nbins=4)),
-      caption="個人別ルールが選んだクーポン")
+#| fig-cap: "最初の1か月から作った6か月価値の予測と、その後の実績の平均"
+value_plot_clv <- rbind(
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$predicted_value_clv, kind_clv = "経験ベイズの予測"),
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$observed_value_clv, kind_clv = "後の6か月の実績"))
+ggplot(value_plot_clv, aes(group_clv, value_clv, fill = kind_clv)) +
+  geom_col(position = "dodge") +
+  labs(x = "最初の1か月の購買回数", y = "6か月の割引粗利益（円）", fill = NULL)
 ```
 
-事後期待利益で評価する限り、個人別に選べるルールは、一律ルール以上になる。一律に全員へ同じクーポンを出すことも、個人別ルールが選べる候補に含まれるからである。しかし、これは使ったモデルとデータに基づく比較である。現実の利益でも必ず改善するという保証ではない。シミュレーションでは真のパラメータが分かるので、その違いを表の `truth` 列で確認できる。
-
-ここで個別化したのは、本人の履歴がある既存顧客である。属性も履歴もない新規顧客なら、上で定義した `predict_new()` を使う。母集団パラメータの各事後draw $(\mu^{(b)},\tau^{(b)})$ のもとで、新しい個人の $\theta$ を正規分布から積分し、さらにdraw間で平均する。同じ情報しかない顧客には同じ予測が出るので、根拠のある個別化はできない。
-
-::: {.callout-note}
-## ビジネスの現場で：個別化する価値と運用費用
-
-個別化による改善が1人当たり数円なら、配信システムの費用をかけてまで行うべきかは別の問題になる。個人別の値引きに運用費用があるなら、その費用を目的関数に入れる。全員同じ施策と比べるだけでなく、2〜3グループに分ける方法も候補になる。ここでは個別化の費用を0と置いたため、その分だけ実務での利益を高く見積もっている可能性がある。
-:::
-
-### 利益差にも事後分布がある
+予測と実績に差が出るのは、将来の購買がランダムだからでもある。少人数のグループほど平均もぶれやすい。この図だけで個人一人ひとりの予測精度は分からない。そこで、予測と実績の二乗差を全員について平均し、母集団平均だけ、本人の回数だけ、経験ベイズを比較する。
 
 ```{r}
-#| label: fig-lec7-profit-uncertainty
-#| fig-cap: "固定した個人別ルールと配布なしの、期待利益差の事後分布"
-gain_draw <- numeric(nrow(fit$theta))
-for (b in seq_len(nrow(fit$theta))) {
-  qb <- q_draw[b,,]
-  selected_q <- qb[cbind(seq_len(dat$N),best_index)]
-  gain_draw[b] <- mean((12-chosen_coupon-cost)*selected_q-(12-cost)*qb[,1])
-}
-ggplot(data.frame(gain=gain_draw),aes(gain))+geom_histogram(bins=35,fill="#4C72B0")+
-  geom_vline(xintercept=0,linetype=2)+labs(x="配布なしとの期待利益差（千円/人）",y="draw数")
+error_clv <- data.frame(method_clv = c("母集団平均", "本人の回数だけ", "経験ベイズ"),
+  rmse_lambda_clv = c(sqrt(mean((pop_hat_clv - lambda_true_clv)^2)),
+    sqrt(mean((lambda_individual_clv - lambda_true_clv)^2)),
+    sqrt(mean((lambda_eb_clv - lambda_true_clv)^2))),
+  holdout_mse_clv = c(mean((clv_pooled_clv - profit_future_clv)^2),
+    mean((clv_nopool_clv - profit_future_clv)^2),
+    mean((clv_expected_clv - profit_future_clv)^2)))
+knitr::kable(error_clv, digits = c(0, 3, 0),
+  col.names = c("方法", "購買率と真値のRMSE", "後の実績との平均二乗誤差（円²）"))
 ```
 
-```{r}
-#| label: lec7-gain-summary
-kable(data.frame(mean=mean(gain_draw),lower=quantile(gain_draw,.025),
- upper=quantile(gain_draw,.975),prob_positive=mean(gain_draw>0)),digits=4,row.names=FALSE)
-```
+購買率のRMSEは真の $\lambda_i$ を知っているシミュレーションだけで計算できる。後の利益との誤差は実データでも確かめられるが、将来の偶然による変動も含む。今回のデータは仮定したPoisson–Gammaモデルから作っており、経験ベイズに有利な設定だ。この一例から、どの集団や期間でも同じ方法が最良とは言えない。
 
-ここでは、事後期待利益で選んだルールを固定し、そのルールの利益差を各drawで計算した。drawごとに最適なクーポンを選び直して平均すると、毎回の真の好みを知ったうえで施策を変えられるような計算になり、実際に実行できるルールの価値を上回りうる。また、この区間はパラメータの不確実性についてのものであり、次の購買結果そのものの予測区間ではない。
+### 3.5 離脱を考える：BG/NBDという別のモデル
 
-## 最後は施策をランダム化して確かめる
+ここまでのモデルでは、最後に買ってから長く経っても購買率は変わらず、全員がいつでも戻ってくる。会員契約のないコーヒー店では、もう来なくなったのか、単に購買間隔が長いだけなのかが直接は分からない。回数だけでなく**最後にいつ買ったか**も重要になる。
 
-### ルールを決めるデータと、評価するデータ
+BG/NBDは、活動中は $\lambda_i$ のPoisson過程で購買し、各反復購買の直後に確率 $p_i$ で離脱して二度と戻らないと仮定する。$p_i\sim\operatorname{Beta}(a,b)$ とし、$\lambda_i$ と独立とする。最初に活動中と観測された時点を0とし、その後の購入回数を $x_i$、最後に買った時点を $t_{x_i}$、観測終了時点を $T_i$ とする。モデルのもとでは、この $(x_i,t_{x_i},T_i)$ から活動中の確率と将来購買を計算できる。
 
-推定した需要に合わせて施策を選んだ後は、そのルールを固定する。次に、対象顧客を「ルールに従ってクーポンを提示する群」と「提示しない群」に無作為に分ける。施策後の実現利益を比較すれば、そのルールを採用する効果を評価できる。
-
-ここでは各顧客に、新しい1回の購買機会を作る。処置 $D_i=1$ は個人別ルールを適用すること、$D_i=0$ は配布なしである。ルールが値引きゼロを選んだ顧客にも $D_i=1$ は割り当てられる。評価対象は「クーポンを実際に使った人」ではなく、「ルールを適用された人」である。
-
-```{r}
-#| label: lec7-rct-results
-set.seed(202610)
-D <- rbinom(dat$N,1,.5)
-assigned_index <- ifelse(D==1,best_index,1)
-assigned_coupon <- coupons[assigned_index]
-prob_buy <- truth_q[cbind(seq_len(dat$N),assigned_index)]
-bought_A <- rbinom(dat$N,1,prob_buy)
-observed_profit <- (12-assigned_coupon-cost)*bought_A
-ate_profit <- mean(observed_profit[D==1])-mean(observed_profit[D==0])
-se_profit <- sqrt(var(observed_profit[D==1])/sum(D==1)+
-                  var(observed_profit[D==0])/sum(D==0))
-true_policy_effect <- mean(truth_profit[cbind(seq_len(dat$N),best_index)]-truth_profit[,1])
-rct_table <- data.frame(estimate=ate_profit,lower=ate_profit-1.96*se_profit,
-                       upper=ate_profit+1.96*se_profit,truth=true_policy_effect)
-kable(rct_table,digits=4)
-```
-
-```{r}
-#| label: fig-lec7-rct
-#| fig-cap: "新しい購買機会でのランダム化実験。95%区間とモデル上の真の平均効果。"
-ggplot(rct_table,aes(x="個人別ルール − 配布なし",y=estimate))+
-  geom_point(size=3)+geom_errorbar(aes(ymin=lower,ymax=upper),width=.12)+
-  geom_hline(yintercept=true_policy_effect,color="#C44E52",linetype=2)+
-  labs(x=NULL,y="利益への効果（千円/人）")
-```
-
-300人・1回の購買だけでは、区間が広くなりうる。モデル上で小さな利益改善が予測されても、少人数の実験で明確に確かめられるとは限らない。実際の導入では、検出したい利益差、利益の分散、必要な人数を考えて実験を設計する。今回は顧客ごとに独立な1回の結果なので、上の2群の分散を使った標準誤差で比較している。同じ顧客を何度も観測するなら、その依存も考慮する。
-
-### 購入予測、価格反応、CATEは何が違うか
-
-計量経済学Iで扱った潜在アウトカムを使うと、クーポン施策のCATEは
-
-$$\tau(x)=E[Y_i(1)-Y_i(0)\mid X_i=x]$$
-
-である。$X_i$ は施策前に分かる属性や購買履歴、$Y_i$ は施策後の購買や利益である。単なる $E[Y_i(0)\mid X_i=x]$、つまり「何もしなくても買いそうか」とは違う。
-
-今回の価格感応度 $\alpha_i$ は選好の異質性を表す。CATEは、指定した施策によるアウトカムの差を表す。価格が変わる施策をlogitモデルで表すなら、$q_i(c)-q_i(0)$ が購買への効果につながるが、$\alpha_i$ 自体がCATEなのではない。さらに、クーポン表示の効果や注意を向ける効果があれば、その施策は単なる価格変更では表せない。
-
-需要モデルは、複数の価格や商品の反実仮想を同じ仕組みで比較するために役立つ。一方、ランダム化実験は、実際に行った施策の効果を比較するために役立つ。両方を組み合わせることで、モデルで候補を絞り、実際の施策で確かめることができる。
+「最近買っていない」ことは、離脱を意味する場合もあれば、購買率が低い顧客にとって通常の間隔である場合もある。活動確率はこの2つを仮定のもとで組み合わせたもので、離脱を観測した事実ではない。季節性や再来店が重要なら、別のモデルやデータが必要になる。
 
 ::: {.callout-note collapse="true"}
-## 補足：causal forestやDMLはどこに入るか
+## 発展：BG/NBDの尤度は二つの経路を足す
 
-施策前の特徴が多く、施策効果が誰によって違うかを調べたい場合には、causal forestなどのCATE推定法が候補になる。DMLは、柔軟に推定した補助関数を使いながら、低次元の因果パラメータについて推論するための枠組みである。いずれも、処置がランダムなのか、観測変数で条件付ければ交絡を除けるのか、各群に比較可能な観測があるのか、といった識別条件を置き換えるものではない。また、CATEは同じ特徴を持つ集団の平均効果であり、個人の2つの潜在アウトカムが両方観測できるわけではない。今回の主題は手法を増やすことではなく、意思決定に必要な比較を定めることである。
-:::
+$r,\alpha,a,b$ を母集団パラメータとすると、最尤推定に使える履歴の尤度カーネルは、
 
-## 実証研究コーナー
+$$
+\begin{aligned}
+K_i={}&\frac{B(a,b+x_i)}{B(a,b)}\frac{\Gamma(r+x_i)\alpha^r}{\Gamma(r)(\alpha+T_i)^{r+x_i}}\\
+&+\mathbf1\{x_i>0\}\frac{B(a+1,b+x_i-1)}{B(a,b)}
+\frac{\Gamma(r+x_i)\alpha^r}{\Gamma(r)(\alpha+t_{x_i})^{r+x_i}}.
+\end{aligned}
+$$
 
-::: {.callout-tip}
-## Rossi, McCulloch, and Allenby (1996)：購買履歴はクーポンにどれだけ役立つか
-
-この論文は、世帯の購買履歴を使ってクーポンを個別化する価値を調べた。階層的なブランド選択モデルで、情報の少ない世帯にも集団の情報を使う。論文のモデルに基づく比較では、短い履歴を使った個別化による純収益の増加が、一律クーポンの**2.5倍**になった。また、1回の購買情報だけでも、一律クーポンより**50%大きい増加**が得られると報告している。これはランダム化したクーポン施策の実績差ではなく、推定モデルを使った収益比較である。原論文はprobitモデルなので、今回のlogitによる教材は仕組みを共有する簡略例である。[著者公開論文](https://rob-mcculloch.org/some_papers_and_talks/papers/published/1996_The_Value_of.pdf)
-:::
-
-::: {.callout-tip}
-## Dubé and Misra (2023)：価格実験から個別価格へ
-
-この研究は、求人プラットフォームZipRecruiterで価格を無作為に割り当て、そのデータから需要を推定した。最適な一律価格への変更で、事後期待利益は元の価格に比べて**55%**増えると計算される。さらに個別価格を使うと、最適な一律価格に比べて**19%**増えるという結果だった。元の価格に比べた改善と、既に最適化した一律価格に比べた改善を区別している点が大切である。著者らは別の実験でも予測を検証している。ただし、この利益改善率を他の市場や今回の教材にもそのまま当てはめることはできない。[論文公開稿・要旨](https://www.nber.org/papers/w23775)
+第1項は観測終了まで活動中、第2項は最後の購買の直後に離脱した経路である。$x_i=0$ では第2項は定義・計算せず、第1項だけを使う。この設定では最初の観測時点で全員活動中で、その後の購買直後にしか離脱できないため、$x_i=0$ の活動確率は1となる。現実の非購入者が必ず活動中だと判定したわけではない。$x_i>0$ の完全な要約統計の同時密度には、パラメータに依存しない因子 $t_{x_i}^{x_i-1}/(x_i-1)!$ がさらに掛かる。推定や二つの経路の比では相殺されるが、別々の履歴の密度を比べる場合は省略できない。
 :::
 
 ::: {.callout-tip}
-## Ascarza (2018)：離脱しそうな人が、引き止めるべき人とは限らない
+## 研究コラム：Fader・Hardie・Lee — 購買の「回数」と「いつ」を使う
 
-この論文は、通信と会員制サービスの**2つのフィールド実験**を使い、離脱リスクに基づく配分と、施策への反応に基づく配分を比較した。反応の異質性を使う配分では、離脱リスクの高い人から配る方法に比べて、離脱率をさらに**4.1ポイント、8.7ポイント**下げられると試算される。これは、同じキャンペーンの対象者をどう選ぶかという比較である。離脱しそうな人の予測と、施策によって離脱を防げる人の予測は異なる。この結果は「離脱リスクが高い人には何をしても無駄」という意味ではない。次回のCLVでも、予測される価値や離脱リスクを、そのまま施策効果と読み替えないようにする。[著者公開論文](https://www.hbs.edu/ris/download.aspx?name=ascarza_jmr_18.pdf)
+[Fader, Hardie and Lee (2005)](https://faculty.wharton.upenn.edu/wp-content/uploads/2012/06/BGNBD_FHL_MktgSci_2005_1.pdf) は、CDNOWの顧客2,357人について、最初の39週間の購買履歴から後の39週間の購買を予測した。前半にリピート購買を3回した100人は、後半に平均1.56回購入し、BG/NBDの個人別予測の平均は1.52回だった。ただし同じ100人でも実績は0〜10回と幅がある。グループ平均が近いことと、一人ひとりの行動を正確に当てたことは違う。また、これはあるデータとモデルでの購買予測であり、値引きの因果効果を示す結果ではない。
+:::
+
+### 3.6 判断：高いCLVの顧客が、最も施策に反応するとは限らない
+
+将来価値の予測は、在庫・サービス量の計画には役立つ。しかし、誰にクーポンを送ればよいかという判断では、配らなくても買う人に値引きすると利益を失うことがある。顧客 $i$ の施策あり・なしの将来利益の割引合計を $G_i(1),G_i(0)$、配布にかかる費用を $c_i$ とすれば、予算制約がなく他の顧客への影響もない単純な場合に必要なのは
+
+$$
+\Delta_i=E[G_i(1)-G_i(0)\mid H_i]-c_i
+$$
+
+である。ここで $G_i(1),G_i(0)$ はそれぞれ**配布費を除く**将来利益とする。$\Delta_i>0$ の人に送る判断が利益を改善する。この差は、施策で増える購買、値引きによる利益率の低下、必要なら将来の行動変化を含む。上で計算した施策なしの $\widehat V_i(H)$ は片側の予測であり、差は分からない。
+
+施策を受けた人と受けなかった人に、もともとの購買意欲の差があれば、実績の単純比較を施策効果と読むこともできない。前節のランダム化実験のように、施策あり・なしの比較を作る必要がある。**必要な予測を作ることと、施策が生む増分を識別することは別の仕事**である。
+
+## 4. コンジョイント：必要な比較ができるデータを集める
+
+### 4.1 目的：どのコーヒーを商品化するか
+
+コーヒー店チェーンが新しい商品を一種類追加したい。大容量にするか、豆の産地を表示するか、価格をいくらにするか。判断に必要なのは、それぞれの候補が**どの程度選ばれ、その販売でどれだけ利益を生むか**である。好まれる機能でも、追加費用が大きければ利益が増えるとは限らない。
+
+既存商品の購買履歴だけでは、まだ販売していない容量や表示を加えた場合を直接比べられないことがある。既存商品どうしでは価格以外の特徴も違ううえ、企業は人気を見越して価格を決めているかもしれない。そこで、知りたい属性を組み合わせた仮想の商品を提示し、回答者に選んでもらう。これが**選択型コンジョイント（choice-based conjoint、CBC）**である。属性を無作為に割り付ければ、調査で提示された範囲内では、属性を変えたときの回答の違いを比較できる。
+
+以下は前節とは別の調査で、**一回の来店機会**を考える。粗利益は販売価格から商品の原価を引いて求める。前の例で固定した「1購入あたり400円」とは別の設定である。1回目のクーポン効果や6か月の顧客価値をそのまま使うのではなく、今回の商品設計に必要な比較を新たに作る。
+
+### 4.2 データを作る：容量・産地表示・価格を変えて尋ねる
+
+各回答者に6問ずつ、商品A、商品B、「どちらも買わない」の3択を提示する。両商品の属性をそれぞれ独立に無作為化する。
+
+| 属性 | 調査で提示する値 |
+|---|---|
+| 容量 | 通常250mL／大350mL |
+| 産地表示 | なし／あり |
+| 価格 | 300円／400円／500円 |
+
+例えば、同じ大容量・同じ価格の商品について産地表示の有無を変えれば、表示が選択をどう変えるかを調べられる。ただし、選びやすさは隣にどんな商品があるかにも左右される。表示の効果を一つにまとめるには、他の属性と競合商品の組合せをどの分布で平均するかが必要だ。
+
+シミュレーションでは、全員に共通する効用係数を仮定する。価格 $p$ は100円単位、大容量と産地表示をそれぞれ0か1で示し、購入しない選択肢の確定効用を0に基準化すると、商品 $j$ の確定効用は
+
+$$
+v_j=\beta_0+\beta_L\,\text{大容量}_j+\beta_O\,\text{産地表示}_j+\beta_Pp_j,
+\qquad
+P_j=\frac{e^{v_j}}{1+e^{v_A}+e^{v_B}}.
+$$
+
+ここでは価格の効用係数を $\beta_P=-\alpha<0$ と表す。選択肢ごとの一時的なショックは、個人・課題・選択肢を通じて独立な標準Gumbelとする。作る側の値は $(\beta_0,\beta_L,\beta_O,\beta_P)=(1.4,0.45,0.60,-0.45)$ だ。この値はデータの答え合わせだけに使い、推定には渡さない。
+
+```{r}
+set.seed(20260708)
+N_cj <- 500
+T_cj <- 6
+ntask_cj <- N_cj * T_cj
+id_cj <- rep(seq_len(N_cj), each = T_cj)
+large_a_cj <- sample(0:1, ntask_cj, replace = TRUE)
+label_a_cj <- sample(0:1, ntask_cj, replace = TRUE)
+price_a_cj <- sample(3:5, ntask_cj, replace = TRUE)
+large_b_cj <- sample(0:1, ntask_cj, replace = TRUE)
+label_b_cj <- sample(0:1, ntask_cj, replace = TRUE)
+price_b_cj <- sample(3:5, ntask_cj, replace = TRUE)
+xa_cj <- cbind(1, large_a_cj, label_a_cj, price_a_cj)
+xb_cj <- cbind(1, large_b_cj, label_b_cj, price_b_cj)
+true_cj <- c(1.4, 0.45, 0.60, -0.45)
+```
+
+選択確率を計算し、各問で一つの選択肢を抽選する。同じ人が何問も答えたことはIDで記録する。
+
+```{r}
+prob_cj <- function(par_cj, xa_cj, xb_cj) {
+  va_cj <- drop(xa_cj %*% par_cj); vb_cj <- drop(xb_cj %*% par_cj)
+  m_cj <- pmax(0, va_cj, vb_cj)
+  e_cj <- cbind(exp(-m_cj), exp(va_cj - m_cj), exp(vb_cj - m_cj))
+  e_cj / rowSums(e_cj)  # 買わない、A、Bの順
+}
+pr_true_cj <- prob_cj(true_cj, xa_cj, xb_cj)
+u_cj <- runif(ntask_cj)
+y_cj <- as.integer(u_cj > pr_true_cj[, 1]) +
+  as.integer(u_cj > pr_true_cj[, 1] + pr_true_cj[, 2])
+dat_cj <- data.frame(id_cj, large_a_cj, label_a_cj, price_a_cj,
+                     large_b_cj, label_b_cj, price_b_cj, y_cj)
+head(dat_cj)
+```
+
+### 4.3 調査内の効果：産地表示のAMCE
+
+ここでの問いは、**商品Aの産地表示だけを「なし」から「あり」に変えたとき、Aを選ぶ確率が平均で何ポイント変わるか**である。Aの容量・価格と、Bの属性は、調査で無作為に作った分布に従って平均する。このような量を、平均限界構成要素効果（average marginal component effect、AMCE）という。他の属性・対抗商品の組合せを $Z$、Aを選ぶダミーを $Y_A$ と書けば、
+
+$$
+\operatorname{AMCE}_{O}
+=E_Z\!\left[E(Y_A\mid O_A=1,Z)-E(Y_A\mid O_A=0,Z)\right].
+$$
+
+ここでの平均は**今回の調査の割付分布**について取る。競合商品や価格の分布が変わればAMCEも変わり得る。無作為割付により、表示の有無と他の属性は独立なので、表示ありとなしのA選択率の差からこの効果を推定できる。調査で起こる行動の効果であり、効用の係数 $\beta_O$ そのものではない。
+
+同じ人は6問に答えるため、各回答を独立とみなした標準誤差は使わない。以下は差の平均を回帰で計算し、**回答者単位**にスコアを足して、クラスタ頑健標準誤差を求める。表の真値は、生成に使ったモデルで、提示された各問の他属性を固定して表示あり・なしの確率差を計算し、その平均を取ったものである。
+
+```{r}
+design_x_cj <- cbind(1, label_a_cj)
+design_y_cj <- as.numeric(y_cj == 1)
+est_amce_cj <- drop(solve(crossprod(design_x_cj), crossprod(design_x_cj, design_y_cj)))
+resid_amce_cj <- design_y_cj - drop(design_x_cj %*% est_amce_cj)
+score_amce_cj <- rowsum(design_x_cj * resid_amce_cj, id_cj)
+bread_amce_cj <- solve(crossprod(design_x_cj))
+var_amce_cj <- bread_amce_cj %*% crossprod(score_amce_cj) %*% bread_amce_cj * N_cj/(N_cj - 1)
+se_amce_cj <- sqrt(var_amce_cj[2, 2])
+xa_on_cj <- xa_cj; xa_on_cj[,3] <- 1
+xa_off_cj <- xa_cj; xa_off_cj[,3] <- 0
+truth_amce_cj <- mean(prob_cj(true_cj, xa_on_cj, xb_cj)[,2] -
+                       prob_cj(true_cj, xa_off_cj, xb_cj)[,2])
+amce_table_cj <- data.frame(estimate_cj = unname(est_amce_cj[2]),
+  se_cj = se_amce_cj, low_cj = unname(est_amce_cj[2] - 1.96 * se_amce_cj),
+  high_cj = unname(est_amce_cj[2] + 1.96 * se_amce_cj), truth_cj = truth_amce_cj)
+knitr::kable(amce_table_cj, digits = 3,
+  col.names = c("推定", "回答者単位SE", "95%区間下限", "95%区間上限", "設計標本での理論平均"))
+```
+
+```{r}
+#| fig-cap: "産地表示のAMCEと95%信頼区間。赤線は生成モデルから計算した比較基準。"
+ggplot(amce_table_cj, aes(x = "産地表示あり−なし", y = estimate_cj)) +
+  geom_hline(yintercept = truth_amce_cj, color = "#bb4444", linetype = 2) +
+  geom_errorbar(aes(ymin = low_cj, ymax = high_cj), width = .12) +
+  geom_point(size = 2.5, color = "#4477aa") +
+  labs(x = NULL, y = "Aを選ぶ確率の差")
+```
+
+確率の差が0.10なら、他の属性をこの調査の設計分布で平均すると、Aを選ぶ確率が10**ポイント**高いという意味だ。これを効用の0.10、あるいは10%の売上増と読み替えてはいけない。
+
+### 4.4 選択モデルとWTP：利益計算に使う
+
+候補の価格と原価まで含めて比較するには、それぞれの候補が選ばれる確率が必要になる。ここでは、上でデータを作ったものと同じ形の同質logitを、選択結果から最尤推定する。$\beta$ の下で各問の選択確率を計算し、実際に選ばれた選択肢の対数確率を足す。観測された属性と選択だけを使い、生成時の真の係数は使わない。
+
+```{r}
+loss_cj <- function(par_cj) {
+  pr_cj <- prob_cj(par_cj, xa_cj, xb_cj)
+  -sum(log(pr_cj[cbind(seq_len(ntask_cj), y_cj + 1)]))
+}
+fit_cj <- optim(c(0, 0, 0, 0), loss_cj, method = "BFGS", hessian = TRUE,
+                control = list(maxit = 1000, reltol = 1e-10))
+stopifnot(fit_cj$convergence == 0)
+par_hat_cj <- fit_cj$par
+pr_hat_cj <- prob_cj(par_hat_cj, xa_cj, xb_cj)
+```
+
+推定の不確実性も回答者単位で扱う。各問のスコアを同じ回答者内で足し、回答者間のばらつきからサンドイッチ型分散を計算する。これは1人の回答どうしの相関を許すが、回答者間が独立という前提は必要だ。
+
+```{r}
+score_cj <- xa_cj * (as.numeric(y_cj == 1) - pr_hat_cj[, 2]) +
+  xb_cj * (as.numeric(y_cj == 2) - pr_hat_cj[, 3])
+score_by_person_cj <- rowsum(score_cj, id_cj)
+bread_cj <- solve(fit_cj$hessian)
+vcov_cj <- bread_cj %*% crossprod(score_by_person_cj) %*% bread_cj * N_cj / (N_cj - 1)
+se_cj <- sqrt(diag(vcov_cj))
+knitr::kable(data.frame(parameter_cj = c("購入の定数", "大容量", "産地表示", "価格（100円単位）"),
+  truth_cj = true_cj, estimate_cj = par_hat_cj, se_cj = se_cj), digits = 3,
+  col.names = c("係数", "真値", "推定値", "回答者単位SE"))
+```
+
+係数の真値と推定値は完全には一致しない。ここでは、データ生成と推定の両方で同じ同質logitを使っているため、設定が正しい場合の確認になっている。実際には、異質性や表示の仕方による反応の違いを許す必要もある。
+
+モデルのもとで、産地表示による効用上昇を価格上昇でちょうど打ち消す金額は、支払意思額（WTP）として
+
+$$
+\operatorname{WTP}_{O}=-\frac{\beta_O}{\beta_P}\times100\text{円}
+$$
+
+と計算できる。これは効用の係数の比であり、先ほどのAMCE（選択確率の差）とは異なる。価格係数が負で、属性と価格の限界効用がこのモデルのように一定という前提での金額だ。
+
+```{r}
+wtp_cj <- -100 * par_hat_cj[3] / par_hat_cj[4]
+wtp_true_cj <- -100 * true_cj[3] / true_cj[4]
+knitr::kable(data.frame(estimate_cj = wtp_cj, truth_cj = wtp_true_cj), digits = 1,
+             col.names = c("産地表示WTPの推定（円）", "生成モデルでの真値（円）"))
+```
+
+ここではWTPの点推定を示した。WTPは係数の比なので、その不確実性を求めるには係数間の共分散も必要になる。区間を計算する場合は、デルタ法や回答者単位のブートストラップを使う。
+
+### 4.5 判断：候補ごとの期待利益を比べる
+
+候補Aは、先ほどの2種類の容量、2種類の表示、3種類の価格を組み合わせた12通りとする。比較対象の競合Bは**通常250mL・産地表示なし・400円**に固定し、選択肢には「どちらも買わない」も残す。ここではBは他社の商品で、自社が得る利益はAからの粗利益だけとする。競合の価格や属性が変われば、Aの選択確率も変わる。
+
+Aの原価は、基本140円に、大容量なら40円、産地表示ありなら35円を加えると仮定する。原価の推定と効用の推定は別の情報だ。1来店機会あたりの期待粗利益は
+
+$$
+\operatorname{Profit}(A)=P_A(A,B)\times\{\text{Aの価格}-\text{Aの原価}\}.
+$$
+
+回答者にクーポンを配る費用や固定費はここには入れない。全候補で共通の固定費なら順位は変わらないが、候補ごとに開発費が違うなら、その費用も比較に含めなければならない。
+
+```{r}
+candidates_cj <- expand.grid(large_cj = 0:1, label_cj = 0:1, price_cj = 3:5)
+candidates_cj$cost_cj <- 1.4 + .4 * candidates_cj$large_cj + .35 * candidates_cj$label_cj
+new_xa_cj <- cbind(1, candidates_cj$large_cj, candidates_cj$label_cj, candidates_cj$price_cj)
+new_xb_cj <- matrix(rep(c(1, 0, 0, 4), nrow(candidates_cj)), ncol = 4, byrow = TRUE)
+candidates_cj$share_cj <- prob_cj(par_hat_cj, new_xa_cj, new_xb_cj)[,2]
+candidates_cj$profit_cj <- 100 * (candidates_cj$price_cj - candidates_cj$cost_cj) * candidates_cj$share_cj
+candidates_cj$true_profit_cj <- 100 * (candidates_cj$price_cj - candidates_cj$cost_cj) *
+  prob_cj(true_cj, new_xa_cj, new_xb_cj)[,2]
+result_cj <- candidates_cj[order(-candidates_cj$profit_cj), ]
+knitr::kable(result_cj, digits = 3, row.names = FALSE,
+  col.names = c("大容量", "産地表示", "価格（100円）", "原価（100円）", "Aの選択確率", "期待粗利益（円）", "真の期待粗利益（円）"))
+```
+
+```{r}
+#| fig-cap: "固定した競合Bに対する、12候補の1来店あたり期待粗利益"
+candidates_cj$name_cj <- paste0(ifelse(candidates_cj$large_cj == 1, "大", "通常"), "／",
+  ifelse(candidates_cj$label_cj == 1, "表示あり", "表示なし"), "／", 100 * candidates_cj$price_cj, "円")
+ggplot(candidates_cj, aes(reorder(name_cj, profit_cj), profit_cj)) +
+  geom_col(fill = "#4477aa") + coord_flip() +
+  labs(x = "商品Aの候補", y = "1来店あたりの期待粗利益（円）")
+```
+
+この表では、提示した12候補の中で期待粗利益が最大のものを選べる。真の利益は生成モデルを知るシミュレーションだから計算できる。実際には係数の推定誤差があり、僅差の順位が入れ替わるかもしれない。調査データのほかに費用や販売環境を確認し、実販売でも検証する必要がある。ここで調べていない価格や、競合が価格を変える反応まで最適化したわけではない。
+
+::: {.callout-note}
+## 全員が同じ好みとは限らない
+
+上では計算を見やすくするため、全員に同じ係数を使った。しかし大容量を重視する人と、産地表示を重視する人は違うかもしれない。一人が複数の課題に答えれば、その人の回答を本人の履歴として使える。第6回のように、母集団分布と本人の回答を組み合わせれば、個人差を扱う選択モデルへ広げられる。ただし、短い回答から各人の好みが完全に分かるわけではない。
+:::
+
+::: {.callout-tip}
+## 研究コラム：調査の選択と、現実の行動は同じか
+
+[Hainmueller, Hangartner and Yamamoto (2015)](https://doi.org/10.1073/pnas.1416587112) は、スイスでの帰化申請者に対する住民投票と、対応する仮想的な選択調査を比較した。2人の申請者を並べるコンジョイントでは、属性効果が実際の行動の基準に平均しておおむね2ポイント以内まで近かった。一方、同じ調査から計算した棄却率は約21%で、実際の住民投票では約37%だった。属性間の比較が近くても、現実の行動の水準まで一致するとは限らない。コーヒーの調査結果を実売上へ移すときも、回答者、来店状況、提示する競合、実際に支払うことの違いを確かめる必要がある。
+:::
+
+## 5. 三つの分析を、意思決定から読み直す
+
+ターゲティングでは、配布による増分利益を知りたかった。そのために、施策をランダム化して比較を作った。顧客価値では、継続する購買から得る将来利益を予測したかった。そのために、頻度と継続に焦点を絞った。コンジョイントでは、まだ売っていない商品の属性を比較したかった。そのために、必要な比較ができる選択課題を設計した。
+
+| 問い | 分析の到達点 | さらに確認すること |
+|---|---|---|
+| 誰にクーポンを配るか | 試した施策の利益差と配布ルール | 別の実験での利益、運用費用、他者への影響 |
+| 将来どれだけ利益が生まれるか | 観測履歴からの有限期間CLV | 別期間での予測、離脱・季節性、施策による変化 |
+| どんな商品を作るか | 属性効果、WTP、候補商品の期待利益 | 調査設計の範囲、費用、実購買への移し方、競合の反応 |
+
+三つとも、まず必要な量を決め、その量を学べるデータとモデルを選んだ。全行動を詳しく説明しなくても判断できる場合がある一方、狭い目的でも、必要な比較がデータに存在しなければ答えられない。**何を省略してよいかは、目的と仮定から考える。**
+
+::: {.callout-note}
+## ビジネスの現場で：「この分析は何に使うのか」を最初に聞く
+
+「顧客をスコアリングしてほしい」という依頼でも、在庫計画に使う購買数の予測と、クーポンの配布順序では必要なスコアが違う。顧客獲得費を考えるなら、既存顧客全体の平均CLVだけでなく、その施策で追加的に獲得される顧客の数と価値が必要になる。新商品を比較したいなら、今あるログに必要な属性の変動があるかを確認し、なければ調査や実験を設計する。使う場面を決めることは、推定の後に付け足す作業ではない。
 :::
 
 ::: {.callout-important}
 ## 今回のまとめ
 
-- 個人の需要は、クーポンあり・なしの購買確率を計算するために使える。
-- 個人パラメータの事後分布で予測を積分し、値引き後のマージンを掛けて期待利益を求める。
-- 一律と個別の施策は、同じ利益基準で比較する。個別化の運用費用があれば、それも含める。
-- 価格の割当、仮想回答と実購買の関係、施策の表示効果などは、推定法だけでは解決しない。
-- 選んだ施策ルールを固定し、別のランダム化実験で実現利益を比較する。
+- 企業が選ぶ行動から、推定したい量と評価基準を定める。
+- 購買確率や離脱リスクの水準と、施策による利益の増分を区別する。
+- 個人の履歴と母集団の情報を組み合わせる考え方は、将来購買の予測にも使える。
+- CLVの予測だけでは、施策でCLVを増やせるかは分からない。
+- コンジョイントは、必要な属性比較ができるようデータを集める方法である。AMCE・WTP・期待利益は違う量を表す。
+- 学習に使っていないデータや実際の販売環境で、目的に対応する結果を確認する。
 :::
 
-## 宿題
+### 宿題
 
-- 原価を1千円から5千円に変えると、選ばれるクーポンはどう変わるか。
-- 1人にクーポンを提示するごとに100円の費用がかかるなら、どこを修正すればよいか。
-- [Playground 7](playground7.html)で、価格感応度の不確実性と原価を変えてみよう。
-- coding課題は [assignment7.qmd](assignment7.qmd) を参照。
+1. 同じ顧客について、購買確率が高いこととクーポンの利益が高いことが一致しない数値例を作ろう。
+2. 将来価値が高い顧客に維持施策を行うべきか判断するために、CLV以外に何を知る必要があるか説明しよう。
+3. 新商品の産地表示の効果を調べたいとき、既存のPOSデータとコンジョイント調査で何が違うか考えよう。
+4. [ブラウザ実験室](playground7.html)で費用や母集団分布を変え、判断が変わる箇所を探そう。
 
-## 次回予告
+coding課題は[課題7](assignment7.html)（編集用：[assignment7.qmd](assignment7.qmd)）を参照する。
 
-今回の期待利益は1回の購買機会についてのものだった。次回は、過去の購買頻度と最終購買時点から、将来の購買回数を予測する。顧客ごとの長期価値をCLVとして計算するが、CLVが高いことと施策による増分が大きいことは、やはり区別する必要がある。
+### この先の講義とのつながり
 
-## 参考文献
+第8回は、企業でのエコノミストの仕事を扱うゲスト講義である。その後の[第9回：将来を考えた選択と動学的離散選択モデル](../lec9/lecture9.html)では、分析者が将来を予測することに加えて、消費者自身が将来を考えて選ぶ状況へ進む。今回の購買率・離脱モデルには、来週の値下げを待つ、今まとめ買いして将来の買い物を減らすといった先読みは入っていなかった。そのような判断を分析したいなら、モデルにも必要な構造を加えることになる。
 
-- Rossi, P. E., R. E. McCulloch, and G. M. Allenby (1996), “The Value of Purchase History Data in Target Marketing,” *Marketing Science*, 15(4), 321–340.
-- Dubé, J.-P. and S. Misra (2023), “Personalized Pricing and Consumer Welfare,” *Journal of Political Economy*, 131(1), 131–189.
-- Ascarza, E. (2018), “Retention Futility: Targeting High-Risk Customers Might Be Ineffective,” *Journal of Marketing Research*, 55(1), 80–98.
-- Train, K. E. (2009), *Discrete Choice Methods with Simulation*, 2nd ed., Chapters 11–13.
-- Wager, S. and S. Athey (2018), “Estimation and Inference of Heterogeneous Treatment Effects using Random Forests,” *Journal of the American Statistical Association*, 113(523), 1228–1242.
-- Chernozhukov, V. et al. (2018), “Double/Debiased Machine Learning for Treatment and Structural Parameters,” *The Econometrics Journal*, 21(1), C1–C68.
+[講義一覧へ](../index.html)
+
+### 参考文献
+
+- Ascarza, E. (2018). “Retention Futility: Targeting High-Risk Customers Might Be Ineffective.” *Journal of Marketing Research*, 55(1), 80–98. [著者公開稿](https://www.hbs.edu/ris/Publication%20Files/ascarza_jmr_18_783d54d4-e548-41ed-b1d7-8a180f1ae85a.pdf)
+- Fader, P. S., B. G. S. Hardie, and K. L. Lee (2005). “‘Counting Your Customers’ the Easy Way: An Alternative to the Pareto/NBD Model.” *Marketing Science*, 24(2), 275–284. [原論文](https://faculty.wharton.upenn.edu/wp-content/uploads/2012/06/BGNBD_FHL_MktgSci_2005_1.pdf)
+- Hainmueller, J., D. Hangartner, and T. Yamamoto (2015). “Validating Vignette and Conjoint Survey Experiments Against Real-World Behavior.” *Proceedings of the National Academy of Sciences*, 112(8), 2395–2400. [原論文](https://doi.org/10.1073/pnas.1416587112)

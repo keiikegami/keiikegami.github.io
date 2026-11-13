@@ -1,19 +1,22 @@
 ---
-title: "Lecture 7：個人別需要からターゲティングへ"
-subtitle: "計量経済学II"
+title: "Lecture 7：データを意思決定に使う"
+subtitle: "ターゲティング・顧客価値・コンジョイント"
 author: "Kei Ikegami"
 lang: ja
 format:
   revealjs:
     theme: [default, ../slides_theme.scss]
     slide-number: c/t
+    incremental: true
     embed-resources: true
     transition: none
     center: false
     width: 1180
     height: 700
+    margin: 0.08
     fig-width: 8
-    fig-height: 4.5
+    fig-height: 4.2
+    code-line-numbers: false
 execute:
   echo: false
   warning: false
@@ -24,417 +27,525 @@ execute:
 #| include: false
 library(ggplot2)
 library(dplyr)
-library(tidyr)
 library(knitr)
-
-set.seed(202610)
-
-theme_lecture <- function() {
-  fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
-  theme_minimal(base_size = 13, base_family = fam) +
-    theme(plot.margin = margin(8, 14, 8, 14))
-}
-theme_set(theme_lecture())
+set.seed(20260701)
+fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
+theme_set(theme_minimal(base_size = 13, base_family = fam))
 knitr::opts_chunk$set(fig.align = "center", dpi = 144)
 options(scipen = 8)
 
-
-# === CBC_DGP ===
-choice_prob <- function(quality, price, alpha) {
-  v <- quality - price * alpha
-  vmax <- pmax(0, v[, 1], v[, 2])
-  ev <- exp(v - vmax)
-  cbind(outside = exp(-vmax), ev) / (exp(-vmax) + rowSums(ev))
-}
-simulate_cbc <- function(seed = 202607, N = 300, Ttrain = 8, Thold = 8) {
+groups_tg <- c("よく買う", "時々買う", "まれに買う")
+shares_tg <- c(.3, .4, .3)
+q0_tg <- c(.90, .30, .08)
+q1_tg <- c(.95, .60, .10)
+gain_true_tg <- 200 * q1_tg - 300 * q0_tg - 5
+simulate_tg <- function(n, seed) {
   set.seed(seed)
-  beta_known <- c(battery12 = 0.5, nc = 0.8, major_brand = 0.3)
-  mu_true <- log(0.12) - 0.6^2 / 2
-  tau_true <- 0.6
-  theta_true <- rnorm(N, mu_true, tau_true)
-  make_tasks <- function(T) {
-    id <- rep(seq_len(N), each = T)
-    nr <- length(id)
-    price <- matrix(sample(c(8, 12, 16), nr * 2, replace = TRUE), nr, 2)
-    battery12 <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
-    nc <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
-    major_brand <- matrix(rbinom(nr * 2, 1, 0.5), nr, 2)
-    quality <- beta_known[1] * battery12 + beta_known[2] * nc + beta_known[3] * major_brand
-    prob <- choice_prob(quality, price, exp(theta_true[id]))
-    choice <- vapply(seq_len(nr), function(r) sample(0:2, 1, prob = prob[r, ]), integer(1))
-    list(id = id, price = price, battery12 = battery12, nc = nc,
-         major_brand = major_brand, quality = quality, choice = choice, T = T)
-  }
-  list(train = make_tasks(Ttrain), test = make_tasks(Thold), N = N,
-       beta_known = beta_known, theta_true = theta_true, mu_true = mu_true, tau_true = tau_true)
+  group <- sample(1:3, n, replace = TRUE, prob = shares_tg)
+  treatment <- rbinom(n, 1, .5)
+  probability <- ifelse(treatment == 1, q1_tg[group], q0_tg[group])
+  purchase <- rbinom(n, 1, probability)
+  profit <- (300 - 100 * treatment) * purchase - 5 * treatment
+  data.frame(group, treatment, purchase, profit)
 }
-# === HB_ESTIMATION ===
-individual_loglik <- function(theta, tasks, N) {
-  v <- tasks$quality - tasks$price * exp(theta[tasks$id])
-  vmax <- pmax(0, v[, 1], v[, 2])
-  logden <- vmax + log(exp(-vmax) + rowSums(exp(v - vmax)))
-  chosen <- numeric(length(tasks$choice))
-  inside <- which(tasks$choice > 0)
-  chosen[inside] <- v[cbind(inside, tasks$choice[inside])]
-  as.vector(rowsum(chosen - logden, tasks$id, reorder = FALSE))
+train_tg <- simulate_tg(2400, 20260701)
+test_tg <- simulate_tg(6000, 20260702)
+
+estimate_tg <- do.call(rbind, lapply(1:3, function(g) {
+  z <- subset(train_tg, group == g)
+  r1 <- z$profit[z$treatment == 1]; r0 <- z$profit[z$treatment == 0]
+  data.frame(group = g, q0 = mean(z$purchase[z$treatment == 0]),
+    q1 = mean(z$purchase[z$treatment == 1]),
+    gain = mean(r1) - mean(r0), se = sqrt(var(r1) / length(r1) + var(r0) / length(r0)))
+}))
+knitr::kable(data.frame(history = groups_tg, estimate_tg[, -1], truth = gain_true_tg),
+  digits = 3, col.names = c("履歴群", "配布なし購買率", "配布あり購買率", "利益差の推定", "標準誤差", "真の利益差"))
+
+estimate_tg$history <- factor(groups_tg, levels = groups_tg)
+estimate_tg$truth <- gain_true_tg
+ggplot(estimate_tg, aes(history, gain)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(aes(ymin = gain - 1.96 * se, ymax = gain + 1.96 * se), width = .12) +
+  geom_point(size = 2.5, color = "#2878a0") + geom_point(aes(y = truth), shape = 4, size = 3) +
+  labs(x = NULL, y = "配布による利益の増分（円／人）")
+
+likely_group_tg <- which.max(estimate_tg$q0)
+rules_tg <- list("配布なし" = rep(0, 3), "全員" = rep(1, 3),
+  "買いそうな群" = as.integer(1:3 == likely_group_tg),
+  "増分が正の群" = as.integer(estimate_tg$gain > 0))
+policy_tg <- do.call(rbind, lapply(names(rules_tg), function(nm) {
+  rule <- rules_tg[[nm]]
+  score <- rule[test_tg$group] *
+    (test_tg$treatment * test_tg$profit / .5 - (1 - test_tg$treatment) * test_tg$profit / .5)
+  data.frame(rule = nm, estimate = mean(score), se = sd(score) / sqrt(length(score)),
+    truth = sum(shares_tg * rule * gain_true_tg))
+}))
+policy_tg$rule <- factor(policy_tg$rule, levels = names(rules_tg))
+knitr::kable(policy_tg, digits = 2,
+  col.names = c("配布ルール", "独立実験での増分推定", "標準誤差", "真の平均増分"))
+
+ggplot(policy_tg, aes(rule, estimate)) + geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(aes(ymin = estimate - 1.96 * se, ymax = estimate + 1.96 * se), width = .12) +
+  geom_point(size = 2.5, color = "#2878a0") + geom_point(aes(y = truth), shape = 4, size = 3) +
+  labs(x = NULL, y = "配布なしからの利益増分（円／人）")
+
+set.seed(20260707)
+N_clv <- 1500
+T_clv <- 1
+H_clv <- 6
+r_true_clv <- 2
+alpha_true_clv <- 4
+margin_clv <- 400
+discount_clv <- 0.99
+lambda_true_clv <- rgamma(N_clv, shape = r_true_clv, rate = alpha_true_clv)
+x_clv <- rpois(N_clv, lambda_true_clv * T_clv)
+y_future_clv <- sapply(seq_len(H_clv), function(h_clv) rpois(N_clv, lambda_true_clv))
+profit_future_clv <- drop(y_future_clv %*% (margin_clv * discount_clv ^ seq_len(H_clv)))
+
+likelihood_clv <- function(a_clv) {
+  r_clv <- exp(a_clv[1]); alpha_clv <- exp(a_clv[2])
+  -sum(dnbinom(x_clv, size = r_clv, mu = r_clv * T_clv / alpha_clv, log = TRUE))
 }
-fit_hb <- function(dat, seed = 202609, n_iter = 16000, burn = 4000, thin = 4,
-                   prior_mu = log(0.2), prior_mu_sd = 1.5,
-                   prior_shape = 2, prior_rate = 0.5) {
-  keep <- seq(burn + thin, n_iter, by = thin)
-  one_chain <- function(chain) {
-    set.seed(seed + chain)
-    theta <- rep(prior_mu + c(-0.4, 0.4)[chain], dat$N)
-    mu <- mean(theta); tau2 <- 0.5
-    ll <- individual_loglik(theta, dat$train, dat$N)
-    theta_draw <- matrix(NA_real_, length(keep), dat$N)
-    mu_draw <- tau_draw <- numeric(length(keep))
-    accepted <- numeric(dat$N); saved <- 0
-    for (iteration in seq_len(n_iter)) {
-      proposal <- theta + rnorm(dat$N, 0, 0.7)
-      ll_new <- individual_loglik(proposal, dat$train, dat$N)
-      logratio <- ll_new - ll + dnorm(proposal, mu, sqrt(tau2), log = TRUE) -
-        dnorm(theta, mu, sqrt(tau2), log = TRUE)
-      accept <- log(runif(dat$N)) < logratio
-      theta[accept] <- proposal[accept]; ll[accept] <- ll_new[accept]
-      if (iteration > burn) accepted <- accepted + accept
-      variance_mu <- 1 / (dat$N / tau2 + 1 / prior_mu_sd^2)
-      mean_mu <- variance_mu * (sum(theta) / tau2 + prior_mu / prior_mu_sd^2)
-      mu <- rnorm(1, mean_mu, sqrt(variance_mu))
-      tau2 <- 1 / rgamma(1, shape = prior_shape + dat$N / 2,
-        rate = prior_rate + sum((theta - mu)^2) / 2)
-      if (iteration %in% keep) {
-        saved <- saved + 1
-        theta_draw[saved, ] <- theta
-        mu_draw[saved] <- mu; tau_draw[saved] <- sqrt(tau2)
-      }
-    }
-    list(theta = theta_draw, mu = mu_draw, tau = tau_draw,
-         acceptance = accepted / (n_iter - burn))
-  }
-  chains <- lapply(1:2, one_chain)
-  list(theta = rbind(chains[[1]]$theta, chains[[2]]$theta),
-       mu = c(chains[[1]]$mu, chains[[2]]$mu), tau = c(chains[[1]]$tau, chains[[2]]$tau),
-       chain = rep(1:2, each = length(keep)), chains = chains,
-       settings = c(n_iter = n_iter, burn = burn, thin = thin))
+fit_clv <- optim(log(c(1, 2)), likelihood_clv, method = "BFGS", hessian = TRUE)
+stopifnot(fit_clv$convergence == 0)
+r_hat_clv <- exp(fit_clv$par[1]); alpha_hat_clv <- exp(fit_clv$par[2])
+pop_hat_clv <- r_hat_clv / alpha_hat_clv
+knitr::kable(data.frame(parameter_clv = c("形状 r", "rate α", "平均 r/α"),
+  truth_clv = c(r_true_clv, alpha_true_clv, r_true_clv / alpha_true_clv),
+  estimate_clv = c(r_hat_clv, alpha_hat_clv, pop_hat_clv)), digits = 3,
+  col.names = c("母集団の量", "真値", "1か月からの推定"))
+
+lambda_individual_clv <- x_clv / T_clv
+lambda_eb_clv <- (r_hat_clv + x_clv) / (alpha_hat_clv + T_clv)
+weight_clv <- alpha_hat_clv / (alpha_hat_clv + T_clv)
+stopifnot(max(abs(lambda_eb_clv - (weight_clv * pop_hat_clv +
+                     (1 - weight_clv) * lambda_individual_clv))) < 1e-10)
+clv_factor_clv <- margin_clv * sum(discount_clv ^ seq_len(H_clv))
+clv_expected_clv <- lambda_eb_clv * clv_factor_clv
+clv_pooled_clv <- rep(pop_hat_clv * clv_factor_clv, N_clv)
+clv_nopool_clv <- lambda_individual_clv * clv_factor_clv
+dat_clv <- data.frame(x_clv = x_clv, lambda_true_clv = lambda_true_clv,
+  eb_clv = lambda_eb_clv, individual_clv = lambda_individual_clv,
+  clv_expected_clv = clv_expected_clv, clv_pooled_clv = clv_pooled_clv,
+  clv_nopool_clv = clv_nopool_clv, profit_future_clv = profit_future_clv,
+  group_clv = factor(pmin(x_clv, 3), levels = 0:3,
+                     labels = c("0回", "1回", "2回", "3回以上")))
+group_clv <- dat_clv |>
+  group_by(group_clv) |>
+  summarise(n_clv = n(), lambda_true_mean_clv = mean(lambda_true_clv),
+    eb_mean_clv = mean(eb_clv), individual_mean_clv = mean(individual_clv),
+    predicted_value_clv = mean(clv_expected_clv),
+    observed_value_clv = mean(profit_future_clv), .groups = "drop")
+
+rate_plot_clv <- rbind(
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$lambda_true_mean_clv, method_clv = "真の率の平均"),
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$individual_mean_clv, method_clv = "本人の回数だけ"),
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$eb_mean_clv, method_clv = "経験ベイズ"))
+ggplot(rate_plot_clv, aes(group_clv, value_clv, fill = method_clv)) +
+  geom_col(position = "dodge") +
+  labs(x = "最初の1か月の購買回数", y = "月あたり購買率", fill = "方法")
+
+knitr::kable(group_clv[, c("group_clv", "n_clv", "predicted_value_clv", "observed_value_clv")],
+  digits = 1, col.names = c("1か月の回数", "人数", "予測した6か月価値（円）", "後の6か月の実績（円）"))
+
+value_plot_clv <- rbind(
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$predicted_value_clv, kind_clv = "経験ベイズの予測"),
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$observed_value_clv, kind_clv = "後の6か月の実績"))
+ggplot(value_plot_clv, aes(group_clv, value_clv, fill = kind_clv)) +
+  geom_col(position = "dodge") +
+  labs(x = "最初の1か月の購買回数", y = "6か月の割引粗利益（円）", fill = NULL)
+
+error_clv <- data.frame(method_clv = c("母集団平均", "本人の回数だけ", "経験ベイズ"),
+  rmse_lambda_clv = c(sqrt(mean((pop_hat_clv - lambda_true_clv)^2)),
+    sqrt(mean((lambda_individual_clv - lambda_true_clv)^2)),
+    sqrt(mean((lambda_eb_clv - lambda_true_clv)^2))),
+  holdout_mse_clv = c(mean((clv_pooled_clv - profit_future_clv)^2),
+    mean((clv_nopool_clv - profit_future_clv)^2),
+    mean((clv_expected_clv - profit_future_clv)^2)))
+knitr::kable(error_clv, digits = c(0, 3, 0),
+  col.names = c("方法", "購買率と真値のRMSE", "後の実績との平均二乗誤差（円²）"))
+
+set.seed(20260708)
+N_cj <- 500
+T_cj <- 6
+ntask_cj <- N_cj * T_cj
+id_cj <- rep(seq_len(N_cj), each = T_cj)
+large_a_cj <- sample(0:1, ntask_cj, replace = TRUE)
+label_a_cj <- sample(0:1, ntask_cj, replace = TRUE)
+price_a_cj <- sample(3:5, ntask_cj, replace = TRUE)
+large_b_cj <- sample(0:1, ntask_cj, replace = TRUE)
+label_b_cj <- sample(0:1, ntask_cj, replace = TRUE)
+price_b_cj <- sample(3:5, ntask_cj, replace = TRUE)
+xa_cj <- cbind(1, large_a_cj, label_a_cj, price_a_cj)
+xb_cj <- cbind(1, large_b_cj, label_b_cj, price_b_cj)
+true_cj <- c(1.4, 0.45, 0.60, -0.45)
+
+prob_cj <- function(par_cj, xa_cj, xb_cj) {
+  va_cj <- drop(xa_cj %*% par_cj); vb_cj <- drop(xb_cj %*% par_cj)
+  m_cj <- pmax(0, va_cj, vb_cj)
+  e_cj <- cbind(exp(-m_cj), exp(va_cj - m_cj), exp(vb_cj - m_cj))
+  e_cj / rowSums(e_cj)  # 買わない、A、Bの順
 }
-# === PREDICTION ===
-predict_existing <- function(fit, tasks) {
-  answer <- matrix(0, length(tasks$id), 3)
-  for (b in seq_len(nrow(fit$theta))) {
-    answer <- answer + choice_prob(tasks$quality, tasks$price, exp(fit$theta[b, tasks$id]))
-  }
-  answer / nrow(fit$theta)
+pr_true_cj <- prob_cj(true_cj, xa_cj, xb_cj)
+u_cj <- runif(ntask_cj)
+y_cj <- as.integer(u_cj > pr_true_cj[, 1]) +
+  as.integer(u_cj > pr_true_cj[, 1] + pr_true_cj[, 2])
+dat_cj <- data.frame(id_cj, large_a_cj, label_a_cj, price_a_cj,
+                     large_b_cj, label_b_cj, price_b_cj, y_cj)
+head(dat_cj)
+
+design_x_cj <- cbind(1, label_a_cj)
+design_y_cj <- as.numeric(y_cj == 1)
+est_amce_cj <- drop(solve(crossprod(design_x_cj), crossprod(design_x_cj, design_y_cj)))
+resid_amce_cj <- design_y_cj - drop(design_x_cj %*% est_amce_cj)
+score_amce_cj <- rowsum(design_x_cj * resid_amce_cj, id_cj)
+bread_amce_cj <- solve(crossprod(design_x_cj))
+var_amce_cj <- bread_amce_cj %*% crossprod(score_amce_cj) %*% bread_amce_cj * N_cj/(N_cj - 1)
+se_amce_cj <- sqrt(var_amce_cj[2, 2])
+xa_on_cj <- xa_cj; xa_on_cj[,3] <- 1
+xa_off_cj <- xa_cj; xa_off_cj[,3] <- 0
+truth_amce_cj <- mean(prob_cj(true_cj, xa_on_cj, xb_cj)[,2] -
+                       prob_cj(true_cj, xa_off_cj, xb_cj)[,2])
+amce_table_cj <- data.frame(estimate_cj = unname(est_amce_cj[2]),
+  se_cj = se_amce_cj, low_cj = unname(est_amce_cj[2] - 1.96 * se_amce_cj),
+  high_cj = unname(est_amce_cj[2] + 1.96 * se_amce_cj), truth_cj = truth_amce_cj)
+knitr::kable(amce_table_cj, digits = 3,
+  col.names = c("推定", "回答者単位SE", "95%区間下限", "95%区間上限", "設計標本での理論平均"))
+
+ggplot(amce_table_cj, aes(x = "産地表示あり−なし", y = estimate_cj)) +
+  geom_hline(yintercept = truth_amce_cj, color = "#bb4444", linetype = 2) +
+  geom_errorbar(aes(ymin = low_cj, ymax = high_cj), width = .12) +
+  geom_point(size = 2.5, color = "#4477aa") +
+  labs(x = NULL, y = "Aを選ぶ確率の差")
+
+loss_cj <- function(par_cj) {
+  pr_cj <- prob_cj(par_cj, xa_cj, xb_cj)
+  -sum(log(pr_cj[cbind(seq_len(ntask_cj), y_cj + 1)]))
 }
-predict_new <- function(fit, quality, price, n_integration = 80) {
-  # 母集団パラメータの不確実性と新しい個人の異質性の両方を積分。
-  nodes <- qnorm((seq_len(n_integration) - 0.5) / n_integration)
-  answer <- matrix(0, nrow(price), 3)
-  for (b in seq_along(fit$mu)) {
-    for (z in nodes) {
-      answer <- answer + choice_prob(quality, price, exp(fit$mu[b] + fit$tau[b] * z))
-    }
-  }
-  answer / (length(fit$mu) * n_integration)
-}
-log_score <- function(prob, choice) -mean(log(pmax(prob[cbind(seq_along(choice), choice + 1)], 1e-12)))
-split_rhat <- function(chain1, chain2) {
-  n <- floor(length(chain1) / 2)
-  z <- cbind(chain1[1:n], tail(chain1, n), chain2[1:n], tail(chain2, n))
-  W <- mean(apply(z, 2, var)); B <- n * var(colMeans(z))
-  sqrt(((n - 1) * W / n + B / n) / W)
-}
+fit_cj <- optim(c(0, 0, 0, 0), loss_cj, method = "BFGS", hessian = TRUE,
+                control = list(maxit = 1000, reltol = 1e-10))
+stopifnot(fit_cj$convergence == 0)
+par_hat_cj <- fit_cj$par
+pr_hat_cj <- prob_cj(par_hat_cj, xa_cj, xb_cj)
 
+score_cj <- xa_cj * (as.numeric(y_cj == 1) - pr_hat_cj[, 2]) +
+  xb_cj * (as.numeric(y_cj == 2) - pr_hat_cj[, 3])
+score_by_person_cj <- rowsum(score_cj, id_cj)
+bread_cj <- solve(fit_cj$hessian)
+vcov_cj <- bread_cj %*% crossprod(score_by_person_cj) %*% bread_cj * N_cj / (N_cj - 1)
+se_cj <- sqrt(diag(vcov_cj))
+knitr::kable(data.frame(parameter_cj = c("購入の定数", "大容量", "産地表示", "価格（100円単位）"),
+  truth_cj = true_cj, estimate_cj = par_hat_cj, se_cj = se_cj), digits = 3,
+  col.names = c("係数", "真値", "推定値", "回答者単位SE"))
 
+wtp_cj <- -100 * par_hat_cj[3] / par_hat_cj[4]
+wtp_true_cj <- -100 * true_cj[3] / true_cj[4]
+knitr::kable(data.frame(estimate_cj = wtp_cj, truth_cj = wtp_true_cj), digits = 1,
+             col.names = c("産地表示WTPの推定（円）", "生成モデルでの真値（円）"))
 
-dat <- simulate_cbc()
-fit <- fit_hb(dat)
-parameter_table <- data.frame(
-  parameter = c("mu", "tau"), truth = c(dat$mu_true, dat$tau_true),
-  posterior_mean = c(mean(fit$mu), mean(fit$tau)),
-  lower = c(quantile(fit$mu, .025), quantile(fit$tau, .025)),
-  upper = c(quantile(fit$mu, .975), quantile(fit$tau, .975)),
-  split_Rhat = c(split_rhat(fit$chains[[1]]$mu,fit$chains[[2]]$mu),
-                 split_rhat(fit$chains[[1]]$tau,fit$chains[[2]]$tau)))
-kable(parameter_table, digits=3)
-cat("holdoutの平均負の対数予測確率:",
-    log_score(predict_existing(fit,dat$test),dat$test$choice),"\n")
+candidates_cj <- expand.grid(large_cj = 0:1, label_cj = 0:1, price_cj = 3:5)
+candidates_cj$cost_cj <- 1.4 + .4 * candidates_cj$large_cj + .35 * candidates_cj$label_cj
+new_xa_cj <- cbind(1, candidates_cj$large_cj, candidates_cj$label_cj, candidates_cj$price_cj)
+new_xb_cj <- matrix(rep(c(1, 0, 0, 4), nrow(candidates_cj)), ncol = 4, byrow = TRUE)
+candidates_cj$share_cj <- prob_cj(par_hat_cj, new_xa_cj, new_xb_cj)[,2]
+candidates_cj$profit_cj <- 100 * (candidates_cj$price_cj - candidates_cj$cost_cj) * candidates_cj$share_cj
+candidates_cj$true_profit_cj <- 100 * (candidates_cj$price_cj - candidates_cj$cost_cj) *
+  prob_cj(true_cj, new_xa_cj, new_xb_cj)[,2]
+result_cj <- candidates_cj[order(-candidates_cj$profit_cj), ]
+knitr::kable(result_cj, digits = 3, row.names = FALSE,
+  col.names = c("大容量", "産地表示", "価格（100円）", "原価（100円）", "Aの選択確率", "期待粗利益（円）", "真の期待粗利益（円）"))
 
-
-alpha_mean <- colMeans(exp(fit$theta))
-selected <- order(alpha_mean)[c(30,150,270)]
-post_df <- data.frame(alpha=as.vector(exp(fit$theta[,selected])),
-  customer=factor(rep(paste0("顧客",selected),each=nrow(fit$theta))))
-ggplot(post_df,aes(alpha,color=customer))+geom_density(linewidth=.8)+
-  coord_cartesian(xlim=c(0,.5))+labs(x="価格感応度 alpha",y="密度",color="顧客")
-
-
-make_offer_tasks <- function(N, coupon) {
-  list(id=seq_len(N), quality=matrix(rep(c(1.6,.8),each=N),N,2),
-       price=matrix(rep(c(12-coupon,12),each=N),N,2))
-}
-coupons <- 0:3
-cost <- 1
-# draw × 顧客 × 施策。同じdrawで各施策を比較する。
-q_draw <- array(NA_real_,c(nrow(fit$theta),dat$N,length(coupons)))
-for (k in seq_along(coupons)) {
-  tasks <- make_offer_tasks(dat$N,coupons[k])
-  for (b in seq_len(nrow(fit$theta)))
-    q_draw[b,,k] <- choice_prob(tasks$quality,tasks$price,exp(fit$theta[b,]))[,2]
-}
-q_mean <- apply(q_draw,c(2,3),mean)
-profit_mean <- sweep(q_mean,2,12-coupons-cost,"*")
-gain_mean <- profit_mean-profit_mean[,1]
-best_index <- max.col(profit_mean,ties.method="first")
-uniform_index <- which.max(colMeans(profit_mean))
-chosen_coupon <- coupons[best_index]
-kable(data.frame(coupon=coupons, purchase_probability=colMeans(q_mean),
-                 profit=colMeans(profit_mean)),digits=4,
-      caption="全員に同じクーポンを配った場合。金額は千円/人。")
-
-
-curve_df <- expand.grid(coupon=coupons,customer=selected)
-curve_df$prob <- mapply(function(c,i) q_mean[i,match(c,coupons)],
-                       curve_df$coupon,curve_df$customer)
-ggplot(curve_df,aes(coupon,prob,color=factor(customer)))+
-  geom_line()+geom_point()+labs(x="値引き額（千円）",y="Aの事後予測購買確率",color="顧客")
-
-
-tasks0 <- make_offer_tasks(dat$N,0)
-plugin_q <- choice_prob(tasks0$quality,tasks0$price,exp(colMeans(fit$theta)))[,2]
-ggplot(data.frame(alpha=alpha_mean,difference=100*(q_mean[,1]-plugin_q)),
-       aes(alpha,difference))+geom_point(alpha=.6)+geom_hline(yintercept=0,linetype=2)+
-  labs(x="価格感応度の事後平均",y="積分 − 係数代入（パーセントポイント）")
-
-
-gain_df <- data.frame(id=rep(seq_len(dat$N),times=length(coupons)),
-  alpha=rep(alpha_mean,times=length(coupons)),
-  coupon=factor(rep(coupons,each=dat$N)),gain=as.vector(gain_mean))
-ggplot(gain_df,aes(alpha,gain,color=coupon))+geom_point(alpha=.45,size=1)+
-  geom_hline(yintercept=0,linetype=2)+
-  labs(x="価格感応度の事後平均",y="期待増分利益（千円）",color="値引き（千円）")
-
-
-policy_index <- list("配布なし"=rep(1,dat$N),
-  "全員に3千円"=rep(4,dat$N),
-  "最適な一律"=rep(uniform_index,dat$N),"個人別"=best_index)
-# 真値を使うのは検算だけ。施策の選択には使わない。
-truth_q <- sapply(coupons,function(c) {
-  z <- make_offer_tasks(dat$N,c)
-  choice_prob(z$quality,z$price,exp(dat$theta_true))[,2]
-})
-truth_profit <- sweep(truth_q,2,12-coupons-cost,"*")
-policy_table <- data.frame(policy=names(policy_index),
-  posterior=sapply(policy_index,function(k) mean(profit_mean[cbind(seq_len(dat$N),k)])),
-  truth=sapply(policy_index,function(k) mean(truth_profit[cbind(seq_len(dat$N),k)])))
-kable(policy_table,digits=4,caption="1人当たり期待利益（千円）")
-policy_table %>% pivot_longer(c(posterior,truth),names_to="evaluation",values_to="profit") %>%
-  ggplot(aes(policy,profit,fill=evaluation))+geom_col(position="dodge")+
-  scale_fill_discrete(labels=c(posterior="事後期待値",truth="真値での評価"))+
- labs(x=NULL,y="期待利益（千円/人）",fill="評価")
-kable(data.frame(coupon=coupons,customers=tabulate(best_index,nbins=4)),
-      caption="個人別ルールが選んだクーポン")
-
-
-gain_draw <- numeric(nrow(fit$theta))
-for (b in seq_len(nrow(fit$theta))) {
-  qb <- q_draw[b,,]
-  selected_q <- qb[cbind(seq_len(dat$N),best_index)]
-  gain_draw[b] <- mean((12-chosen_coupon-cost)*selected_q-(12-cost)*qb[,1])
-}
-ggplot(data.frame(gain=gain_draw),aes(gain))+geom_histogram(bins=35,fill="#4C72B0")+
-  geom_vline(xintercept=0,linetype=2)+labs(x="配布なしとの期待利益差（千円/人）",y="draw数")
-kable(data.frame(mean=mean(gain_draw),lower=quantile(gain_draw,.025),
- upper=quantile(gain_draw,.975),prob_positive=mean(gain_draw>0)),digits=4)
-
-
-set.seed(202610)
-D <- rbinom(dat$N,1,.5)
-assigned_index <- ifelse(D==1,best_index,1)
-assigned_coupon <- coupons[assigned_index]
-prob_buy <- truth_q[cbind(seq_len(dat$N),assigned_index)]
-bought_A <- rbinom(dat$N,1,prob_buy)
-observed_profit <- (12-assigned_coupon-cost)*bought_A
-ate_profit <- mean(observed_profit[D==1])-mean(observed_profit[D==0])
-se_profit <- sqrt(var(observed_profit[D==1])/sum(D==1)+
-                  var(observed_profit[D==0])/sum(D==0))
-true_policy_effect <- mean(truth_profit[cbind(seq_len(dat$N),best_index)]-truth_profit[,1])
-rct_table <- data.frame(estimate=ate_profit,lower=ate_profit-1.96*se_profit,
-                       upper=ate_profit+1.96*se_profit,truth=true_policy_effect)
-kable(rct_table,digits=4)
-ggplot(rct_table,aes(x="個人別ルール − 配布なし",y=estimate))+
-  geom_point(size=3)+geom_errorbar(aes(ymin=lower,ymax=upper),width=.12)+
-  geom_hline(yintercept=true_policy_effect,color="#C44E52",linetype=2)+
-  labs(x=NULL,y="利益への効果（千円/人）")
+candidates_cj$name_cj <- paste0(ifelse(candidates_cj$large_cj == 1, "大", "通常"), "／",
+  ifelse(candidates_cj$label_cj == 1, "表示あり", "表示なし"), "／", 100 * candidates_cj$price_cj, "円")
+ggplot(candidates_cj, aes(reorder(name_cj, profit_cj), profit_cj)) +
+  geom_col(fill = "#4477aa") + coord_flip() +
+  labs(x = "商品Aの候補", y = "1来店あたりの期待粗利益（円）")
 
 ```
 
-## 第6回から今回へ
+## 今日の問い
 
-- 第6回：母集団の分布と本人の履歴から好みを推定する。
-- 今回は価格と商品属性への選択履歴から価格感応度を推定する。
-- その分布から購買確率を計算し、クーポンの配り方を選ぶ。
-- 購買確率だけでなく、値引きで失うマージンも考える。
+- 誰にクーポンを送るか。
+- 顧客との関係から、将来どれだけ利益が生まれるか。
+- まだ売っていない商品の、どの機能を採用するか。
 
-[Quiz 7](quiz7.html)：少ない履歴、階層モデル、固定的な好みを復習。
+## 意思決定から分析を組み立てる
 
-## よく買う人に配ればよいか
+| 決めること | 必要な量 | データ |
+|---|---|---|
+| クーポン配布 | 施策による利益の増分 | 無作為化実験 |
+| 顧客への投資 | 将来価値とその変化 | 購買履歴・施策実験 |
+| 商品設計 | 属性への反応と費用 | 設計した選択課題 |
 
-通常のマージン300円、クーポン100円。
+## モデルの詳しさも目的による
 
-| 顧客 | 通常の確率 | クーポンあり | 通常利益 | 施策利益 | 増分 |
-|---|---:|---:|---:|---:|---:|
-| A | .90 | .95 | 270円 | 190円 | −80円 |
-| B | .30 | .60 | 90円 | 120円 | +30円 |
+一種類の施策なら、その施策の比較に集中できる。
 
-購入を予測することと、施策で増える利益を予測することは違う。
+将来購買なら、頻度と継続に絞ったモデルが使える。
 
-## 施策の範囲を決める
+新商品の組合せなら、属性と選択を結ぶモデルが役立つ。
 
-- 企業はイヤホンAだけを販売する。
-- Aは12千円、原価1千円。競合Bは12千円で固定。
-- 値引き候補は0・1・2・3千円。配信費用は0。
-- 1回の購買機会。競合の価格反応や在庫制約は扱わない。
+## よく当たることと、よい判断
 
-「何もしない」も選択肢に含める。
+予測誤差が小さくても、利益の増分の符号を間違えれば、配布判断は逆転する。
 
-## 個人の需要
+$$a^*(X_i)\in\arg\max_{a\in\mathcal A}E[R_i(a)\mid X_i].$$
 
-$$q_i(c;\theta_i)=\frac{e^{x_A'\beta-e^{\theta_i}(p_A-c)}}
- {1+e^{x_A'\beta-e^{\theta_i}(p_A-c)}+e^{x_B'\beta-e^{\theta_i}p_B}}.$$
+何を決めるための分析かによって、評価基準も考える。
 
-ここで $\theta_i$ は対数価格感応度であり、第6回の甘さ係数とは別である。属性係数は既知に固定し、提示商品への回答から価格感応度を推定する。
+## 第6回からの接続
 
-## 事後分布で平均する
+本人の分布から、施策ごとの購買確率を平均できる。
 
-$$\bar q_i(c)\approx\frac1B\sum_b q_i(c;\theta_i^{(b)}).$$
+$$\overline q_i(d)=\int q(d;\theta)\,d\widehat F_i(\theta\mid H_i).$$
 
-係数を平均してからlogitへ代入するのとは違う。
+ただし、本人の好みの推定だけで、施策の効果が識別されたことにはならない。
 
-$$\bar\pi_i(c)=(p_A-c-m)\bar q_i(c)-k(c).$$
+## 1つ目の相談：誰にクーポンを送るか
 
-配信費 $k(c)$ があれば購入しなかった人の分も差し引く。
+通常の粗利300円、購入時の値引き100円、送付費5円。
 
-## 個別と一律
+送付費は、買わなくても発生する。一回の購買機会を考える。
 
-$$c_i^*=\arg\max_c\bar\pi_i(c),\qquad
-c^{uniform}=\arg\max_c\sum_i\bar\pi_i(c).$$
+$$R_i(d)=(300-100d)Y_i(d)-5d.$$
 
-どちらも同じ期待利益の基準。
-全員に同じクーポンを配る制約があるかどうかが違う。
+## 購買確率だけでは判断できない
 
-## 価格はどう割り当てられたか
+| 履歴群 | 配布なし | 配布あり | 利益の増分 |
+|---|---:|---:|---:|
+| よく買う | 0.90 | 0.95 | −85円 |
+| 時々買う | 0.30 | 0.60 | +25円 |
+| まれに買う | 0.08 | 0.10 | −9円 |
 
-- 今回は提示価格と属性を無作為に割り当てた。
-- 実際の購買履歴では、価格の内生性を検討する。
-- 階層ベイズに変えても、割当の問題は解消しない。
-- 仮想の商品提示への回答を実購買に使うには、外的妥当性の確認が必要。
+もともと買う人への値引きで失う利益も数える。
 
-以下は両者に同じモデルが成り立つという教育用の仮定を置く。
+## 推定したいのは増分利益
 
-## 今回の選択履歴から推定
+$$\Delta(x)=200q_1(x)-300q_0(x)-5.$$
 
-300人、学習8問＋holdout8問。A・B・買わないを選ぶ。
+予算・容量制約がなければ、$\Delta(x)>0$ の人に送る。
 
-価格は8・12・16千円。バッテリー・NC・ブランドの3属性を独立に割り付ける。
+この $x$ は施策前に見える履歴。見えないタイプを知っているわけではない。
+
+## ランダム化で比較を作る
+
+配布を確率1/2で無作為に割り付ける。
+
+$$\widehat\Delta(x)=\overline R_{D=1,X=x}-\overline R_{D=0,X=x}.$$
+
+同じ観測情報を持つ人の平均効果を推定する。一人の二つの潜在アウトカムは見えない。
+
+## 実験から得た群別の効果 {.nostretch}
 
 ```{r}
-kable(parameter_table,digits=3)
+#| out-width: "750px"
+estimate_tg$history <- factor(groups_tg, levels = groups_tg)
+estimate_tg$truth <- gain_true_tg
+ggplot(estimate_tg, aes(history, gain)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(aes(ymin = gain - 1.96 * se, ymax = gain + 1.96 * se), width = .12) +
+  geom_point(size = 2.5, color = "#2878a0") + geom_point(aes(y = truth), shape = 4, size = 3) +
+  labs(x = NULL, y = "配布による利益の増分（円／人）")
 ```
 
-真値は検算専用。施策選びには使わない。
+## ルールを選ぶデータと、評価するデータ
 
-## 個人差と不確実性
+学習実験2,400人で配布ルールを固定する。
+
+別の実験6,000人で、配布なしに対する利益を評価する。
+
+評価結果を見てからルールを選び直さない。
+
+## 割付確率で重み付けして評価
+
+$e=1/2$。固定したルール $a(X_i)$ の平均利益の増分は、
+
+$$\widehat G(a)=\frac1{N_{\rm test}}\sum_i a(X_i)
+\left\{\frac{D_iR_i}{e}-\frac{(1-D_i)R_i}{1-e}\right\}.$$
+
+配ると決めた人について、実験の配布・非配布を比べる。
+
+## 独立実験で比べた配布ルール {.nostretch}
 
 ```{r}
-ggplot(post_df,aes(alpha,color=customer))+geom_density()+coord_cartesian(xlim=c(0,.5))+
- labs(x="価格感応度",y="事後密度",color="顧客")
+#| out-width: "750px"
+ggplot(policy_tg, aes(rule, estimate)) + geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(aes(ymin = estimate - 1.96 * se, ymax = estimate + 1.96 * se), width = .12) +
+  geom_point(size = 2.5, color = "#2878a0") + geom_point(aes(y = truth), shape = 4, size = 3) +
+  labs(x = NULL, y = "配布なしからの利益増分（円／人）")
 ```
 
-分布の重なりを残したまま予測する。
+## どこまで答えられるか
 
-## 同じ値引きでも反応が違う
+- 今回は一種類のクーポンの比較を直接推定した。
+- 試していない値引き額には、そのまま答えられない。
+- 需要モデルを使えば比較を広げられるが、価格の内生性や外挿を確認する必要がある。
+
+## 2つ目の相談：今日だけで終わるか
+
+顧客との関係は、一杯のコーヒーで終わるとは限らない。
+
+今後6か月の購買から、どれだけ利益が生まれるかを考える。
+
+この節は一購入400円の固定粗利という、別の設定を使う。
+
+## 有限期間の顧客価値
+
+$$V_i(H)=E\left[\left.\sum_{h=1}^{H}\delta^hM_{ih}\,\right|H_i\right].$$
+
+$H$ は将来の月数、$H_i$ は観測履歴、$\delta$ は月次の割引係数。
+
+現状が続くもとでの予測。獲得費や施策費は自動的には含まれない。
+
+## 購買頻度に絞ったモデル
+
+$$x_i\mid\lambda_i\sim\operatorname{Poisson}(\lambda_iT_i),\qquad
+\lambda_i\sim\operatorname{Gamma}(r,\operatorname{rate}=\alpha).$$
+
+この例では離脱せず、本人の購買率は変わらない。
+
+Gammaの $\alpha$ はrate。需要モデルの価格係数とは別である。
+
+## 短い履歴を集団情報と組み合わせる
+
+$$E[\lambda_i\mid x_i,T_i]=\frac{r+x_i}{\alpha+T_i}
+=\frac{\alpha}{\alpha+T_i}\frac r\alpha+
+\frac{T_i}{\alpha+T_i}\frac{x_i}{T_i}.$$
+
+第6回と同じ経験ベイズ。母集団パラメータを推定してから、本人の履歴で更新する。
+
+## 一か月に0回でも、率が0とは限らない {.nostretch}
 
 ```{r}
-ggplot(curve_df,aes(coupon,prob,color=factor(customer)))+geom_line()+geom_point()+
- labs(x="値引き（千円）",y="Aの購買確率",color="顧客")
+#| out-width: "750px"
+rate_plot_clv <- rbind(
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$lambda_true_mean_clv, method_clv = "真の率の平均"),
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$individual_mean_clv, method_clv = "本人の回数だけ"),
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$eb_mean_clv, method_clv = "経験ベイズ"))
+ggplot(rate_plot_clv, aes(group_clv, value_clv, fill = method_clv)) +
+  geom_col(position = "dodge") +
+  labs(x = "最初の1か月の購買回数", y = "月あたり購買率", fill = "方法")
 ```
 
-## 増分利益を比べる
+## 将来利益へ換算し、別の期間で検証する
+
+$$\widehat V_i(H)=m\left(\sum_{h=1}^{H}\delta^h\right)
+\frac{\widehat r+x_i}{\widehat\alpha+T_i}.$$
+
+最初の1か月で推定し、後の6か月の利益と比べる。
+
+## 予測と後の実績の平均 {.nostretch}
 
 ```{r}
-ggplot(gain_df,aes(alpha,gain,color=coupon))+geom_point(alpha=.4,size=1)+
- geom_hline(yintercept=0,linetype=2)+labs(x="価格感応度の事後平均",y="増分利益（千円）",color="値引き")
+#| out-width: "750px"
+value_plot_clv <- rbind(
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$predicted_value_clv, kind_clv = "経験ベイズの予測"),
+  data.frame(group_clv = group_clv$group_clv, value_clv = group_clv$observed_value_clv, kind_clv = "後の6か月の実績"))
+ggplot(value_plot_clv, aes(group_clv, value_clv, fill = kind_clv)) +
+  geom_col(position = "dodge") +
+  labs(x = "最初の1か月の購買回数", y = "6か月の割引粗利益（円）", fill = NULL)
 ```
 
-元々買う人への値引きも含む。
+## 離脱があるなら、モデルを変える
 
-## 一律と個人別の比較
+BG/NBD：活動中は購買が起き、購買直後に一定確率で離脱する。
+
+回数・最終購買時点・観測期間から、活動中の確率と将来購買を考える。
+
+「来ない」のが低頻度か離脱かは、仮定のもとで推定する。
+
+## CLVの高さと、投資による増分
+
+施策あり・なしの将来利益を $G_i(1),G_i(0)$、施策費を $c_i$ とする。
+
+$$\Delta_i=E[G_i(1)-G_i(0)\mid H_i]-c_i.$$
+
+$G$ は施策費を除く利益。高いCLVだけでは、この差は分からない。
+
+## 3つ目の相談：まだ売っていない商品
+
+既存の購買履歴に、新機能や新しい組合せの比較がないかもしれない。
+
+必要な比較ができるように、データの集め方を設計する。
+
+ここでコンジョイント分析を使う。
+
+## 商品の属性と価格を割り付ける
+
+| 属性 | 水準 |
+|---|---|
+| 容量 | 250mL／350mL |
+| 産地表示 | なし／あり |
+| 価格 | 300円／400円／500円 |
+
+A・Bの属性を無作為化し、「買わない」も選べる。500人に各6問。
+
+## 同じ回答から、何を知りたいか
+
+- 属性を変えると、選ばれる確率は平均でどれだけ変わるか：AMCE。
+- 属性に何円まで支払うか：選択モデルから計算するWTP。
+- どの組合せを販売するか：費用を含む候補商品の利益。
+
+## 設計した分布のもとでの平均効果 {.nostretch}
 
 ```{r}
-kable(policy_table,digits=4,row.names=FALSE)
+#| out-width: "750px"
+ggplot(amce_table_cj, aes(x = "産地表示あり−なし", y = estimate_cj)) +
+  geom_hline(yintercept = truth_amce_cj, color = "#bb4444", linetype = 2) +
+  geom_errorbar(aes(ymin = low_cj, ymax = high_cj), width = .12) +
+  geom_point(size = 2.5, color = "#4477aa") +
+  labs(x = NULL, y = "Aを選ぶ確率の差")
 ```
 
-事後期待利益では個人別が一律以上になる。
-実際の利益で必ず上回るという保証ではない。
+## 選択モデルを使う
 
-## 利益差の不確実性
+$$v_{ijt}=b_0+b_L L_{ijt}+b_O O_{ijt}-\alpha p_{ijt}.$$
+
+価格は100円単位。今回は係数が共通のlogitで生成し、同じモデルを推定する。
+
+個人差を許すなら、第6回の方法につながる。
+
+## WTPと費用を分けて考える
+
+産地表示のWTPは、このモデルでは $100b_O/\alpha$ 円。
+
+正のWTPがあっても、追加費用が大きければ採用しない場合がある。
+
+調査での支払意思額が、そのまま実際の支払いを保証するわけではない。
+
+## 候補商品の利益を比べる {.nostretch}
 
 ```{r}
-ggplot(data.frame(gain=gain_draw),aes(gain))+geom_histogram(bins=30,fill="#4C72B0")+
- geom_vline(xintercept=0,linetype=2)+labs(x="配布なしとの期待利益差（千円/人）",y="draw数")
+#| out-width: "750px"
+candidates_cj$name_cj <- paste0(ifelse(candidates_cj$large_cj == 1, "大", "通常"), "／",
+  ifelse(candidates_cj$label_cj == 1, "表示あり", "表示なし"), "／", 100 * candidates_cj$price_cj, "円")
+ggplot(candidates_cj, aes(reorder(name_cj, profit_cj), profit_cj)) +
+  geom_col(fill = "#4477aa") + coord_flip() +
+  labs(x = "商品Aの候補", y = "1来店あたりの期待粗利益（円）")
 ```
 
-ルールを固定して各drawで評価する。
-各drawで別の最適ルールを選び直さない。
+## 判断の範囲を確認する
 
-## モデルで候補を選び、実験で確かめる
+最良なのは、今回比較した12候補と仮定した競合条件のもとでの結果。
 
-1. 履歴で需要を推定し、配布ルールを決める。
-2. ルールを固定する。
-3. 新しい購買機会で「ルール適用/配布なし」を無作為に割り当てる。
-4. 実現利益を比較する。
+候補外の価格、競合の反応、調査から実購買への移し方には追加の検討が必要。
 
-クーポンを使った人だけの比較にしない。
+## 三つの分析を同じ順序で読む
 
-## 新しいランダム化実験
+| 意思決定 | 必要な量 | 主な確認 |
+|---|---|---|
+| 配布 | 増分利益 | 比較を識別できる実験 |
+| 顧客への投資 | 将来価値と施策の増分 | 将来予測と介入の区別 |
+| 商品設計 | 属性反応・費用・利益 | 調査設計と販売環境 |
 
-```{r}
-kable(rct_table,digits=3)
-```
+## 今日のまとめ
 
-小さい利益改善を検出するには、十分な人数が必要。
-同じ顧客の繰り返し観測では標準誤差もその依存を考慮する。
+- 必要な情報・モデル・データを、意思決定から選ぶ。
+- 予測される水準と、介入による変化を区別する。
+- 学習に使わなかった情報で、目的に合う評価を行う。
 
-## 購入予測とCATE
+## この先へ
 
-$$E[Y_i(0)\mid X_i=x]\quad\text{と}\quad
-\tau(x)=E[Y_i(1)-Y_i(0)\mid X_i=x].$$
+第8回は実務のゲスト講義。
 
-- 左：何もしなくても買うか。
-- 右：指定した施策でどれくらい変わるか。
-- 価格感応度 $\alpha_i$ 自体がCATEではない。
-
-## 実証研究
-
-- Rossi et al. (1996)：購買履歴を使うクーポン。モデル上の純収益増が一律の2.5倍。
-- Dubé & Misra (2023)：無作為価格実験から個別価格へ。最適な一律より事後期待利益19%増。
-- Ascarza (2018)：2つの実験。離脱リスクと施策反応を区別する。
-
-数値の比較対象と出典は[講義ノート](lecture7.html)参照。
-
-## まとめ
-
-- 事後分布から施策ごとの購買確率を計算する。
-- 値引き後の利益を比べて施策を選ぶ。
-- 価格の割当と仮想回答の外的妥当性を確認する。
-- 選んだルールを別のランダム化実験で評価する。
-
-[Playground 7](playground7.html) / [課題7](assignment7.html)
-
-## 次回：長期価値へ
-
-今日は1回の購買機会を考えた。
-次回は、その先に何回買ってくれそうかを購買履歴から予測する。
-
-CLVが高いことと、施策で価値が増えることは引き続き区別する。
+第9回からは、分析者が将来を予測することに加えて、消費者自身が将来を考えて選ぶモデルへ進む。

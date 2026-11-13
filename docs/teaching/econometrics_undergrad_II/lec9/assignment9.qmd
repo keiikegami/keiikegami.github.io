@@ -1,5 +1,5 @@
 ---
-title: "課題9：フードデリバリーのサブスクプラン設計 — コンジョイント分析"
+title: "課題9：動学的離散選択 — Rust の NFXP と Hotz-Miller の CCP"
 subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -23,10 +23,10 @@ execute:
 #| include: false
 library(ggplot2)
 library(dplyr)
-library(fixest)
+library(tidyr)
 library(knitr)
 
-set.seed(20266)
+set.seed(202613)
 
 theme_lecture <- function() {
   fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
@@ -40,383 +40,402 @@ options(scipen = 8)
 ::: {.callout-important}
 ## この課題のねらい
 
-第9回で学んだ **choice-based conjoint（CBC）の設計** と **AMCE（average marginal component effect）の推定**、**WTP（支払意思額）のデルタ法CI**、**交互作用**、**個人WTPの異質性**を、フードデリバリーのサブスクプランという別の題材で最初から最後まで自分の手で通す。
+第9回でやった **動学的離散選択**（Rust のバスエンジン交換モデル）を、自分の手で最初から最後まで通す。価値関数反復で DP を解き、パネルを生成し、**NFXP**（Rust）と **Hotz-Miller の CCP**（renewal action の finite dependence）の両方でパラメータを推定し、そして交換費補助の**反実仮想**を、正しい動学モデルと myopic（$\beta=0$）モデルとで比べる。今日の技術を全部使う、重めの課題だ。焦らず、まず DP を解いて S 字が出ることを確かめ、それから推定・反実仮想へ進もう。
 
-- **Part 1**：CBC調査を設計し、DGPを自作してデータを生成する（40点）。
-- **Part 2**：AMCE推定、logit MLE、WTP、交互作用、個人WTPの分布、クラスターSEの重要性の検証、経営含意まで（60点）。
+- **Part 1**：$K=15$・$\beta=0.95$ 固定の縮小版 Rust モデルを自作し、DP を解き、200台×100ヶ月のパネルを生成する（40点）。
+- **Part 2**：NFXP と CCP で真値を回収し、交換費補助の反実仮想を動学と myopic で比べる（60点）。
 
-配点は合計100点。骨格コードの空欄を埋め、計算結果と解釈をまとめる。
+配点は合計100点。手を動かせば2〜4時間で終わる分量。穴埋めコードの骨格を惜しみなく与えるので、まず埋めることから始めよ。
 :::
 
-この課題は講義ノート（`lecture9.qmd`）と同じ構造だが、**題材と属性設定は変えてある**。講義では価格係数だけに個人差を入れたが、この課題では属性係数にも個人差を許す。各係数は同じ回答者の8問を通じて固定する。
+この課題は講義ノート（`lecture9.qmd`）と同じ構造だが、**設定（状態数・パラメータ値・状態遷移）は変えてある**。ノートのコードをコピペするだけでは通らないので、自分で理解して埋めること。とくに $K=15$、$\theta_1=0.25$、$RC=5.0$、状態遷移の確率が講義と違う点に注意。
+
+::: {.callout-note}
+## 記法（第9回の再掲）
+
+$\beta$ は**割引因子**（$=0.95$ に固定）。効用のパラメータは $\theta$。状態 $x$（走行距離、$0 \ldots K-1$）、行動 $a \in \{0=\text{維持}, 1=\text{交換}\}$。flow utility は $u(x,0) = -\theta_1 x$、$u(x,1) = -RC$。T1EV ショックのもとで $V(x) = \log(e^{v(x,0)} + e^{v(x,1)}) + \gamma$、選択確率は logit。
+:::
 
 ---
 
-# Part 1：CBC調査の設計とDGP（40点）
+# Part 1：縮小版 Rust モデルを自作する（40点）
 
 ## 舞台設定
 
-あなたはフードデリバリーサービスの新しいサブスクリプションプラン（例えば「月額会員になると配達手数料が優遇される」プラン）を設計するチームにいる。次の3つの属性でコンジョイント調査を行うことにした。
+社用車フリートの整備担当を考える。各車両のエンジンについて、毎月「維持（そのまま使う）」か「交換（載せ替える）」かを決める。走行距離を $K=15$ 状態のグリッド $x \in \{0, \ldots, 14\}$ で表す。
 
-| 属性 | 水準 |
-|---|---|
-| 月額料金 | 300円 / 500円 / 800円 |
-| 配達無料になる注文金額の閾値 | 1,000円以上 / 1,500円以上（閾値が低いほど便利、と解釈する） |
-| 限定クーポン配布 | なし / あり |
-
-$N=500$人の回答者が、それぞれ8回のタスクに回答する。各タスクでは2つのプラン（A・B）＋「どちらも入会しない」（outside option）の中から1つを選ぶ。
-
-モデル（条件付き分布の束）は次の通り。回答者 $i$、タスク $t$、プラン $j\in\{A,B\}$：
-
-$$
-u_{ijt} = \beta_{\text{low},i}\cdot \text{low\_threshold}_{jt} + \beta_{\text{coupon},i}\cdot \text{coupon}_{jt} - \alpha_i \cdot \text{price}_{jt}/100 + \varepsilon_{ijt}
-$$
-
-$\text{low\_threshold}_{jt}$は「閾値1,000円以上（低い方）なら1」のダミー、$\text{coupon}_{jt}$は「クーポン配布ありなら1」のダミー、$\text{price}_{jt}$は月額料金（円）である。$\varepsilon_{ijt}$はType I極値分布。属性係数には正規異質性、必ず正である価格係数には対数正規異質性を持たせる（mixed logit）。
-
-$$
-\beta_{\text{low},i} = \beta_{\text{low}} + \sigma_{\text{low}} z_{\text{low},i}, \qquad
-\beta_{\text{coupon},i} = \beta_{\text{coupon}} + \sigma_{\text{coupon}} z_{\text{coupon},i}, \qquad
-\alpha_i = \exp(\mu_\alpha + \sigma_{\log\alpha}z_{\alpha,i})
-$$
-
-$z_{\cdot,i}\sim N(0,1)$で、$\mu_\alpha=\log(\bar\alpha)-\sigma_{\log\alpha}^2/2$ として $E[\alpha_i]=\bar\alpha$ に合わせる。各回答者は8タスクすべてで同じ係数を使う（回答者内クラスター相関の源）。
-
-**DGPのパラメータ**（AMCEの大標本真値を作るために使う。問6では異質性を0にした別の基準ケースも作る）：
+**真のパラメータ**（あなたはこれを後で推定で回収する）：
 
 | 記号 | 意味 | 値 |
 |---|---|---|
-| $\beta_{\text{low}}$ | 低閾値（1,000円）への平均選好 | 0.6 |
-| $\beta_{\text{coupon}}$ | クーポンありへの平均選好 | 0.9 |
-| $\alpha$ | 価格係数（百円あたり） | 0.35 |
-| $\sigma_{\text{low}}$ | 低閾値選好のばらつき | 0.35 |
-| $\sigma_{\text{coupon}}$ | クーポン選好のばらつき | 0.7（利用頻度の差が大きく効くという想定） |
-| $\sigma_{\log\alpha}$ | log価格係数のばらつき | 0.3 |
+| $\beta$ | 割引因子（**固定、推定しない**） | 0.95 |
+| $\theta_1$ | 維持費の傾き（1状態あたり） | 0.25 |
+| $RC$ | エンジン交換費 | 5.0 |
 
-## 問1（10点）：属性・DGPパラメータの設定とプロファイル生成関数
+**状態遷移**（講義とは確率が違う）：維持すると距離は $+0/+1/+2$ 状態進み、その確率は $(0.25, 0.50, 0.25)$。交換すると $x=0$ にリセットしてから同じ分布で進む。
 
-以下のコードを完成させ、属性の水準とDGPパラメータを設定し、プロファイルをランダム生成する関数`generate_profiles`を書け。
+## 問1（15点）：状態遷移行列と価値関数反復
+
+状態遷移行列 $P_0$（維持）・$P_1$（交換）を作り、価値関数反復で DP を解く関数 `solve_vfi` を完成させよ。$V(x)$ の更新は Emax = logsum：$V^{\text{new}}(x) = \log(e^{v(x,0)} + e^{v(x,1)}) + \gamma$。数値安定化のため「最大値を引いてから exp」すること。
+
+```{r}
+# ---- 基本設定 ----
+K     <- 15
+beta  <- 0.95
+theta1_true <- 0.25
+RC_true     <- 5.0
+p_trans <- c(0.25, 0.50, 0.25)          # 維持で +0/+1/+2 進む確率（講義と違う！）
+EULER   <- 0.5772156649015329
+xs <- 0:(K - 1)
+
+# 状態遷移行列（1-index に注意。状態値は x-1）
+build_transition <- function(K, p) {
+  nj <- length(p)
+  P0 <- matrix(0, K, K); P1 <- matrix(0, K, K)
+  for (x in 1:K) {
+    xv <- x - 1
+    for (j in 1:nj) {
+      jj <- j - 1
+      P0[x, min(xv + jj, K - 1) + 1] <- P0[x, min(xv + jj, K - 1) + 1] + p[j]
+      P1[x, min(0  + jj, K - 1) + 1] <- P1[x, min(0  + jj, K - 1) + 1] + p[j]
+    }
+  }
+  list(P0 = P0, P1 = P1)
+}
+tr <- build_transition(K, p_trans)
+P0 <- tr$P0; P1 <- tr$P1
+
+flow_utils <- function(theta1, RC) list(u0 = -theta1 * xs, u1 = rep(-RC, K))
+```
 
 ```{r}
 #| eval: false
-# ---- 属性の水準 ----
-price_levels <- c(300, 500, 800)      # 月額料金（円）
-threshold_levels <- c(1000, 1500)      # 配達無料閾値（円）。1000円の方が「低い」=便利
-coupon_levels <- c(0, 1)               # 0=なし, 1=あり
-
-# ---- 真のパラメータ ----
-true_params <- list(
-  beta_low_mean    = ______,   # 【穴埋め】低閾値への平均選好(0.6)
-  beta_coupon_mean = ______,   # 【穴埋め】クーポンへの平均選好(0.9)
-  alpha_mean       = ______,   # 【穴埋め】価格係数(0.35, 百円あたり)
-  sigma_low    = 0.35,
-  sigma_coupon = 0.7,
-  sigma_log_alpha = 0.3
-)
-
-draw_gumbel <- function(n) {
-  u <- runif(n)
-  -log(-log(u))
+# ---- この関数を完成させる ----
+solve_vfi <- function(theta1, RC, tol = 1e-10, maxit = 2000, bta = beta) {
+  uu <- flow_utils(theta1, RC)
+  V  <- rep(0, K)
+  errs <- numeric(0)
+  for (it in 1:maxit) {
+    v0 <- uu$u0 + bta * as.vector(P0 %*% V)     # choice-specific value（維持）
+    v1 <- ______                                # 【穴埋め】choice-specific value（交換）
+    m  <- pmax(v0, v1)
+    Vnew <- ______                              # 【穴埋め】logsum + Euler 定数（数値安定化込み）
+    err  <- max(abs(Vnew - V))
+    errs <- c(errs, err)
+    V <- Vnew
+    if (err < tol) break
+  }
+  v0 <- uu$u0 + bta * as.vector(P0 %*% V)
+  v1 <- uu$u1 + bta * as.vector(P1 %*% V)
+  list(V = V, v0 = v0, v1 = v1, errs = errs, niter = length(errs))
 }
 
-# ---- プロファイル生成関数 ----
-# n個のプロファイルについて、price・low_threshold(ダミー)・couponをランダムに生成する
-generate_profiles <- function(n) {
-  price <- sample(price_levels, n, replace = TRUE)
-  low_threshold <- as.numeric(sample(threshold_levels, n, replace = TRUE) == ______)  # 【穴埋め】1000円なら1
-  coupon <- sample(coupon_levels, n, replace = TRUE)
-  data.frame(price = price, low_threshold = low_threshold, coupon = coupon)
+ccp_replace <- function(v0, v1) {
+  m <- pmax(v0, v1)
+  ______                                        # 【穴埋め】P(交換|x) の logit
 }
 ```
 
-::: {.callout-tip}
-## ヒント：なぜ「低閾値ダミー」として作るのか
-
-配達無料閾値は「1,000円」と「1,500円」という数量だが、講義ノートのバッテリー属性と同様、AMCEの回帰では**水準ダミー**として扱うのが基本である。閾値が低い（1,000円）方が消費者にとって便利なはずなので、`low_threshold = 1`が「良い水準」を表すようにダミーの向きを揃えておくと、後で係数の符号が直感と一致し解釈しやすくなる。
-:::
-
-## 問2（10点）：CBCデータを生成する`simulate_cbc`関数
-
-講義ノートの`simulate_cbc`関数を参考に、回答者ごとのランダム係数を引き、8タスク×500人分のCBCデータを生成する関数を完成させよ。各タスクでプランA・Bの属性を独立にランダム生成し、outside optionを含めた3択の選択を、Gumbel分布に基づく効用比較で決めること。
-
 ```{r}
 #| eval: false
-simulate_cbc <- function(n_resp, n_task, params) {
-  resp_id <- rep(1:n_resp, each = n_task)
-  N <- n_resp * n_task
+# ---- 動作確認（穴埋め後に eval: true にして実行）----
+sol <- solve_vfi(theta1_true, RC_true)
+Pr  <- ccp_replace(sol$v0, sol$v1)
+cat("収束反復数:", sol$niter, "\n")
+cat("P(交換|x) が単調増加:", all(diff(Pr) >= -1e-12), "\n")
+cat("P(交換|x):", round(Pr, 3), "\n")
 
-  # 回答者ごとのランダム係数
-  z_low    <- rnorm(n_resp)
-  z_coupon <- rnorm(n_resp)
-  z_alpha  <- rnorm(n_resp)
-
-  beta_low_i    <- params$beta_low_mean    + params$sigma_low    * z_low
-  beta_coupon_i <- ______                                          # 【穴埋め】beta_coupon_iを作る
-  mu_log_alpha  <- log(params$alpha_mean) - params$sigma_log_alpha^2 / 2
-  alpha_i       <- exp(mu_log_alpha + params$sigma_log_alpha * z_alpha)
-
-  beta_low_n    <- rep(beta_low_i,    each = n_task)
-  beta_coupon_n <- rep(beta_coupon_i, each = n_task)
-  alpha_n       <- rep(alpha_i,       each = n_task)
-
-  # プロファイルA・Bを独立生成（price単位に注意：alphaは「百円あたり」なので/100する）
-  profA <- generate_profiles(N)
-  profB <- generate_profiles(N)
-
-  vA <- beta_low_n * profA$low_threshold + beta_coupon_n * profA$coupon - alpha_n * (profA$price / 100)
-  vB <- ______   # 【穴埋め】vAと同様にvBを作る
-
-  eps <- matrix(draw_gumbel(N * 3), nrow = N, ncol = 3)
-  U <- cbind(eps[, 1], vA + eps[, 2], vB + eps[, 3])
-  choice3 <- apply(U, 1, which.max) - 1   # 0=outside, 1=A, 2=B
-
-  data.frame(
-    resp_id = resp_id, choice3 = choice3,
-    priceA = profA$price, lowA = profA$low_threshold, couponA = profA$coupon,
-    priceB = profB$price, lowB = profB$low_threshold, couponB = profB$coupon
-  )
-}
-
-n_resp <- 500
-n_task <- 8
-cbc_raw <- simulate_cbc(n_resp, n_task, true_params)
-head(cbc_raw)
+# 収束（対数目盛）と S 字を1枚ずつ
+library(patchwork)
+p_conv <- ggplot(data.frame(iter = seq_along(sol$errs), err = sol$errs), aes(iter, err)) +
+  geom_line(color = "#1f77b4") + scale_y_log10() +
+  labs(title = "価値関数反復の収束", x = "反復", y = "更新幅（対数）")
+p_scurve <- ggplot(data.frame(x = xs, P = Pr), aes(x, P)) +
+  geom_line(color = "#d62728", linewidth = 1) + geom_point() +
+  labs(title = "交換確率 P(交換|x)", x = "走行距離 x", y = "P(交換|x)")
+p_conv + p_scurve
 ```
 
 ::: {.callout-tip}
-## ヒント：単位に注意
+## ヒント：状態遷移行列の作り方と logsum
 
-`alpha_mean = 0.35`は「価格が百円動いたときの効用の変化」を表すよう設計している（講義ノートでは価格を千円単位で扱っていたが、今回は月額料金がもっと小さい金額なので百円単位にしてある）。`price / 100`の`/100`を忘れて円のまま入れると、価格項は意図した値の**100倍**になり、ほぼ全員が「どちらも入会しない」を選ぶ。逆に、誤ってもう一度100で割る（`price / 10000`）と価格項は意図した値の1/100になり、価格をほぼ無視する。まず小さいNで`table(cbc_raw$choice3)`を見て、極端に偏っていないか確認する習慣をつけよ。
+- **遷移行列**：各行 $x$ が「次期状態の確率分布」になる（行和=1）。維持は今の $x$ から距離が進む、交換は $x=0$ から進む。`min(..., K-1)` で上限に張り付かせるのを忘れずに。$P_1$ は**全行が同じ**になるはず（交換=リセットなので現在状態に依存しない）。これが renewal action の性質で、Part 2 の CCP で効いてくる。
+- **logsum の数値安定化**：`log(exp(v0) + exp(v1))` は、$v$ が大きいと `exp` がオーバーフローする。各状態で `m <- pmax(v0, v1)` を引いてから `m + log(exp(v0 - m) + exp(v1 - m))` とする（第2回の overflow 対策と同じ）。最後に `+ EULER`（Euler 定数 $\gamma$）を足す。
 :::
 
-## 問3（10点）：プロファイルのランダム化チェックと記述統計
+## 問2（15点）：パネルを生成し、replacement cycle を可視化する
 
-生成したプロファイルについて、(a) 属性間の相関行列を計算し無相関に近いことを確認せよ、(b) CBC回答データの選択シェア（outside/A/B）を集計し図示せよ。
+解いた交換方針に従って動く 200台×100ヶ月のパネルを生成せよ。各期、各車両は自分の状態 $x$ の交換確率 $P(\text{交換}\mid x)$ に従って交換を決め、状態が遷移する。数台ぶんの走行距離の軌跡（のこぎり歯 = replacement cycle）を描くこと。
 
 ```{r}
 #| eval: false
-# (a) ランダム化チェック
-n_check <- 20000
-profiles_check <- generate_profiles(n_check)
-cor_matrix <- cor(profiles_check[, c("price", "low_threshold", "coupon")])
-round(cor_matrix, 3)
+simulate_panel <- function(n_bus, n_month, theta1, RC, burn = 50) {
+  sol <- solve_vfi(theta1, RC)
+  Pr  <- ccp_replace(sol$v0, sol$v1)
+  total_T <- n_month + burn
+  X <- matrix(0L, n_bus, total_T); A <- matrix(0L, n_bus, total_T)
+  x <- sample(0:(K - 1), n_bus, replace = TRUE)
+  for (t in 1:total_T) {
+    u <- runif(n_bus)
+    a <- ______                                 # 【穴埋め】状態 x の交換確率で交換判定（0/1）
+    X[, t] <- x
+    A[, t] <- a
+    jump <- sample(0:2, n_bus, replace = TRUE, prob = p_trans)
+    x <- ______                                 # 【穴埋め】交換なら 0+jump にリセット、維持なら x+jump（上限 K-1）
+  }
+  list(X = X[, (burn + 1):total_T], A = A[, (burn + 1):total_T])
+}
 
-# (b) 選択シェアの集計と図示
-choice_share <- cbc_raw %>%
-  mutate(choice_label = factor(choice3, levels = c(0,1,2),
-                                labels = c("どちらも入会しない", "プランA", "プランB"))) %>%
-  count(choice_label) %>%
-  mutate(share = n / sum(n))
+n_bus <- 200; n_month <- 100
+panel <- simulate_panel(n_bus, n_month, theta1_true, RC_true)
+X <- panel$X; A <- panel$A
+cat("全体の交換率:", round(mean(A), 4), "  平均走行距離:", round(mean(X), 3), "\n")
 
-ggplot(choice_share, aes(x = choice_label, y = share, fill = choice_label)) +
-  geom_col(width = 0.6, show.legend = FALSE) +
-  labs(x = NULL, y = "選択割合", title = "CBC回答の選択分布")
+# 数台の軌跡（赤点 = 交換した月）
+show_bus <- c(1, 2, 3, 4)
+df_traj <- do.call(rbind, lapply(show_bus, function(b)
+  data.frame(month = 1:n_month, mileage = X[b, ], bus = paste0("車", b), replace = A[b, ])))
+ggplot(df_traj, aes(month, mileage)) +
+  geom_line(color = "grey50") +
+  geom_point(data = subset(df_traj, replace == 1), color = "#d62728", size = 1.6) +
+  facet_wrap(~ bus, ncol = 2) +
+  labs(title = "走行距離の軌跡と交換タイミング", x = "月", y = "走行距離 x")
+```
+
+::: {.callout-tip}
+## ヒント：交換判定と状態リセット
+
+- **交換判定**：`u < Pr[x + 1]` で `TRUE/FALSE` が出るので `as.integer(...)` で 0/1 に。`Pr` は 1-index なので状態 $x$ の確率は `Pr[x + 1]`。
+- **状態更新**：`ifelse(a == 1L, pmin(0 + jump, K - 1), pmin(x + jump, K - 1))`。交換したら 0 から、維持なら今の $x$ から距離が進む。
+- **burn-in**：初期状態をランダムに置いたので、最初の数十期は定常分布に落ち着くまでの過渡期。`burn = 50` 期を捨てて、定常に近い部分だけ残す。
+:::
+
+## 問3（10点）：状態ごとの交換頻度を確認する
+
+状態ごとの経験交換頻度 $\hat P(\text{交換}\mid x)$ を計算し、モデルの交換確率 $P(\text{交換}\mid x)$ と重ねて描け。観測数の少ない（薄い）状態がどこか、$x=0$ の交換頻度がどうなっているかを確認し、2〜3文でコメントせよ（この観察が Part 2 の CCP 推定で効いてくる）。
+
+```{r}
+#| eval: false
+freq_by_state  <- sapply(0:(K - 1), function(xv) { m <- (X == xv); if (sum(m) > 0) mean(A[m]) else NA })
+count_by_state <- sapply(0:(K - 1), function(xv) sum(X == xv))
+
+df_freq <- data.frame(x = xs, emp = freq_by_state, model = Pr)
+ggplot(df_freq, aes(x)) +
+  geom_line(aes(y = model), color = "#1f77b4", linewidth = 1) +
+  geom_point(aes(y = emp), color = "#d62728", size = 1.8) +
+  labs(title = "経験頻度（赤）vs モデル（青）", x = "走行距離 x", y = "P(交換|x)")
+cat("状態ごとの観測数:", count_by_state, "\n")
 ```
 
 ::: {.callout-note}
 ## この課題での記述統計の意味
 
-属性間の相関がゼロに近いことを確認するのは「ランダム化が実装バグなく機能しているか」の最も基本的なチェックである。もし相関が大きく出たら、`generate_profiles`のロジックか、`sample`の引数を疑うこと。選択シェアについては、outsideがほぼ0ならoutsideの効用水準を識別する情報が乏しく、ほぼ1ならA・Bが選ばれる情報が乏しい。唯一の「健全な比率」があるわけではなく、想定市場に照らして各選択肢に十分な変動があるかを確認する。
+高走行距離の状態は観測が薄く、経験頻度がガタつく（交換でリセットされるので、そもそも高い $x$ に長居しない）。逆に $x=0$（交換直後）は観測は多いが交換はまず起きず、経験頻度がほぼ0になる。この「$\hat P = 0$（$\log$ が $-\infty$）」と「薄い状態のノイズ」が、CCP 推定で対処すべき2つの問題だ。
 :::
-
-## 問4（10点）：long形式への変換
-
-AMCE推定用に、各タスクをプランA行・プランB行に分解したlong形式のデータフレームを作る関数`to_long`を完成させよ。**outside optionを選んだタスクも残し**、そのときはA行・B行の`chosen`をともに0にすること。outsideでなかったことへの条件付けは、属性の影響を受ける結果で標本を選ぶpost-treatment selectionになる。
-
-```{r}
-#| eval: false
-to_long <- function(cbc_raw) {
-  d <- cbc_raw
-
-  rowsA <- data.frame(
-    resp_id = d$resp_id, task_id = seq_len(nrow(d)),
-    profile = "A", price = d$priceA, low_threshold = d$lowA, coupon = d$couponA,
-    chosen = as.numeric(______)   # 【穴埋め】choice3が1(=Aが選ばれた)なら1
-  )
-  rowsB <- data.frame(
-    resp_id = d$resp_id, task_id = seq_len(nrow(d)),
-    profile = "B", price = d$priceB, low_threshold = d$lowB, coupon = d$couponB,
-    chosen = as.numeric(______)   # 【穴埋め】choice3が2(=Bが選ばれた)なら1
-  )
-  rbind(rowsA, rowsB)
-}
-
-cbc_long <- to_long(cbc_raw)
-cbc_long$price500 <- as.numeric(cbc_long$price == 500)
-cbc_long$price800 <- as.numeric(cbc_long$price == 800)
-nrow(cbc_long)
-```
 
 ---
 
-# Part 2：推定・推論（60点）
+# Part 2：推定と反実仮想（60点）
 
-## 問5（12点）：(i) AMCEをOLS＋クラスターSEで推定し、真値と比較する
+## 問4（15点）：NFXP（Rust の方法）で推定する
 
-`fixest::feols`で水準ダミーのOLSを実行し、`cluster = ~resp_id`で回答者クラスターSEを計算せよ。講義では真の選択確率を平均してAMCEを計算した。この課題では別の方法として、**大標本（n_resp=50,000程度）で同じ手順を実行してOLSした値**で真値を近似せよ。こちらには回答の乱数による近似誤差も残る。推定値・真値・95%信頼区間の比較表を作れ。
-
-```{r}
-#| eval: false
-# AMCE推定
-amce_fit <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
-                   data = cbc_long, cluster = ~resp_id)
-summary(amce_fit)
-
-# 真のAMCE（大標本シミュレーション）
-compute_true_amce <- function(n_resp_big, n_task, params) {
-  big_raw <- ______                     # 【穴埋め】simulate_cbcを大標本で呼ぶ
-  big_long <- to_long(big_raw)
-  big_long$price500 <- as.numeric(big_long$price == 500)
-  big_long$price800 <- as.numeric(big_long$price == 800)
-  fit <- lm(chosen ~ price500 + price800 + low_threshold + coupon, data = big_long)
-  coef(fit)
-}
-true_amce_vec <- compute_true_amce(50000, n_task, true_params)
-
-# 比較表
-recovery_df <- data.frame(
-  attribute = names(coef(amce_fit)),
-  amce_hat = round(coef(amce_fit), 4),
-  true_amce = round(true_amce_vec, 4),
-  se_cluster = round(sqrt(diag(vcov(amce_fit))), 4),
-  ci_lower = round(coef(amce_fit) - 1.96 * sqrt(diag(vcov(amce_fit))), 4),
-  ci_upper = round(coef(amce_fit) + 1.96 * sqrt(diag(vcov(amce_fit))), 4)
-)
-kable(recovery_df, row.names = FALSE)
-```
-
-::: {.callout-tip}
-## ヒント：真値がCIに入らないときの確認順序
-
-1つの標本だけを見ると、偶然95%CIから真値が外れることは（5%の確率で）普通に起こる。もし複数の属性で系統的に大きく外れているように見えたら、(1)`compute_true_amce`の大標本サイズが十分か（1万人未満だと真値自体にまだノイズが残る）、(2)`simulate_cbc`と`to_long`の引数・列名の対応がズレていないか、を確認せよ。
-:::
-
-## 問6（12点）：(ii) 正しく指定されたlogitでWTPのデルタ法CIを作る
-
-問2の主標本はmixed logitである。同じ標本に同質logitを当てても、そのMLEは平均ランダム係数を回収せず、HessianだけのSEも誤指定に頑健ではない。そこでデルタ法の仕組みを正しく確認するため、**この問だけ**`sigma_low = sigma_coupon = sigma_log_alpha = 0`とした同質logit DGPから新しい標本`cbc_raw_hom`を生成する。第2回・第9回の自作MLEパターンで推定し、低閾値（1,000円）へのWTPをデルタ法で信頼区間付きで求めよ（月額料金の単位＝百円）。
+NFXP の負の対数尤度を完成させ、`optim` で $(\theta_1, RC)$ を推定せよ。**内側で価値関数反復を解き切る**のがキモ。$\beta = 0.95$ に固定すること（**推定しない**）。真値回収表と Hessian からの標準誤差を出し、実行時間を測れ。
 
 ```{r}
 #| eval: false
-neg_loglik_cbc <- function(theta, d) {
-  beta_low <- theta[1]; beta_coupon <- theta[2]; alpha <- theta[3]
-
-  vA <- beta_low * d$lowA + beta_coupon * d$couponA - alpha * (d$priceA / 100)
-  vB <- ______   # 【穴埋め】vAと同様にvBを作る
-
-  V <- cbind(0, vA, vB)
-  V <- V - apply(V, 1, max)
-  expV <- exp(V)
-  denom <- rowSums(expV)
-  chosen_idx <- cbind(1:nrow(d), d$choice3 + 1)
-  logprob <- V[chosen_idx] - log(denom)
-  -sum(logprob)
+# ---- NFXP の負の対数尤度（内側で DP を解き切る）----
+neg_loglik_nfxp <- function(theta, X, A) {
+  theta1 <- theta[1]; RC <- theta[2]
+  if (theta1 <= 0 || RC <= 0) return(1e10)
+  sol <- solve_vfi(theta1, RC, tol = 1e-8, maxit = 1000)   # ← 内側の DP
+  m   <- pmax(sol$v0, sol$v1)
+  lae <- m + log(exp(sol$v0 - m) + exp(sol$v1 - m))        # log(exp v0 + exp v1)
+  logp1 <- ______                                          # 【穴埋め】log P(交換|x)
+  logp0 <- ______                                          # 【穴埋め】log P(維持|x)
+  xr <- as.vector(X) + 1; ar <- as.vector(A)
+  ll <- sum(ifelse(ar == 1L, logp1[xr], logp0[xr]))
+  -ll
 }
 
-hom_params <- true_params
-hom_params$sigma_low <- 0
-hom_params$sigma_coupon <- 0
-hom_params$sigma_log_alpha <- 0
-cbc_raw_hom <- simulate_cbc(n_resp, n_task, hom_params)
+t0 <- Sys.time()
+fit_nfxp <- optim(par = c(0.15, 3.0), fn = neg_loglik_nfxp, X = X, A = A,
+                  method = "Nelder-Mead", control = list(reltol = 1e-9, maxit = 2000),
+                  hessian = TRUE)
+t1 <- Sys.time()
+nfxp_time <- as.numeric(difftime(t1, t0, units = "secs"))
 
-opt_cbc <- optim(par = c(0.1, 0.1, 0.1), fn = neg_loglik_cbc, d = cbc_raw_hom,
-                  method = "BFGS", hessian = TRUE)
-theta_hat <- opt_cbc$par
-names(theta_hat) <- c("beta_low", "beta_coupon", "alpha")
-vcov_cbc <- solve(opt_cbc$hessian)
-
-# WTP(低閾値) = beta_low / alpha （百円単位）
-beta_low_hat <- theta_hat["beta_low"]; alpha_hat <- theta_hat["alpha"]
-wtp_low_hat <- ______        # 【穴埋め】WTPの点推定
-
-# デルタ法SE: grad = (1/alpha, -beta_low/alpha^2)、beta_lowはtheta[1], alphaはtheta[3]
-grad_wtp <- c(______, ______)     # 【穴埋め】勾配ベクトル
-vcov_sub <- vcov_cbc[c(1,3), c(1,3)]
-se_wtp <- sqrt(as.numeric(t(grad_wtp) %*% vcov_sub %*% grad_wtp))
-
-cat("WTP(低閾値, 百円):", round(wtp_low_hat, 3),
-    " 95%CI:[", round(wtp_low_hat - 1.96*se_wtp, 3), ",", round(wtp_low_hat + 1.96*se_wtp, 3), "]\n")
-```
-
-::: {.callout-tip}
-## ヒント：単位の読み替え
-
-`alpha`は「百円あたりの効用の変化」なので、WTP=$\beta_{\text{low}}/\alpha$の単位は「百円」になる。実際の円に直すには100倍すればよい。信頼区間の上限・下限も同様に100倍してから報告すること。
-
-この同質ケースの真のWTPは $0.6/0.35\times100$ 円である。元のmixed-logit標本では、平均個人WTP $E[\beta_{\text{low},i}/\alpha_i]$ と平均係数の比 $E[\beta_{\text{low},i}]/E[\alpha_i]$ は一般に一致しない。
-:::
-
-## 問7（9点）：(iii) 交互作用を1つ推定し解釈する
-
-「低閾値」×「クーポンあり」の交互作用項を含めてAMCEを再推定し、係数とSEを報告せよ。さらに他の変数を観測値に保ったまま2属性を4通りに置き換えた平均予測確率を作り、$P(1,1)-P(1,0)-P(0,1)+P(0,0)$を計算して2〜3文で解釈せよ。効用指数に積項がなくても、logit確率の非線形性により確率スケールの差の差はゼロとは限らない点に注意すること。
-
-```{r}
-#| eval: false
-interaction_fit <- feols(chosen ~ price500 + price800 + low_threshold * coupon,
-                          data = cbc_long, cluster = ~resp_id)
-summary(interaction_fit)
-```
-
-## 問8（9点）：(iv) 個人WTPと平均係数の比
-
-主標本と同じ母集団分布から10万人分の係数を引き、低閾値への個人WTP $\beta_{{\rm low},i}/\alpha_i$ を求めよ。個人WTPの平均、中央値、平均係数の比を比較し、WTPの分布を図示せよ。これはDGPを知っているためにできる診断であり、個人係数を回答から推定した結果ではない。実際の8問の回答から同じ分布を知りたい場合、どの追加の推定が必要かを書け。
-
-::: {.callout-note}
-## ヒント
-
-係数の生成は問2と同じでよい。平均の比と比の平均は、Rでも別々に計算する。属性係数は正規分布なので負になる人もおり、その人のWTPも負になる。負値を勝手に0に置き換えないこと。
-:::
-
-## 問9（9点）：(v) クラスターSEを使わない場合とのSE比較
-
-問5と同じ回帰について、`vcov = "hetero"`（通常のロバストSE、クラスターを無視）を指定した場合のSEを計算し、クラスターSEと並べた比較表を作れ。**なぜ回答者クラスターが必要か、またクラスターSEが通常SEより必ず大きくなるわけではない理由**を3〜4文で説明せよ。
-
-```{r}
-#| eval: false
-amce_fit_naive <- feols(chosen ~ price500 + price800 + low_threshold + coupon,
-                         data = cbc_long, vcov = "hetero")
-
-se_compare_df <- data.frame(
-  attribute = names(coef(amce_fit)),
-  se_cluster = round(sqrt(diag(vcov(amce_fit))), 4),
-  se_naive = round(sqrt(diag(vcov(amce_fit_naive))), 4)
+se_nfxp <- sqrt(diag(solve(fit_nfxp$hessian)))
+recovery <- data.frame(
+  parameter = c("theta1", "RC"),
+  truth     = c(theta1_true, RC_true),
+  estimate  = round(fit_nfxp$par, 4),
+  se        = round(se_nfxp, 4),
+  ci_lower  = round(fit_nfxp$par - 1.96 * se_nfxp, 4),
+  ci_upper  = round(fit_nfxp$par + 1.96 * se_nfxp, 4)
 )
-kable(se_compare_df, row.names = FALSE)
+kable(recovery, caption = "NFXP：真値回収と標準誤差")
+cat("NFXP 実行時間:", round(nfxp_time, 2), "秒\n")
 ```
 
-::: {.callout-tip}
-## ヒント：説明のポイント
+::: {.callout-warning}
+## 識別上の注意：$\beta$ を選択データだけで推定する難しさ
 
-profile-levelデータは500人×8タスク×2プロファイル=8,000行だが、独立なクラスターは500回答者である。`beta_coupon_i`などが8タスクで共有され、同じタスクのA・B結果も依存する。無視した共分散項には正負がありうるので、SEの大小そのものより、ランダム化・回答の単位に分散推定を合わせることが重要である。
+この課題では **$\beta$ を推定対象に加えない**。選択データだけでは割引因子とflow utilityを一般に分離できず、追加の除外制約・外部情報・正規化が要る。ここの尤度へ無制約に$\beta$を足すと目的関数が平坦・不安定になり、探索が$\beta>1$や負の値へ飛ぶこともある。$\beta=0.95$を固定して$(\theta_1,RC)$だけを推定し、必要なら別の固定値で感度分析する。
 :::
 
-## 問10（9点）：(vi) 経営含意を3行で
+## 問5（15点）：Hotz-Miller の CCP で推定する
 
-問5〜9の結果を踏まえ、フードデリバリー会社の商品企画担当者に向けて、**属性の平均効果、WTPの個人差、価格・商品設計を決めるために追加で必要な情報**を、数値を根拠に3行で述べよ。
+CCP アプローチを実装せよ。**renewal action（交換=リセット）の finite dependence** で、価値関数を解かずに線形回帰で $\theta$ を得る。恒等式は
+
+$$
+\underbrace{\log \hat P(1\mid x) - \log \hat P(0\mid x) + \beta \sum_{x'}\big[P_1 - P_0\big](x'\mid x)\,\log \hat P(1\mid x')}_{=:\ y(x)}
+\;=\; \theta_1\, x - RC.
+$$
+
+$y(x)$ を経験 CCP から計算し、$x$ に回帰する（傾き=$\theta_1$、切片=$-RC$）。$\hat P=0$対策にはJeffreys/add-half平滑化 $(n_1+0.5)/(n+1)$ を使う（Laplace/add-oneは $(n_1+1)/(n+2)$）。薄い状態対策として観測数 $\geq30$ の状態をWLSに使う。
 
 ```{r}
 #| eval: false
-# ここに直接コメントとして書いてもよいし、テキストセルに書いてもよい
+diffP <- P1 - P0
+
+# 状態ごとの交換回数 n1 と観測回数 n
+n_x  <- sapply(0:(K - 1), function(xv) sum(X == xv))
+n1_x <- sapply(0:(K - 1), function(xv) sum(A[X == xv]))
+
+# Jeffreys/add-half 平滑化した CCP
+Psm    <- (n1_x + 0.5) / (n_x + 1.0)
+logP1h <- log(Psm); logP0h <- log(1 - Psm)
+
+# 将来項の logP1（未観測状態は最も近い観測状態で代用。境界も安全に処理）
+logP1h_full <- logP1h
+observed_idx <- which(n_x > 0)
+if (length(observed_idx) == 0) stop("CCPを計算できる観測状態がない")
+for (idx in which(n_x == 0)) {
+  nearest <- observed_idx[which.min(abs(observed_idx - idx))]
+  logP1h_full[idx] <- logP1h[nearest]
+}
+
+# y(x) を計算 → 観測数>=30 の状態で重み付き回帰
+y_hat <- ______                                 # 【穴埋め】logP1h - logP0h + beta * (P1-P0) 行 x logP1h_full
+good  <- n_x >= 30
+fit_ccp <- lm(y_hat ~ xs, weights = n_x, subset = good)
+
+theta1_ccp <- coef(fit_ccp)[2]
+RC_ccp     <- -coef(fit_ccp)[1]                 # 切片が -RC
+cat("CCP：theta1 =", round(theta1_ccp, 4), " RC =", round(RC_ccp, 4),
+    "  （使った状態数:", sum(good), "）\n")
+```
+
+```{r}
+#| eval: false
+# NFXP と CCP を並べる
+compare_tbl <- data.frame(
+  method = c("NFXP", "CCP"),
+  theta1 = round(c(fit_nfxp$par[1], theta1_ccp), 4),
+  RC     = round(c(fit_nfxp$par[2], RC_ccp), 4)
+)
+kable(compare_tbl, caption = "NFXP vs CCP", row.names = FALSE)
+```
+
+::: {.callout-tip}
+## ヒント：finite dependence がなぜ効くか（講義の復習）
+
+交換すると状態が $x=0$ にリセットされる（$P_1$ が全行同じ）。だから「交換後の将来価値」は現在状態によらない定数になり、$v(x,1)-v(x,0)$ の将来項の差をとると**打ち消える**。残るのは遷移確率（既知）と CCP（データから推定可能）だけ。だから価値関数反復なしで $\theta$ が線形回帰で出る。まず**真の CCP**（`ccp_replace(sol$v0, sol$v1)`）で $y(x) = \theta_1 x - RC$ が厳密に成り立つことを確認すると、恒等式の実装が正しいか検算できる（講義ノート参照）。
+:::
+
+::: {.callout-warning}
+## よくあるバグ：$\gamma$ 定数の扱いと将来項の符号
+
+- **$\gamma$（Euler 定数）**：CCP の恒等式には $\gamma$ が現れない（$v(x,1)-v(x,0)$ の差で $\gamma$ が消えるから）。`y_hat` に $\gamma$ を足さないこと。$\gamma$ が要るのは価値関数反復（logsum）の方だけ。
+- **将来項の符号**：$y(x)$ の第3項は $+\beta (P_1 - P_0) \log \hat P(1\mid x')$ で、**プラス**（導出で $-\log P(1\mid x')$ が2回符号を変える）。ここを間違えると $\theta_1$・$RC$ が真値から大きく外れる。真の CCP での検算（$y = \theta_1 x - RC$）が一致するかで検知できる。
+:::
+
+## 問6（15点）：反実仮想を動学と myopic で比べる
+
+交換費 $RC$ を20%補助したときの効果を、(a) 正しい動学モデル（$\beta=0.95$）と (b) myopic モデル（$\beta=0$ で推定したパラメータを $\beta=0$ の DP で使う）とで比べよ。長期交換率・平均走行距離は、方針が誘導するマルコフ連鎖の定常分布から計算する。
+
+```{r}
+#| eval: false
+# 方針が誘導する状態遷移 M と定常分布
+policy_transition <- function(Pr) (1 - Pr) * P0 + Pr * P1
+ergodic_dist <- function(M) {
+  A <- rbind(t(M) - diag(K), rep(1, K)); b <- c(rep(0, K), 1)
+  d <- qr.solve(A, b); d / sum(d)
+}
+summarize_policy <- function(theta1, RC, label, bta = beta) {
+  s  <- solve_vfi(theta1, RC, bta = bta)
+  Pr <- ccp_replace(s$v0, s$v1)
+  d  <- ergodic_dist(policy_transition(Pr))
+  rep_rate <- sum(d * Pr); mean_mi <- sum(d * xs)
+  cat(sprintf("  %s：交換率=%.4f, 平均走行距離=%.3f\n", label, rep_rate, mean_mi))
+  list(rep_rate = rep_rate, mean_mi = mean_mi, d = d)
+}
+
+# (a) 正しい動学の反実仮想（真値 or NFXP 推定値を使ってよい）
+base_dyn <- summarize_policy(theta1_true, RC_true,       "動学 補助前")
+sub_dyn  <- summarize_policy(theta1_true, RC_true * 0.8, "動学 補助後")
+
+# (b) myopic 推定：大きめの標本で beta=0 の logit MLE
+panel_big <- simulate_panel(2000, 300, theta1_true, RC_true)
+Xb <- panel_big$X; Ab <- panel_big$A
+neg_loglik_myopic <- function(theta, X, A) {
+  theta1 <- theta[1]; RC <- theta[2]
+  if (theta1 <= 0 || RC <= 0) return(1e10)
+  v0 <- -theta1 * xs; v1 <- rep(-RC, K)
+  m  <- pmax(v0, v1); lae <- m + log(exp(v0 - m) + exp(v1 - m))
+  xr <- as.vector(X) + 1; ar <- as.vector(A)
+  -sum(ifelse(ar == 1L, (v1 - lae)[xr], (v0 - lae)[xr]))
+}
+fit_myopic <- optim(c(0.15, 3.0), neg_loglik_myopic, X = Xb, A = Ab, method = "Nelder-Mead")
+cat("myopic 推定 theta1 =", round(fit_myopic$par[1], 4),
+    " RC =", round(fit_myopic$par[2], 4), "（真値 0.25, 5.0）\n")
+
+# myopic 分析者は beta=0 のモデルで反実仮想を予測する
+base_myo <- summarize_policy(fit_myopic$par[1], fit_myopic$par[2],       "myopic 補助前", bta = 0)
+sub_myo  <- summarize_policy(fit_myopic$par[1], fit_myopic$par[2] * 0.8, "myopic 補助後", bta = 0)
+
+cf_tbl <- data.frame(
+  analysis   = c("正しい動学", "myopic (誤り)"),
+  rep_before = round(c(base_dyn$rep_rate, base_myo$rep_rate), 4),
+  rep_after  = round(c(sub_dyn$rep_rate,  sub_myo$rep_rate), 4),
+  rep_change_pct = round(c((sub_dyn$rep_rate / base_dyn$rep_rate - 1) * 100,
+                           (sub_myo$rep_rate / base_myo$rep_rate - 1) * 100), 1)
+)
+kable(cf_tbl, caption = "RC 20%補助の効果予測：動学 vs myopic", row.names = FALSE)
+```
+
+::: {.callout-warning}
+## よくあるバグ：交換後の状態リセットのバグ
+
+反実仮想でも DP を解き直す（`solve_vfi` を新しい $RC$ で呼ぶ）ことを忘れずに。$RC$ を下げても価値関数を再計算しなければ、交換方針が変わらず、反実仮想が意味をなさない。また `policy_transition` の `(1 - Pr) * P0 + Pr * P1` は、R の列方向リサイクルで「行 $x$ を $Pr[x]$ 倍」になる（行和=1）。ここは R の癖に助けられている箇所なので、`rowSums(policy_transition(Pr))` が全部1になるか確認するとよい。
+:::
+
+## 問7（10点）：設備保全担当への提言を3行で
+
+あなたは社用車フリートの設備保全を統括する立場だとする。問6の結果（動学 vs myopic の反実仮想の食い違い、NFXP・CCP の推定値）に基づいて、**経営・政策への含意を3行**で書け。とくに「交換費補助という施策の効果を、なぜ動学モデルで評価すべきか（myopic だと何を誤るか）」に触れること。数値を1つは根拠に引くこと。
+
+```{r}
+#| eval: false
+# ここに、判断材料を1つの表にまとめておくと書きやすい
+# （交換率の変化・平均走行距離の変化・myopic とのズレ）
 ```
 
 ---
 
 ## 提出方法
 
-- この`.qmd`の穴埋め（`______`）と`#| eval: false`をすべて解消し、最後まで render できる状態にする。
+- この `.qmd` の穴埋め（`______` と `#| eval: false`）をすべて埋め、`#| eval: false` を外して最後まで render できる状態にする。
 - 各問の出力（表・図）とコメントを含めること。
 - render した HTML を提出。
 
 ::: {.callout-important}
 ## 配点（合計100点）
 
-- 問1（10）：属性・DGPパラメータ設定
-- 問2（10）：simulate_cbc関数の完成
-- 問3（10）：ランダム化チェックと記述統計
-- 問4（10）：long形式への変換
-- 問5（12）：AMCE推定とOLS＋クラスターSE、真値との比較
-- 問6（12）：logit MLEとWTPのデルタ法CI
-- 問7（9）：交互作用の推定と解釈
-- 問8（9）：個人WTPと平均係数の比
-- 問9（9）：クラスターSEありなしの比較と説明
-- 問10（9）：経営含意3行
+- 問1（15）：状態遷移行列と価値関数反復（S 字・幾何収束）
+- 問2（15）：パネル生成と replacement cycle の可視化
+- 問3（10）：状態ごとの交換頻度の確認とコメント
+- 問4（15）：NFXP の実装・真値回収・SE（$\beta$ 固定）
+- 問5（15）：CCP（finite dependence）の実装・NFXP との比較
+- 問6（15）：反実仮想を動学 vs myopic で比較
+- 問7（10）：設備保全担当への提言（数値に基づく3行）
 :::

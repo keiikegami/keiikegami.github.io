@@ -1,5 +1,5 @@
 ---
-title: "課題7：個人別需要とクーポン配分"
+title: "課題7：クーポンを誰に届けるか"
 subtitle: "計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -23,177 +23,101 @@ execute:
 #| include: false
 library(ggplot2)
 library(dplyr)
-library(tidyr)
 library(knitr)
-
-set.seed(202610)
-
+set.seed(2026077)
 theme_lecture <- function() {
   fam <- if (Sys.info()[["sysname"]] == "Darwin") "Hiragino Sans" else ""
   theme_minimal(base_size = 13, base_family = fam)
 }
 theme_set(theme_lecture())
 knitr::opts_chunk$set(fig.align = "center", dpi = 144)
-options(scipen = 8)
 ```
 
-## この課題のねらい
+## 課題の目的
 
-階層logitから得た個人の事後分布を使い、クーポンの配布ルールを選ぶ。推定した需要と施策の利益が、コードのどこでつながるかを確認しよう。目安は2〜4時間、配点は合計100点である。
+コーヒー店チェーンが、次の購買機会に使える100円引きクーポンを配るか決める。売上が高い顧客と、クーポンによって利益が増える顧客は同じとは限らない。無作為化実験で群別の**増分利益**を推定し、別の実験データで配布ルールを評価する。
 
-# Part 1：データを作る（30点）
+**提出物**は、コード・表・図・考察をまとめたHTMLである。データ生成を自分で書き、乱数シードは `2026077` とする。実験用の2標本はそれぞれ1,800人、学習用を先に、評価用を後に生成する。目安は2〜4時間、配点は合計100点である。
 
-## 問1：個人差のある選択履歴（20点）
+## 共通の設定
 
-イヤホンA/B/どちらも買わないの選択を、240人について作る。推定用12問、holdout用8問を生成し、seedは2026101とする。
+この課題は講義本文とは別の数値設定である。以下に示す購買確率、粗利400円、配布費10円を使う。
 
-$$u_{ijt}=x_{ijt}'\beta-\exp(\theta_i)p_{ijt}+\varepsilon_{ijt},\quad
-\theta_i\sim N(\log(0.15)-0.45^2/2,0.45^2).$$
+介入前に観測された履歴群を $X_i$ とする。群の割合は「よく買う」「時々買う」「まれに買う」でそれぞれ0.3、0.4、0.3である。各人には無作為にクーポンを配り、$D_i=1$ を配布、$D_i=0$ を非配布とする。配布確率は各群とも $1/2$ であり、$Y_i$ はその機会に購入すれば1、しなければ0とする。
 
-属性係数は $\beta=(0.5,0.8,0.3)$ とし、学習時にも既知と置く。価格は8・12・16千円、3つの属性はそれぞれ確率1/2で0か1を取り、個人の好みとは独立に割り当てる。outsideの効用の定数項は0である。講義ノートの `simulate_cbc()` を参考に、下の骨格を埋めよう。関数が返すリストの形式を変えないこと。
+| 履歴群 $x$ | $P(Y=1\mid D=0,X=x)$ | $P(Y=1\mid D=1,X=x)$ |
+|---|---:|---:|
+| よく買う | 0.80 | 0.90 |
+| 時々買う | 0.30 | 0.60 |
+| まれに買う | 0.10 | 0.15 |
 
-```{r}
-#| eval: false
-simulate_assignment <- function(seed=2026101,N=240,Ttrain=12,Thold=8) {
-  set.seed(seed)
-  beta_known <- c(battery12=.5,nc=.8,major_brand=.3)
-  mu_true <- log(.15)-.45^2/2
-  tau_true <- .45
-  theta_true <- rnorm(N,mu_true,tau_true)
-  make_tasks <- function(T) {
-    id <- rep(seq_len(N),each=T); nr <- length(id)
-    # price,battery12,nc,major_brandをnr行2列の行列として作る
-    # quality=x'beta、choiceを0:2の選択として作る
-    list(id=id,price=price,battery12=battery12,nc=nc,
-         major_brand=major_brand,quality=quality,choice=choice,T=T)
-  }
-  list(train=make_tasks(Ttrain),test=make_tasks(Thold),N=N,
-       beta_known=beta_known,theta_true=theta_true,mu_true=mu_true,tau_true=tau_true)
-}
-```
+購入時の粗利は400円である。クーポンは購入時に100円値引きされ、配布費用10円は購入の有無にかかわらず発生する。観測利益 $R_i$ は
 
-## 問2：履歴と価格の確認（10点）
+$$
+R_i=Y_i(400-100D_i)-10D_i.
+$$
 
-全体の選択比率と、個人別の「どちらも買わない」比率を示せ。真の価格感応度の分布も描くこと。価格が顧客の好みと独立に割り当てられていることが、後のクーポン比較になぜ必要か、2〜3文で説明せよ。
+例えば、配布して購入されれば290円、配布して購入されなければ−10円である。対象期間は**一回の購買機会**であり、将来の継続購買はこの利益に含めない。なお、各人に観測できるのは実際に割り当てた条件での結果だけである。
 
-# Part 2：推定から施策・評価へ（70点）
+## Part 1：実験データを作る（40点）
 
-## 問3：階層logitの推定（20点）
+### 問1：データ生成（15点）
 
-下の推定関数を使い、問1の推定用履歴だけから事後drawを得よ。$\mu,\tau$ の真値・事後平均・95%信用区間・split $\widehat R$ を表にし、holdoutの負の対数予測確率も計算する。推定用の回答をholdout評価に混ぜてはいけない。
+上の条件付き分布に従い、`group`, `d`, `y`, `profit` を持つ学習用と評価用の2つのデータを独立に生成せよ。群を引き、次に配布を無作為に決め、群と配布に対応する確率で購入を引く。利益は上の式から計算する。2標本の生成に同じ個人を使わないこと。
 
-::: {.callout-note collapse="true"}
-## 使用してよい推定・予測関数
+### 問2：実験の記述（15点）
 
-第7回の講義ノートと同じ関数である。MCMC自体を書き直す必要はない。
+学習用データで群の人数、各群の配布・非配布の人数と、それぞれの購入率を表にせよ。群ごとの購入率を配布の有無で比べる図を作り、表と図がどの真の購入確率に対応するか説明せよ。標本割合が真値と完全には一致しない理由も述べよ。
 
-```{r}
-# === CBC_DGP ===
-choice_prob <- function(quality, price, alpha) {
-  v <- quality - price * alpha
-  vmax <- pmax(0, v[, 1], v[, 2])
-  ev <- exp(v - vmax)
-  cbind(outside = exp(-vmax), ev) / (exp(-vmax) + rowSums(ev))
-}
+### 問3：利益の真値（10点）
 
-individual_loglik <- function(theta, tasks, N) {
-  v <- tasks$quality - tasks$price * exp(theta[tasks$id])
-  vmax <- pmax(0, v[, 1], v[, 2])
-  logden <- vmax + log(exp(-vmax) + rowSums(exp(v - vmax)))
-  chosen <- numeric(length(tasks$choice))
-  inside <- which(tasks$choice > 0)
-  chosen[inside] <- v[cbind(inside, tasks$choice[inside])]
-  as.vector(rowsum(chosen - logden, tasks$id, reorder = FALSE))
-}
-fit_hb <- function(dat, seed = 202609, n_iter = 16000, burn = 4000, thin = 4,
-                   prior_mu = log(0.2), prior_mu_sd = 1.5,
-                   prior_shape = 2, prior_rate = 0.5) {
-  keep <- seq(burn + thin, n_iter, by = thin)
-  one_chain <- function(chain) {
-    set.seed(seed + chain)
-    theta <- rep(prior_mu + c(-0.4, 0.4)[chain], dat$N)
-    mu <- mean(theta); tau2 <- 0.5
-    ll <- individual_loglik(theta, dat$train, dat$N)
-    theta_draw <- matrix(NA_real_, length(keep), dat$N)
-    mu_draw <- tau_draw <- numeric(length(keep))
-    accepted <- numeric(dat$N); saved <- 0
-    for (iteration in seq_len(n_iter)) {
-      proposal <- theta + rnorm(dat$N, 0, 0.7)
-      ll_new <- individual_loglik(proposal, dat$train, dat$N)
-      logratio <- ll_new - ll + dnorm(proposal, mu, sqrt(tau2), log = TRUE) -
-        dnorm(theta, mu, sqrt(tau2), log = TRUE)
-      accept <- log(runif(dat$N)) < logratio
-      theta[accept] <- proposal[accept]; ll[accept] <- ll_new[accept]
-      if (iteration > burn) accepted <- accepted + accept
-      variance_mu <- 1 / (dat$N / tau2 + 1 / prior_mu_sd^2)
-      mean_mu <- variance_mu * (sum(theta) / tau2 + prior_mu / prior_mu_sd^2)
-      mu <- rnorm(1, mean_mu, sqrt(variance_mu))
-      tau2 <- 1 / rgamma(1, shape = prior_shape + dat$N / 2,
-        rate = prior_rate + sum((theta - mu)^2) / 2)
-      if (iteration %in% keep) {
-        saved <- saved + 1
-        theta_draw[saved, ] <- theta
-        mu_draw[saved] <- mu; tau_draw[saved] <- sqrt(tau2)
-      }
-    }
-    list(theta = theta_draw, mu = mu_draw, tau = tau_draw,
-         acceptance = accepted / (n_iter - burn))
-  }
-  chains <- lapply(1:2, one_chain)
-  list(theta = rbind(chains[[1]]$theta, chains[[2]]$theta),
-       mu = c(chains[[1]]$mu, chains[[2]]$mu), tau = c(chains[[1]]$tau, chains[[2]]$tau),
-       chain = rep(1:2, each = length(keep)), chains = chains,
-       settings = c(n_iter = n_iter, burn = burn, thin = thin))
-}
-# === PREDICTION ===
-predict_existing <- function(fit, tasks) {
-  answer <- matrix(0, length(tasks$id), 3)
-  for (b in seq_len(nrow(fit$theta))) {
-    answer <- answer + choice_prob(tasks$quality, tasks$price, exp(fit$theta[b, tasks$id]))
-  }
-  answer / nrow(fit$theta)
-}
-predict_new <- function(fit, quality, price, n_integration = 80) {
-  # 母集団パラメータの不確実性と新しい個人の異質性の両方を積分。
-  nodes <- qnorm((seq_len(n_integration) - 0.5) / n_integration)
-  answer <- matrix(0, nrow(price), 3)
-  for (b in seq_along(fit$mu)) {
-    for (z in nodes) {
-      answer <- answer + choice_prob(quality, price, exp(fit$mu[b] + fit$tau[b] * z))
-    }
-  }
-  answer / (length(fit$mu) * n_integration)
-}
-log_score <- function(prob, choice) -mean(log(pmax(prob[cbind(seq_along(choice), choice + 1)], 1e-12)))
-split_rhat <- function(chain1, chain2) {
-  n <- floor(length(chain1) / 2)
-  z <- cbind(chain1[1:n], tail(chain1, n), chain2[1:n], tail(chain2, n))
-  W <- mean(apply(z, 2, var)); B <- n * var(colMeans(z))
-  sqrt(((n - 1) * W / n + B / n) / W)
-}
+群 $x$ における期待増分利益
 
-```
+$$
+\tau_R(x)=E[R_i(1)-R_i(0)\mid X_i=x]
+=300\,p_1(x)-10-400\,p_0(x)
+$$
+
+を計算せよ。$p_d(x)=P(Y=1\mid D=d,X=x)$ である。購入確率が上がるだけで利益も増えるとは限らないのはなぜか。各群について配布と非配布のどちらの期待利益が高いか答えよ。
+
+## Part 2：推定と配布ルールの評価（60点）
+
+### 問4：群別の増分利益（20点）
+
+学習用データで群ごとに配布群と非配布群の平均利益の差を計算し、問3の真値と比べよ。群 $x$ の2標本の標本分散を $s^2_{1x},s^2_{0x}$、人数を $n_{1x},n_{0x}$ として、標準誤差
+
+$$
+\widehat{\operatorname{se}}(\widehat\tau_R(x))
+=\sqrt{\frac{s^2_{1x}}{n_{1x}}+\frac{s^2_{0x}}{n_{0x}}}
+$$
+
+と、正規近似による95%信頼区間も計算する。この差が群の平均的な因果効果を表す理由と、それだけでは各個人の因果効果が分からない理由を説明せよ。
+
+### 問5：固定したルールの評価（20点）
+
+学習用の推定値だけを使い、$\widehat\tau_R(x)>0$ の群に配布するルールを作る。評価用データを見てからルールを選び直してはいけない。このルール、一律配布、一律非配布を比較する。
+
+評価用データの人数を $n$、ルールを $d(x)\in\{0,1\}$ とする。一律非配布を基準としたルール $d$ の増分価値を、既知の割付確率 $1/2$ を用い
+
+$$
+\widehat\Delta(d)=\frac1n\sum_{i=1}^n
+\left[\frac{\mathbf1\{D_i=d(X_i)\}R_i}{1/2}
+-\frac{\mathbf1\{D_i=0\}R_i}{1/2}\right]
+$$
+
+で推定せよ。各人の角括弧内の値を $Z_i(d)$ とすると、標準誤差は $\operatorname{sd}(Z_i(d))/\sqrt n$ で推定できる。差を取った後の $Z_i(d)$ の標準偏差を使うこと。同じ人が両方の項に入る場合があるからだ。各ルールの点推定値・標準誤差・95%信頼区間を出し、問3と群割合から計算した真の増分価値と比べよ。
+
+::: {.callout-note}
+## ヒント
+
+評価用の `d` は実験が割り当てた処置であり、$d(X_i)$ は学習用データから決めたルールである。両者は別物だ。評価用の購入結果からルールを修正すると、同じデータで選んで評価することになる。一律非配布の増分価値は、各人について両項が打ち消し合って0になる。
 :::
 
-## 問4：クーポンを選ぶ（20点）
+### 問6：目的に合う情報（10点）
 
-Aの属性による効用は1.6、Bは0.8、通常価格はどちらも12千円とする。Aだけを販売する企業の原価は**3千円**、候補の値引きは0・1・2・3千円である。配信費用はない。
+1. ある群のCLVが高いことだけで、その群へのクーポン配布を決めてよいか。将来の利益も含む**増分CLV**と、配布費用に触れて説明せよ。
+2. 今ある購買履歴には登場しない新商品について、どの属性を付けると選ばれやすいか知りたい。どんな比較やデータを新たに作るか、一例を挙げよ。
 
-1. 各顧客について、施策ごとの購買確率を事後drawで平均せよ。
-2. 値引き後のマージンを掛け、最適な一律クーポンと個人別クーポンを選べ。
-3. 配布なし・全員3千円・最適な一律・個人別の期待利益を比較せよ。
-4. 真の個人パラメータで同じルールを評価し、事後期待利益による比較と区別せよ。
+### 問7：経営への含意（10点）
 
-利益を最大にするルールの選択に真値を使わないこと。なお、仮想回答と実購買で同じモデルが成り立つという教育用の仮定を置く。
-
-## 問5：固定したルールを新しい実験で評価する（15点）
-
-問4の個人別ルールを固定する。seedを2026102にし、各顧客を確率1/2でルール適用群か配布なし群に割り当て、新しい1回の購買結果を生成せよ。実現利益の平均差と標準誤差、95%信頼区間を示せ。標本が小さいため区間が広くても、それだけで誤りとはしない。
-
-## 問6：経営への含意（15点）
-
-「通常価格で買う確率が最も高い顧客から順にクーポンを配ればよい」という提案に、3行で回答せよ。購入予測、施策による増分利益、仮想回答から実購買への移行という3点を含めること。
-
-## 提出物と採点基準
-
-実行できるQMDと、そこから作ったHTMLを提出する。問1はDGPとデータ形式、問2は可視化と価格割当の説明、問3は事後分布とholdout、問4は積分と利益計算、問5は無作為割当と推論、問6は意思決定の解釈を評価する。MCMCや実験の1回の結果が真値にぴったり一致することは求めない。
+評価結果とその不確実性を踏まえ、「どの群に配るか」「利益を解釈する際の注意」「追加で調べること」を合わせて3行程度で述べよ。今回の一回限りの実験が、将来の購買への影響まで直接測っていると解釈してはいけない。

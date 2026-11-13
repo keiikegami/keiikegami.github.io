@@ -1,6 +1,6 @@
 ---
-title: "Playground 7：個人の不確実性とクーポン配分"
-subtitle: "計量経済学II（ブラウザ上でRが動きます）"
+title: "Playground 7：意思決定からモデルを考える"
+subtitle: "ターゲティング・顧客価値・コンジョイント｜計量経済学II"
 author: "Kei Ikegami"
 lang: ja
 format:
@@ -10,117 +10,105 @@ format:
     number-sections: false
     theme: cosmo
 engine: knitr
-webr:
-  packages:
-    - ggplot2
-    - dplyr
-    - tidyr
-  repos:
-    - https://repo.r-wasm.org
-    - https://cran.r-universe.dev
 ---
 
 {{< include /_extensions/r-wasm/live/_knitr.qmd >}}
 
-::: {.callout-important}
-## このページの使い方
+## 使い方
 
-コードの数字を変えて実行すると、グラフや表が変わる。ここでは計算を軽くするため、個人の $\theta_i$ の事後分布を正規分布で近似した例を入力する。実際に履歴から推定するコードと結果は[講義ノート](lecture7.html)にある。このページの入力分布は、講義のMCMC結果そのものではない。
+同じコーヒー店の三つの判断を、数字を変えて比べる実験室である。ここでは必要な確率・モデルのパラメータを指定する。データからの推定と検証は[講義ノート](lecture7.html)で扱う。下の計算結果を、実データから推定された効果として扱わないこと。各節は独立した設定であり、推定値を共有していない。
 
-最初の共通コードを実行した後、各実験の数字を変えてみよう。
-:::
+最初の読み込み後、各セルの「Run Code」を押す。図のラベルは英語である。
 
 ```{webr}
-#| label: targeting-tools
 #| autorun: true
 #| echo: false
-library(ggplot2)
-set.seed(202610)
-# 正規分布の等確率点で積分する。乱数による揺れを避ける。
-nodes <- qnorm((seq_len(1000)-.5)/1000)
-qA <- function(theta,coupon,pA=12,pB=12) {
- vA <- 1.6-exp(theta)*(pA-coupon)
- vB <- .8-exp(theta)*pB
- vmax <- pmax(0,vA,vB)
- exp(vA-vmax)/(exp(-vmax)+exp(vA-vmax)+exp(vB-vmax))
-}
-evaluate_customer <- function(mu,sigma,cost=1,send_cost=0) {
- theta <- mu+sigma*nodes
- coupon <- 0:3
- q <- sapply(coupon,function(c) mean(qA(theta,c)))
- profit <- (12-coupon-cost)*q-ifelse(coupon>0,send_cost,0)
- data.frame(coupon=coupon,probability=q,profit=profit,gain=profit-profit[1])
+prob_A <- function(large, origin, price, beta, rival_price = 4) {
+  vA <- beta[1] + beta[2] * large + beta[3] * origin - beta[4] * price
+  vB <- beta[1] - beta[4] * rival_price
+  m <- pmax(0, vA, vB)
+  exp(vA - m) / (exp(-m) + exp(vA - m) + exp(vB - m))
 }
 ```
 
-## 実験1：係数を平均して代入すると同じか
+## 1. 誰にクーポンを送るか
+
+`q0` は配布なし、`q1` は配布ありの購買確率である。順番は「よく買う・時々買う・まれに買う」。`margin` は通常の粗利、`coupon` は購入時の値引き、`send_cost` は購入しなくても発生する送付費で、すべて円単位だ。送れる人数の制約は置かない。
 
 ```{webr}
-#| label: posterior-integration
-mu <- log(.18)
-sigma <- .5
-coupon <- 0:3
-integrated <- sapply(coupon,function(c) mean(qA(mu+sigma*nodes,c)))
-plugin <- sapply(coupon,function(c) qA(mu,c))
-result <- data.frame(coupon=coupon,integrated=integrated,plugin=plugin)
-print(result)
-ggplot(result,aes(coupon,integrated))+geom_line(color="#4C72B0")+geom_point()+
- geom_line(aes(y=plugin),color="#C44E52",linetype=2)+
- labs(x="coupon (thousand yen)",y="purchase probability",
-      subtitle="blue: posterior integration; red: posterior mean plug-in")
+q0 <- c(.90, .30, .08)
+q1 <- c(.95, .60, .10)
+margin <- 300
+coupon <- 100
+send_cost <- 5
+stopifnot(all(q0 >= 0 & q0 <= 1), all(q1 >= 0 & q1 <= 1),
+          coupon >= 0, send_cost >= 0)
+profit0 <- margin * q0
+profit1 <- (margin - coupon) * q1 - send_cost
+gain <- profit1 - profit0
+print(data.frame(group = c("Frequent", "Occasional", "Rare"),
+                 profit0, profit1, gain, send = gain > 0))
+barplot(gain, names.arg = c("Frequent", "Occasional", "Rare"),
+        col = ifelse(gain > 0, "steelblue", "grey70"),
+        ylab = "Incremental profit (yen)")
+abline(h = 0, lty = 2)
 ```
 
-`sigma` を0にすると、2つは一致するだろうか。`sigma` を大きくすると、どのように変わるか。ここで平均している係数は $\theta$ であり、価格係数自体は $\exp(\theta)$ である。
+購買確率が全員について上がっても、全員に配るべきとは限らない。送付費を増やすと、配る群はどう変わるか。`q1` をデータから知るには、どんな比較が必要だろうか。
 
-## 実験2：よく買う人とクーポンが効く人
+## 2. 将来の顧客価値をどう見積もるか
+
+Poisson–Gammaモデルの母集団パラメータを `shape, rate` とし、`months_observed` か月の購買回数 `counts` を使う。ここでは離脱せず、同じ率で購買が続く。`margin` は一回の固定粗利400円であり、第1節とは別の設定である。
 
 ```{webr}
-#| label: customers-and-profit
-customer_low <- evaluate_customer(log(.06),.25,cost=1)
-customer_high <- evaluate_customer(log(.22),.25,cost=1)
-customer_low$customer <- "less price sensitive"
-customer_high$customer <- "more price sensitive"
-z <- rbind(customer_low,customer_high)
-print(z)
-ggplot(z,aes(coupon,gain,color=customer))+geom_line()+geom_point()+
- geom_hline(yintercept=0,linetype=2)+labs(x="coupon (thousand yen)",y="incremental profit")
+shape <- 2
+rate <- 4
+months_observed <- 1
+counts <- c(0, 1, 3, 5)
+horizon <- 6
+monthly_discount <- .99
+margin <- 400
+stopifnot(shape > 0, rate > 0, months_observed > 0,
+          all(counts >= 0), horizon >= 1, horizon == round(horizon),
+          monthly_discount > 0, monthly_discount <= 1)
+personal_rate <- counts / months_observed
+posterior_rate <- (shape + counts) / (rate + months_observed)
+value <- margin * sum(monthly_discount ^ seq_len(horizon)) * posterior_rate
+print(data.frame(counts, personal_rate, posterior_rate, value))
+barplot(rbind(personal_rate, posterior_rate), beside = TRUE,
+        names.arg = counts, col = c("grey70", "steelblue"),
+        xlab = "Observed purchase count", ylab = "Expected monthly purchase rate",
+        legend.text = c("Personal", "Posterior"), args.legend = list(cex = .8, bty = "n"))
 ```
 
-通常価格で買う確率と、増分利益が最大になる値引きを比べよう。どちらも「価格感応度が低いほどよい」という同じ順位になるだろうか。
+0回の人の予測が0にならない理由を説明しよう。同じ回数を1か月で観測した場合と6か月で観測した場合は、同じ情報だろうか。この価値だけから、誰に維持施策を行うべきか決められるだろうか。
 
-## 実験3：原価と配信費用を入れる
+## 3. 新商品の機能と価格を選ぶ
+
+コンジョイントの結果を使う場面を考える。`beta` は定数・大容量・産地表示・正の価格感応度の順で、最初は講義のデータ生成に使った仮の値を置く。価格と原価は100円単位、期待利益は円で表示する。競合Bは通常容量・産地表示なしで、価格を400円に固定する。候補は300・400・500円×容量2種類×表示2種類の12通りだ。
 
 ```{webr}
-#| label: cost-and-offer
-cost <- 3
-send_cost <- .1  # 千円。購入しなくても、提示すると発生する。
-z <- evaluate_customer(log(.22),.35,cost=cost,send_cost=send_cost)
-print(z)
-cat("best coupon:",z$coupon[which.max(z$profit)],"thousand yen\n")
-ggplot(z,aes(factor(coupon),profit))+geom_col(fill="#4C72B0")+
- labs(x="coupon (thousand yen)",y="expected profit")
+beta <- c(1.4, .45, .60, .45)
+rival_price <- 4
+base_cost <- 1.4
+large_cost <- .4
+origin_cost <- .35
+stopifnot(beta[4] > 0)
+candidates <- expand.grid(large = 0:1, origin = 0:1, price = 3:5)
+candidates$cost <- base_cost + large_cost * candidates$large + origin_cost * candidates$origin
+candidates$probability <- with(candidates, prob_A(large, origin, price, beta, rival_price))
+candidates$profit <- with(candidates, 100 * (price - cost) * probability)
+print(candidates)
+cat("Best among these 12 candidates:\n")
+print(candidates[which.max(candidates$profit), ])
+profit_matrix <- t(matrix(candidates$profit, nrow = 4))
+matplot(100 * (3:5), profit_matrix, type = "b", lty = 1, pch = 1:4,
+        col = 1:4, xlab = "Price (yen)", ylab = "Expected profit per visit (yen)",
+        ylim = c(0, max(profit_matrix)))
+legend("topleft", c("Regular", "Large", "Origin", "Large+Origin"),
+       col = 1:4, pch = 1:4, lty = 1, cex = .75, bty = "n")
 ```
 
-原価を1〜6千円、配信費用を0〜0.5千円で変えてみよう。同じ需要でも選ぶクーポンが変わることを確かめる。
+産地表示の効用係数 `beta[3]` が正でも、追加費用 `origin_cost` が高ければ採用しない場合がある。価格感応度や競合価格を変えると最良の候補は変わるだろうか。ここでの最大はこの候補集合とモデルのもとでの比較であり、市場全体での最適商品を保証するものではない。
 
-## 実験4：一律と個人別を比べる
-
-```{webr}
-#| label: uniform-personalized
-means <- log(c(.05,.08,.12,.18,.24,.30))
-sigma <- .35
-cost <- 1
-profits <- t(sapply(means,function(m) evaluate_customer(m,sigma,cost)$profit))
-uniform <- which.max(colMeans(profits))
-individual <- max.col(profits,ties.method="first")
-print(data.frame(customer=seq_along(means),coupon=individual-1))
-print(c(no_coupon=mean(profits[,1]),uniform=mean(profits[,uniform]),
-        personalized=mean(profits[cbind(seq_along(means),individual)])))
-```
-
-ここで個別化が一律以上になるのは、同じ期待利益を目的にして、選べるルールを増やしたからである。実際の購買でも必ず改善するとは限らない。個別化の運用費用を引くと、どこまで改善が残るだろうか。
-
-## 次に読むもの
-
-- [講義ノート](lecture7.html)：同じHB推定結果からの施策比較とRCT。
-- [課題7](assignment7.html)：別の個人差・原価で推定から施策まで実装する。
+[講義ノート](lecture7.html) ／ [課題7](assignment7.html) ／ [講義一覧](../index.html)

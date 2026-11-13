@@ -8,7 +8,7 @@
 
 <meta name="author" content="Kei Ikegami">
 
-<title>課題11：動学的離散選択 — Rust の NFXP と Hotz-Miller の CCP</title>
+<title>課題11：航空券のRevenue Managementと推定誤差の伝播</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -2347,21 +2347,25 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#part-1縮小版-rust-モデルを自作する40点" id="toc-part-1縮小版-rust-モデルを自作する40点" class="nav-link active" data-scroll-target="#part-1縮小版-rust-モデルを自作する40点">Part 1：縮小版 Rust モデルを自作する（40点）</a>
+  <li><a href="#この課題について" id="toc-この課題について" class="nav-link active" data-scroll-target="#この課題について">この課題について</a></li>
+  <li><a href="#part-1航空券1路線の予約データを生成する30点" id="toc-part-1航空券1路線の予約データを生成する30点" class="nav-link" data-scroll-target="#part-1航空券1路線の予約データを生成する30点">Part 1：航空券1路線の予約データを生成する（30点）</a>
   <ul class="collapse">
-  <li><a href="#舞台設定" id="toc-舞台設定" class="nav-link" data-scroll-target="#舞台設定">舞台設定</a></li>
-  <li><a href="#問115点状態遷移行列と価値関数反復" id="toc-問115点状態遷移行列と価値関数反復" class="nav-link" data-scroll-target="#問115点状態遷移行列と価値関数反復">問1（15点）：状態遷移行列と価値関数反復</a></li>
-  <li><a href="#問215点パネルを生成しreplacement-cycle-を可視化する" id="toc-問215点パネルを生成しreplacement-cycle-を可視化する" class="nav-link" data-scroll-target="#問215点パネルを生成しreplacement-cycle-を可視化する">問2（15点）：パネルを生成し、replacement cycle を可視化する</a></li>
-  <li><a href="#問310点状態ごとの交換頻度を確認する" id="toc-問310点状態ごとの交換頻度を確認する" class="nav-link" data-scroll-target="#問310点状態ごとの交換頻度を確認する">問3（10点）：状態ごとの交換頻度を確認する</a></li>
+  <li><a href="#設定" id="toc-設定" class="nav-link" data-scroll-target="#設定">設定</a></li>
+  <li><a href="#設問1-110点一定価格のもとでの予約データ生成" id="toc-設問1-110点一定価格のもとでの予約データ生成" class="nav-link" data-scroll-target="#設問1-110点一定価格のもとでの予約データ生成">設問1-1（10点）：一定価格のもとでの予約データ生成</a></li>
+  <li><a href="#設問1-210点ブッキングカーブの可視化" id="toc-設問1-210点ブッキングカーブの可視化" class="nav-link" data-scroll-target="#設問1-210点ブッキングカーブの可視化">設問1-2（10点）：ブッキングカーブの可視化</a></li>
+  <li><a href="#設問1-310点記述統計" id="toc-設問1-310点記述統計" class="nav-link" data-scroll-target="#設問1-310点記述統計">設問1-3（10点）：記述統計</a></li>
+  <li><a href="#設問1-4配点は上記10点に含む必須ランダム価格実験のdgp" id="toc-設問1-4配点は上記10点に含む必須ランダム価格実験のdgp" class="nav-link" data-scroll-target="#設問1-4配点は上記10点に含む必須ランダム価格実験のdgp">設問1-4（配点は上記10点に含む、必須）：ランダム価格実験のDGP</a></li>
   </ul></li>
-  <li><a href="#part-2推定と反実仮想60点" id="toc-part-2推定と反実仮想60点" class="nav-link" data-scroll-target="#part-2推定と反実仮想60点">Part 2：推定と反実仮想（60点）</a>
+  <li><a href="#part-2推定dp収益比較70点" id="toc-part-2推定dp収益比較70点" class="nav-link" data-scroll-target="#part-2推定dp収益比較70点">Part 2：推定・DP・収益比較（70点）</a>
   <ul class="collapse">
-  <li><a href="#問415点nfxprust-の方法で推定する" id="toc-問415点nfxprust-の方法で推定する" class="nav-link" data-scroll-target="#問415点nfxprust-の方法で推定する">問4（15点）：NFXP（Rust の方法）で推定する</a></li>
-  <li><a href="#問515点hotz-miller-の-ccp-で推定する" id="toc-問515点hotz-miller-の-ccp-で推定する" class="nav-link" data-scroll-target="#問515点hotz-miller-の-ccp-で推定する">問5（15点）：Hotz-Miller の CCP で推定する</a></li>
-  <li><a href="#問615点反実仮想を動学と-myopic-で比べる" id="toc-問615点反実仮想を動学と-myopic-で比べる" class="nav-link" data-scroll-target="#問615点反実仮想を動学と-myopic-で比べる">問6（15点）：反実仮想を動学と myopic で比べる</a></li>
-  <li><a href="#問710点設備保全担当への提言を3行で" id="toc-問710点設備保全担当への提言を3行で" class="nav-link" data-scroll-target="#問710点設備保全担当への提言を3行で">問7（10点）：設備保全担当への提言を3行で</a></li>
-  <li><a href="#提出方法" id="toc-提出方法" class="nav-link" data-scroll-target="#提出方法">提出方法</a></li>
+  <li><a href="#設問2-115点mleで価格係数-alpha-を推定する" id="toc-設問2-115点mleで価格係数-alpha-を推定する" class="nav-link" data-scroll-target="#設問2-115点mleで価格係数-alpha-を推定する">設問2-1（15点）：MLEで価格係数 <span class="math inline">\(\alpha\)</span> を推定する</a></li>
+  <li><a href="#設問2-215点hattheta_0hatalpha-でbackward-inductionを解き価格政策のヒートマップを描く" id="toc-設問2-215点hattheta_0hatalpha-でbackward-inductionを解き価格政策のヒートマップを描く" class="nav-link" data-scroll-target="#設問2-215点hattheta_0hatalpha-でbackward-inductionを解き価格政策のヒートマップを描く">設問2-2（15点）：<span class="math inline">\((\hat\theta_0,\hat\alpha)\)</span> でbackward inductionを解き、価格政策のヒートマップを描く</a></li>
+  <li><a href="#設問2-315点推定誤差のコスト-推定需要パラメータの政策-vs-真の需要パラメータの政策" id="toc-設問2-315点推定誤差のコスト-推定需要パラメータの政策-vs-真の需要パラメータの政策" class="nav-link" data-scroll-target="#設問2-315点推定誤差のコスト-推定需要パラメータの政策-vs-真の需要パラメータの政策">設問2-3（15点）：推定誤差のコスト — 推定需要パラメータの政策 vs 真の需要パラメータの政策</a></li>
+  <li><a href="#設問2-410点最適固定価格との比較" id="toc-設問2-410点最適固定価格との比較" class="nav-link" data-scroll-target="#設問2-410点最適固定価格との比較">設問2-4（10点）：最適固定価格との比較</a></li>
+  <li><a href="#設問2-510点モンテカルロで収益ロスの分布を見る" id="toc-設問2-510点モンテカルロで収益ロスの分布を見る" class="nav-link" data-scroll-target="#設問2-510点モンテカルロで収益ロスの分布を見る">設問2-5（10点）：モンテカルロで収益ロスの分布を見る</a></li>
+  <li><a href="#設問2-65点経営含意" id="toc-設問2-65点経営含意" class="nav-link" data-scroll-target="#設問2-65点経営含意">設問2-6（5点）：経営含意</a></li>
   </ul></li>
+  <li><a href="#提出物" id="toc-提出物" class="nav-link" data-scroll-target="#提出物">提出物</a></li>
   </ul>
 </nav>
 </div>
@@ -2371,7 +2375,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">課題11：動学的離散選択 — Rust の NFXP と Hotz-Miller の CCP</h1>
+<h1 class="title">課題11：航空券のRevenue Managementと推定誤差の伝播</h1>
 <p class="subtitle lead">計量経済学II</p>
 </div>
 
@@ -2395,349 +2399,81 @@ window.Quarto = {
 </header>
 
 
+<section id="この課題について" class="level2">
+<h2 class="anchored" data-anchor-id="この課題について">この課題について</h2>
+<p>Lecture 11で学んだ revenue management（RM）の枠組みを、自分の手で一から動かす。テーマは「ある地方路線の航空券」だ。講義本編とはパラメータを変えて、自分で予約データを生成するところから始める。</p>
+<p>課題は2部構成。</p>
+<ul>
+<li><strong>Part 1</strong>：あなたが「神」の立場になって、真のパラメータから航空券の予約プロセスを生成する（DGP）。</li>
+<li><strong>Part 2</strong>：あなたが「分析者」の立場になって、Part 1のデータだけを見て価格弾力性を推定し、そこから価格政策を作り、その政策がどれだけ真の最適に近いかを検証する。</li>
+</ul>
+<p>配点は合計100点。最後に、手を動かして得た結果をもとに経営への含意を書いてもらう。</p>
 <div class="callout callout-style-default callout-important callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">重要</span>この課題のねらい
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>第11回でやった <strong>動学的離散選択</strong>（Rust のバスエンジン交換モデル）を、自分の手で最初から最後まで通す。価値関数反復で DP を解き、パネルを生成し、<strong>NFXP</strong>（Rust）と <strong>Hotz-Miller の CCP</strong>（renewal action の finite dependence）の両方でパラメータを推定し、そして交換費補助の<strong>反実仮想</strong>を、正しい動学モデルと myopic（<span class="math inline">\(\beta=0\)</span>）モデルとで比べる。今日の技術を全部使う、重めの課題だ。焦らず、まず DP を解いて S 字が出ることを確かめ、それから推定・反実仮想へ進もう。</p>
-<ul>
-<li><strong>Part 1</strong>：<span class="math inline">\(K=15\)</span>・<span class="math inline">\(\beta=0.95\)</span> 固定の縮小版 Rust モデルを自作し、DP を解き、200台×100ヶ月のパネルを生成する（40点）。</li>
-<li><strong>Part 2</strong>：NFXP と CCP で真値を回収し、交換費補助の反実仮想を動学と myopic で比べる（60点）。</li>
-</ul>
-<p>配点は合計100点。手を動かせば2〜4時間で終わる分量。穴埋めコードの骨格を惜しみなく与えるので、まず埋めることから始めよ。</p>
-</div>
-</div>
-<p>この課題は講義ノート（<code>lecture11.qmd</code>）と同じ構造だが、<strong>設定（状態数・パラメータ値・状態遷移）は変えてある</strong>。ノートのコードをコピペするだけでは通らないので、自分で理解して埋めること。とくに <span class="math inline">\(K=15\)</span>、<span class="math inline">\(\theta_1=0.25\)</span>、<span class="math inline">\(RC=5.0\)</span>、状態遷移の確率が講義と違う点に注意。</p>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>記法（第11回の再掲）
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><span class="math inline">\(\beta\)</span> は<strong>割引因子</strong>（<span class="math inline">\(=0.95\)</span> に固定）。効用のパラメータは <span class="math inline">\(\theta\)</span>。状態 <span class="math inline">\(x\)</span>（走行距離、<span class="math inline">\(0 \ldots K-1\)</span>）、行動 <span class="math inline">\(a \in \{0=\text{維持}, 1=\text{交換}\}\)</span>。flow utility は <span class="math inline">\(u(x,0) = -\theta_1 x\)</span>、<span class="math inline">\(u(x,1) = -RC\)</span>。T1EV ショックのもとで <span class="math inline">\(V(x) = \log(e^{v(x,0)} + e^{v(x,1)}) + \gamma\)</span>、選択確率は logit。</p>
-</div>
-</div>
-<hr>
-<section id="part-1縮小版-rust-モデルを自作する40点" class="level1">
-<h1>Part 1：縮小版 Rust モデルを自作する（40点）</h1>
-<section id="舞台設定" class="level2">
-<h2 class="anchored" data-anchor-id="舞台設定">舞台設定</h2>
-<p>社用車フリートの整備担当を考える。各車両のエンジンについて、毎月「維持（そのまま使う）」か「交換（載せ替える）」かを決める。走行距離を <span class="math inline">\(K=15\)</span> 状態のグリッド <span class="math inline">\(x \in \{0, \ldots, 14\}\)</span> で表す。</p>
-<p><strong>真のパラメータ</strong>（あなたはこれを後で推定で回収する）：</p>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>記号</th>
-<th>意味</th>
-<th>値</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><span class="math inline">\(\beta\)</span></td>
-<td>割引因子（<strong>固定、推定しない</strong>）</td>
-<td>0.95</td>
-</tr>
-<tr class="even">
-<td><span class="math inline">\(\theta_1\)</span></td>
-<td>維持費の傾き（1状態あたり）</td>
-<td>0.25</td>
-</tr>
-<tr class="odd">
-<td><span class="math inline">\(RC\)</span></td>
-<td>エンジン交換費</td>
-<td>5.0</td>
-</tr>
-</tbody>
-</table>
-<p><strong>状態遷移</strong>（講義とは確率が違う）：維持すると距離は <span class="math inline">\(+0/+1/+2\)</span> 状態進み、その確率は <span class="math inline">\((0.25, 0.50, 0.25)\)</span>。交換すると <span class="math inline">\(x=0\)</span> にリセットしてから同じ分布で進む。</p>
-</section>
-<section id="問115点状態遷移行列と価値関数反復" class="level2">
-<h2 class="anchored" data-anchor-id="問115点状態遷移行列と価値関数反復">問1（15点）：状態遷移行列と価値関数反復</h2>
-<p>状態遷移行列 <span class="math inline">\(P_0\)</span>（維持）・<span class="math inline">\(P_1\)</span>（交換）を作り、価値関数反復で DP を解く関数 <code>solve_vfi</code> を完成させよ。<span class="math inline">\(V(x)\)</span> の更新は Emax = logsum：<span class="math inline">\(V^{\text{new}}(x) = \log(e^{v(x,0)} + e^{v(x,1)}) + \gamma\)</span>。数値安定化のため「最大値を引いてから exp」すること。</p>
-<div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 基本設定 ----</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>K     <span class="ot">&lt;-</span> <span class="dv">15</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>beta  <span class="ot">&lt;-</span> <span class="fl">0.95</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>theta1_true <span class="ot">&lt;-</span> <span class="fl">0.25</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>RC_true     <span class="ot">&lt;-</span> <span class="fl">5.0</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>p_trans <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.25</span>, <span class="fl">0.50</span>, <span class="fl">0.25</span>)          <span class="co"># 維持で +0/+1/+2 進む確率（講義と違う！）</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>EULER   <span class="ot">&lt;-</span> <span class="fl">0.5772156649015329</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>xs <span class="ot">&lt;-</span> <span class="dv">0</span><span class="sc">:</span>(K <span class="sc">-</span> <span class="dv">1</span>)</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 状態遷移行列（1-index に注意。状態値は x-1）</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>build_transition <span class="ot">&lt;-</span> <span class="cf">function</span>(K, p) {</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  nj <span class="ot">&lt;-</span> <span class="fu">length</span>(p)</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  P0 <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, K, K); P1 <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, K, K)</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (x <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>K) {</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    xv <span class="ot">&lt;-</span> x <span class="sc">-</span> <span class="dv">1</span></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>nj) {</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>      jj <span class="ot">&lt;-</span> j <span class="sc">-</span> <span class="dv">1</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>      P0[x, <span class="fu">min</span>(xv <span class="sc">+</span> jj, K <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="dv">1</span>] <span class="ot">&lt;-</span> P0[x, <span class="fu">min</span>(xv <span class="sc">+</span> jj, K <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="dv">1</span>] <span class="sc">+</span> p[j]</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>      P1[x, <span class="fu">min</span>(<span class="dv">0</span>  <span class="sc">+</span> jj, K <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="dv">1</span>] <span class="ot">&lt;-</span> P1[x, <span class="fu">min</span>(<span class="dv">0</span>  <span class="sc">+</span> jj, K <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="dv">1</span>] <span class="sc">+</span> p[j]</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">P0 =</span> P0, <span class="at">P1 =</span> P1)</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>tr <span class="ot">&lt;-</span> <span class="fu">build_transition</span>(K, p_trans)</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>P0 <span class="ot">&lt;-</span> tr<span class="sc">$</span>P0; P1 <span class="ot">&lt;-</span> tr<span class="sc">$</span>P1</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>flow_utils <span class="ot">&lt;-</span> <span class="cf">function</span>(theta1, RC) <span class="fu">list</span>(<span class="at">u0 =</span> <span class="sc">-</span>theta1 <span class="sc">*</span> xs, <span class="at">u1 =</span> <span class="fu">rep</span>(<span class="sc">-</span>RC, K))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- この関数を完成させる ----</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>solve_vfi <span class="ot">&lt;-</span> <span class="cf">function</span>(theta1, RC, <span class="at">tol =</span> <span class="fl">1e-10</span>, <span class="at">maxit =</span> <span class="dv">2000</span>, <span class="at">bta =</span> beta) {</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  uu <span class="ot">&lt;-</span> <span class="fu">flow_utils</span>(theta1, RC)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  V  <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, K)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  errs <span class="ot">&lt;-</span> <span class="fu">numeric</span>(<span class="dv">0</span>)</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (it <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>maxit) {</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    v0 <span class="ot">&lt;-</span> uu<span class="sc">$</span>u0 <span class="sc">+</span> bta <span class="sc">*</span> <span class="fu">as.vector</span>(P0 <span class="sc">%*%</span> V)     <span class="co"># choice-specific value（維持）</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    v1 <span class="ot">&lt;-</span> ______                                <span class="co"># 【穴埋め】choice-specific value（交換）</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    m  <span class="ot">&lt;-</span> <span class="fu">pmax</span>(v0, v1)</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    Vnew <span class="ot">&lt;-</span> ______                              <span class="co"># 【穴埋め】logsum + Euler 定数（数値安定化込み）</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    err  <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(Vnew <span class="sc">-</span> V))</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    errs <span class="ot">&lt;-</span> <span class="fu">c</span>(errs, err)</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    V <span class="ot">&lt;-</span> Vnew</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (err <span class="sc">&lt;</span> tol) <span class="cf">break</span></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  v0 <span class="ot">&lt;-</span> uu<span class="sc">$</span>u0 <span class="sc">+</span> bta <span class="sc">*</span> <span class="fu">as.vector</span>(P0 <span class="sc">%*%</span> V)</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  v1 <span class="ot">&lt;-</span> uu<span class="sc">$</span>u1 <span class="sc">+</span> bta <span class="sc">*</span> <span class="fu">as.vector</span>(P1 <span class="sc">%*%</span> V)</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">V =</span> V, <span class="at">v0 =</span> v0, <span class="at">v1 =</span> v1, <span class="at">errs =</span> errs, <span class="at">niter =</span> <span class="fu">length</span>(errs))</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>ccp_replace <span class="ot">&lt;-</span> <span class="cf">function</span>(v0, v1) {</span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  m <span class="ot">&lt;-</span> <span class="fu">pmax</span>(v0, v1)</span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  ______                                        <span class="co"># 【穴埋め】P(交換|x) の logit</span></span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- 動作確認（穴埋め後に eval: true にして実行）----</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>sol <span class="ot">&lt;-</span> <span class="fu">solve_vfi</span>(theta1_true, RC_true)</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>Pr  <span class="ot">&lt;-</span> <span class="fu">ccp_replace</span>(sol<span class="sc">$</span>v0, sol<span class="sc">$</span>v1)</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;収束反復数:&quot;</span>, sol<span class="sc">$</span>niter, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;P(交換|x) が単調増加:&quot;</span>, <span class="fu">all</span>(<span class="fu">diff</span>(Pr) <span class="sc">&gt;=</span> <span class="sc">-</span><span class="fl">1e-12</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;P(交換|x):&quot;</span>, <span class="fu">round</span>(Pr, <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 収束（対数目盛）と S 字を1枚ずつ</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>p_conv <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(<span class="fu">data.frame</span>(<span class="at">iter =</span> <span class="fu">seq_along</span>(sol<span class="sc">$</span>errs), <span class="at">err =</span> sol<span class="sc">$</span>errs), <span class="fu">aes</span>(iter, err)) <span class="sc">+</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">&quot;#1f77b4&quot;</span>) <span class="sc">+</span> <span class="fu">scale_y_log10</span>() <span class="sc">+</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;価値関数反復の収束&quot;</span>, <span class="at">x =</span> <span class="st">&quot;反復&quot;</span>, <span class="at">y =</span> <span class="st">&quot;更新幅（対数）&quot;</span>)</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>p_scurve <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(<span class="fu">data.frame</span>(<span class="at">x =</span> xs, <span class="at">P =</span> Pr), <span class="fu">aes</span>(x, P)) <span class="sc">+</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">&quot;#d62728&quot;</span>, <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;交換確率 P(交換|x)&quot;</span>, <span class="at">x =</span> <span class="st">&quot;走行距離 x&quot;</span>, <span class="at">y =</span> <span class="st">&quot;P(交換|x)&quot;</span>)</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>p_conv <span class="sc">+</span> p_scurve</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ヒント</span>ヒント：状態遷移行列の作り方と logsum
+<span class="screen-reader-only">重要</span>この課題で確認してほしいこと
 </div>
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><strong>遷移行列</strong>：各行 <span class="math inline">\(x\)</span> が「次期状態の確率分布」になる（行和=1）。維持は今の <span class="math inline">\(x\)</span> から距離が進む、交換は <span class="math inline">\(x=0\)</span> から進む。<code>min(..., K-1)</code> で上限に張り付かせるのを忘れずに。<span class="math inline">\(P_1\)</span> は<strong>全行が同じ</strong>になるはず（交換=リセットなので現在状態に依存しない）。これが renewal action の性質で、Part 2 の CCP で効いてくる。</li>
-<li><strong>logsum の数値安定化</strong>：<code>log(exp(v0) + exp(v1))</code> は、<span class="math inline">\(v\)</span> が大きいと <code>exp</code> がオーバーフローする。各状態で <code>m &lt;- pmax(v0, v1)</code> を引いてから <code>m + log(exp(v0 - m) + exp(v1 - m))</code> とする（第2回の overflow 対策と同じ）。最後に <code>+ EULER</code>（Euler 定数 <span class="math inline">\(\gamma\)</span>）を足す。</li>
+<li>有限期間・在庫制約下の動的計画法（Gallego-van Ryzin型RM）を、backward inductionで自分の手で解けること。</li>
+<li>動的価格が固定価格に対してどれだけの収益改善をもたらすか、数値で確認できること。</li>
+<li>需要推定の誤差が、価格政策の収益ロスという「金額」に変換される様子を、モンテカルロで可視化できること。</li>
 </ul>
-</div>
-</div>
-</section>
-<section id="問215点パネルを生成しreplacement-cycle-を可視化する" class="level2">
-<h2 class="anchored" data-anchor-id="問215点パネルを生成しreplacement-cycle-を可視化する">問2（15点）：パネルを生成し、replacement cycle を可視化する</h2>
-<p>解いた交換方針に従って動く 200台×100ヶ月のパネルを生成せよ。各期、各車両は自分の状態 <span class="math inline">\(x\)</span> の交換確率 <span class="math inline">\(P(\text{交換}\mid x)\)</span> に従って交換を決め、状態が遷移する。数台ぶんの走行距離の軌跡（のこぎり歯 = replacement cycle）を描くこと。</p>
-<div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>simulate_panel <span class="ot">&lt;-</span> <span class="cf">function</span>(n_bus, n_month, theta1, RC, <span class="at">burn =</span> <span class="dv">50</span>) {</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  sol <span class="ot">&lt;-</span> <span class="fu">solve_vfi</span>(theta1, RC)</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  Pr  <span class="ot">&lt;-</span> <span class="fu">ccp_replace</span>(sol<span class="sc">$</span>v0, sol<span class="sc">$</span>v1)</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  total_T <span class="ot">&lt;-</span> n_month <span class="sc">+</span> burn</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  X <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>L, n_bus, total_T); A <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>L, n_bus, total_T)</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">0</span><span class="sc">:</span>(K <span class="sc">-</span> <span class="dv">1</span>), n_bus, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (t <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>total_T) {</span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    u <span class="ot">&lt;-</span> <span class="fu">runif</span>(n_bus)</span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    a <span class="ot">&lt;-</span> ______                                 <span class="co"># 【穴埋め】状態 x の交換確率で交換判定（0/1）</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    X[, t] <span class="ot">&lt;-</span> x</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    A[, t] <span class="ot">&lt;-</span> a</span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    jump <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">2</span>, n_bus, <span class="at">replace =</span> <span class="cn">TRUE</span>, <span class="at">prob =</span> p_trans)</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    x <span class="ot">&lt;-</span> ______                                 <span class="co"># 【穴埋め】交換なら 0+jump にリセット、維持なら x+jump（上限 K-1）</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">X =</span> X[, (burn <span class="sc">+</span> <span class="dv">1</span>)<span class="sc">:</span>total_T], <span class="at">A =</span> A[, (burn <span class="sc">+</span> <span class="dv">1</span>)<span class="sc">:</span>total_T])</span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>n_bus <span class="ot">&lt;-</span> <span class="dv">200</span>; n_month <span class="ot">&lt;-</span> <span class="dv">100</span></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>panel <span class="ot">&lt;-</span> <span class="fu">simulate_panel</span>(n_bus, n_month, theta1_true, RC_true)</span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>X <span class="ot">&lt;-</span> panel<span class="sc">$</span>X; A <span class="ot">&lt;-</span> panel<span class="sc">$</span>A</span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;全体の交換率:&quot;</span>, <span class="fu">round</span>(<span class="fu">mean</span>(A), <span class="dv">4</span>), <span class="st">&quot;  平均走行距離:&quot;</span>, <span class="fu">round</span>(<span class="fu">mean</span>(X), <span class="dv">3</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="co"># 数台の軌跡（赤点 = 交換した月）</span></span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>show_bus <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>)</span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>df_traj <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, <span class="fu">lapply</span>(show_bus, <span class="cf">function</span>(b)</span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">month =</span> <span class="dv">1</span><span class="sc">:</span>n_month, <span class="at">mileage =</span> X[b, ], <span class="at">bus =</span> <span class="fu">paste0</span>(<span class="st">&quot;車&quot;</span>, b), <span class="at">replace =</span> A[b, ])))</span>
-<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_traj, <span class="fu">aes</span>(month, mileage)) <span class="sc">+</span></span>
-<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
-<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> <span class="fu">subset</span>(df_traj, replace <span class="sc">==</span> <span class="dv">1</span>), <span class="at">color =</span> <span class="st">&quot;#d62728&quot;</span>, <span class="at">size =</span> <span class="fl">1.6</span>) <span class="sc">+</span></span>
-<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> bus, <span class="at">ncol =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
-<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;走行距離の軌跡と交換タイミング&quot;</span>, <span class="at">x =</span> <span class="st">&quot;月&quot;</span>, <span class="at">y =</span> <span class="st">&quot;走行距離 x&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ヒント</span>ヒント：交換判定と状態リセット
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><strong>交換判定</strong>：<code>u &lt; Pr[x + 1]</code> で <code>TRUE/FALSE</code> が出るので <code>as.integer(...)</code> で 0/1 に。<code>Pr</code> は 1-index なので状態 <span class="math inline">\(x\)</span> の確率は <code>Pr[x + 1]</code>。</li>
-<li><strong>状態更新</strong>：<code>ifelse(a == 1L, pmin(0 + jump, K - 1), pmin(x + jump, K - 1))</code>。交換したら 0 から、維持なら今の <span class="math inline">\(x\)</span> から距離が進む。</li>
-<li><strong>burn-in</strong>：初期状態をランダムに置いたので、最初の数十期は定常分布に落ち着くまでの過渡期。<code>burn = 50</code> 期を捨てて、定常に近い部分だけ残す。</li>
-</ul>
-</div>
-</div>
-</section>
-<section id="問310点状態ごとの交換頻度を確認する" class="level2">
-<h2 class="anchored" data-anchor-id="問310点状態ごとの交換頻度を確認する">問3（10点）：状態ごとの交換頻度を確認する</h2>
-<p>状態ごとの経験交換頻度 <span class="math inline">\(\hat P(\text{交換}\mid x)\)</span> を計算し、モデルの交換確率 <span class="math inline">\(P(\text{交換}\mid x)\)</span> と重ねて描け。観測数の少ない（薄い）状態がどこか、<span class="math inline">\(x=0\)</span> の交換頻度がどうなっているかを確認し、2〜3文でコメントせよ（この観察が Part 2 の CCP 推定で効いてくる）。</p>
-<div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>freq_by_state  <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">0</span><span class="sc">:</span>(K <span class="sc">-</span> <span class="dv">1</span>), <span class="cf">function</span>(xv) { m <span class="ot">&lt;-</span> (X <span class="sc">==</span> xv); <span class="cf">if</span> (<span class="fu">sum</span>(m) <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="fu">mean</span>(A[m]) <span class="cf">else</span> <span class="cn">NA</span> })</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>count_by_state <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">0</span><span class="sc">:</span>(K <span class="sc">-</span> <span class="dv">1</span>), <span class="cf">function</span>(xv) <span class="fu">sum</span>(X <span class="sc">==</span> xv))</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>df_freq <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">x =</span> xs, <span class="at">emp =</span> freq_by_state, <span class="at">model =</span> Pr)</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_freq, <span class="fu">aes</span>(x)) <span class="sc">+</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> model), <span class="at">color =</span> <span class="st">&quot;#1f77b4&quot;</span>, <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">y =</span> emp), <span class="at">color =</span> <span class="st">&quot;#d62728&quot;</span>, <span class="at">size =</span> <span class="fl">1.8</span>) <span class="sc">+</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;経験頻度（赤）vs モデル（青）&quot;</span>, <span class="at">x =</span> <span class="st">&quot;走行距離 x&quot;</span>, <span class="at">y =</span> <span class="st">&quot;P(交換|x)&quot;</span>)</span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;状態ごとの観測数:&quot;</span>, count_by_state, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>この課題での記述統計の意味
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>高走行距離の状態は観測が薄く、経験頻度がガタつく（交換でリセットされるので、そもそも高い <span class="math inline">\(x\)</span> に長居しない）。逆に <span class="math inline">\(x=0\)</span>（交換直後）は観測は多いが交換はまず起きず、経験頻度がほぼ0になる。この「<span class="math inline">\(\hat P = 0\)</span>（<span class="math inline">\(\log\)</span> が <span class="math inline">\(-\infty\)</span>）」と「薄い状態のノイズ」が、CCP 推定で対処すべき2つの問題だ。</p>
 </div>
 </div>
 <hr>
 </section>
-</section>
-<section id="part-2推定と反実仮想60点" class="level1">
-<h1>Part 2：推定と反実仮想（60点）</h1>
-<section id="問415点nfxprust-の方法で推定する" class="level2">
-<h2 class="anchored" data-anchor-id="問415点nfxprust-の方法で推定する">問4（15点）：NFXP（Rust の方法）で推定する</h2>
-<p>NFXP の負の対数尤度を完成させ、<code>optim</code> で <span class="math inline">\((\theta_1, RC)\)</span> を推定せよ。<strong>内側で価値関数反復を解き切る</strong>のがキモ。<span class="math inline">\(\beta = 0.95\)</span> に固定すること（<strong>推定しない</strong>）。真値回収表と Hessian からの標準誤差を出し、実行時間を測れ。</p>
-<div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- NFXP の負の対数尤度（内側で DP を解き切る）----</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>neg_loglik_nfxp <span class="ot">&lt;-</span> <span class="cf">function</span>(theta, X, A) {</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  theta1 <span class="ot">&lt;-</span> theta[<span class="dv">1</span>]; RC <span class="ot">&lt;-</span> theta[<span class="dv">2</span>]</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (theta1 <span class="sc">&lt;=</span> <span class="dv">0</span> <span class="sc">||</span> RC <span class="sc">&lt;=</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="fl">1e10</span>)</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  sol <span class="ot">&lt;-</span> <span class="fu">solve_vfi</span>(theta1, RC, <span class="at">tol =</span> <span class="fl">1e-8</span>, <span class="at">maxit =</span> <span class="dv">1000</span>)   <span class="co"># ← 内側の DP</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  m   <span class="ot">&lt;-</span> <span class="fu">pmax</span>(sol<span class="sc">$</span>v0, sol<span class="sc">$</span>v1)</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  lae <span class="ot">&lt;-</span> m <span class="sc">+</span> <span class="fu">log</span>(<span class="fu">exp</span>(sol<span class="sc">$</span>v0 <span class="sc">-</span> m) <span class="sc">+</span> <span class="fu">exp</span>(sol<span class="sc">$</span>v1 <span class="sc">-</span> m))        <span class="co"># log(exp v0 + exp v1)</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  logp1 <span class="ot">&lt;-</span> ______                                          <span class="co"># 【穴埋め】log P(交換|x)</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  logp0 <span class="ot">&lt;-</span> ______                                          <span class="co"># 【穴埋め】log P(維持|x)</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  xr <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(X) <span class="sc">+</span> <span class="dv">1</span>; ar <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(A)</span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  ll <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">ifelse</span>(ar <span class="sc">==</span> <span class="dv">1</span>L, logp1[xr], logp0[xr]))</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span>ll</span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>t0 <span class="ot">&lt;-</span> <span class="fu">Sys.time</span>()</span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>fit_nfxp <span class="ot">&lt;-</span> <span class="fu">optim</span>(<span class="at">par =</span> <span class="fu">c</span>(<span class="fl">0.15</span>, <span class="fl">3.0</span>), <span class="at">fn =</span> neg_loglik_nfxp, <span class="at">X =</span> X, <span class="at">A =</span> A,</span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;Nelder-Mead&quot;</span>, <span class="at">control =</span> <span class="fu">list</span>(<span class="at">reltol =</span> <span class="fl">1e-9</span>, <span class="at">maxit =</span> <span class="dv">2000</span>),</span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>                  <span class="at">hessian =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>t1 <span class="ot">&lt;-</span> <span class="fu">Sys.time</span>()</span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>nfxp_time <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">difftime</span>(t1, t0, <span class="at">units =</span> <span class="st">&quot;secs&quot;</span>))</span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>se_nfxp <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">diag</span>(<span class="fu">solve</span>(fit_nfxp<span class="sc">$</span>hessian)))</span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>recovery <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">parameter =</span> <span class="fu">c</span>(<span class="st">&quot;theta1&quot;</span>, <span class="st">&quot;RC&quot;</span>),</span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">truth     =</span> <span class="fu">c</span>(theta1_true, RC_true),</span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">estimate  =</span> <span class="fu">round</span>(fit_nfxp<span class="sc">$</span>par, <span class="dv">4</span>),</span>
-<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">se        =</span> <span class="fu">round</span>(se_nfxp, <span class="dv">4</span>),</span>
-<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">ci_lower  =</span> <span class="fu">round</span>(fit_nfxp<span class="sc">$</span>par <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> se_nfxp, <span class="dv">4</span>),</span>
-<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">ci_upper  =</span> <span class="fu">round</span>(fit_nfxp<span class="sc">$</span>par <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> se_nfxp, <span class="dv">4</span>)</span>
-<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(recovery, <span class="at">caption =</span> <span class="st">&quot;NFXP：真値回収と標準誤差&quot;</span>)</span>
-<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;NFXP 実行時間:&quot;</span>, <span class="fu">round</span>(nfxp_time, <span class="dv">2</span>), <span class="st">&quot;秒</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="callout callout-style-default callout-warning callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">警告</span>識別上の注意：<span class="math inline">\(\beta\)</span> を選択データだけで推定する難しさ
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>この課題では <strong><span class="math inline">\(\beta\)</span> を推定対象に加えない</strong>。選択データだけでは割引因子とflow utilityを一般に分離できず、追加の除外制約・外部情報・正規化が要る。ここの尤度へ無制約に<span class="math inline">\(\beta\)</span>を足すと目的関数が平坦・不安定になり、探索が<span class="math inline">\(\beta&gt;1\)</span>や負の値へ飛ぶこともある。<span class="math inline">\(\beta=0.95\)</span>を固定して<span class="math inline">\((\theta_1,RC)\)</span>だけを推定し、必要なら別の固定値で感度分析する。</p>
-</div>
-</div>
-</section>
-<section id="問515点hotz-miller-の-ccp-で推定する" class="level2">
-<h2 class="anchored" data-anchor-id="問515点hotz-miller-の-ccp-で推定する">問5（15点）：Hotz-Miller の CCP で推定する</h2>
-<p>CCP アプローチを実装せよ。<strong>renewal action（交換=リセット）の finite dependence</strong> で、価値関数を解かずに線形回帰で <span class="math inline">\(\theta\)</span> を得る。恒等式は</p>
+<section id="part-1航空券1路線の予約データを生成する30点" class="level2">
+<h2 class="anchored" data-anchor-id="part-1航空券1路線の予約データを生成する30点">Part 1：航空券1路線の予約データを生成する（30点）</h2>
+<section id="設定" class="level3">
+<h3 class="anchored" data-anchor-id="設定">設定</h3>
+<p>とある地方路線を考える。次のパラメータで予約プロセスをシミュレートする。</p>
+<ul>
+<li>販売期間：<span class="math inline">\(T = 60\)</span> 日（<span class="math inline">\(t=60\)</span> が販売開始日、<span class="math inline">\(t=0\)</span> が出発日）</li>
+<li>座席数：<span class="math inline">\(C = 30\)</span> 席</li>
+<li>1日あたりの客の到着確率：<span class="math inline">\(\bar\lambda = 0.8\)</span></li>
+<li>到着した客の購買確率（真のモデル）：</li>
+</ul>
 <p><span class="math display">\[
-\underbrace{\log \hat P(1\mid x) - \log \hat P(0\mid x) + \beta \sum_{x&#39;}\big[P_1 - P_0\big](x&#39;\mid x)\,\log \hat P(1\mid x&#39;)}_{=:\ y(x)}
-\;=\; \theta_1\, x - RC.
+\Pr(\text{購入} \mid p, \text{到着}) = \frac{\exp(\theta_0 - \alpha p)}{1 + \exp(\theta_0 - \alpha p)}, \qquad \theta_0 = 5.0,\ \ \alpha = 0.05
 \]</span></p>
-<p><span class="math inline">\(y(x)\)</span> を経験 CCP から計算し、<span class="math inline">\(x\)</span> に回帰する（傾き=<span class="math inline">\(\theta_1\)</span>、切片=<span class="math inline">\(-RC\)</span>）。<span class="math inline">\(\hat P=0\)</span>対策にはJeffreys/add-half平滑化 <span class="math inline">\((n_1+0.5)/(n+1)\)</span> を使う（Laplace/add-oneは <span class="math inline">\((n_1+1)/(n+2)\)</span>）。薄い状態対策として観測数 <span class="math inline">\(\geq30\)</span> の状態をWLSに使う。</p>
+<p>（この <span class="math inline">\(\theta_0, \alpha\)</span> が「真のパラメータ」であり、Part 2ではこれを知らないふりをして推定する。）</p>
+</section>
+<section id="設問1-110点一定価格のもとでの予約データ生成" class="level3">
+<h3 class="anchored" data-anchor-id="設問1-110点一定価格のもとでの予約データ生成">設問1-1（10点）：一定価格のもとでの予約データ生成</h3>
+<p>まずは航空会社が「価格を動かさない」場合のブッキングカーブを作る。最適固定価格（後述の設問2-4で使う値を先取りしてよいし、適当な水準で構わない。ここでは仮に <span class="math inline">\(p = 90\)</span> 円を使う）を1本の価格として、<span class="math inline">\(T=60\)</span> 日間、毎日「客が到着するか」「到着したら買うか」をシミュレーションし、日々の販売数・残り座席数を記録せよ。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>diffP <span class="ot">&lt;-</span> P1 <span class="sc">-</span> P0</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 状態ごとの交換回数 n1 と観測回数 n</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>n_x  <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">0</span><span class="sc">:</span>(K <span class="sc">-</span> <span class="dv">1</span>), <span class="cf">function</span>(xv) <span class="fu">sum</span>(X <span class="sc">==</span> xv))</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>n1_x <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">0</span><span class="sc">:</span>(K <span class="sc">-</span> <span class="dv">1</span>), <span class="cf">function</span>(xv) <span class="fu">sum</span>(A[X <span class="sc">==</span> xv]))</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Jeffreys/add-half 平滑化した CCP</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>Psm    <span class="ot">&lt;-</span> (n1_x <span class="sc">+</span> <span class="fl">0.5</span>) <span class="sc">/</span> (n_x <span class="sc">+</span> <span class="fl">1.0</span>)</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>logP1h <span class="ot">&lt;-</span> <span class="fu">log</span>(Psm); logP0h <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">1</span> <span class="sc">-</span> Psm)</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 将来項の logP1（未観測状態は最も近い観測状態で代用。境界も安全に処理）</span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>logP1h_full <span class="ot">&lt;-</span> logP1h</span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>observed_idx <span class="ot">&lt;-</span> <span class="fu">which</span>(n_x <span class="sc">&gt;</span> <span class="dv">0</span>)</span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(observed_idx) <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">stop</span>(<span class="st">&quot;CCPを計算できる観測状態がない&quot;</span>)</span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (idx <span class="cf">in</span> <span class="fu">which</span>(n_x <span class="sc">==</span> <span class="dv">0</span>)) {</span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  nearest <span class="ot">&lt;-</span> observed_idx[<span class="fu">which.min</span>(<span class="fu">abs</span>(observed_idx <span class="sc">-</span> idx))]</span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  logP1h_full[idx] <span class="ot">&lt;-</span> logP1h[nearest]</span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co"># y(x) を計算 → 観測数&gt;=30 の状態で重み付き回帰</span></span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>y_hat <span class="ot">&lt;-</span> ______                                 <span class="co"># 【穴埋め】logP1h - logP0h + beta * (P1-P0) 行 x logP1h_full</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>good  <span class="ot">&lt;-</span> n_x <span class="sc">&gt;=</span> <span class="dv">30</span></span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>fit_ccp <span class="ot">&lt;-</span> <span class="fu">lm</span>(y_hat <span class="sc">~</span> xs, <span class="at">weights =</span> n_x, <span class="at">subset =</span> good)</span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>theta1_ccp <span class="ot">&lt;-</span> <span class="fu">coef</span>(fit_ccp)[<span class="dv">2</span>]</span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>RC_ccp     <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fu">coef</span>(fit_ccp)[<span class="dv">1</span>]                 <span class="co"># 切片が -RC</span></span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;CCP：theta1 =&quot;</span>, <span class="fu">round</span>(theta1_ccp, <span class="dv">4</span>), <span class="st">&quot; RC =&quot;</span>, <span class="fu">round</span>(RC_ccp, <span class="dv">4</span>),</span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;  （使った状態数:&quot;</span>, <span class="fu">sum</span>(good), <span class="st">&quot;）</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># NFXP と CCP を並べる</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>compare_tbl <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;NFXP&quot;</span>, <span class="st">&quot;CCP&quot;</span>),</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">theta1 =</span> <span class="fu">round</span>(<span class="fu">c</span>(fit_nfxp<span class="sc">$</span>par[<span class="dv">1</span>], theta1_ccp), <span class="dv">4</span>),</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">RC     =</span> <span class="fu">round</span>(<span class="fu">c</span>(fit_nfxp<span class="sc">$</span>par[<span class="dv">2</span>], RC_ccp), <span class="dv">4</span>)</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(compare_tbl, <span class="at">caption =</span> <span class="st">&quot;NFXP vs CCP&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 真のパラメータ</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>theta0_true <span class="ot">&lt;-</span> <span class="fl">5.0</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>alpha_true  <span class="ot">&lt;-</span> <span class="fl">0.05</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>lambda_bar  <span class="ot">&lt;-</span> <span class="fl">0.8</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>T_period    <span class="ot">&lt;-</span> <span class="dv">60</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>C_capacity  <span class="ot">&lt;-</span> <span class="dv">30</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>p_fixed <span class="ot">&lt;-</span> <span class="dv">90</span>  <span class="co"># 一定価格の水準（自分で適当な値を決めてよい）</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>sigmoid <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(<span class="sc">-</span>x))</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>simulate_fixed_price_dgp <span class="ot">&lt;-</span> <span class="cf">function</span>(seed, T_period, C_capacity, theta0, alpha, lambda_bar, p_fixed) {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set.seed</span>(seed)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  c_remain <span class="ot">&lt;-</span> C_capacity</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  records  <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">day =</span> <span class="fu">integer</span>(<span class="dv">0</span>), <span class="at">t_remain =</span> <span class="fu">integer</span>(<span class="dv">0</span>),</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>                          <span class="at">arrived =</span> <span class="fu">integer</span>(<span class="dv">0</span>), <span class="at">purchased =</span> <span class="fu">integer</span>(<span class="dv">0</span>), <span class="at">c_after =</span> <span class="fu">integer</span>(<span class="dv">0</span>))</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (t <span class="cf">in</span> T_period<span class="sc">:</span><span class="dv">1</span>) {</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ここを埋める：</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 1. arrived &lt;- runif(1) &lt; lambda_bar で客の到着を判定する</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 2. arrivedがTRUEかつc_remain &gt; 0なら、prob_buy &lt;- sigmoid(theta0 - alpha * p_fixed) を計算し、</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">#    purchased &lt;- as.numeric(runif(1) &lt; prob_buy) で購入を判定する（そうでなければpurchased &lt;- 0）</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 3. purchased == 1ならc_remainを1減らす</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 4. records に rbind() で1行（day, t_remain, arrived, purchased, c_after）を追加する</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">#    （day = T_period - t + 1、c_after = 更新後のc_remain）</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  records</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -2745,133 +2481,297 @@ window.Quarto = {
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ヒント</span>ヒント：finite dependence がなぜ効くか（講義の復習）
+<span class="screen-reader-only">ヒント</span>ヒント：ループの骨格
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>交換すると状態が <span class="math inline">\(x=0\)</span> にリセットされる（<span class="math inline">\(P_1\)</span> が全行同じ）。だから「交換後の将来価値」は現在状態によらない定数になり、<span class="math inline">\(v(x,1)-v(x,0)\)</span> の将来項の差をとると<strong>打ち消える</strong>。残るのは遷移確率（既知）と CCP（データから推定可能）だけ。だから価値関数反復なしで <span class="math inline">\(\theta\)</span> が線形回帰で出る。まず<strong>真の CCP</strong>（<code>ccp_replace(sol$v0, sol$v1)</code>）で <span class="math inline">\(y(x) = \theta_1 x - RC\)</span> が厳密に成り立つことを確認すると、恒等式の実装が正しいか検算できる（講義ノート参照）。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (t <span class="cf">in</span> T_period<span class="sc">:</span><span class="dv">1</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  arrived <span class="ot">&lt;-</span> <span class="fu">runif</span>(<span class="dv">1</span>) <span class="sc">&lt;</span> lambda_bar</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  purchased <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (arrived <span class="sc">&amp;&amp;</span> c_remain <span class="sc">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    prob_buy <span class="ot">&lt;-</span> <span class="fu">sigmoid</span>(theta0 <span class="sc">-</span> alpha <span class="sc">*</span> p_fixed)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    purchased <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">runif</span>(<span class="dv">1</span>) <span class="sc">&lt;</span> prob_buy)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (purchased <span class="sc">==</span> <span class="dv">1</span>) c_remain <span class="ot">&lt;-</span> c_remain <span class="sc">-</span> <span class="dv">1</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  records <span class="ot">&lt;-</span> <span class="fu">rbind</span>(records, <span class="fu">data.frame</span>(</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">day =</span> T_period <span class="sc">-</span> t <span class="sc">+</span> <span class="dv">1</span>, <span class="at">t_remain =</span> t,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">arrived =</span> <span class="fu">as.numeric</span>(arrived), <span class="at">purchased =</span> purchased, <span class="at">c_after =</span> c_remain</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  ))</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<p>在庫がゼロになった後も日数分だけループは回してよい（その場合は<code>purchased</code>が常に0になるようにする）。</p>
 </div>
 </div>
-<div class="callout callout-style-default callout-warning callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">警告</span>よくあるバグ：<span class="math inline">\(\gamma\)</span> 定数の扱いと将来項の符号
-</div>
-</div>
-<div class="callout-body-container callout-body">
+</section>
+<section id="設問1-210点ブッキングカーブの可視化" class="level3">
+<h3 class="anchored" data-anchor-id="設問1-210点ブッキングカーブの可視化">設問1-2（10点）：ブッキングカーブの可視化</h3>
+<p>設問1-1で生成したデータから、<strong>累積販売数（cumulative bookings）</strong>を縦軸、<strong>販売開始からの日数</strong>を横軸にとった折れ線グラフ（ブッキングカーブ）を描け。あわせて、シミュレーションを5本（異なるseed）走らせて重ね描きし、「同じ価格ルールでも、実現する予約の進み方にはばらつきがある」ことを視覚的に示せ。</p>
+</section>
+<section id="設問1-310点記述統計" class="level3">
+<h3 class="anchored" data-anchor-id="設問1-310点記述統計">設問1-3（10点）：記述統計</h3>
+<p>生成したデータ（1本でよい）について、以下を計算し、簡単に考察せよ（3〜5行）。</p>
 <ul>
-<li><strong><span class="math inline">\(\gamma\)</span>（Euler 定数）</strong>：CCP の恒等式には <span class="math inline">\(\gamma\)</span> が現れない（<span class="math inline">\(v(x,1)-v(x,0)\)</span> の差で <span class="math inline">\(\gamma\)</span> が消えるから）。<code>y_hat</code> に <span class="math inline">\(\gamma\)</span> を足さないこと。<span class="math inline">\(\gamma\)</span> が要るのは価値関数反復（logsum）の方だけ。</li>
-<li><strong>将来項の符号</strong>：<span class="math inline">\(y(x)\)</span> の第3項は <span class="math inline">\(+\beta (P_1 - P_0) \log \hat P(1\mid x&#39;)\)</span> で、<strong>プラス</strong>（導出で <span class="math inline">\(-\log P(1\mid x&#39;)\)</span> が2回符号を変える）。ここを間違えると <span class="math inline">\(\theta_1\)</span>・<span class="math inline">\(RC\)</span> が真値から大きく外れる。真の CCP での検算（<span class="math inline">\(y = \theta_1 x - RC\)</span>）が一致するかで検知できる。</li>
+<li>最終的な販売数（完売したかどうか）</li>
+<li>到着した客のうち、実際に購入した割合（コンバージョン率）</li>
+<li>到着したが購入しなかった客の日数分布（在庫切れ前と在庫切れ後で分けて集計できるとなお良い）</li>
 </ul>
-</div>
-</div>
-</section>
-<section id="問615点反実仮想を動学と-myopic-で比べる" class="level2">
-<h2 class="anchored" data-anchor-id="問615点反実仮想を動学と-myopic-で比べる">問6（15点）：反実仮想を動学と myopic で比べる</h2>
-<p>交換費 <span class="math inline">\(RC\)</span> を20%補助したときの効果を、(a) 正しい動学モデル（<span class="math inline">\(\beta=0.95\)</span>）と (b) myopic モデル（<span class="math inline">\(\beta=0\)</span> で推定したパラメータを <span class="math inline">\(\beta=0\)</span> の DP で使う）とで比べよ。長期交換率・平均走行距離は、方針が誘導するマルコフ連鎖の定常分布から計算する。</p>
-<div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 方針が誘導する状態遷移 M と定常分布</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>policy_transition <span class="ot">&lt;-</span> <span class="cf">function</span>(Pr) (<span class="dv">1</span> <span class="sc">-</span> Pr) <span class="sc">*</span> P0 <span class="sc">+</span> Pr <span class="sc">*</span> P1</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>ergodic_dist <span class="ot">&lt;-</span> <span class="cf">function</span>(M) {</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  A <span class="ot">&lt;-</span> <span class="fu">rbind</span>(<span class="fu">t</span>(M) <span class="sc">-</span> <span class="fu">diag</span>(K), <span class="fu">rep</span>(<span class="dv">1</span>, K)); b <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">rep</span>(<span class="dv">0</span>, K), <span class="dv">1</span>)</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  d <span class="ot">&lt;-</span> <span class="fu">qr.solve</span>(A, b); d <span class="sc">/</span> <span class="fu">sum</span>(d)</span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>summarize_policy <span class="ot">&lt;-</span> <span class="cf">function</span>(theta1, RC, label, <span class="at">bta =</span> beta) {</span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  s  <span class="ot">&lt;-</span> <span class="fu">solve_vfi</span>(theta1, RC, <span class="at">bta =</span> bta)</span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  Pr <span class="ot">&lt;-</span> <span class="fu">ccp_replace</span>(s<span class="sc">$</span>v0, s<span class="sc">$</span>v1)</span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  d  <span class="ot">&lt;-</span> <span class="fu">ergodic_dist</span>(<span class="fu">policy_transition</span>(Pr))</span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  rep_rate <span class="ot">&lt;-</span> <span class="fu">sum</span>(d <span class="sc">*</span> Pr); mean_mi <span class="ot">&lt;-</span> <span class="fu">sum</span>(d <span class="sc">*</span> xs)</span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  %s：交換率=%.4f, 平均走行距離=%.3f</span><span class="sc">\n</span><span class="st">&quot;</span>, label, rep_rate, mean_mi))</span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">rep_rate =</span> rep_rate, <span class="at">mean_mi =</span> mean_mi, <span class="at">d =</span> d)</span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a><span class="co"># (a) 正しい動学の反実仮想（真値 or NFXP 推定値を使ってよい）</span></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>base_dyn <span class="ot">&lt;-</span> <span class="fu">summarize_policy</span>(theta1_true, RC_true,       <span class="st">&quot;動学 補助前&quot;</span>)</span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>sub_dyn  <span class="ot">&lt;-</span> <span class="fu">summarize_policy</span>(theta1_true, RC_true <span class="sc">*</span> <span class="fl">0.8</span>, <span class="st">&quot;動学 補助後&quot;</span>)</span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a><span class="co"># (b) myopic 推定：大きめの標本で beta=0 の logit MLE</span></span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>panel_big <span class="ot">&lt;-</span> <span class="fu">simulate_panel</span>(<span class="dv">2000</span>, <span class="dv">300</span>, theta1_true, RC_true)</span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>Xb <span class="ot">&lt;-</span> panel_big<span class="sc">$</span>X; Ab <span class="ot">&lt;-</span> panel_big<span class="sc">$</span>A</span>
-<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>neg_loglik_myopic <span class="ot">&lt;-</span> <span class="cf">function</span>(theta, X, A) {</span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>  theta1 <span class="ot">&lt;-</span> theta[<span class="dv">1</span>]; RC <span class="ot">&lt;-</span> theta[<span class="dv">2</span>]</span>
-<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (theta1 <span class="sc">&lt;=</span> <span class="dv">0</span> <span class="sc">||</span> RC <span class="sc">&lt;=</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="fl">1e10</span>)</span>
-<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>  v0 <span class="ot">&lt;-</span> <span class="sc">-</span>theta1 <span class="sc">*</span> xs; v1 <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="sc">-</span>RC, K)</span>
-<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>  m  <span class="ot">&lt;-</span> <span class="fu">pmax</span>(v0, v1); lae <span class="ot">&lt;-</span> m <span class="sc">+</span> <span class="fu">log</span>(<span class="fu">exp</span>(v0 <span class="sc">-</span> m) <span class="sc">+</span> <span class="fu">exp</span>(v1 <span class="sc">-</span> m))</span>
-<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>  xr <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(X) <span class="sc">+</span> <span class="dv">1</span>; ar <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(A)</span>
-<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(<span class="fu">ifelse</span>(ar <span class="sc">==</span> <span class="dv">1</span>L, (v1 <span class="sc">-</span> lae)[xr], (v0 <span class="sc">-</span> lae)[xr]))</span>
-<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>fit_myopic <span class="ot">&lt;-</span> <span class="fu">optim</span>(<span class="fu">c</span>(<span class="fl">0.15</span>, <span class="fl">3.0</span>), neg_loglik_myopic, <span class="at">X =</span> Xb, <span class="at">A =</span> Ab, <span class="at">method =</span> <span class="st">&quot;Nelder-Mead&quot;</span>)</span>
-<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;myopic 推定 theta1 =&quot;</span>, <span class="fu">round</span>(fit_myopic<span class="sc">$</span>par[<span class="dv">1</span>], <span class="dv">4</span>),</span>
-<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot; RC =&quot;</span>, <span class="fu">round</span>(fit_myopic<span class="sc">$</span>par[<span class="dv">2</span>], <span class="dv">4</span>), <span class="st">&quot;（真値 0.25, 5.0）</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a><span class="co"># myopic 分析者は beta=0 のモデルで反実仮想を予測する</span></span>
-<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>base_myo <span class="ot">&lt;-</span> <span class="fu">summarize_policy</span>(fit_myopic<span class="sc">$</span>par[<span class="dv">1</span>], fit_myopic<span class="sc">$</span>par[<span class="dv">2</span>],       <span class="st">&quot;myopic 補助前&quot;</span>, <span class="at">bta =</span> <span class="dv">0</span>)</span>
-<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>sub_myo  <span class="ot">&lt;-</span> <span class="fu">summarize_policy</span>(fit_myopic<span class="sc">$</span>par[<span class="dv">1</span>], fit_myopic<span class="sc">$</span>par[<span class="dv">2</span>] <span class="sc">*</span> <span class="fl">0.8</span>, <span class="st">&quot;myopic 補助後&quot;</span>, <span class="at">bta =</span> <span class="dv">0</span>)</span>
-<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a>cf_tbl <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">analysis   =</span> <span class="fu">c</span>(<span class="st">&quot;正しい動学&quot;</span>, <span class="st">&quot;myopic (誤り)&quot;</span>),</span>
-<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">rep_before =</span> <span class="fu">round</span>(<span class="fu">c</span>(base_dyn<span class="sc">$</span>rep_rate, base_myo<span class="sc">$</span>rep_rate), <span class="dv">4</span>),</span>
-<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">rep_after  =</span> <span class="fu">round</span>(<span class="fu">c</span>(sub_dyn<span class="sc">$</span>rep_rate,  sub_myo<span class="sc">$</span>rep_rate), <span class="dv">4</span>),</span>
-<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a>  <span class="at">rep_change_pct =</span> <span class="fu">round</span>(<span class="fu">c</span>((sub_dyn<span class="sc">$</span>rep_rate <span class="sc">/</span> base_dyn<span class="sc">$</span>rep_rate <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span>,</span>
-<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a>                           (sub_myo<span class="sc">$</span>rep_rate <span class="sc">/</span> base_myo<span class="sc">$</span>rep_rate <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span>), <span class="dv">1</span>)</span>
-<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(cf_tbl, <span class="at">caption =</span> <span class="st">&quot;RC 20%補助の効果予測：動学 vs myopic&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">警告</span>よくあるバグ：交換後の状態リセットのバグ
+<span class="screen-reader-only">ノート</span>注意：この一定価格データだけでは、Part 2の推定が難しくなる
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>反実仮想でも DP を解き直す（<code>solve_vfi</code> を新しい <span class="math inline">\(RC\)</span> で呼ぶ）ことを忘れずに。<span class="math inline">\(RC\)</span> を下げても価値関数を再計算しなければ、交換方針が変わらず、反実仮想が意味をなさない。また <code>policy_transition</code> の <code>(1 - Pr) * P0 + Pr * P1</code> は、R の列方向リサイクルで「行 <span class="math inline">\(x\)</span> を <span class="math inline">\(Pr[x]\)</span> 倍」になる（行和=1）。ここは R の癖に助けられている箇所なので、<code>rowSums(policy_transition(Pr))</code> が全部1になるか確認するとよい。</p>
+<p>設問1-1のように<strong>本当に1つの価格だけ</strong>で予約データを生成すると、価格に変動（分散）が無いために、Part 2で購買確率の式にある <span class="math inline">\(\theta_0\)</span> と <span class="math inline">\(\alpha\)</span> の<strong>両方を同時に識別することができない</strong>（価格が動かなければ、価格への反応の大きさ<span class="math inline">\(\alpha\)</span>を測りようがない）。これは第2回・第3回で学んだ「変数のばらつきが無いと係数は推定できない」という識別の基本問題そのものだ。</p>
+<p>そこで、設問1-1・1-2・1-3は「一定価格のときのブッキングカーブがどう見えるか」を体感するために行うが、<strong>Part 2で使うデータは、次の設問1-4で作るランダム価格実験のデータに切り替える</strong>。これは通常の観察価格を真似たDGPではない。価格を潜在的な需要ショックから独立に割り当て、価格反応を実験的に識別するための教材上の設計である。実務の曜日価格や早期割引は需要予測と連動しうるので、単に価格が動いているだけでは同じ識別は得られない。</p>
 </div>
 </div>
 </section>
-<section id="問710点設備保全担当への提言を3行で" class="level2">
-<h2 class="anchored" data-anchor-id="問710点設備保全担当への提言を3行で">問7（10点）：設備保全担当への提言を3行で</h2>
-<p>あなたは社用車フリートの設備保全を統括する立場だとする。問6の結果（動学 vs myopic の反実仮想の食い違い、NFXP・CCP の推定値）に基づいて、<strong>経営・政策への含意を3行</strong>で書け。とくに「交換費補助という施策の効果を、なぜ動学モデルで評価すべきか（myopic だと何を誤るか）」に触れること。数値を1つは根拠に引くこと。</p>
+<section id="設問1-4配点は上記10点に含む必須ランダム価格実験のdgp" class="level3">
+<h3 class="anchored" data-anchor-id="設問1-4配点は上記10点に含む必須ランダム価格実験のdgp">設問1-4（配点は上記10点に含む、必須）：ランダム価格実験のDGP</h3>
+<p>設問1-1のシミュレーション関数を改造し、価格を「基準価格 <span class="math inline">\(\bar p\)</span> の <span class="math inline">\(\pm 15\%\)</span> の範囲で、5段階（<span class="math inline">\(-15\%, -7.5\%, 0\%, +7.5\%, +15\%\)</span>）のいずれかへ毎日ランダムに割り当てる」ように変更せよ。この割当は当日の潜在購買結果から独立な<strong>価格実験</strong>である。基準価格 <span class="math inline">\(\bar p\)</span> は設問2-4で求める最適固定価格に近い値（目安：90前後）を使ってよい。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ここに、判断材料を1つの表にまとめておくと書きやすい</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co"># （交換率の変化・平均走行距離の変化・myopic とのズレ）</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>price_variation_pcts <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.15</span>, <span class="sc">-</span><span class="fl">0.075</span>, <span class="dv">0</span>, <span class="fl">0.075</span>, <span class="fl">0.15</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>simulate_varying_price_dgp <span class="ot">&lt;-</span> <span class="cf">function</span>(seed, T_period, C_capacity, theta0, alpha, lambda_bar,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>                                        p_base, variation_pcts) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set.seed</span>(seed)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  c_remain <span class="ot">&lt;-</span> C_capacity</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  prices_obs   <span class="ot">&lt;-</span> <span class="fu">numeric</span>(<span class="dv">0</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  purchase_obs <span class="ot">&lt;-</span> <span class="fu">numeric</span>(<span class="dv">0</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (t <span class="cf">in</span> T_period<span class="sc">:</span><span class="dv">1</span>) {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (c_remain <span class="sc">==</span> <span class="dv">0</span>) <span class="cf">break</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    pct <span class="ot">&lt;-</span> <span class="fu">sample</span>(variation_pcts, <span class="dv">1</span>)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    p   <span class="ot">&lt;-</span> p_base <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">+</span> pct)</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ここを埋める：設問1-1と同じロジックで到着・購入を判定する。</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 到着した客については、購入したか否かにかかわらずprices_obsとpurchase_obsに</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># p・purchased（0/1）を追加する。到着しなかった期・在庫が既にない期は記録しなくてよい。</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 購入されたらc_remainを1減らす。</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">prices =</span> prices_obs, <span class="at">purchase =</span> purchase_obs)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
+<p>このデータ（<code>prices</code>, <code>purchase</code>）を Part 2 で使う。</p>
 <hr>
 </section>
-<section id="提出方法" class="level2">
-<h2 class="anchored" data-anchor-id="提出方法">提出方法</h2>
-<ul>
-<li>この <code>.qmd</code> の穴埋め（<code>______</code> と <code>#| eval: false</code>）をすべて埋め、<code>#| eval: false</code> を外して最後まで render できる状態にする。</li>
-<li>各問の出力（表・図）とコメントを含めること。</li>
-<li>render した HTML を提出。</li>
-</ul>
-<div class="callout callout-style-default callout-important callout-titled">
+</section>
+<section id="part-2推定dp収益比較70点" class="level2">
+<h2 class="anchored" data-anchor-id="part-2推定dp収益比較70点">Part 2：推定・DP・収益比較（70点）</h2>
+<section id="設問2-115点mleで価格係数-alpha-を推定する" class="level3">
+<h3 class="anchored" data-anchor-id="設問2-115点mleで価格係数-alpha-を推定する">設問2-1（15点）：MLEで価格係数 <span class="math inline">\(\alpha\)</span> を推定する</h3>
+<p>設問1-4で生成した（到着かつ観測された客の）価格と購買の記録から、<span class="math inline">\((\theta_0, \alpha)\)</span> を最尤推定せよ。第2回・Lecture 11本編で使ったニュートン法（解析的勾配・ヘシアン）を自分で実装するか、<code>optim()</code>を使ってもよい（ヒントに両方の骨格を用意する）。</p>
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">重要</span>配点（合計100点）
+<span class="screen-reader-only">ヒント</span>ヒント：<code>optim()</code>を使う場合
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<ul>
-<li>問1（15）：状態遷移行列と価値関数反復（S 字・幾何収束）</li>
-<li>問2（15）：パネル生成と replacement cycle の可視化</li>
-<li>問3（10）：状態ごとの交換頻度の確認とコメント</li>
-<li>問4（15）：NFXP の実装・真値回収・SE（<span class="math inline">\(\beta\)</span> 固定）</li>
-<li>問5（15）：CCP（finite dependence）の実装・NFXP との比較</li>
-<li>問6（15）：反実仮想を動学 vs myopic で比較</li>
-<li>問7（10）：設備保全担当への提言（数値に基づく3行）</li>
-</ul>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>neg_loglik <span class="ot">&lt;-</span> <span class="cf">function</span>(theta, prices, purchase) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  theta0 <span class="ot">&lt;-</span> theta[<span class="dv">1</span>]; alpha <span class="ot">&lt;-</span> theta[<span class="dv">2</span>]</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  u <span class="ot">&lt;-</span> theta0 <span class="sc">-</span> alpha <span class="sc">*</span> prices</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  p_hat <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(<span class="sc">-</span>u))</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(purchase <span class="sc">*</span> <span class="fu">log</span>(p_hat) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> purchase) <span class="sc">*</span> <span class="fu">log</span>(<span class="dv">1</span> <span class="sc">-</span> p_hat))</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># ここを埋める：optim()のprices, purchase引数に、設問1-4で生成したdgp_data$prices, dgp_data$purchase</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># （変数名は自分のコードに合わせる）を渡す</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>opt_result <span class="ot">&lt;-</span> <span class="fu">optim</span>(<span class="at">par =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.01</span>), <span class="at">fn =</span> neg_loglik,</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>                     <span class="at">prices =</span> dgp_data<span class="sc">$</span>prices, <span class="at">purchase =</span> dgp_data<span class="sc">$</span>purchase, <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>theta0_hat <span class="ot">&lt;-</span> opt_result<span class="sc">$</span>par[<span class="dv">1</span>]</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>alpha_hat  <span class="ot">&lt;-</span> opt_result<span class="sc">$</span>par[<span class="dv">2</span>]</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>ニュートン法で自作したい場合は、Lecture 11本編の <code>fit_logit_newton()</code> を参考にしてよい（ロジットの対数尤度が大域的に凹であることを使うと、解析的な勾配・ヘシアンによる更新が数回で収束する）。</p>
+</div>
+</div>
+<p>推定値 <span class="math inline">\(\hat\theta_0, \hat\alpha\)</span> を、真の値 <span class="math inline">\(\theta_0=5.0, \alpha=0.05\)</span> と比較して表にまとめよ。</p>
+</section>
+<section id="設問2-215点hattheta_0hatalpha-でbackward-inductionを解き価格政策のヒートマップを描く" class="level3">
+<h3 class="anchored" data-anchor-id="設問2-215点hattheta_0hatalpha-でbackward-inductionを解き価格政策のヒートマップを描く">設問2-2（15点）：<span class="math inline">\((\hat\theta_0,\hat\alpha)\)</span> でbackward inductionを解き、価格政策のヒートマップを描く</h3>
+<p>設問2-1で得た <span class="math inline">\(\hat\theta_0, \hat\alpha\)</span> を真のパラメータだと仮定して、Lecture 11本編と同じ形のBellman方程式</p>
+<p><span class="math display">\[
+V(t,c) = \max_p \Big\{ \lambda(p)\big[p + V(t-1,c-1)\big] + (1-\lambda(p))V(t-1,c) \Big\}
+\]</span></p>
+<p>をbackward inductionで解け（<span class="math inline">\(\lambda(p) = \bar\lambda \cdot \text{sigmoid}(\hat\theta_0 - \hat\alpha p)\)</span>）。得られた最適価格政策 <span class="math inline">\(\hat p^*(t,c)\)</span> を、残り期間×残り座席のヒートマップとして描け。</p>
+<p>まず1期のevent treeを数式へ対応させると、売れる枝は確率 <span class="math inline">\(\lambda(p)\)</span>・今期収入 <span class="math inline">\(p\)</span>・次期状態 <span class="math inline">\((t-1,c-1)\)</span>、売れない枝は確率 <span class="math inline">\(1-\lambda(p)\)</span>・今期収入0・次期状態 <span class="math inline">\((t-1,c)\)</span> である。「確率×（今期収入＋継続価値）」を2枝について足してから最大化する。</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>ヒント：DP関数の骨格（Lecture 11本編と同じ形）
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>solve_dp <span class="ot">&lt;-</span> <span class="cf">function</span>(T_period, C_capacity, theta0, alpha, lambda_bar, p_grid) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  V      <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> T_period <span class="sc">+</span> <span class="dv">1</span>, <span class="at">ncol =</span> C_capacity <span class="sc">+</span> <span class="dv">1</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  pstar  <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="cn">NA_real_</span>, <span class="at">nrow =</span> T_period <span class="sc">+</span> <span class="dv">1</span>, <span class="at">ncol =</span> C_capacity <span class="sc">+</span> <span class="dv">1</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  lamstar <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> T_period <span class="sc">+</span> <span class="dv">1</span>, <span class="at">ncol =</span> C_capacity <span class="sc">+</span> <span class="dv">1</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  lam_grid <span class="ot">&lt;-</span> lambda_bar <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(<span class="sc">-</span>(theta0 <span class="sc">-</span> alpha <span class="sc">*</span> p_grid))))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (t <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>T_period) {</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (c <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>C_capacity) {</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Bellman方程式の右辺をそのまま評価すること</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>      <span class="co"># （V(t-1,c-1)-V(t-1,c)の差分に簡略化すると符号ミスを起こしやすいので避ける）</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>      <span class="co"># V[t, c]     はV(t-1, c-1)（購入時：1期進み、在庫が1つ減る）</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>      <span class="co"># V[t, c + 1] はV(t-1, c)  （非購入時：1期進み、在庫は変わらない）</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>      <span class="co"># ここを埋める：obj &lt;- lam_grid * (p_grid + V[t, c]) + (1 - lam_grid) * V[t, c + 1]</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>      best_idx <span class="ot">&lt;-</span> <span class="fu">which.max</span>(obj)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>      V[t <span class="sc">+</span> <span class="dv">1</span>, c <span class="sc">+</span> <span class="dv">1</span>]      <span class="ot">&lt;-</span> obj[best_idx]</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>      pstar[t <span class="sc">+</span> <span class="dv">1</span>, c <span class="sc">+</span> <span class="dv">1</span>]  <span class="ot">&lt;-</span> p_grid[best_idx]</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>      lamstar[t <span class="sc">+</span> <span class="dv">1</span>, c <span class="sc">+</span> <span class="dv">1</span>] <span class="ot">&lt;-</span> lam_grid[best_idx]</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    V[t <span class="sc">+</span> <span class="dv">1</span>, <span class="dv">1</span>] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">V =</span> V, <span class="at">pstar =</span> pstar, <span class="at">lamstar =</span> lamstar)</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><strong>Rの索引に注意</strong>：状態 <span class="math inline">\(t=0,\dots,T\)</span>、<span class="math inline">\(c=0,\dots,C\)</span> に対して、R行列の添字は <code>t+1</code>, <code>c+1</code> を使う（0始まりの状態を1始まりの行列索引にずらす）。Lecture 11本編の注意書きを読み返しておくこと。</p>
+<p>なお、今期の販売判断に入るbid priceは <span class="math inline">\(b(t,c)=V(t-1,c)-V(t-1,c-1)\)</span> である。同時点の差 <span class="math inline">\(V(t,c)-V(t,c-1)\)</span> は「期首に追加1席を持つ価値」だが、今期の販売機会費用とは時間添字が異なる。条件付き購買確率を <span class="math inline">\(s(p)=\operatorname{logit}^{-1}(\theta_0-\alpha p)\)</span> とすると、連続価格の内部解は <span class="math inline">\(p^*(t,c)=b(t,c)+1/[\alpha\{1-s(p^*(t,c))\}]\)</span> であり、「静学最適価格＋bid price」という足し算ではない。</p>
 </div>
 </div>
 </section>
+<section id="設問2-315点推定誤差のコスト-推定需要パラメータの政策-vs-真の需要パラメータの政策" class="level3">
+<h3 class="anchored" data-anchor-id="設問2-315点推定誤差のコスト-推定需要パラメータの政策-vs-真の需要パラメータの政策">設問2-3（15点）：推定誤差のコスト — 推定需要パラメータの政策 vs 真の需要パラメータの政策</h3>
+<p>次の3つを計算し、比較せよ。</p>
+<ol type="1">
+<li><strong>真のパラメータ</strong> <span class="math inline">\((\theta_0, \alpha) = (5.0, 0.05)\)</span> でbackward inductionを解いた場合の価格政策 <span class="math inline">\(p^*(t,c)\)</span> と、その期待収益 <span class="math inline">\(V(T,C)\)</span>。</li>
+<li><strong>設問2-2の推定政策</strong> <span class="math inline">\(\hat p^*(t,c)\)</span> を、<strong>真のモデルの上で</strong>評価したときの期待収益（真のパラメータでの購買確率を使い、行動だけ <span class="math inline">\(\hat p^*(t,c)\)</span> に従わせる）。</li>
+<li>1と2の差（収益ロス）を金額と%の両方で報告せよ。</li>
+</ol>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>ヒント：政策を真のモデルで評価する関数（このまま使ってよい）
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>evaluate_policy_on_true_model <span class="ot">&lt;-</span> <span class="cf">function</span>(pstar_policy, T_period, C_capacity, theta0, alpha, lambda_bar) {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  W <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> T_period <span class="sc">+</span> <span class="dv">1</span>, <span class="at">ncol =</span> C_capacity <span class="sc">+</span> <span class="dv">1</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (t <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>T_period) {</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (c <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>C_capacity) {</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>      p <span class="ot">&lt;-</span> pstar_policy[t <span class="sc">+</span> <span class="dv">1</span>, c <span class="sc">+</span> <span class="dv">1</span>]</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>      lam_true <span class="ot">&lt;-</span> lambda_bar <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(<span class="sc">-</span>(theta0 <span class="sc">-</span> alpha <span class="sc">*</span> p))))</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>      W[t <span class="sc">+</span> <span class="dv">1</span>, c <span class="sc">+</span> <span class="dv">1</span>] <span class="ot">&lt;-</span> lam_true <span class="sc">*</span> (p <span class="sc">+</span> W[t, c]) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> lam_true) <span class="sc">*</span> W[t, c <span class="sc">+</span> <span class="dv">1</span>]</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    W[t <span class="sc">+</span> <span class="dv">1</span>, <span class="dv">1</span>] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  W[T_period <span class="sc">+</span> <span class="dv">1</span>, C_capacity <span class="sc">+</span> <span class="dv">1</span>]</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+</section>
+<section id="設問2-410点最適固定価格との比較" class="level3">
+<h3 class="anchored" data-anchor-id="設問2-410点最適固定価格との比較">設問2-4（10点）：最適固定価格との比較</h3>
+<p>真のパラメータのもとで、期間中ずっと同じ価格を使い続ける「最適固定価格」を求め（価格のグリッドサーチでよい）、その期待収益を計算せよ。設問2-3の1（真の動的最適収益）と比較し、<strong>動的価格化によって得られる収益リフト（%）</strong>を報告せよ。</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>ヒント：固定価格の評価関数（このまま使ってよい）
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>evaluate_fixed_price <span class="ot">&lt;-</span> <span class="cf">function</span>(p, T_period, C_capacity, theta0, alpha, lambda_bar) {</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  lam <span class="ot">&lt;-</span> lambda_bar <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(<span class="sc">-</span>(theta0 <span class="sc">-</span> alpha <span class="sc">*</span> p))))</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  W <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> T_period <span class="sc">+</span> <span class="dv">1</span>, <span class="at">ncol =</span> C_capacity <span class="sc">+</span> <span class="dv">1</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (t <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>T_period) {</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (c <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>C_capacity) {</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>      W[t <span class="sc">+</span> <span class="dv">1</span>, c <span class="sc">+</span> <span class="dv">1</span>] <span class="ot">&lt;-</span> lam <span class="sc">*</span> (p <span class="sc">+</span> W[t, c]) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> lam) <span class="sc">*</span> W[t, c <span class="sc">+</span> <span class="dv">1</span>]</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    W[t <span class="sc">+</span> <span class="dv">1</span>, <span class="dv">1</span>] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  W[T_period <span class="sc">+</span> <span class="dv">1</span>, C_capacity <span class="sc">+</span> <span class="dv">1</span>]</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co"># fixed_p_grid &lt;- seq(1, 300, length.out = 150) に対してsapplyし、最大値を探す</span></span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+</section>
+<section id="設問2-510点モンテカルロで収益ロスの分布を見る" class="level3">
+<h3 class="anchored" data-anchor-id="設問2-510点モンテカルロで収益ロスの分布を見る">設問2-5（10点）：モンテカルロで収益ロスの分布を見る</h3>
+<p>設問1-4の<strong>ランダム価格実験</strong>のデータ生成から設問2-3の収益ロス計算までの一連の流れを<strong>1つの関数にまとめ</strong>、乱数シードを変えながら<strong>200回繰り返せ</strong>。得られた <span class="math inline">\((\hat\theta_0,\hat\alpha)\)</span> と収益ロスについて、</p>
+<ul>
+<li><span class="math inline">\(\hat\theta_0\)</span> の標本分布（ヒストグラム）</li>
+<li><span class="math inline">\(\hat\alpha\)</span> の標本分布（ヒストグラム）</li>
+<li>収益ロスの分布（ヒストグラム）</li>
+</ul>
+<p>を描き、各推定値について平均・標準偏差を、収益ロスについて平均・中央値・標準偏差を報告せよ。</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ヒント</span>ヒント：モンテカルロループの骨格
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>n_mc <span class="ot">&lt;-</span> <span class="dv">200</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>theta0_hat_vec   <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="cn">NA_real_</span>, n_mc)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>alpha_hat_vec    <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="cn">NA_real_</span>, n_mc)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>revenue_loss_vec <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="cn">NA_real_</span>, n_mc)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (m <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n_mc) {</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 1. データ生成：設問1-4の simulate_varying_price_dgp() を、</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">#    seed = 10000 + m、その他の引数は共通の設定（theta0_true, alpha_true, lambda_bar,</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">#    T_period, C_capacity, p_base, price_variation_pcts）で呼び出す</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 2. 生成された価格に十分なばらつきがあるか確認する（無い場合や観測数が少なすぎる場合は</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">#    このmをスキップして次のmに進む。各記録用ベクトルはNAのままにする）</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 3. MLE推定：設問2-1の方法でtheta0_hat, alpha_hatを求める</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">#    （alpha_hatが0以下・非有限・極端に大きい場合も「推定失敗」としてスキップする）</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 4. 推定したtheta0_hatとalpha_hatでDPを解く：設問2-2のsolve_dp()を呼び出す</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 5. 真のモデルで評価する：設問2-3のevaluate_policy_on_true_model()を使い、</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">#    真の動的最適収益との差（収益ロス）を計算する</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>  <span class="co"># theta0_hat_vec[m]   &lt;- (求めたtheta0_hat)</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>  <span class="co"># alpha_hat_vec[m]    &lt;- (求めたalpha_hat)</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>  <span class="co"># revenue_loss_vec[m] &lt;- (求めた収益ロス)</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>推定が不安定（<span class="math inline">\(\hat\alpha \le 0\)</span> など）になった回はスキップしてよいが、その回数も報告すること。</p>
+</div>
+</div>
+</section>
+<section id="設問2-65点経営含意" class="level3">
+<h3 class="anchored" data-anchor-id="設問2-65点経営含意">設問2-6（5点）：経営含意</h3>
+<p>以下を踏まえて、3行以内（あるいは1段落）で経営への含意をまとめよ。</p>
+<ul>
+<li>動的価格は固定価格に対してどれだけの収益改善をもたらすか。</li>
+<li>推定誤差はどの程度、収益に影響するか。「1路線・1シーズン分」のデータだけで自信を持ってRMを導入してよいか。</li>
+<li>RM導入を検討する部署に対して、データ収集・実験設計の観点から1つ提案するとしたら何か。</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="提出物" class="level2">
+<h2 class="anchored" data-anchor-id="提出物">提出物</h2>
+<ul>
+<li>実行可能な <code>.qmd</code>（またはレンダリング済みhtml）</li>
+<li>各設問の答え（数値・図・考察）</li>
+</ul>
+<p>配点は Part 1（30点）+ Part 2（70点）の合計100点。部分点は、各設問で求めた実装・検算・解釈がどこまで揃っているかに応じて付与する。</p>
 </section>
 
 </main>
