@@ -3115,7 +3115,7 @@ e_{ik}=\exp(z_{ik}-m_i),\qquad S_i=\sum_{k=1}^3 e_{ik}
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">ノート</span>数学コラム：集団の情報を使う利点と代償
+<span class="screen-reader-only">ノート</span>数学コラム：事後平均の最適性と経験ベイズの限界
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
@@ -3140,37 +3140,6 @@ E[(a_i-\theta_i)^2\mid\mathcal H]
 R(a_i)-R(m_i^*)=E[(a_i-m_i^*)^2]\geq0
 \]</span></p>
 <p>となる。この式は、正しい事後平均からどれだけ離れるかが、平均的な二乗誤差の増加になることを示す。経験ベイズでは <span class="math inline">\(\pi^0\)</span> を <span class="math inline">\(\widehat\pi\)</span> に置き換えるため、その推定誤差によって <span class="math inline">\(\widehat\theta_i^{\mathrm{EB}}\)</span> と <span class="math inline">\(m_i^*\)</span> はずれ得る。よって、<strong>この最適性だけから、経験ベイズが有限標本で必ず個人別最尤より良いとは言えない。</strong> また、ここで平均しているのは母集団から抽選されるタイプと履歴であり、各人の真のタイプを固定した場合の優位性や、一回の標本でのRMSEの順位を保証するものでもない。</p>
-<p><strong>分散を抑える代わりに、集団の平均へ寄せる偏りが生じる。</strong> この代償を式で見るため、このコラムだけは、コーヒーの離散選択とは別の簡単な正規モデルを使う。本人のデータから得た測定値を <span class="math inline">\(X_i\)</span> として、</p>
-<p><span class="math display">\[
-X_i\mid\theta_i\sim N(\theta_i,s^2),\qquad
-\theta_i\sim N(\mu,\tau^2),\qquad s^2&gt;0,\ \tau^2&gt;0
-\]</span></p>
-<p>とする。<span class="math inline">\(s^2\)</span> は本人の測定の不確かさ、<span class="math inline">\(\tau^2\)</span> は母集団内の個人差で、ここでは <span class="math inline">\(\mu,s^2,\tau^2\)</span> は既知とする。このモデルでは個人別最尤は <span class="math inline">\(X_i\)</span>、母集団平均だけを使う推定値は <span class="math inline">\(\mu\)</span> である。</p>
-<p>両者の間を取る推定値 <span class="math inline">\(\delta_i(\omega)=\omega X_i+(1-\omega)\mu\)</span> を考え、重み <span class="math inline">\(0\leq\omega\leq1\)</span> を固定する。<span class="math inline">\(\theta_i\)</span> を固定して <span class="math inline">\(X_i\)</span> のばらつきについて平均すると、</p>
-<p><span class="math display">\[
-\begin{aligned}
-E[\delta_i(\omega)-\theta_i\mid\theta_i]
-&amp;=(1-\omega)(\mu-\theta_i),\\
-\operatorname{Var}(\delta_i(\omega)\mid\theta_i)
-&amp;=\omega^2s^2,\\
-E[(\delta_i(\omega)-\theta_i)^2\mid\theta_i]
-&amp;=\underbrace{(1-\omega)^2(\mu-\theta_i)^2}_{\text{バイアスの二乗}}
-+\underbrace{\omega^2s^2}_{\text{分散}}.
-\end{aligned}
-\]</span></p>
-<p><span class="math inline">\(\omega=1\)</span> の個人別最尤はバイアス0・分散 <span class="math inline">\(s^2\)</span>、<span class="math inline">\(\omega=0\)</span> の母集団平均は分散0・二乗誤差 <span class="math inline">\((\mu-\theta_i)^2\)</span> である。集団の平均へ強く寄せるほど分散は小さくなるが、平均から離れた個人には大きな偏りが生じる。</p>
-<p>母集団についても平均すると <span class="math inline">\(E[(\mu-\theta_i)^2]=\tau^2\)</span> なので、平均リスクは</p>
-<p><span class="math display">\[
-\overline R(\omega)=(1-\omega)^2\tau^2+\omega^2s^2.
-\]</span></p>
-<p>これを <span class="math inline">\(\omega\)</span> で微分して0と置くと、最適な重みとリスクは</p>
-<p><span class="math display">\[
-\omega^*=\frac{\tau^2}{\tau^2+s^2},\qquad
-\overline R(\omega^*)=\frac{\tau^2s^2}{\tau^2+s^2}
-\leq\min\{\tau^2,s^2\}
-\]</span></p>
-<p>となる。<span class="math inline">\(\delta_i(\omega^*)\)</span> は、この正規モデルの事後平均でもある。本人の情報が不確かで <span class="math inline">\(s^2\)</span> が大きいほど集団の平均を重く使い、個人差 <span class="math inline">\(\tau^2\)</span> が大きいほど本人の値を重く使う。正しい母集団で平均すれば両端の方法より良いが、平均から遠い特定の個人については、偏りの増加が分散の減少を上回ることがある。</p>
-<p>この最後の重みの公式は正規モデルでの結果で、今回の有限タイプlogitにそのまま使える式ではない。また、<span class="math inline">\(\mu\)</span> や重みをデータから推定する場合は、その推定誤差も考慮する必要がある。対象に合わない集団の平均を使う問題も含め、<strong>集団の情報を使う効果は、本人の情報の量と、集団の情報が本人にどれほど適切かの両方に依存する。</strong></p>
 </div>
 </div>
 </div>
@@ -3232,7 +3201,11 @@ E[(\delta_i(\omega)-\theta_i)^2\mid\theta_i]
 </section>
 <section id="emの着想所属が分かれば簡単になる" class="level3">
 <h3 class="anchored" data-anchor-id="emの着想所属が分かれば簡単になる">4.2 EMの着想：所属が分かれば簡単になる</h3>
-<p>タイプ番号を <span class="math inline">\(K_i\)</span>、所属ダミーを <span class="math inline">\(Z_{ik}=\mathbf 1\{K_i=k\}\)</span> と書く。もし各人のタイプが見えたなら、完全データの対数尤度は</p>
+<p>これまでと同じく、個人 <span class="math inline">\(i\)</span> のタイプを <span class="math inline">\(\theta_i\)</span>、その候補値を <span class="math inline">\(\vartheta_k\)</span> と書く。その人が候補値 <span class="math inline">\(\vartheta_k\)</span> のタイプに属することを示す<strong>所属ダミー</strong>を</p>
+<p><span class="math display">\[
+Z_{ik}=\mathbf 1\{\theta_i=\vartheta_k\},\qquad k=1,2,3
+\]</span></p>
+<p>と定義する。<span class="math inline">\(Z_{ik}\)</span> は所属を0か1で表す変数であり、<span class="math inline">\(\sum_k Z_{ik}=1\)</span>、<span class="math inline">\(\theta_i=\sum_k Z_{ik}\vartheta_k\)</span> となる。ここでは、個人の所属を表す <span class="math inline">\(Z_{ik}\)</span> と、そのタイプに対応する好みの値 <span class="math inline">\(\vartheta_k\)</span> を区別する。もし各人の所属が見えたなら、完全データの対数尤度は</p>
 <p><span class="math display">\[
 \ell_c(\pi,\vartheta;\mathcal H,Z)
 =\sum_i\sum_k Z_{ik}\left\{\log\pi_k+\log L(\vartheta_k;H_i)\right\}
