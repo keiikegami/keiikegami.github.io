@@ -40,7 +40,7 @@ options(scipen = 8)
 - 母集団にどんな好みの人が何割いるかを知っても、目の前の顧客の好みが分かったわけではない。本人の履歴を使い、その人についての分布を更新する。
 - ベイズの公式は、事前分布と本人の履歴の尤度から事後分布を作る計算である。まず3タイプの重みで、その意味を確かめる。
 - 母集団の分布をデータから推定して個人の更新に使うのが経験ベイズである。一人ずつ推定する方法と、使う情報が違う。
-- タイプの割合だけでなく、タイプの値もEMアルゴリズムで推定する。好みを連続分布にしても、個人の履歴を取り込む考え方は共通する。
+- タイプの割合だけでなく、タイプの値も推定する。好みを連続分布にしても、個人の履歴を取り込む考え方は共通する。
 - 発展として、母集団パラメータの不確実性も取り込む階層ベイズを扱う。人数が増えることと、本人の履歴が長くなることは区別する。
 :::
 
@@ -605,7 +605,7 @@ ggplot(history_weights, aes(history, weight, color = type)) +
 同じ商品を扱っていても、店舗・地域・契約プランによって顧客層が違うことがある。全員を一つの母集団から来た人として扱うと、情報の少ない顧客ほど、対象に合わない分布へ引き寄せられるかもしれない。観測属性に応じて母集団分布を変えることもできるが、その場合は各集団の人数も問題になる。個人の履歴を使うことと、集団をどう定義するかは、両方とも考える必要がある。
 :::
 
-## 4. タイプの値も未知なら：有限混合モデルとEM
+## 4. タイプの値と割合を同時に推定する
 
 ### 4.1 候補値を固定していた仮定を緩める
 
@@ -628,34 +628,24 @@ $$
 
 となる。候補値が推定値になっただけで、本人の履歴を取り込む式の構造は同じだ。
 
-### 4.2 最尤推定をどう計算するか：ここでEMを使う理由
+### 4.2 最尤推定の計算を、所属の推測から考える
 
-ここで変わるのは推定するパラメータであり、推定の基準は引き続き最尤法である。求めたいのは
+推定するパラメータは増えたが、目的は引き続き、観測データの対数尤度を最大にすることである。
 
 $$
 (\widehat\pi,\widehat\vartheta)
-\in\arg\max_{\pi,\vartheta}\ell(\pi,\vartheta;\mathcal H)
+\in\arg\max_{\pi,\vartheta}\ell(\pi,\vartheta;\mathcal H).
 $$
 
-だ。**EMは、この最尤推定を計算するためのアルゴリズムの一つである。MLEがうまくいかないから、別の推定方法に切り替えるわけではない。**
+**この対数尤度を、そのまま直接最適化してよい。** 割合の合計1という制約を3.2と同じ変数変換で満たせば、`optim()` などで割合と候補値をまとめて動かせる。今回は候補値が3個、割合の自由度が2個なので、実質5個のパラメータであり、直接最適化でも十分扱える。
 
-**この対数尤度を、そのまま直接最適化してもよい。** 割合の合計1という制約を3.2と同じ変数変換で満たせば、`optim()` などに負の対数尤度を渡して、割合と候補値をまとめて動かせる。今回は候補値が3個、割合の自由度が2個なので、実質5個のパラメータである。直接最適化で十分扱える大きさで、EMを使わなければ推定できない例ではない。
+ただし、このモデルには計算を簡単にできそうな構造がある。**もし誰がどのタイプか分かっていれば、割合はタイプ別の人数から求まり、候補値はそのタイプの人の履歴だけで推定できる。** 全員のデータを使って一度に解く問題を、人数を数える計算と、タイプごとの推定に分けられるわけだ。難しいのは、その所属が見えないことである。
 
-それでもここでEMを使うのは、**所属が分かれば簡単になるというモデルの構造を、前節で学んだベイズ更新によって利用できるから**である。もし誰がどのタイプか分かっていれば、タイプ別に人数を数え、そのタイプの人の履歴だけで好みの値を推定すればよい。所属が見えないので、代わりに各人の所属確率を求め、それを人数や対数尤度の重みとして使う。
-
-この計算にすると、割合は「所属確率を足した人数÷全人数」という式で更新できる。候補値の推定も、タイプごとの1変数の最適化に分けられる。**ベイズ更新を使って、まとめて解いていた最適化の一部を簡単な更新式に置き換え、残りを小さな問題に分ける**のが、この例での利点だ。ただし、logitの候補値の更新には、引き続き数値的な最適化を使う。
-
-**この利点は、第5節の正規分布のrandom coefficient logitにもつながる。** そこでは、好みの母集団分布を $N(\mu,\tau^2)$ として、平均と分散を推定する。現在の平均・分散で各人の事後分布を求めると、次の母集団平均と分散は、その事後分布の平均や二乗の期待値を集計する式で更新できる。平均と分散を探す数値的な最適化を、明示的な更新式に置き換えられるわけだ。第5節で、その式を確認する。
-
-ただし、この先の例も未知パラメータが2個なので、直接最適化は十分容易である。利点がさらに大きくなり得るのは、複数の商品属性について個人ごとの係数を持たせ、正規分布の平均ベクトルや共分散まで推定する場合だ。更新対象が増えても、必要な事後モーメントが求まれば、母集団の平均・共分散を集計式で更新できる。一方、係数が多いとその事後モーメントの計算自体が重くなる。直接最適化でも、周辺尤度を評価するために個人の係数についての積分が必要であり、どちらの方法でも積分の負担は残る。
-
-したがって、EMが有力なのは、**見えない変数についての条件付き期待値を計算でき、それを使うとパラメータの更新が簡単になる問題**である。EMだけが可能な唯一の方法というわけではなく、常に直接最適化より速いとも限らない。どちらの計算法でも局所解の問題は残る。ここでは小さな例で更新の意味を見える形にし、その考え方を第5節の連続的な好みへつなげよう。
+そこで、所属そのものの代わりに、**所属確率を使えないだろうか。** 候補値と割合を仮に置けば、前節のベイズ更新で各人の所属確率を計算できる。その確率を「人数の端数」や「推定の重み」として使い、候補値と割合を更新してみる。こうして得た値は、元の対数尤度を大きくするだろうか。まず同じコーヒーのデータで、この計算を2回繰り返して確かめよう。
 
 ### 4.3 計算の出発点：仮の分布を置く
 
-割合と候補値を同時に推定したいが、本人のタイプは見えない。どのタイプの人の履歴か分かれば候補値を推定しやすく、候補値が分かれば本人のタイプを推測しやすい。この循環をどう解けばよいだろうか。
-
-ここでは、まず候補値と割合を仮に置き、**その仮定のもとで所属を推測する計算**と、**推測した所属を使って候補値と割合を更新する計算**を交互に行ってみる。今まで使ってきたベイズ更新と、重み付きの最尤推定を組み合わせる方法だ。最初から一般式を覚えるより、同じコーヒーのデータで2回繰り返してみよう。
+所属確率を求めるには、それを計算するための候補値と割合が必要だ。そこで、まず仮の値を置くところから始める。
 
 使うのは、3.1で作った400人・各16機会の `panel` である。初期値を
 
@@ -667,14 +657,14 @@ $$
 とする。上付きの $(0)$ は「まだ一度も更新していない」という意味で、選択機会の番号ではない。これは計算の出発点であり、真の値を知っているという仮定ではない。生成時の正解 `theta_truth` や `pi_true` は使わない。
 
 ```{r}
-em_demo_theta0 <- c(-2, 0, 2)
-em_demo_pi0 <- rep(1 / 3, 3)
-em_demo_ell0 <- panel_loglik(panel, em_demo_theta0)
-knitr::kable(data.frame(type = 1:3, theta = em_demo_theta0, pi = em_demo_pi0),
+demo_theta0 <- c(-2, 0, 2)
+demo_pi0 <- rep(1 / 3, 3)
+demo_ell0 <- panel_loglik(panel, demo_theta0)
+knitr::kable(data.frame(type = 1:3, theta = demo_theta0, pi = demo_pi0),
              digits = 3, col.names = c("タイプ k", "仮の候補値", "仮の割合"))
 ```
 
-`em_demo_ell0[i, k]` は、この仮の候補値で計算した $\log L(\vartheta_k^{(0)};H_i)$ である。3.2では候補値を固定して割合だけを動かしたが、ここからは候補値も動かす。
+`demo_ell0[i, k]` は、この仮の候補値で計算した $\log L(\vartheta_k^{(0)};H_i)$ である。3.2では候補値を固定して割合だけを動かしたが、ここからは候補値も動かす。
 
 ### 4.4 1回目の更新を順番に計算する
 
@@ -691,29 +681,29 @@ $$
 同じ履歴を3つの候補値で評価し、仮の割合を掛け、合計で割る。ここでは、所属に迷いが残る例として顧客252を詳しく見る。次の表の「割合×尤度」が分子であり、その3行の合計が分母になる。
 
 ```{r}
-em_demo0 <- mixture_eval(em_demo_ell0, em_demo_pi0)
-em_demo_w0 <- em_demo0$weights
-em_demo_id <- 252
-em_demo_lik0 <- exp(em_demo_ell0[em_demo_id, ])
-em_demo_joint0 <- em_demo_pi0 * em_demo_lik0
+demo0 <- mixture_eval(demo_ell0, demo_pi0)
+demo_w0 <- demo0$weights
+demo_id <- 252
+demo_lik0 <- exp(demo_ell0[demo_id, ])
+demo_joint0 <- demo_pi0 * demo_lik0
 knitr::kable(data.frame(
-  type = 1:3, theta = em_demo_theta0,
-  likelihood = formatC(em_demo_lik0, format = "e", digits = 3),
-  joint = formatC(em_demo_joint0, format = "e", digits = 3),
-  weight = em_demo_w0[em_demo_id, ]), digits = 4,
+  type = 1:3, theta = demo_theta0,
+  likelihood = formatC(demo_lik0, format = "e", digits = 3),
+  joint = formatC(demo_joint0, format = "e", digits = 3),
+  weight = demo_w0[demo_id, ]), digits = 4,
   col.names = c("タイプ k", "仮の候補値", "顧客252の尤度", "割合×尤度", "所属確率"))
-stopifnot(max(abs(em_demo_joint0 / sum(em_demo_joint0) -
-                  em_demo_w0[em_demo_id, ])) < 1e-12)
+stopifnot(max(abs(demo_joint0 / sum(demo_joint0) -
+                  demo_w0[demo_id, ])) < 1e-12)
 ```
 
 表の `e-09` のような表記は $10^{-9}$ を掛けるという意味だ。16回分の確率の積なので尤度は小さくなるが、比を取った所属確率は普通の0〜1の数になる。実際の計算では `mixture_eval()` が対数を使ってこの比を安定して求めている。
 
-顧客252は、タイプ1である確率が約 `r round(em_demo_w0[252, 1], 3)`、タイプ2である確率が約 `r round(em_demo_w0[252, 2], 3)` となった。ここで大きい方に決めてしまわず、両方の可能性を残す。同じ計算を400人全員に行う。
+顧客252は、タイプ1である確率が約 `r round(demo_w0[252, 1], 3)`、タイプ2である確率が約 `r round(demo_w0[252, 2], 3)` となった。ここで大きい方に決めてしまわず、両方の可能性を残す。同じ計算を400人全員に行う。
 
 ```{r}
-em_demo_ids <- c(1, 2, 3, 252)
-knitr::kable(data.frame(customer = em_demo_ids,
-                        em_demo_w0[em_demo_ids, ]), digits = 4, row.names = FALSE,
+demo_ids <- c(1, 2, 3, 252)
+knitr::kable(data.frame(customer = demo_ids,
+                        demo_w0[demo_ids, ]), digits = 4, row.names = FALSE,
              col.names = c("顧客", "タイプ1の確率", "タイプ2の確率", "タイプ3の確率"))
 ```
 
@@ -736,14 +726,14 @@ $$
 と更新する。
 
 ```{r}
-em_demo_count0 <- colSums(em_demo_w0)
-em_demo_pi1 <- em_demo_count0 / N
-knitr::kable(data.frame(type = 1:3, expected_count = em_demo_count0,
-                        old_pi = em_demo_pi0, new_pi = em_demo_pi1), digits = 4,
+demo_count0 <- colSums(demo_w0)
+demo_pi1 <- demo_count0 / N
+knitr::kable(data.frame(type = 1:3, expected_count = demo_count0,
+                        old_pi = demo_pi0, new_pi = demo_pi1), digits = 4,
              col.names = c("タイプ k", "人数の期待値", "更新前の割合", "更新後の割合"))
 ```
 
-例えばタイプ1の人数の期待値は約 `r round(em_demo_count0[1], 3)` 人なので、更新後の割合は `r round(em_demo_count0[1], 3)` / 400 = 約 `r round(em_demo_pi1[1], 4)` となる。3タイプの人数の期待値は合計400、更新後の割合は合計1である。
+例えばタイプ1の人数の期待値は約 `r round(demo_count0[1], 3)` 人なので、更新後の割合は `r round(demo_count0[1], 3)` / 400 = 約 `r round(demo_pi1[1], 4)` となる。3タイプの人数の期待値は合計400、更新後の割合は合計1である。
 
 **計算Bの後半：同じ所属確率を重みにして、好みの候補値を更新する。**
 
@@ -766,16 +756,16 @@ $$
 この最適値は、logitでは一般に単純な平均の式では求まらない。以下では `optimize()` で1タイプずつ数値的に求める。探索範囲 $[-6,6]$ は計算のために設定した区間で、候補値を最初の3つの値に固定する制約ではない。
 
 ```{r}
-em_demo_theta1 <- vapply(1:3, function(k) {
-  optimize(function(a) -sum(em_demo_w0[, k] * panel_loglik(panel, a)),
+demo_theta1 <- vapply(1:3, function(k) {
+  optimize(function(a) -sum(demo_w0[, k] * panel_loglik(panel, a)),
            interval = c(-6, 6), tol = 1e-8)$minimum
 }, numeric(1))
-knitr::kable(data.frame(type = 1:3, old_theta = em_demo_theta0,
-                        new_theta = em_demo_theta1), digits = 4,
+knitr::kable(data.frame(type = 1:3, old_theta = demo_theta0,
+                        new_theta = demo_theta1), digits = 4,
              col.names = c("タイプ k", "更新前の候補値", "更新後の候補値"))
 ```
 
-`optimize()` は最小値を探すので、$G_k^{(0)}(a)$ にマイナスを付けて渡している。この間、`em_demo_w0` は固定する。割合を更新した直後に所属確率を計算し直すのではなく、**割合と候補値の両方を、同じ計算Aの重みで更新する**。これで1回目の更新 $(\pi^{(0)},\vartheta^{(0)})\to(\pi^{(1)},\vartheta^{(1)})$ が完了した。
+`optimize()` は最小値を探すので、$G_k^{(0)}(a)$ にマイナスを付けて渡している。この間、`demo_w0` は固定する。割合を更新した直後に所属確率を計算し直すのではなく、**割合と候補値の両方を、同じ計算Aの重みで更新する**。これで1回目の更新 $(\pi^{(0)},\vartheta^{(0)})\to(\pi^{(1)},\vartheta^{(1)})$ が完了した。
 
 ### 4.5 2回目の更新：新しい分布で所属を計算し直す
 
@@ -790,29 +780,29 @@ $$
 を求める。本人の履歴が増えたわけではない。変わったのは、その履歴を評価するために使う母集団パラメータだ。
 
 ```{r}
-em_demo_ell1 <- panel_loglik(panel, em_demo_theta1)
-em_demo1 <- mixture_eval(em_demo_ell1, em_demo_pi1)
-em_demo_w1 <- em_demo1$weights
+demo_ell1 <- panel_loglik(panel, demo_theta1)
+demo1 <- mixture_eval(demo_ell1, demo_pi1)
+demo_w1 <- demo1$weights
 knitr::kable(data.frame(type = 1:3,
-                        weight0 = em_demo_w0[em_demo_id, ],
-                        weight1 = em_demo_w1[em_demo_id, ]), digits = 4,
+                        weight0 = demo_w0[demo_id, ],
+                        weight1 = demo_w1[demo_id, ]), digits = 4,
              col.names = c("タイプ k", "顧客252：初期値での確率", "顧客252：1回更新後の確率"))
 ```
 
-顧客252のタイプ1の確率は約 `r round(em_demo_w0[252, 1], 3)` から約 `r round(em_demo_w1[252, 1], 3)` に変わった。更新後の候補値と割合のもとでは、この人の履歴はタイプ1に属すると説明しやすくなっている。
+顧客252のタイプ1の確率は約 `r round(demo_w0[252, 1], 3)` から約 `r round(demo_w1[252, 1], 3)` に変わった。更新後の候補値と割合のもとでは、この人の履歴はタイプ1に属すると説明しやすくなっている。
 
 続いて計算Bを行う。新しい所属確率 $w_{ik}^{(1)}$ を固定して人数を数え直し、重み付き対数尤度も最大化し直す。
 
 ```{r}
-em_demo_count1 <- colSums(em_demo_w1)
-em_demo_pi2 <- em_demo_count1 / N
-em_demo_theta2 <- vapply(1:3, function(k) {
-  optimize(function(a) -sum(em_demo_w1[, k] * panel_loglik(panel, a)),
+demo_count1 <- colSums(demo_w1)
+demo_pi2 <- demo_count1 / N
+demo_theta2 <- vapply(1:3, function(k) {
+  optimize(function(a) -sum(demo_w1[, k] * panel_loglik(panel, a)),
            interval = c(-6, 6), tol = 1e-8)$minimum
 }, numeric(1))
-knitr::kable(data.frame(type = 1:3, expected_count = em_demo_count1,
-                        pi1 = em_demo_pi1, pi2 = em_demo_pi2,
-                        theta1 = em_demo_theta1, theta2 = em_demo_theta2), digits = 4,
+knitr::kable(data.frame(type = 1:3, expected_count = demo_count1,
+                        pi1 = demo_pi1, pi2 = demo_pi2,
+                        theta1 = demo_theta1, theta2 = demo_theta2), digits = 4,
              col.names = c("タイプ k", "人数の期待値", "1回目の割合", "2回目の割合",
                            "1回目の候補値", "2回目の候補値"))
 ```
@@ -820,22 +810,22 @@ knitr::kable(data.frame(type = 1:3, expected_count = em_demo_count1,
 これで2回目の更新が終わった。候補値と割合が履歴にどれくらい合っているかを、4.1で書いた**観測データの対数尤度**で確かめよう。ここで計算するのは、タイプについて平均した履歴の確率の対数であり、更新に使った重み付き対数尤度とは異なる。
 
 ```{r}
-em_demo2 <- mixture_eval(panel_loglik(panel, em_demo_theta2), em_demo_pi2)
-em_demo_ll <- c(em_demo0$loglik, em_demo1$loglik, em_demo2$loglik)
+demo2 <- mixture_eval(panel_loglik(panel, demo_theta2), demo_pi2)
+demo_ll <- c(demo0$loglik, demo1$loglik, demo2$loglik)
 knitr::kable(data.frame(stage = c("初期値", "1回目の更新後", "2回目の更新後"),
-                        loglik = em_demo_ll), digits = 4,
+                        loglik = demo_ll), digits = 4,
              col.names = c("計算の段階", "観測データの対数尤度"))
-stopifnot(all(diff(em_demo_ll) >= -1e-6),
-          max(abs(rowSums(em_demo_w0) - 1)) < 1e-12,
-          max(abs(rowSums(em_demo_w1) - 1)) < 1e-12,
-          all(diff(em_demo_theta1) > 0), all(diff(em_demo_theta2) > 0))
+stopifnot(all(diff(demo_ll) >= -1e-6),
+          max(abs(rowSums(demo_w0) - 1)) < 1e-12,
+          max(abs(rowSums(demo_w1) - 1)) < 1e-12,
+          all(diff(demo_theta1) > 0), all(diff(demo_theta2) > 0))
 ```
 
 対数尤度は大きくなった。まだ2回なので推定を終えるには早いが、「所属確率を求める → その重みで割合と候補値を更新する」を繰り返す方針が見えてきたはずだ。次に、この計算に名前を付け、何を最適化しているのかを整理する。
 
-### 4.6 EMアルゴリズム：今の計算を一般化する
+### 4.6 今の計算を一般化する：EMアルゴリズム
 
-今行った方法が、**EM（Expectation–Maximization）アルゴリズム**である。EMは、データの一部が観測できない問題で最尤推定を行うための反復計算法だ。今回、見えているのは購入履歴で、見えていないのは各人のタイプへの所属である。[Dempster, Laird and Rubin (1977)](https://doi.org/10.1111/j.2517-6161.1977.tb01600.x) は、この考え方を一般的な方法として整理した。
+今行った方法が、**EM（Expectation–Maximization）アルゴリズム**である。EMは、データの一部が観測できない問題で最尤推定を行うための反復計算法の一つだ。4.2の直接最適化と同じく、観測データの対数尤度を最大にすることが目的である。今回、見えているのは購入履歴で、見えていないのは各人のタイプへの所属である。[Dempster, Laird and Rubin (1977)](https://doi.org/10.1111/j.2517-6161.1977.tb01600.x) は、この考え方を一般的な方法として整理した。
 
 これまでと同じく、個人 $i$ のタイプを $\theta_i$、候補値を $\vartheta_k$ と書く。その所属を表すダミーを
 
@@ -917,6 +907,12 @@ $$
 
 タイプを一つに決めてから推定し直す方法とは違い、EMでは所属の曖昧さを重みとして使う。また、反復が進んでも新しいデータが増えたり本人の好みが変わったりするわけではない。同じ履歴に合う母集団パラメータを探す計算が進んでいる。
 
+ここまでの計算から、この例でEMを使う利点も分かる。ベイズ更新で所属確率を求めると、割合は「期待人数÷全人数」という式で更新でき、候補値の推定はタイプごとの1変数の最適化に分かれる。**まとめて解いていた最適化の一部を簡単な更新式に置き換え、残りを小さな問題に分けられる。** ただし、候補値の更新には引き続き数値的な最適化を使っている。
+
+**第5節では、この考え方を正規分布のrandom coefficient logitに進める。** 今は3つの所属確率を集計したが、好みが連続的なら、各人の事後分布の平均や分散を集計する。母集団分布を $N(\mu,\tau^2)$ とすると、それらから母集団の平均と分散の両方を明示的な式で更新できる。第5節では、その更新式を導き、実際にEMで推定する。
+
+ただし、EMが常に直接最適化より速いとは限らず、大域的な最大値への到達も保証されない。まず次に、今使った更新で、なぜ観測データの対数尤度が下がらないのかを確かめよう。
+
 ### 4.7 なぜこの更新で観測データの尤度が下がらないのか
 
 最終的に大きくしたいのは $\ell(\eta;\mathcal H)$ なのに、Mステップでは別の関数 $Q$ を最大にしていた。それでよい理由は、**$Q$ に定数を足すと、現在値で観測データの対数尤度に接する「下限」になる**からである。その下限を押し上げれば、元の対数尤度も下がらない。
@@ -973,20 +969,20 @@ $$
 ```{r}
 #| code-fold: true
 #| code-summary: "1回目の更新で、対数尤度と下限の大小を確かめる"
-em_demo_Q <- function(theta, pi, weights) {
+demo_Q <- function(theta, pi, weights) {
   sum(weights * sweep(panel_loglik(panel, theta), 2, log(pi), "+"))
 }
-em_demo_entropy0 <- -sum(em_demo_w0 * log(em_demo_w0))
-em_demo_bound0 <- em_demo_Q(em_demo_theta0, em_demo_pi0, em_demo_w0) + em_demo_entropy0
-em_demo_bound1 <- em_demo_Q(em_demo_theta1, em_demo_pi1, em_demo_w0) + em_demo_entropy0
+demo_entropy0 <- -sum(demo_w0 * log(demo_w0))
+demo_bound0 <- demo_Q(demo_theta0, demo_pi0, demo_w0) + demo_entropy0
+demo_bound1 <- demo_Q(demo_theta1, demo_pi1, demo_w0) + demo_entropy0
 knitr::kable(data.frame(
   quantity = c("更新前の対数尤度 = 更新前の下限", "更新後の下限（重みは更新前のまま）",
                "更新後の対数尤度"),
-  value = c(em_demo0$loglik, em_demo_bound1, em_demo1$loglik)), digits = 4,
+  value = c(demo0$loglik, demo_bound1, demo1$loglik)), digits = 4,
   col.names = c("比較する値", "計算結果"))
-stopifnot(abs(em_demo_bound0 - em_demo0$loglik) < 1e-7,
-          em_demo_bound1 >= em_demo_bound0 - 1e-7,
-          em_demo1$loglik >= em_demo_bound1 - 1e-7)
+stopifnot(abs(demo_bound0 - demo0$loglik) < 1e-7,
+          demo_bound1 >= demo_bound0 - 1e-7,
+          demo1$loglik >= demo_bound1 - 1e-7)
 ```
 
 次の図は、初期値 $\eta^{(0)}$ と1回更新後の値 $\eta^{(1)}$ を直線で結んだ経路上で、元の対数尤度と下限を比較したものだ。横軸の $s$ に対し $\eta(s)=(1-s)\eta^{(0)}+s\eta^{(1)}$ と置く。これは大小関係を見るための図であり、EMが途中の点を順に通ったという意味ではない。
@@ -997,11 +993,11 @@ stopifnot(abs(em_demo_bound0 - em_demo0$loglik) < 1e-7,
 #| label: fig-em-lower-bound
 #| fig-cap: "初期値（s=0）では2本が一致する。1回更新後（s=1）では下限が上がり、観測データの対数尤度はその下限以上にある。"
 em_bound_path <- do.call(rbind, lapply(seq(0, 1, length.out = 31), function(s) {
-  theta <- (1 - s) * em_demo_theta0 + s * em_demo_theta1
-  pi <- (1 - s) * em_demo_pi0 + s * em_demo_pi1
+  theta <- (1 - s) * demo_theta0 + s * demo_theta1
+  pi <- (1 - s) * demo_pi0 + s * demo_pi1
   data.frame(step = s,
     observed = mixture_eval(panel_loglik(panel, theta), pi)$loglik,
-    bound = em_demo_Q(theta, pi, em_demo_w0) + em_demo_entropy0)
+    bound = demo_Q(theta, pi, demo_w0) + demo_entropy0)
 }))
 stopifnot(all(em_bound_path$observed >= em_bound_path$bound - 1e-7))
 em_bound_plot <- rbind(
@@ -1066,7 +1062,7 @@ fit_em_multistart <- function(dat, starts = list(c(-2, 0, 2), c(-1, .5, 2.5),
 em_runs <- fit_em_multistart(panel)
 em_fit <- em_runs$best
 # 最初の初期値からの1・2回目の更新が、上の逐次計算と一致するか確認する。
-stopifnot(max(abs(em_runs$fits[[1]]$trace[1:3] - em_demo_ll)) < 1e-6)
+stopifnot(max(abs(em_runs$fits[[1]]$trace[1:3] - demo_ll)) < 1e-6)
 stopifnot(all(vapply(em_runs$fits, function(f) f$converged, logical(1))),
           all(vapply(em_runs$fits, function(f) min(diff(f$trace)) > -1e-6, logical(1))),
           all(abs(em_fit$theta) < 5.9))
@@ -1120,7 +1116,7 @@ $$
 :::
 
 
-## 5. 連続的な好みでも、更新の考え方は同じ
+## 5. 正規分布のrandom coefficient logitをEMで推定する
 
 これまでは甘さの好みが3つの値のどれかだと仮定した。実際には、好みはその間の値も取り得る。そこで今度は
 
@@ -1130,6 +1126,8 @@ u_{ijt}=1.5+\theta_i x_j-p_{jt}+\varepsilon_{ijt}
 $$
 
 とする。$x_A=-1$、$x_B=1$、「買わない」の効用は $\varepsilon_{i0t}$ で、前と同じ標準Gumbelショックを使う。$\mu$ は好みの母集団平均、$\tau$ は個人差の標準偏差だ。連続分布にしたのは**甘さへの好み**であり、価格係数ではない。価格は引き続き、同じ機会には全員に共通とする。
+
+第4節では、割合の更新は簡単な式になったが、タイプの候補値の更新には数値的な最適化が残った。この正規分布モデルでは、**各人の事後分布が求まれば、推定したい母集団の平均と分散を、どちらも集計式で更新できる。** ここでは、その利点を生かしてEMで推定する。
 
 ### 5.1 別のデータで連続分布を試す
 
@@ -1157,7 +1155,7 @@ y_c <- as.integer(u_c > probs_c[,1]) + as.integer(u_c > probs_c[,1] + probs_c[,2
 dat_c <- data.frame(id = id_c, time = time_c, pA = pA_c, pB = pB_c, y = y_c)
 ```
 
-### 5.2 母集団の分布を推定し、本人の履歴で更新する
+### 5.2 推定するのは母集団の平均と分散
 
 $H_i$ は本人の選択列と、各機会に提示された価格を含む履歴で、$L(\theta;H_i)$ は、好みが $\theta$ なら本人の選択列が観測される確率だった。有限タイプの和を積分に置き換えると、母集団の周辺対数尤度は
 
@@ -1167,19 +1165,42 @@ $$
 \frac{1}{\tau}\phi\!\left(\frac{\theta-\mu}{\tau}\right)d\theta\right\}
 $$
 
-である。$\phi$ は標準正規密度、$\tau>0$ とする。**一人の履歴の確率を先に掛けてから、共通する $\theta$ について積分する**。この尤度を最大にして $\widehat\mu,\widehat\tau$ を得たら、本人の条件付き密度は
+である。$\phi$ は標準正規密度、$\tau>0$ とする。**一人の履歴の確率を先に掛けてから、全機会に共通する $\theta$ について積分する。** 目的は、この対数尤度を大きくする $\mu,\tau$ を求めることだ。以下では更新式を分かりやすくするため、標準偏差 $\tau$ の代わりに分散 $\tau^2$ を更新する。
+
+もし各人の $\theta_i$ まで観測できたら、話は簡単である。$\theta_i$ を固定すると、logitの尤度 $L(\theta_i;H_i)$ に $\mu,\tau^2$ は入らない。この二つが入るのは、母集団の正規密度だけだ。したがって、完全データでの最尤推定は、$\theta_i$ の標本平均と、そこからの二乗偏差を $N$ で割った分散を求めればよい。
+
+実際には $\theta_i$ が見えない。そこで、第4節と同じく、現在のパラメータで各人の事後分布を求め、その分布について完全データ対数尤度の期待値を取る。**有限タイプでは所属の確率を使ったが、ここでは連続的な好みについての平均と分散を使う。** その計算をE・Mステップに分けて進めよう。
+
+### 5.3 Eステップ：各人の事後平均と事後分散を求める
+
+反復 $r$ の母集団パラメータを $\mu^{(r)},(\tau^2)^{(r)}$ とする。Eステップでは、その現在値を事前分布に使って、各人の履歴でベイズ更新する。
 
 $$
-f_i^{\mathrm{EB}}(\theta\mid H_i)=
-\frac{L(\theta;H_i)\,\phi((\theta-\widehat\mu)/\widehat\tau)/\widehat\tau}
-{\displaystyle\int L(s;H_i)\,\phi((s-\widehat\mu)/\widehat\tau)/\widehat\tau\,ds}.
+f_i^{(r)}(\theta)
+=\frac{L(\theta;H_i)f_N(\theta;\mu^{(r)},(\tau^2)^{(r)})}
+{\int L(s;H_i)f_N(s;\mu^{(r)},(\tau^2)^{(r)})\,ds}.
 $$
 
-これが**経験ベイズ**である。母集団の分布を推定するだけではなく、その推定分布を使い、本人の履歴に応じて個人の分布を計算するまでが一連の手続きだ。logitの尤度と正規分布の積は一般に正規分布にならないため、積分を数値的に計算する。正規分布のsupportは実数全体であり、特定の一点の確率は0である。更新するのは点の確率ではなく密度だ。計算では $[-6,6]$ を241点に分け、台形則で近似する。この有限範囲は数値計算の近似であり、母集団のsupportを有限に変えたわけではない。端の外側の寄与と格子の細かさは後で確認する。個人の尤度の対数から最大値を引くのは、小さすぎる数を直接扱わないための工夫である。
+ここで $f_N(\theta;\mu,\tau^2)=\phi((\theta-\mu)/\tau)/\tau$ は平均 $\mu$、分散 $\tau^2$ の正規密度である。第4節の「割合×尤度を正規化する」計算が、「密度×尤度を積分で正規化する」計算になった。
+
+この事後分布のもとでの平均と分散を
+
+$$
+\begin{aligned}
+m_i^{(r)}&=E_r[\theta_i\mid H_i]
+=\int\theta f_i^{(r)}(\theta)\,d\theta,\\
+v_i^{(r)}&=\operatorname{Var}_r(\theta_i\mid H_i)
+=\int(\theta-m_i^{(r)})^2f_i^{(r)}(\theta)\,d\theta
+\end{aligned}
+$$
+
+と書く。添字 $r$ は、期待値や分散を計算する際に使うパラメータを現在値に固定することを表す。$m_i^{(r)}$ はその人の好みの中心、$v_i^{(r)}$ はその人についてまだ残る不確かさである。
+
+母集団が正規分布でも、logitの履歴を取り込んだ事後分布は一般に正規分布ではない。そのため、これらの積分は数値的に計算する。以下では $[-6,6]$ を241点に分け、台形則で近似する。正規分布のsupportは実数全体であり、この有限範囲は計算上の近似である。また、連続分布の特定の一点の確率は0で、更新するのは点の確率ではなく密度だ。端の外側の寄与と格子の細かさは6.1で確認する。
 
 ```{r}
 #| code-fold: true
-#| code-summary: "数値積分と経験ベイズの計算"
+#| code-summary: "数値積分の準備：周辺対数尤度と事後分布の重み"
 # 台形則で係数空間を積分する。両端に半分の重みを付ける。
 theta_nodes_c <- seq(-6, 6, length.out = 241)
 trap_weights_c <- function(x) {
@@ -1205,79 +1226,173 @@ marginal_loglik_c <- function(mu, log_tau, nodes = theta_nodes_c,
   if (any(values <= 0) || any(!is.finite(values))) return(-Inf)
   sum(rowmax + log(values))
 }
-fit_c <- optim(c(0, 0), function(a) -marginal_loglik_c(a[1], a[2]),
-               method = "L-BFGS-B", lower = c(-2, log(.1)), upper = c(2, log(3)))
-stopifnot(fit_c$convergence == 0)
-mu_hat_c <- fit_c$par[1]; tau_hat_c <- exp(fit_c$par[2])
 post_weights_c <- function(mu, tau, lik = lik_c, nodes = theta_nodes_c, node_w = theta_w_c) {
   weights <- dnorm(nodes, mu, tau) * node_w
   z <- sweep(lik, 2, weights, "*")
   z / rowSums(z)
 }
-post_eb_c <- post_weights_c(mu_hat_c, tau_hat_c)
-theta_eb_c <- drop(post_eb_c %*% theta_nodes_c)
 ```
+
+`post_weights_c()` の各行は、一人の事後分布を格子上で近似した重みで、合計は1になる。尤度の対数から各人の最大値を引いているのは、小さすぎる数を直接扱わないための工夫である。この重みから、平均と分散を計算する。
 
 ```{r}
-knitr::kable(data.frame(parameter = c("母集団平均 μ", "個人差の標準偏差 τ"),
-                        truth = c(mu_true_c, tau_true_c),
-                        estimate = c(mu_hat_c, tau_hat_c)), digits = 3,
-             col.names = c("パラメータ", "真値", "推定値"))
+posterior_moments_c <- function(mu, tau, lik = lik_c,
+                                nodes = theta_nodes_c, node_w = theta_w_c) {
+  w <- post_weights_c(mu, tau, lik, nodes, node_w)
+  m <- drop(w %*% nodes)
+  centered <- sweep(matrix(nodes, nrow(w), length(nodes), byrow = TRUE), 1, m, "-")
+  v <- rowSums(w * centered^2)
+  list(mean = m, variance = v)
+}
+mu0_c <- 0; tau0_c <- 1
+e0_c <- posterior_moments_c(mu0_c, tau0_c)
+knitr::kable(data.frame(customer = 1:3, mean = e0_c$mean[1:3],
+                        variance = e0_c$variance[1:3]), digits = 4,
+             col.names = c("顧客", "初期値での事後平均", "初期値での事後分散"))
 ```
 
-推定値は真値そのものではない。有限の人数と履歴から得た一回の推定結果である。また、`post_eb_c` の各行は一人の係数についての重みであり、`theta_eb_c` はその重みで平均した値だ。平均を一つ出しても、本人の係数がその値と確定したわけではない。
+初期値は $(\mu^{(0)},\tau^{(0)})=(0,1)$ とした。真値を渡したわけではない。表は最初の3人だけを示しているが、`e0_c` には200人全員の結果が入っている。同じ仮の母集団分布から始めても、履歴が違うので、事後平均と事後分散は人によって異なる。
 
+### 5.4 Mステップ：母集団の平均と分散を集計式で更新する
 
-::: {.callout-note}
-## 第4節とのつながり：この正規分布モデルをEMで推定するなら
-
-上の `optim()` は、数値積分で求めた周辺対数尤度を直接最大化している。同じ最尤推定を、EMで計算することもできる。このモデルでは、**各人の事後分布が求まれば、母集団の平均と分散を明示的な式で更新できる**。
-
-反復 $r$ の値を $\mu^{(r)},(\tau^2)^{(r)}$ とする。Eステップでは、その値を事前分布に使って、各人の履歴でベイズ更新する。先ほどの経験ベイズで使った最終的な推定値ではなく、計算途中の現在値を使う点に注意しよう。
-
-$$
-f_i^{(r)}(\theta)
-=\frac{L(\theta;H_i)f_N(\theta;\mu^{(r)},(\tau^2)^{(r)})}
-{\int L(s;H_i)f_N(s;\mu^{(r)},(\tau^2)^{(r)})\,ds},
-$$
-
-ここで $f_N(\theta;\mu,\tau^2)=\phi((\theta-\mu)/\tau)/\tau$ は平均 $\mu$、分散 $\tau^2$ の正規密度を表す。この事後分布のもとでの平均と分散を
-
-$$
-m_i^{(r)}=E_r[\theta_i\mid H_i],\qquad
-v_i^{(r)}=\operatorname{Var}_r(\theta_i\mid H_i)
-$$
-
-と書く。添字 $r$ は、期待値や分散を計算する際に使うパラメータを現在値に固定することを表す。
-
-Mステップで動かす $\mu,\tau^2$ は、母集団の正規密度に入る。個人の $\theta_i$ を固定すれば、logitの尤度 $L(\theta_i;H_i)$ は $\mu,\tau^2$ に依存しない。そのため、完全データ対数尤度の期待値は、$\mu,\tau^2$ に依存しない項を $C_r$ として
+次に、Eステップで得た各人の分布を固定して、完全データ対数尤度の期待値を最大化する。$\mu,\tau^2$ が入るのは正規密度の部分だけなので、
 
 $$
 Q(\mu,\tau^2\mid\mu^{(r)},(\tau^2)^{(r)})
 =-\frac{N}{2}\log\tau^2
--\frac{1}{2\tau^2}\sum_i\{v_i^{(r)}+(m_i^{(r)}-\mu)^2\}+C_r
+-\frac{1}{2\tau^2}\sum_i E_r[(\theta_i-\mu)^2\mid H_i]+C_r
 $$
 
-となる。$C_r$ には、各人のlogit対数尤度の期待値も含まれる。ここで使ったのは $E_r[(\theta_i-\mu)^2\mid H_i]=v_i^{(r)}+(m_i^{(r)}-\mu)^2$ という分散の分解だ。これを $\mu\in\mathbb R$ と $\tau^2>0$ について最大化すると、
+となる。$C_r$ は $\mu,\tau^2$ に依存しない項で、各人のlogit対数尤度の期待値も含む。二乗偏差の期待値を
+
+$$
+E_r[(\theta_i-\mu)^2\mid H_i]
+=v_i^{(r)}+(m_i^{(r)}-\mu)^2
+$$
+
+と分解し、$\mu\in\mathbb R$ と $\tau^2>0$ について最大化すると、次の更新式が得られる。
 
 $$
 \begin{aligned}
 \mu^{(r+1)}&=\frac1N\sum_i m_i^{(r)},\\
 (\tau^2)^{(r+1)}
-&=\frac1N\sum_i\{v_i^{(r)}+(m_i^{(r)}-\mu^{(r+1)})^2\}
+&=\frac1N\sum_i\{v_i^{(r)}+(m_i^{(r)}-\mu^{(r+1)})^2\}.
 \end{aligned}
 $$
 
-という更新式が得られる。母集団平均は本人ごとの事後平均を平均し、母集団分散は「本人について残る不確かさ」と「本人ごとの平均の違い」を合わせて更新する。**事後平均どうしのばらつきだけを使うと、$v_i^{(r)}$ の分を落としてしまう。**
+**母集団平均は、本人ごとの事後平均を平均する。母集団分散は、「本人について残る不確かさ」と「本人ごとの平均の違い」を合わせる。** $m_i^{(r)}$ を観測された好みのように扱い、そのばらつきだけで分散を更新すると、$v_i^{(r)}$ の分を落としてしまう。見えていない $\theta_i$ を一つの推定値で置き換えるだけでは足りない。
 
-この式では、Eステップで得た $m_i^{(r)},v_i^{(r)}$ を固定したまま、母集団パラメータを更新する。更新後は新しい正規分布を使って各人の事後分布を求め直し、同じ計算を繰り返す。
+最初のEステップの結果を、この式に入れてみよう。
 
-上のコードは数値計算の探索範囲を $-2\leq\mu\leq2$、$0.1\leq\tau\leq3$ に制限している。ここで導いた更新式は、その範囲を設けない場合の式である。同じ制約付き問題として比較するなら、EMのMステップでもその範囲内で最大化する必要がある。更新値が範囲内なら、上の式をそのまま使える。
+```{r}
+mu1_c <- mean(e0_c$mean)
+tau1_c <- sqrt(mean(e0_c$variance + (e0_c$mean - mu1_c)^2))
+ll0_c <- marginal_loglik_c(mu0_c, log(tau0_c))
+ll1_c <- marginal_loglik_c(mu1_c, log(tau1_c))
+knitr::kable(data.frame(stage = c("初期値", "1回目の更新後"),
+                        mu = c(mu0_c, mu1_c), tau = c(tau0_c, tau1_c),
+                        loglik = c(ll0_c, ll1_c)), digits = 4,
+             col.names = c("計算の段階", "母集団平均 μ", "個人差の標準偏差 τ", "周辺対数尤度"))
+stopifnot(ll1_c >= ll0_c - 1e-7)
+```
 
-ただし、母集団が正規分布でも、logitの履歴を取り込んだ事後分布は一般に正規分布ではない。したがって、Eステップの平均・分散には、上のコードと同様に数値積分などが必要になる。**簡単になるのはMステップの平均・分散の更新であり、積分の計算が不要になるわけではない。** 上の式は期待値を正確に求める理論上の更新式で、数値積分で実装するときには近似精度も確認する。この節の掲載コードでは、2個の母集団パラメータを直接最適化する方法を使っている。
+**このMステップには `optim()` も `optimize()` も出てこない。** 200人分の事後平均・事後分散を集計するだけで、母集団パラメータを更新できる。第4節の候補値の更新との違いは、ここにある。なお、コードでは分散の更新式の平方根を取り、標準偏差 $\tau$ を保存している。
+
+### 5.5 更新を繰り返して母集団の分布を推定する
+
+新しい $\mu,\tau$ で各人の事後分布を求め直し、その平均と分散で母集団パラメータを更新する。本人の履歴は同じまま、このE・Mの組を繰り返す。第4節と同様に、止めるかどうかは観測データの周辺対数尤度で判断する。
+
+```{r}
+#| code-fold: true
+#| code-summary: "EMの反復：事後平均・事後分散から母集団パラメータを更新する"
+fit_em_normal_c <- function(mu_init = 0, tau_init = 1, tol = 1e-8, maxit = 500,
+                            nodes = theta_nodes_c, node_w = theta_w_c,
+                            lik = lik_c, rowmax = rowmax_c) {
+  mu <- mu_init; tau <- tau_init
+  ll <- marginal_loglik_c(mu, log(tau), nodes, node_w, lik, rowmax)
+  trace <- data.frame(iteration = 0, mu = mu, tau = tau, loglik = ll)
+  for (r in seq_len(maxit)) {
+    # Eステップ：今の母集団パラメータで、各人の平均と分散を求める。
+    moments <- posterior_moments_c(mu, tau, lik, nodes, node_w)
+    # Mステップ：Eステップの結果を固定したまま、集計式で更新する。
+    mu_new <- mean(moments$mean)
+    tau_new <- sqrt(mean(moments$variance + (moments$mean - mu_new)^2))
+    ll_new <- marginal_loglik_c(mu_new, log(tau_new), nodes, node_w, lik, rowmax)
+    stopifnot(is.finite(ll_new), tau_new > 0, ll_new >= ll - 1e-7)
+    gain <- ll_new - ll
+    trace <- rbind(trace, data.frame(iteration = r, mu = mu_new,
+                                    tau = tau_new, loglik = ll_new))
+    mu <- mu_new; tau <- tau_new; ll <- ll_new
+    if (abs(gain) < tol) return(list(mu = mu, tau = tau, trace = trace))
+  }
+  stop("Normal random coefficient EM did not converge")
+}
+fit_c <- fit_em_normal_c(mu0_c, tau0_c)
+mu_hat_c <- fit_c$mu; tau_hat_c <- fit_c$tau
+stopifnot(max(abs(unlist(fit_c$trace[2, c("mu", "tau")]) - c(mu1_c, tau1_c))) < 1e-12)
+```
+
+```{r}
+knitr::kable(data.frame(parameter = c("母集団平均 μ", "個人差の標準偏差 τ"),
+                        truth = c(mu_true_c, tau_true_c),
+                        estimate = c(mu_hat_c, tau_hat_c)), digits = 4,
+             col.names = c("パラメータ", "真値", "EMによる推定値"))
+```
+
+この計算は `r nrow(fit_c$trace) - 1` 回の更新で、周辺対数尤度の変化が $10^{-8}$ 未満になった。推定値は真値そのものではない。有限の人数と履歴から得た一回の推定結果である。
+
+```{r}
+#| label: fig-normal-em-trace
+#| fig-cap: "正規分布モデルのEMによる周辺対数尤度の推移。Eステップの積分には241点の台形則を使っている。"
+ggplot(fit_c$trace, aes(iteration, loglik)) +
+  geom_line(linewidth = .9, color = "#0072B2") + geom_point(size = 1.5, color = "#0072B2") +
+  labs(x = "EMの反復回数", y = "周辺対数尤度")
+```
+
+**簡単になったのはMステップであり、積分が不要になったわけではない。** Eステップでは、正規分布とは限らない各人の事後分布について積分する必要がある。上の式は正確な期待値を用いる理論上の更新式で、ここではそれを数値積分で実装した。積分の精度と、反復が収束したかどうかは別に確認する。
+
+この例の母集団パラメータは2個なので、直接最適化も十分扱える。一方、複数の商品属性について個人ごとの係数を持たせ、正規分布の平均ベクトルや共分散まで推定する場合にも、必要な事後平均・共分散が得られれば、Mステップは同様の集計式になる。これがこの構造を使う利点である。ただし、係数が多くなるとEステップの積分も難しくなる。直接最適化でも周辺尤度を評価するために積分が必要であり、どちらが速いかは問題による。
+
+::: {.callout-note collapse="true"}
+## 補足：直接最適化でも同じ推定問題を解ける
+
+EMは最尤推定の計算法の一つである。同じ数値積分で求めた周辺対数尤度を、`optim()` で直接最大化することもできる。$\tau>0$ を満たすため、動かす変数を $\mu$ と $\log\tau$ にする。
+
+```{r}
+fit_direct_c <- optim(c(0, 0), function(a) -marginal_loglik_c(a[1], a[2]),
+                       method = "BFGS", control = list(reltol = 1e-12, maxit = 1000))
+stopifnot(fit_direct_c$convergence == 0)
+direct_values_c <- c(fit_direct_c$par[1], exp(fit_direct_c$par[2]))
+knitr::kable(data.frame(method = c("EM", "直接最適化"),
+                        mu = c(mu_hat_c, direct_values_c[1]),
+                        tau = c(tau_hat_c, direct_values_c[2]),
+                        loglik = c(tail(fit_c$trace$loglik, 1), -fit_direct_c$value)),
+             digits = 6, col.names = c("計算法", "母集団平均 μ", "標準偏差 τ", "周辺対数尤度"))
+stopifnot(max(abs(c(mu_hat_c, tau_hat_c) - direct_values_c)) < 1e-4,
+          abs(tail(fit_c$trace$loglik, 1) + fit_direct_c$value) < 1e-6)
+```
+
+このデータでは二つの計算法がほぼ同じ結果に到達した。これは今回の計算での確認であり、一般に同じ解への収束や大域的な最大値への到達を保証するものではない。
 :::
 
-### 5.3 同じ事前密度から、個人ごとに異なる密度へ
+### 5.6 推定した母集団分布から、個人ごとの分布へ
+
+EMの反復中は、計算途中の母集団パラメータで各人の分布を求めていた。ここからは、反復を終えて得た $\widehat\mu,\widehat\tau$ を固定し、本人の履歴に応じた分布を求める。
+
+$$
+f_i^{\mathrm{EB}}(\theta\mid H_i)=
+\frac{L(\theta;H_i)\,\phi((\theta-\widehat\mu)/\widehat\tau)/\widehat\tau}
+{\displaystyle\int L(s;H_i)\,\phi((s-\widehat\mu)/\widehat\tau)/\widehat\tau\,ds}.
+$$
+
+これが、連続的な好みについての**経験ベイズ**である。式の計算はEステップと同じだが、ここでは母集団パラメータを次に更新するためではなく、推定を終えた母集団分布を使って各人について学ぶために計算する。最後のMステップで母集団パラメータが変わっているので、その最終値で事後分布を計算し直す。
+
+```{r}
+post_eb_c <- post_weights_c(mu_hat_c, tau_hat_c)
+theta_eb_c <- drop(post_eb_c %*% theta_nodes_c)
+```
+
+`post_eb_c` の各行は一人の係数についての重みであり、`theta_eb_c` はその重みで平均した値だ。平均を一つ出しても、本人の係数がその値と確定したわけではない。
 
 母集団の正規密度は全員に共通だ。それでも、Aを選ぶ履歴の多い人と、Bを選ぶ履歴の多い人では、本人の尤度が違う。次の図は同じ推定事前密度と、3人の事後密度を重ねる。履歴の表と対応させて読もう。ただし、回数だけでは価格の違いを反映できないため、計算には8回それぞれの価格も使っている。
 
@@ -1345,7 +1460,7 @@ $$
 $$
 p(\theta_1,\ldots,\theta_N,\mu,\lambda\mid\mathcal H)
 \propto p(\mu)p(\lambda)\prod_{i=1}^N
-\left\{L(\theta_i;H_i)f(\theta_i\mid\mu,e^\lambda)\right\}.
+\left\{L(\theta_i;H_i)f_N(\theta_i;\mu,e^{2\lambda})\right\}.
 $$
 
 フルベイズで初めて階層構造が現れるわけではない。**母集団パラメータも固定せず、その事後分布を通じて不確実性を伝える**点が異なる。本人の分布は、上のような $f_i(\theta\mid H_i,\mu,\tau)$ を一組の母集団パラメータだけで計算する代わりに、その事後分布で平均する。
@@ -1429,7 +1544,7 @@ Lenk, DeSarbo, Green and Young (1996) は、コンジョイント分析で個人
 
 ### 6.1 数値積分の確認
 
-グリッドが狭すぎると端の外側を無視し、粗すぎると積分が不正確になる。以下では、母集団パラメータの事後重みと、個人の係数の重みについて、外側2点にある合計が小さいか確認する。さらに係数の格子を121・241・481点、母集団パラメータの格子を2種類に変えて主要な推定結果を比べる。端の重みが小さくても、それだけで精度が保証されるわけではないため、格子の範囲や細かさを変えた比較も必要である。
+グリッドが狭すぎると端の外側を無視し、粗すぎると積分が不正確になる。以下では、母集団パラメータの事後重みと、個人の係数の重みについて、外側2点にある合計が小さいか確認する。さらに係数の格子を121・241・481点に変え、範囲を $[-8,8]$ に広げた641点でもEMで推定し直す。母集団パラメータの格子も2種類に変えて比べる。端の重みが小さくても、それだけで精度が保証されるわけではないため、格子の範囲や細かさを変えた比較も必要である。
 
 ```{r}
 #| code-fold: true
@@ -1450,22 +1565,20 @@ stopifnot(all(is.finite(post_eb_c)), max(abs(rowSums(post_eb_c)-1)) < 1e-10,
 
 ```{r}
 #| code-fold: true
-#| code-summary: "格子を細かくして比較する"
-# 積分間隔を変更して、主要な結果が安定しているかを確かめる。
-fit_with_nodes_c <- function(n_nodes) {
-  nodes <- seq(-6, 6, length.out = n_nodes)
+#| code-summary: "積分の格子を細かくし、範囲を広げて比較する"
+# 積分間隔と範囲を変更して、主要な結果が安定しているかを確かめる。
+fit_with_nodes_c <- function(n_nodes, limit = 6) {
+  nodes <- seq(-limit, limit, length.out = n_nodes)
   weights <- trap_weights_c(nodes)
   ell <- log_lik_c(dat_c, nodes)
   rowmax <- apply(ell, 1, max)
   lik <- exp(ell - rowmax)
-  op <- optim(c(mu_hat_c, log(tau_hat_c)), function(a) {
-    -marginal_loglik_c(a[1], a[2], nodes, weights, lik, rowmax)
-  }, method = "L-BFGS-B", lower = c(-2, log(.1)), upper = c(2, log(3)))
-  stopifnot(op$convergence == 0)
-  c(mu = op$par[1], tau = exp(op$par[2]))
+  op <- fit_em_normal_c(nodes = nodes, node_w = weights, lik = lik, rowmax = rowmax)
+  c(mu = op$mu, tau = op$tau)
 }
 quad_compare_c <- rbind(coarse = fit_with_nodes_c(121),
-                        main = c(mu_hat_c, tau_hat_c), fine = fit_with_nodes_c(481))
+                        main = c(mu_hat_c, tau_hat_c), fine = fit_with_nodes_c(481),
+                        wider = fit_with_nodes_c(641, limit = 8))
 # ハイパーパラメータ空間も一つおきの点で再計算する。
 sel_mu_c <- seq(1, length(mu_grid_c), by = 2)
 sel_logtau_c <- seq(1, length(logtau_grid_c), by = 2)
@@ -1480,15 +1593,16 @@ hyper_compare_c <- rbind(
              tau = sum(hyper_coarse_c$post * exp(hyper_coarse_c$logtau))),
   main = c(mu = sum(hyper_c$post * hyper_c$mu),
            tau = sum(hyper_c$post * exp(hyper_c$logtau))))
-knitr::kable(data.frame(nodes = c(121, 241, 481), quad_compare_c), digits = 5,
-             row.names = FALSE, col.names = c("θの格子点数", "μの最尤推定", "τの最尤推定"))
+knitr::kable(data.frame(range = c("[-6, 6]", "[-6, 6]", "[-6, 6]", "[-8, 8]"),
+                        nodes = c(121, 241, 481, 641), quad_compare_c), digits = 5,
+             row.names = FALSE, col.names = c("θの積分範囲", "θの格子点数", "μのEM推定", "τのEM推定"))
 knitr::kable(data.frame(nodes = c("25×25", "49×49"), hyper_compare_c), digits = 5,
              row.names = FALSE, col.names = c("母集団パラメータの格子点数", "μの事後平均", "τの事後平均"))
-stopifnot(max(abs(quad_compare_c[1, ] - quad_compare_c[3, ])) < .005,
+stopifnot(max(abs(sweep(quad_compare_c, 2, quad_compare_c[2, ], "-"))) < .005,
           max(abs(hyper_compare_c[1, ] - hyper_compare_c[2, ])) < .005)
 ```
 
-この例の設定では、粗い格子と細かい格子の結果は近い。これはここで試した範囲についての確認であり、別のモデルやデータでも同じ格子で十分だという保証ではない。母集団分布の形、価格と好みの関係、数値積分の精度は、それぞれ別に確認する必要がある。
+この例の設定では、格子を細かくし、係数の積分範囲を広げても、結果は近い。これはここで試した範囲についての確認であり、別のモデルやデータでも同じ格子で十分だという保証ではない。母集団分布の形、価格と好みの関係、数値積分の精度は、それぞれ別に確認する必要がある。
 
 
 ## 7. 今回の整理：母集団を知ることと、本人を知ること
@@ -1500,7 +1614,7 @@ stopifnot(max(abs(quad_compare_c[1, ] - quad_compare_c[3, ])) < .005,
 | 既知の3タイプ分布 | なし | 既知の割合×本人の尤度を正規化 |
 | 既知の3候補値 | 割合 $\pi$ | 推定した割合で経験ベイズ |
 | 未知の3候補値 | 候補値と割合 | EMで推定し、その重みを個人の分布にする |
-| 連続正規分布 | 平均 $\mu$ と標準偏差 $\tau$ | 推定した密度×本人の尤度を積分で正規化 |
+| 連続正規分布 | 平均 $\mu$ と標準偏差 $\tau$ | EMで推定した密度×本人の尤度を積分で正規化 |
 | 階層ベイズ | 母集団パラメータも分布として扱う | 母集団パラメータの事後分布についても平均 |
 
 **有限か連続か**は好みの母集団分布をどう表すかの選択である。**経験ベイズかフルベイズか**は母集団パラメータの推定の不確実性をどう扱うかの選択である。この二つは別の軸であり、有限タイプにもフルベイズを適用できる。
@@ -1513,7 +1627,7 @@ stopifnot(max(abs(quad_compare_c[1, ] - quad_compare_c[3, ])) < .005,
 2. 尤度と事後確率は何が違うか。3タイプの更新式で分子と分母を説明できるか。
 3. パネルの尤度では、なぜ選択機会について掛けてからタイプについて平均するのか。
 4. EMのE-stepとM-stepでは、それぞれ何を固定して、何を更新するのか。EMが収束すれば識別できたと言えるか。
-5. 連続モデルで、母集団が正規分布なら個人の事後分布も正規分布になるか。
+5. 正規分布モデルのMステップで、事後平均どうしのばらつきだけを使うと何が抜けるか。母集団が正規分布なら、個人の事後分布も正規分布になるか。
 6. 経験ベイズとフルベイズは、母集団のパラメータをどう違って扱うか。
 
 [実験室で重みの変化を試す](playground6.html) ／ [課題6](assignment6.html) ／ [講義一覧に戻る](../index.html)
