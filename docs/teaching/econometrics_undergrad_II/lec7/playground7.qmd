@@ -1,5 +1,5 @@
 ---
-title: "Playground 7：意思決定からモデルを考える"
+title: "Playground 7：個人の好みを意思決定に使う"
 subtitle: "ターゲティング・顧客価値・コンジョイント｜計量経済学II"
 author: "Kei Ikegami"
 lang: ja
@@ -16,99 +16,203 @@ engine: knitr
 
 ## 使い方
 
-同じコーヒー店の三つの判断を、数字を変えて比べる実験室である。ここでは必要な確率・モデルのパラメータを指定する。データからの推定と検証は[講義ノート](lecture7.html)で扱う。下の計算結果を、実データから推定された効果として扱わないこと。各節は独立した設定であり、推定値を共有していない。
+第6回のコーヒー選択モデルを使い、本人の履歴から得たタイプの確率を、クーポン配布と顧客価値の計算に使う。最後に、コンジョイントの回答を履歴として、同じ計算を行う。**第1〜3節は同じ顧客・モデルの計算を引き継ぐ。** 上から順に「Run Code」を押し、上のセルを変更したら、それより下のセルも実行し直そう。
 
-最初の読み込み後、各セルの「Run Code」を押す。図のラベルは英語である。
+価格・原価は100円単位、利益は円単位である。ここでは計算に集中するため、母集団のタイプ割合と効用係数を指定する。データからの推定と別標本での検証は[講義ノート](lecture7.html)で扱う。図のラベルは英語である。
 
 ```{webr}
 #| autorun: true
 #| echo: false
-prob_A <- function(large, origin, price, beta, rival_price = 4) {
-  vA <- beta[1] + beta[2] * large + beta[3] * origin - beta[4] * price
-  vB <- beta[1] - beta[4] * rival_price
-  m <- pmax(0, vA, vB)
-  exp(vA - m) / (exp(-m) + exp(vA - m) + exp(vB - m))
+choice_prob <- function(theta, xA, xB, pA, pB) {
+  vA <- 1.5 + theta * xA - pA
+  vB <- 1.5 + theta * xB - pB
+  mx <- pmax(0, vA, vB)
+  e <- cbind(exp(-mx), exp(vA - mx), exp(vB - mx))
+  result <- e / rowSums(e)
+  colnames(result) <- c("No purchase", "A", "B")
+  result
+}
+posterior_weights <- function(history, theta, prior) {
+  stopifnot(length(theta) == length(prior), all(prior > 0),
+            abs(sum(prior) - 1) < 1e-8,
+            all(history$choice %in% 0:2))
+  log_likelihood <- sapply(theta, function(th) {
+    p <- with(history, choice_prob(th, xA, xB, pA, pB))
+    sum(log(p[cbind(seq_len(nrow(history)), history$choice + 1)]))
+  })
+  log_weight <- log(prior) + log_likelihood
+  weight <- exp(log_weight - max(log_weight))
+  weight / sum(weight)
+}
+type_prob <- function(theta, xA, xB, pA, pB) {
+  t(vapply(theta, function(th) {
+    as.numeric(choice_prob(th, xA, xB, pA, pB))
+  }, numeric(3)))
 }
 ```
 
-## 1. 誰にクーポンを送るか
+## 1. 履歴からタイプの確率を更新する
 
-`q0` は配布なし、`q1` は配布ありの購買確率である。順番は「よく買う・時々買う・まれに買う」。`margin` は通常の粗利、`coupon` は購入時の値引き、`send_cost` は購入しなくても発生する送付費で、すべて円単位だ。送れる人数の制約は置かない。
+自社の苦いコーヒーA（$x_A=-1$）、甘いコーヒーB（$x_B=1$）、「買わない」の3択を考える。確定効用は $v_j=1.5+\theta_i x_j-p_j$、「買わない」は0とする。タイプは $\theta_i\in\{-1.5,0,1.5\}$ で、一人のタイプは期間を通じて固定される。第6回と同じく、選択のショックはタイプを条件として独立な標準Gumbel分布に従う。
+
+`history$choice` の0は買わない、1はA、2はBである。購入した時だけの記録ではなく、**買わなかった機会も含む**。まず6回の履歴を変えてみよう。各行の価格も、その機会に提示された価格として尤度に入る。
 
 ```{webr}
-q0 <- c(.90, .30, .08)
-q1 <- c(.95, .60, .10)
-margin <- 300
-coupon <- 100
-send_cost <- 5
-stopifnot(all(q0 >= 0 & q0 <= 1), all(q1 >= 0 & q1 <= 1),
-          coupon >= 0, send_cost >= 0)
-profit0 <- margin * q0
-profit1 <- (margin - coupon) * q1 - send_cost
-gain <- profit1 - profit0
-print(data.frame(group = c("Frequent", "Occasional", "Rare"),
-                 profit0, profit1, gain, send = gain > 0))
-barplot(gain, names.arg = c("Frequent", "Occasional", "Rare"),
-        col = ifelse(gain > 0, "steelblue", "grey70"),
-        ylab = "Incremental profit (yen)")
+theta <- c(-1.5, 0, 1.5)
+prior <- c(.25, .50, .25)
+history <- data.frame(
+  xA = rep(-1, 6), xB = rep(1, 6),
+  pA = c(3, 2.5, 3.5, 3, 2.5, 3.5),
+  pB = c(3, 3.5, 2.5, 3, 3.5, 2.5),
+  choice = c(0, 1, 0, 2, 0, 0)
+)
+weight <- posterior_weights(history, theta, prior)
+print(data.frame(theta, prior, posterior = weight))
+barplot(rbind(prior, weight), beside = TRUE,
+        names.arg = theta, col = c("grey70", "steelblue"),
+        xlab = "Taste type", ylab = "Probability", ylim = c(0, 1),
+        legend.text = c("Prior", "Posterior"),
+        args.legend = list(cex = .8, bty = "n"))
+
+# 次の機会にはAもBも300円で提示する。
+price_A <- 3
+price_B <- 3
+p_by_type <- type_prob(theta, -1, 1, price_A, price_B)
+prediction <- drop(weight %*% p_by_type)
+at_mean_type <- as.numeric(choice_prob(sum(weight * theta),
+                                     -1, 1, price_A, price_B))
+comparison <- rbind(posterior_average = prediction,
+                    at_posterior_mean = at_mean_type)
+colnames(comparison) <- c("No purchase", "A", "B")
+print(round(comparison, 4))
+```
+
+予測は $\sum_k w_{ik}P_j(\vartheta_k)$ で計算する。一般に、平均タイプをlogitの式へ代入した $P_j(\sum_k w_{ik}\vartheta_k)$ とは一致しない。上の2行が違うことを確かめよう。履歴をすべてAに変えた場合と、すべて「買わない」に変えた場合では、どのタイプの重みが増えるだろうか。
+
+## 2. その顧客にクーポンを送るか
+
+Aの50円引きクーポンを送るか考える。`coupon` は100円単位なので、0.5が50円引きに当たる。送付費 `send_cost` は円単位で、購入しなくても発生する。AもBも自社の商品なので、**Aからの利益とBからの利益を足して比較する**。Aの売上が増えても、Bから乗り換えただけなら、利益が増えるとは限らない。
+
+```{webr}
+cost_A <- .5
+cost_B <- 1
+coupon <- .5
+send_cost <- 2
+stopifnot(coupon >= 0, coupon <= price_A, send_cost >= 0,
+          cost_A >= 0, cost_B >= 0)
+p0 <- type_prob(theta, -1, 1, price_A, price_B)
+p1 <- type_prob(theta, -1, 1, price_A - coupon, price_B)
+r0 <- 100 * (price_A - cost_A) * p0[, 2] +
+      100 * (price_B - cost_B) * p0[, 3]
+r1 <- 100 * (price_A - coupon - cost_A) * p1[, 2] +
+      100 * (price_B - cost_B) * p1[, 3] - send_cost
+gain_by_type <- r1 - r0
+print(data.frame(theta, A_prob_without = p0[, 2],
+                 A_prob_with = p1[, 2], profit_without = r0,
+                 profit_with = r1, gain = gain_by_type))
+
+gain <- sum(weight * gain_by_type)
+print(data.frame(profit_without = sum(weight * r0),
+                 profit_with = sum(weight * r1),
+                 gain, send = gain > 0))
+barplot(gain_by_type, names.arg = theta,
+        col = ifelse(gain_by_type > 0, "steelblue", "grey70"),
+        xlab = "Taste type", ylab = "Incremental profit (yen)")
 abline(h = 0, lty = 2)
 ```
 
-購買確率が全員について上がっても、全員に配るべきとは限らない。送付費を増やすと、配る群はどう変わるか。`q1` をデータから知るには、どんな比較が必要だろうか。
+タイプ別の利益差は、実際に観測した個人の効果ではなく、指定したモデルから計算した値である。本人のタイプは不明なので、配布判断には `weight` で平均した利益差を使う。第1節の履歴を変えると、同じクーポンでも配布判断が変わるだろうか。最もAを好むタイプへのクーポンが必ずしも有利ではない理由を、値引き前の利益と比べて説明しよう。
 
-## 2. 将来の顧客価値をどう見積もるか
+この計算では、クーポンはAの価格だけを変え、効用係数や今後の好みは変えないと仮定している。実際の価格反応を知るには価格を変えた比較が必要であり、履歴からタイプを推測できたことだけで、この仮定が確かめられたわけではない。作った配布ルールの利益は、別の無作為化実験で検証できる。
 
-Poisson–Gammaモデルの母集団パラメータを `shape, rate` とし、`months_observed` か月の購買回数 `counts` を使う。ここでは離脱せず、同じ率で購買が続く。`margin` は一回の固定粗利400円であり、第1節とは別の設定である。
+## 3. 同じ選択確率から顧客価値を計算する
+
+次はクーポンを送らず、現在の価格を続けたときの将来利益を考える。**毎月1回の選択機会**があり、タイプ・商品・価格は変わらず、離脱もしないとする。`horizon` か月の有限期間CLVは、毎月の期待粗利益を割り引いて足したものになる。
+
+$$
+V_i(H)=\sum_{h=1}^{H}\delta^h\sum_k w_{ik}r_k(0).
+$$
 
 ```{webr}
-shape <- 2
-rate <- 4
-months_observed <- 1
-counts <- c(0, 1, 3, 5)
 horizon <- 6
 monthly_discount <- .99
-margin <- 400
-stopifnot(shape > 0, rate > 0, months_observed > 0,
-          all(counts >= 0), horizon >= 1, horizon == round(horizon),
+stopifnot(horizon >= 1, horizon == round(horizon),
           monthly_discount > 0, monthly_discount <= 1)
-personal_rate <- counts / months_observed
-posterior_rate <- (shape + counts) / (rate + months_observed)
-value <- margin * sum(monthly_discount ^ seq_len(horizon)) * posterior_rate
-print(data.frame(counts, personal_rate, posterior_rate, value))
-barplot(rbind(personal_rate, posterior_rate), beside = TRUE,
-        names.arg = counts, col = c("grey70", "steelblue"),
-        xlab = "Observed purchase count", ylab = "Expected monthly purchase rate",
-        legend.text = c("Personal", "Posterior"), args.legend = list(cex = .8, bty = "n"))
+discount_sum <- sum(monthly_discount ^ seq_len(horizon))
+value_by_type <- discount_sum * r0
+clv <- sum(weight * value_by_type)
+print(data.frame(theta, monthly_profit = r0,
+                 posterior = weight, value = value_by_type))
+print(data.frame(posterior_CLV = clv,
+                 population_average_CLV = sum(prior * value_by_type),
+                 coupon_gain_today = gain))
+
+cumulative_value <- cumsum(monthly_discount ^ seq_len(horizon)) *
+                    sum(weight * r0)
+plot(seq_len(horizon), cumulative_value, type = "b", pch = 19,
+     col = "steelblue", xlab = "Months ahead",
+     ylab = "Expected discounted gross profit (yen)",
+     ylim = range(c(0, cumulative_value)))
 ```
 
-0回の人の予測が0にならない理由を説明しよう。同じ回数を1か月で観測した場合と6か月で観測した場合は、同じ情報だろうか。この価値だけから、誰に維持施策を行うべきか決められるだろうか。
+第2節のクーポン利益と同じタイプの重みを使っているが、比較している量は違う。CLVの高いタイプが、クーポンによる利益差も最大だろうか。履歴を変えて、CLVと配布判断の両方を確認しよう。
 
-## 3. 新商品の機能と価格を選ぶ
+このCLVには獲得費や将来の施策費を含めていない。また、消費者が先の値下げを予想して待つ仕組みも入っていない。将来利益を予測することと、消費者自身の先読みをモデル化することは区別する。
 
-コンジョイントの結果を使う場面を考える。`beta` は定数・大容量・産地表示・正の価格感応度の順で、最初は講義のデータ生成に使った仮の値を置く。価格と原価は100円単位、期待利益は円で表示する。競合Bは通常容量・産地表示なしで、価格を400円に固定する。候補は300・400・500円×容量2種類×表示2種類の12通りだ。
+## 4. コンジョイントの回答から好みを学ぶ
+
+今度は、**別の回答者**に仮想の商品を選んでもらう。甘さを $-1,0,1$、価格を250・300・350円で独立に無作為化し、A・B・「買わない」の6問を作る。`survey$choice` を、その人の回答として書き換えてみよう。下の初期回答は練習用に置いたものである。
+
+同じタイプモデルと指定した母集団割合を使い、回答者のタイプ確率を更新する。ここでは第1節の実購買履歴と別の人なので、`weight` を事前確率として流用しない。実際の調査では、母集団割合や効用係数も回答データから推定する。
 
 ```{webr}
-beta <- c(1.4, .45, .60, .45)
-rival_price <- 4
-base_cost <- 1.4
-large_cost <- .4
-origin_cost <- .35
-stopifnot(beta[4] > 0)
-candidates <- expand.grid(large = 0:1, origin = 0:1, price = 3:5)
-candidates$cost <- base_cost + large_cost * candidates$large + origin_cost * candidates$origin
-candidates$probability <- with(candidates, prob_A(large, origin, price, beta, rival_price))
-candidates$profit <- with(candidates, 100 * (price - cost) * probability)
+set.seed(20260711)
+survey <- data.frame(
+  xA = sample(-1:1, 6, replace = TRUE),
+  xB = sample(-1:1, 6, replace = TRUE),
+  pA = sample(c(2.5, 3, 3.5), 6, replace = TRUE),
+  pB = sample(c(2.5, 3, 3.5), 6, replace = TRUE),
+  choice = c(1, 0, 2, 1, 0, 2)
+)
+survey_prior <- c(.25, .50, .25)
+survey_weight <- posterior_weights(survey, theta, survey_prior)
+print(survey)
+print(data.frame(theta, prior = survey_prior,
+                 posterior = survey_weight))
+
+# Aを作り替える9候補。既存の自社商品Bは甘さ1、300円で固定する。
+# この例では甘さを変える追加原価は0と仮定する。
+candidates <- expand.grid(sweetness = -1:1, price = c(2.5, 3, 3.5))
+candidates$cost <- .5
+fixed_B_price <- 3
+fixed_B_cost <- 1
+candidate_profit <- function(xA, pA, cA, weights) {
+  pp <- type_prob(theta, xA, 1, pA, fixed_B_price)
+  sum(weights * (100 * (pA - cA) * pp[, 2] +
+                   100 * (fixed_B_price - fixed_B_cost) * pp[, 3]))
+}
+baseline <- candidate_profit(-1, 3, .5, survey_weight)
+candidates$personal_profit <- mapply(function(x, p, c) {
+  candidate_profit(x, p, c, survey_weight)
+}, candidates$sweetness, candidates$price, candidates$cost)
+candidates$population_profit <- mapply(function(x, p, c) {
+  candidate_profit(x, p, c, survey_prior)
+}, candidates$sweetness, candidates$price, candidates$cost)
+candidates$personal_gain <- candidates$personal_profit - baseline
 print(candidates)
-cat("Best among these 12 candidates:\n")
-print(candidates[which.max(candidates$profit), ])
-profit_matrix <- t(matrix(candidates$profit, nrow = 4))
-matplot(100 * (3:5), profit_matrix, type = "b", lty = 1, pch = 1:4,
-        col = 1:4, xlab = "Price (yen)", ylab = "Expected profit per visit (yen)",
-        ylim = c(0, max(profit_matrix)))
-legend("topleft", c("Regular", "Large", "Origin", "Large+Origin"),
-       col = 1:4, pch = 1:4, lty = 1, cex = .75, bty = "n")
+cat("Best candidate for this respondent's expected profit:\n")
+print(candidates[which.max(candidates$personal_profit), ])
+cat("Best candidate for the specified population:\n")
+print(candidates[which.max(candidates$population_profit), ])
+labels <- paste(candidates$sweetness, 100 * candidates$price, sep = "/")
+barplot(candidates$personal_gain, names.arg = labels, las = 2,
+        col = "steelblue", ylab = "Profit change versus existing A (yen)",
+        cex.names = .8)
+abline(h = 0, lty = 2)
 ```
 
-産地表示の効用係数 `beta[3]` が正でも、追加費用 `origin_cost` が高ければ採用しない場合がある。価格感応度や競合価格を変えると最良の候補は変わるだろうか。ここでの最大はこの候補集合とモデルのもとでの比較であり、市場全体での最適商品を保証するものではない。
+一人に合う商品と、全顧客に共通して販売する商品では、平均に使う重みが違う。全顧客向けの商品を決めるときは、対象集団の期待利益で比較する必要がある。また、ここではAを既存のAと**入れ替える**ため、選択肢は常にA・B・「買わない」の3つである。既存Aも残して新商品を追加するなら、選択肢を増やして確率を計算し直す。
+
+甘さの係数 $\theta_i$ が表すのは甘さへの好みである。産地表示のような別の属性まで知りたければ、その属性を変えた質問と対応する係数が必要になる。調査での回答を実販売へ移すには、回答者・選択肢・実際に支払う状況の違いも確かめよう。
 
 [講義ノート](lecture7.html) ／ [課題7](assignment7.html) ／ [講義一覧](../index.html)
