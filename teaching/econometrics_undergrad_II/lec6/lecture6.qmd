@@ -628,67 +628,375 @@ $$
 
 となる。候補値が推定値になっただけで、本人の履歴を取り込む式の構造は同じだ。
 
-### 4.2 EMの着想：所属が分かれば簡単になる
+### 4.2 計算の出発点：仮の分布を置く
 
-これまでと同じく、個人 $i$ のタイプを $\theta_i$、その候補値を $\vartheta_k$ と書く。その人が候補値 $\vartheta_k$ のタイプに属することを示す**所属ダミー**を
+割合と候補値を同時に推定したいが、本人のタイプは見えない。どのタイプの人の履歴か分かれば候補値を推定しやすく、候補値が分かれば本人のタイプを推測しやすい。この循環をどう解けばよいだろうか。
+
+ここでは、まず候補値と割合を仮に置き、**その仮定のもとで所属を推測する計算**と、**推測した所属を使って候補値と割合を更新する計算**を交互に行ってみる。今まで使ってきたベイズ更新と、重み付きの最尤推定を組み合わせる方法だ。最初から一般式を覚えるより、同じコーヒーのデータで2回繰り返してみよう。
+
+使うのは、3.1で作った400人・各16機会の `panel` である。初期値を
 
 $$
-Z_{ik}=\mathbf 1\{\theta_i=\vartheta_k\},\qquad k=1,2,3
+\vartheta^{(0)}=(-2,0,2),\qquad
+\pi^{(0)}=(1/3,1/3,1/3)
 $$
 
-と定義する。$Z_{ik}$ は所属を0か1で表す変数であり、$\sum_k Z_{ik}=1$、$\theta_i=\sum_k Z_{ik}\vartheta_k$ となる。ここでは、個人の所属を表す $Z_{ik}$ と、そのタイプに対応する好みの値 $\vartheta_k$ を区別する。もし各人の所属が見えたなら、完全データの対数尤度は
+とする。上付きの $(0)$ は「まだ一度も更新していない」という意味で、選択機会の番号ではない。これは計算の出発点であり、真の値を知っているという仮定ではない。生成時の正解 `theta_truth` や `pi_true` は使わない。
+
+```{r}
+em_demo_theta0 <- c(-2, 0, 2)
+em_demo_pi0 <- rep(1 / 3, 3)
+em_demo_ell0 <- panel_loglik(panel, em_demo_theta0)
+knitr::kable(data.frame(type = 1:3, theta = em_demo_theta0, pi = em_demo_pi0),
+             digits = 3, col.names = c("タイプ k", "仮の候補値", "仮の割合"))
+```
+
+`em_demo_ell0[i, k]` は、この仮の候補値で計算した $\log L(\vartheta_k^{(0)};H_i)$ である。3.2では候補値を固定して割合だけを動かしたが、ここからは候補値も動かす。
+
+### 4.3 1回目の更新を順番に計算する
+
+**計算A：今の候補値と割合なら、各人はどのタイプらしいか。**
+
+最初に使うのは、すでに学んだベイズの公式である。初期値のもとでの所属確率は
+
+$$
+w_{ik}^{(0)}=
+\frac{\pi_k^{(0)}L(\vartheta_k^{(0)};H_i)}
+{\sum_{\ell=1}^3\pi_\ell^{(0)}L(\vartheta_\ell^{(0)};H_i)}.
+$$
+
+同じ履歴を3つの候補値で評価し、仮の割合を掛け、合計で割る。ここでは、所属に迷いが残る例として顧客252を詳しく見る。次の表の「割合×尤度」が分子であり、その3行の合計が分母になる。
+
+```{r}
+em_demo0 <- mixture_eval(em_demo_ell0, em_demo_pi0)
+em_demo_w0 <- em_demo0$weights
+em_demo_id <- 252
+em_demo_lik0 <- exp(em_demo_ell0[em_demo_id, ])
+em_demo_joint0 <- em_demo_pi0 * em_demo_lik0
+knitr::kable(data.frame(
+  type = 1:3, theta = em_demo_theta0,
+  likelihood = formatC(em_demo_lik0, format = "e", digits = 3),
+  joint = formatC(em_demo_joint0, format = "e", digits = 3),
+  weight = em_demo_w0[em_demo_id, ]), digits = 4,
+  col.names = c("タイプ k", "仮の候補値", "顧客252の尤度", "割合×尤度", "所属確率"))
+stopifnot(max(abs(em_demo_joint0 / sum(em_demo_joint0) -
+                  em_demo_w0[em_demo_id, ])) < 1e-12)
+```
+
+表の `e-09` のような表記は $10^{-9}$ を掛けるという意味だ。16回分の確率の積なので尤度は小さくなるが、比を取った所属確率は普通の0〜1の数になる。実際の計算では `mixture_eval()` が対数を使ってこの比を安定して求めている。
+
+顧客252は、タイプ1である確率が約 `r round(em_demo_w0[252, 1], 3)`、タイプ2である確率が約 `r round(em_demo_w0[252, 2], 3)` となった。ここで大きい方に決めてしまわず、両方の可能性を残す。同じ計算を400人全員に行う。
+
+```{r}
+em_demo_ids <- c(1, 2, 3, 252)
+knitr::kable(data.frame(customer = em_demo_ids,
+                        em_demo_w0[em_demo_ids, ]), digits = 4, row.names = FALSE,
+             col.names = c("顧客", "タイプ1の確率", "タイプ2の確率", "タイプ3の確率"))
+```
+
+行の合計は1である。表示上の0や1は丸めた値で、厳密な確率が必ず0や1になったという意味ではない。
+
+**計算Bの前半：所属確率を人数として足し、母集団割合を更新する。**
+
+もし所属が見えていれば、タイプ1の人を一人ずつ数え、その人数を400で割ればよい。所属が見えない今は、タイプ1である確率が0.573の人には0.573人分として参加してもらう。このように確率を足した
+
+$$
+n_k^{(0)}=\sum_{i=1}^{400}w_{ik}^{(0)}
+$$
+
+は、初期値と履歴のもとでの「タイプ $k$ の人数の期待値」である。実際の人数を観測したわけではないので、小数になってよい。この人数を使って
+
+$$
+\pi_k^{(1)}=\frac{n_k^{(0)}}{400}
+$$
+
+と更新する。
+
+```{r}
+em_demo_count0 <- colSums(em_demo_w0)
+em_demo_pi1 <- em_demo_count0 / N
+knitr::kable(data.frame(type = 1:3, expected_count = em_demo_count0,
+                        old_pi = em_demo_pi0, new_pi = em_demo_pi1), digits = 4,
+             col.names = c("タイプ k", "人数の期待値", "更新前の割合", "更新後の割合"))
+```
+
+例えばタイプ1の人数の期待値は約 `r round(em_demo_count0[1], 3)` 人なので、更新後の割合は `r round(em_demo_count0[1], 3)` / 400 = 約 `r round(em_demo_pi1[1], 4)` となる。3タイプの人数の期待値は合計400、更新後の割合は合計1である。
+
+**計算Bの後半：同じ所属確率を重みにして、好みの候補値を更新する。**
+
+割合だけでなく、最初に $-2,0,2$ と置いた候補値も直したい。もしタイプ1の人が誰か分かっていれば、その人たちの履歴を使って、タイプ1の好みの値を最尤推定できる。ここでも0か1の所属の代わりに、計算Aで求めた確率を使う。
+
+タイプ $k$ の候補値を $a$ にしたときの重み付き対数尤度を
+
+$$
+G_k^{(0)}(a)=\sum_{i=1}^{400}w_{ik}^{(0)}\log L(a;H_i)
+$$
+
+と書き、これが最大になる値に更新する。
+
+$$
+\vartheta_k^{(1)}\in\arg\max_{a\in[-6,6]}G_k^{(0)}(a).
+$$
+
+例えばタイプ1の計算では、顧客252の項は約 $0.573\log L(a;H_{252})$ となる。タイプ2の計算にも約 $0.427\log L(a;H_{252})$ として参加する。本人の好みの推定値を平均するのではなく、**本人の履歴の対数尤度に重みを付けて、全員分を足す**。
+
+この最適値は、logitでは一般に単純な平均の式では求まらない。以下では `optimize()` で1タイプずつ数値的に求める。探索範囲 $[-6,6]$ は計算のために設定した区間で、候補値を最初の3つの値に固定する制約ではない。
+
+```{r}
+em_demo_theta1 <- vapply(1:3, function(k) {
+  optimize(function(a) -sum(em_demo_w0[, k] * panel_loglik(panel, a)),
+           interval = c(-6, 6), tol = 1e-8)$minimum
+}, numeric(1))
+knitr::kable(data.frame(type = 1:3, old_theta = em_demo_theta0,
+                        new_theta = em_demo_theta1), digits = 4,
+             col.names = c("タイプ k", "更新前の候補値", "更新後の候補値"))
+```
+
+`optimize()` は最小値を探すので、$G_k^{(0)}(a)$ にマイナスを付けて渡している。この間、`em_demo_w0` は固定する。割合を更新した直後に所属確率を計算し直すのではなく、**割合と候補値の両方を、同じ計算Aの重みで更新する**。これで1回目の更新 $(\pi^{(0)},\vartheta^{(0)})\to(\pi^{(1)},\vartheta^{(1)})$ が完了した。
+
+### 4.4 2回目の更新：新しい分布で所属を計算し直す
+
+候補値と割合が変わったので、同じ履歴でも所属確率が変わる。計算Aに戻り、今度は
+
+$$
+w_{ik}^{(1)}=
+\frac{\pi_k^{(1)}L(\vartheta_k^{(1)};H_i)}
+{\sum_{\ell=1}^3\pi_\ell^{(1)}L(\vartheta_\ell^{(1)};H_i)}
+$$
+
+を求める。本人の履歴が増えたわけではない。変わったのは、その履歴を評価するために使う母集団パラメータだ。
+
+```{r}
+em_demo_ell1 <- panel_loglik(panel, em_demo_theta1)
+em_demo1 <- mixture_eval(em_demo_ell1, em_demo_pi1)
+em_demo_w1 <- em_demo1$weights
+knitr::kable(data.frame(type = 1:3,
+                        weight0 = em_demo_w0[em_demo_id, ],
+                        weight1 = em_demo_w1[em_demo_id, ]), digits = 4,
+             col.names = c("タイプ k", "顧客252：初期値での確率", "顧客252：1回更新後の確率"))
+```
+
+顧客252のタイプ1の確率は約 `r round(em_demo_w0[252, 1], 3)` から約 `r round(em_demo_w1[252, 1], 3)` に変わった。更新後の候補値と割合のもとでは、この人の履歴はタイプ1に属すると説明しやすくなっている。
+
+続いて計算Bを行う。新しい所属確率 $w_{ik}^{(1)}$ を固定して人数を数え直し、重み付き対数尤度も最大化し直す。
+
+```{r}
+em_demo_count1 <- colSums(em_demo_w1)
+em_demo_pi2 <- em_demo_count1 / N
+em_demo_theta2 <- vapply(1:3, function(k) {
+  optimize(function(a) -sum(em_demo_w1[, k] * panel_loglik(panel, a)),
+           interval = c(-6, 6), tol = 1e-8)$minimum
+}, numeric(1))
+knitr::kable(data.frame(type = 1:3, expected_count = em_demo_count1,
+                        pi1 = em_demo_pi1, pi2 = em_demo_pi2,
+                        theta1 = em_demo_theta1, theta2 = em_demo_theta2), digits = 4,
+             col.names = c("タイプ k", "人数の期待値", "1回目の割合", "2回目の割合",
+                           "1回目の候補値", "2回目の候補値"))
+```
+
+これで2回目の更新が終わった。候補値と割合が履歴にどれくらい合っているかを、4.1で書いた**観測データの対数尤度**で確かめよう。ここで計算するのは、タイプについて平均した履歴の確率の対数であり、更新に使った重み付き対数尤度とは異なる。
+
+```{r}
+em_demo2 <- mixture_eval(panel_loglik(panel, em_demo_theta2), em_demo_pi2)
+em_demo_ll <- c(em_demo0$loglik, em_demo1$loglik, em_demo2$loglik)
+knitr::kable(data.frame(stage = c("初期値", "1回目の更新後", "2回目の更新後"),
+                        loglik = em_demo_ll), digits = 4,
+             col.names = c("計算の段階", "観測データの対数尤度"))
+stopifnot(all(diff(em_demo_ll) >= -1e-6),
+          max(abs(rowSums(em_demo_w0) - 1)) < 1e-12,
+          max(abs(rowSums(em_demo_w1) - 1)) < 1e-12,
+          all(diff(em_demo_theta1) > 0), all(diff(em_demo_theta2) > 0))
+```
+
+対数尤度は大きくなった。まだ2回なので推定を終えるには早いが、「所属確率を求める → その重みで割合と候補値を更新する」を繰り返す方針が見えてきたはずだ。次に、この計算に名前を付け、何を最適化しているのかを整理する。
+
+### 4.5 EMアルゴリズム：今の計算を一般化する
+
+今行った方法が、**EM（Expectation–Maximization）アルゴリズム**である。EMは、データの一部が観測できない問題で最尤推定を行うための反復計算法だ。今回、見えているのは購入履歴で、見えていないのは各人のタイプへの所属である。[Dempster, Laird and Rubin (1977)](https://doi.org/10.1111/j.2517-6161.1977.tb01600.x) は、この考え方を一般的な方法として整理した。
+
+これまでと同じく、個人 $i$ のタイプを $\theta_i$、候補値を $\vartheta_k$ と書く。その所属を表すダミーを
+
+$$
+Z_{ik}=\mathbf 1\{\theta_i=\vartheta_k\},\qquad
+\sum_k Z_{ik}=1,\qquad \theta_i=\sum_k Z_{ik}\vartheta_k
+$$
+
+とする。$Z_{ik}$ はどのタイプに属するかを表し、$\vartheta_k$ はそのタイプに対応する好みの値を表す。
+
+**もし所属まで観測できたら、最尤推定は簡単になる。** 個人 $i$ がタイプ $k$ に属し、その履歴 $H_i$ が観測される確率は $\pi_kL(\vartheta_k;H_i)$ である。所属と履歴を合わせたものを**完全データ**と呼び、その対数尤度を
 
 $$
 \ell_c(\pi,\vartheta;\mathcal H,Z)
-=\sum_i\sum_k Z_{ik}\left\{\log\pi_k+\log L(\vartheta_k;H_i)\right\}
+=\sum_i\sum_k Z_{ik}\{\log\pi_k+\log L(\vartheta_k;H_i)\}
 $$
 
-である。タイプ別の人数から割合を求め、各タイプの人の履歴から候補値を推定すればよい。難しさは $Z_{ik}$ が見えないことにある。
+と書く。$Z_{ik}=1$ のタイプの項だけが残るので、所属が既知ならタイプ別に人数を数え、各タイプの人の履歴で好みの値を推定できる。先ほどの計算Bは、この0・1の所属を確率に置き換えたものだった。
 
-**EM（Expectation–Maximization）アルゴリズム**では、見えない所属を一つに決めず、現在のパラメータのもとでの所属確率を使う。反復 $r$ における候補値・割合を $(\vartheta^{(r)},\pi^{(r)})$ としよう。
+パラメータを $\eta=(\pi,\vartheta)$、現在値を $\eta^{(r)}$ と書こう。上付きの $r$ は、計算Aと計算Bの組を何回終えたかを表す。
 
-**Eステップ**では、これまでと同じベイズの公式で所属確率を計算する。
+::: {.callout-important}
+## EMアルゴリズムの定義
+
+**初期値：** 候補値と正の割合 $\eta^{(0)}$ を置く。
+
+**Eステップ（Expectation）：** 現在の $\eta^{(r)}$ のもとで、観測された履歴に条件づけ、完全データ対数尤度の期待値を求める。
 
 $$
-w_{ik}^{(r)}=
-\frac{\pi_k^{(r)}L(\vartheta_k^{(r)};H_i)}
+Q(\eta\mid\eta^{(r)})
+=E_{\eta^{(r)}}[\ell_c(\eta;\mathcal H,Z)\mid\mathcal H].
+$$
+
+期待値を取るのは、見えていない所属 $Z$ についてである。右側の $\eta^{(r)}$ は所属の分布を計算するための固定値、左側の $\eta$ は次に動かすパラメータである。
+
+**Mステップ（Maximization）：** Eステップで求めた関数を固定し、それを最大にするパラメータへ更新する。
+
+$$
+\eta^{(r+1)}\in\arg\max_\eta Q(\eta\mid\eta^{(r)}).
+$$
+
+このE・Mの組を繰り返し、観測データの対数尤度の変化が十分小さくなったら止める。1回の反復は、EステップとMステップの両方からなる。
+:::
+
+今回のEステップは、数値例の**計算A**に対応する。0・1のダミーの期待値は、それが1となる確率なので、
+
+$$
+E_{\eta^{(r)}}[Z_{ik}\mid\mathcal H]
+=w_{ik}^{(r)}
+=\frac{\pi_k^{(r)}L(\vartheta_k^{(r)};H_i)}
 {\sum_\ell\pi_\ell^{(r)}L(\vartheta_\ell^{(r)};H_i)}.
 $$
 
-**Mステップ**では、この重みを固定し、完全データ対数尤度の条件付き期待値
+したがって、完全データ対数尤度の $Z_{ik}$ をその期待値で置き換えると、
 
 $$
-Q(\pi,\vartheta\mid\pi^{(r)},\vartheta^{(r)})
-=\sum_i\sum_k w_{ik}^{(r)}\left\{\log\pi_k+\log L(\vartheta_k;H_i)\right\}
+Q(\pi,\vartheta\mid\eta^{(r)})
+=\sum_i\sum_k w_{ik}^{(r)}\{\log\pi_k+\log L(\vartheta_k;H_i)\}
 $$
 
-を最大にする。このモデルでは、
+となる。Eステップで平均する対象は完全データの**対数尤度**であり、本人の好みを事後平均一つで埋めて終わる操作ではない。
+
+Mステップは、数値例の**計算B**である。この $Q$ は割合の部分と候補値の部分に分けられる。
 
 $$
-\pi_k^{(r+1)}=\frac1N\sum_iw_{ik}^{(r)},\qquad
-\vartheta_k^{(r+1)}\in\arg\max_{\vartheta}\sum_iw_{ik}^{(r)}\log L(\vartheta;H_i)
+Q(\pi,\vartheta\mid\eta^{(r)})
+=\sum_k n_k^{(r)}\log\pi_k+\sum_k G_k^{(r)}(\vartheta_k),
+\qquad n_k^{(r)}=\sum_iw_{ik}^{(r)}.
 $$
 
-となる。一人がタイプ $k$ である確率が0.7なら、その人の履歴はタイプ $k$ の推定に重み0.7で参加する。EMの反復が進んでも新しいデータが増えるわけではなく、**同じデータについてパラメータを求める計算**が進んでいる。
-
-::: {.callout-note collapse="true"}
-## なぜ観測データの尤度が下がらないのか
-
-一人の周辺尤度を $M_i(\eta)=\sum_k\pi_kL(\vartheta_k;H_i)$ とする。現在の事後重みを使うと、対数の凹性から
+第1項は、人数を期待人数に置き換えたときの割合の対数尤度だから、合計1の制約のもとで最大化すると期待人数を全人数で割ればよい。第2項はタイプごとに別々に最大化できる。つまり、
 
 $$
-\log M_i(\eta)=\log\sum_k w_{ik}^{(r)}
-\frac{\pi_kL(\vartheta_k;H_i)}{w_{ik}^{(r)}}
-\geq\sum_k w_{ik}^{(r)}
-\log\frac{\pi_kL(\vartheta_k;H_i)}{w_{ik}^{(r)}}.
+\pi_k^{(r+1)}=\frac{1}{N}\sum_iw_{ik}^{(r)},\qquad
+\vartheta_k^{(r+1)}\in\arg\max_a\sum_iw_{ik}^{(r)}\log L(a;H_i)
 $$
 
-現在値 $\eta=\eta^{(r)}$ では等号が成り立つ。Mステップは、この下限のうち $\eta$ に依存する $Q$ を増やすため、観測データの対数尤度も下がらない。ただし、大域的な最大値に必ず到達するという保証ではない。局所解や停留点にとどまることがあるため、初期値を変えて確かめる。
-:::
+であり、これが数値例で使った更新式の根拠である。今回のコードでは $a$ の探索範囲を $[-6,6]$ にしている。
 
-### 4.3 コードでEステップとMステップを追う
+タイプを一つに決めてから推定し直す方法とは違い、EMでは所属の曖昧さを重みとして使う。また、反復が進んでも新しいデータが増えたり本人の好みが変わったりするわけではない。同じ履歴に合う母集団パラメータを探す計算が進んでいる。
 
-Eステップには既存の `mixture_eval()` を使う。Mステップで各タイプの係数を動かすため、`optimize()` に重み付きの負の対数尤度を渡す。この例では計算上の探索範囲を $[-6,6]$ にする。これは既知の3支点に限定する制約とは違い、3つの値をその区間内で自由に動かせる。
+### 4.6 なぜこの更新で観測データの尤度が下がらないのか
+
+最終的に大きくしたいのは $\ell(\eta;\mathcal H)$ なのに、Mステップでは別の関数 $Q$ を最大にしていた。それでよい理由は、**$Q$ に定数を足すと、現在値で観測データの対数尤度に接する「下限」になる**からである。その下限を押し上げれば、元の対数尤度も下がらない。
+
+これを式で確かめよう。$\ell(\eta)=\ell(\eta;\mathcal H)$ と略記する。Eステップで得た $w_{ik}^{(r)}$ を固定し、
+
+$$
+B(\eta\mid\eta^{(r)})
+=\sum_i\sum_k w_{ik}^{(r)}
+\log\frac{\pi_kL(\vartheta_k;H_i)}{w_{ik}^{(r)}}
+=Q(\eta\mid\eta^{(r)})-\sum_i\sum_k w_{ik}^{(r)}\log w_{ik}^{(r)}
+$$
+
+と定義する。最後の和は、Mステップで動かす $\eta$ に依存しない。したがって、$Q$ を最大にすることと $B$ を最大にすることは同じである。
+
+**第1に、$B$ は常に $\ell$ 以下である。** 対数の凹性によって「平均の対数」は「対数の平均」以上になるため、一人分について
+
+$$
+\begin{aligned}
+\log\!\left\{\sum_k\pi_kL(\vartheta_k;H_i)\right\}
+&=\log\!\left\{\sum_k w_{ik}^{(r)}
+ \frac{\pi_kL(\vartheta_k;H_i)}{w_{ik}^{(r)}}\right\}\\
+&\geq\sum_k w_{ik}^{(r)}
+ \log\frac{\pi_kL(\vartheta_k;H_i)}{w_{ik}^{(r)}}
+\end{aligned}
+$$
+
+となる。これはJensenの不等式である。全員分を足すと $\ell(\eta)\geq B(\eta\mid\eta^{(r)})$ を得る。ここでは正の割合とlogitの選択確率を使うので、重みも正である。
+
+**第2に、現在値では下限と元の関数が一致する。** $w_{ik}^{(r)}$ は現在値での事後確率なので、
+
+$$
+\frac{\pi_k^{(r)}L(\vartheta_k^{(r)};H_i)}{w_{ik}^{(r)}}
+=\sum_\ell\pi_\ell^{(r)}L(\vartheta_\ell^{(r)};H_i)
+$$
+
+は $k$ に依存しない。同じ数の平均を取っているため、上の不等式は等号になる。すなわち $B(\eta^{(r)}\mid\eta^{(r)})=\ell(\eta^{(r)})$ である。
+
+**第3に、Mステップはこの下限を上げる。** 現在値も最大化の候補に含まれるから、更新後の $B$ は更新前以上になる。以上をつなぐと、
+
+$$
+\begin{aligned}
+\ell(\eta^{(r+1)})
+&\geq B(\eta^{(r+1)}\mid\eta^{(r)})\\
+&\geq B(\eta^{(r)}\mid\eta^{(r)})\\
+&=\ell(\eta^{(r)}).
+\end{aligned}
+$$
+
+これが、E・Mの1組を終えるたびに観測データの対数尤度が下がらない理由である。Eステップで現在値に接する下限を作り、Mステップでその下限を上げ、次のEステップで新しい現在値に接する下限を作り直す。
+
+1回目の更新でも、この関係を数値で確かめられる。
+
+```{r}
+#| code-fold: true
+#| code-summary: "1回目の更新で、対数尤度と下限の大小を確かめる"
+em_demo_Q <- function(theta, pi, weights) {
+  sum(weights * sweep(panel_loglik(panel, theta), 2, log(pi), "+"))
+}
+em_demo_entropy0 <- -sum(em_demo_w0 * log(em_demo_w0))
+em_demo_bound0 <- em_demo_Q(em_demo_theta0, em_demo_pi0, em_demo_w0) + em_demo_entropy0
+em_demo_bound1 <- em_demo_Q(em_demo_theta1, em_demo_pi1, em_demo_w0) + em_demo_entropy0
+knitr::kable(data.frame(
+  quantity = c("更新前の対数尤度 = 更新前の下限", "更新後の下限（重みは更新前のまま）",
+               "更新後の対数尤度"),
+  value = c(em_demo0$loglik, em_demo_bound1, em_demo1$loglik)), digits = 4,
+  col.names = c("比較する値", "計算結果"))
+stopifnot(abs(em_demo_bound0 - em_demo0$loglik) < 1e-7,
+          em_demo_bound1 >= em_demo_bound0 - 1e-7,
+          em_demo1$loglik >= em_demo_bound1 - 1e-7)
+```
+
+次の図は、初期値 $\eta^{(0)}$ と1回更新後の値 $\eta^{(1)}$ を直線で結んだ経路上で、元の対数尤度と下限を比較したものだ。横軸の $s$ に対し $\eta(s)=(1-s)\eta^{(0)}+s\eta^{(1)}$ と置く。これは大小関係を見るための図であり、EMが途中の点を順に通ったという意味ではない。
+
+```{r}
+#| code-fold: true
+#| code-summary: "初期値から1回更新後までの、対数尤度と下限を描く"
+#| label: fig-em-lower-bound
+#| fig-cap: "初期値（s=0）では2本が一致する。1回更新後（s=1）では下限が上がり、観測データの対数尤度はその下限以上にある。"
+em_bound_path <- do.call(rbind, lapply(seq(0, 1, length.out = 31), function(s) {
+  theta <- (1 - s) * em_demo_theta0 + s * em_demo_theta1
+  pi <- (1 - s) * em_demo_pi0 + s * em_demo_pi1
+  data.frame(step = s,
+    observed = mixture_eval(panel_loglik(panel, theta), pi)$loglik,
+    bound = em_demo_Q(theta, pi, em_demo_w0) + em_demo_entropy0)
+}))
+stopifnot(all(em_bound_path$observed >= em_bound_path$bound - 1e-7))
+em_bound_plot <- rbind(
+  data.frame(step = em_bound_path$step, value = em_bound_path$observed,
+             quantity = "観測データの対数尤度"),
+  data.frame(step = em_bound_path$step, value = em_bound_path$bound,
+             quantity = "Eステップで作った下限"))
+ggplot(em_bound_plot, aes(step, value, color = quantity, linetype = quantity)) +
+  geom_line(linewidth = .9) +
+  labs(x = "初期値から1回更新後への経路 s", y = "対数尤度・下限", color = NULL, linetype = NULL) +
+  theme(legend.position = "bottom")
+```
+
+ただし、**尤度が下がらないことと、大域的な最大値に必ず到達することは違う。** 局所解や停留点にとどまることがあり、改善が小さくなったことだけでは最良の解を見つけたと断定できない。次は反復を自動化し、初期値も変えて結果を確かめる。
+
+### 4.7 同じ更新を収束まで繰り返す
+
+最初の2回に手で書いた計算A・Bを、E・Mステップとしてループにまとめる。Eステップには `mixture_eval()`、Mステップには `colMeans()` と重み付きの `optimize()` を使う。毎回、候補値を小さい順に並べ、割合も同じ順で並べ替える。これはタイプの名前をそろえる操作で、混合分布自体は変わらない。
 
 ```{r}
 #| code-fold: true
@@ -734,6 +1042,8 @@ fit_em_multistart <- function(dat, starts = list(c(-2, 0, 2), c(-1, .5, 2.5),
 }
 em_runs <- fit_em_multistart(panel)
 em_fit <- em_runs$best
+# 最初の初期値からの1・2回目の更新が、上の逐次計算と一致するか確認する。
+stopifnot(max(abs(em_runs$fits[[1]]$trace[1:3] - em_demo_ll)) < 1e-6)
 stopifnot(all(vapply(em_runs$fits, function(f) f$converged, logical(1))),
           all(vapply(em_runs$fits, function(f) min(diff(f$trace)) > -1e-6, logical(1))),
           all(abs(em_fit$theta) < 5.9))
@@ -765,7 +1075,7 @@ knitr::kable(data.frame(type = 1:3, known_support = theta_grid,
                            "推定した候補値", "推定後の重み"))
 ```
 
-### 4.4 推定が動いたことと、識別できることは違う
+### 4.8 推定が動いたことと、識別できることは違う
 
 候補値まで未知にすると、割合だけを推定する場合より難しくなる。短い履歴から似た候補値どうしを区別するのは難しく、あるタイプの割合がほぼゼロなら、そのタイプの位置を学ぶ情報も少ない。二つの候補値が同じなら、データから分かるのはその割合の合計だけだ。
 
