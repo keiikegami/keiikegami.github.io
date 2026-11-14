@@ -1140,48 +1140,138 @@ $$
 
 ### 6.2 推定に使った市場で合併を計算する
 
-120市場のうち第1市場を取り出す。推定で得た $\hat a,\hat\sigma$ と、この市場の $\hat\delta$ を使う。価格を変えたときには、$\hat\delta$ そのものを固定してはいけない。$\delta$ には基準時点の価格が含まれているからである。固定するのは、価格を除いた効用 $\hat\delta+m(\hat a,\hat\sigma)p^{\mathrm{base}}$ である。
+120市場のうち第1市場を取り出し、推定した需要を使って財1・2の合併を計算する。その前に、第4節で使った記号を思い出しておこう。この数値例では、属性への係数は全員に共通で、価格係数だけが人によって異なる。
 
-まず基準時点の費用を逆算し、次に財1・2を同じ企業が持つように所有行列を変える。その費用と新しい所有行列のもとで、価格設定の一階条件を解き直す。
+$$
+\begin{aligned}
+\alpha_i&=\exp(a+\sigma\nu_i),\qquad \nu_i\sim N(0,1),\\
+m(a,\sigma)&=E_i[\alpha_i]=\exp(a+\sigma^2/2),\\
+\delta_{jt}&=\beta_0+\beta_x x_{jt}+\xi_{jt}-m(a,\sigma)p_{jt},\\
+u_{ijt}&=\delta_{jt}-[\alpha_i-m(a,\sigma)]p_{jt}+\varepsilon_{ijt}.
+\end{aligned}
+$$
+
+- $\alpha_i>0$ は消費者 $i$ の価格係数である。価格が1単位上がると、この人の効用は $\alpha_i$ だけ下がる。
+- $a$ は $\log\alpha_i$ の平均、$\sigma$ はその標準偏差であり、価格への反応のばらつきを表す。第2節で $\bar\alpha$ と書いたパラメータを、第4節以降は $a$ と書いている。
+- $m(a,\sigma)$ は**水準での平均価格係数**で、第2節の $\alpha_0$ に対応する。一般に $\exp(a)$ とは異なる。
+- $\delta_{jt}$ は財 $j$・市場 $t$ の平均効用である。商品の魅力 $\beta_0+\beta_x x_{jt}+\xi_{jt}$ から、平均的な価格の負担を引いたものだ。$\varepsilon_{ijt}$ は個人・商品ごとの効用ショックである。
+
+$\hat a,\hat\sigma,\hat\delta$ のハットは、第4節でデータから推定した値であることを表す。ここからは第1市場だけを見るので、市場の添字 $t$ を省く。観測された合併前の価格を $p^{\mathrm{base}}$、これから計算する合併後の価格を $p^{\mathrm{new}}$ と書く。
+
+#### (1) 推定結果を取り出し、価格以外の魅力を固定する
+
+まず、観測価格と推定値を取り出す。`price[1, ]` と `fit_d$delta[1, ]` は、それぞれ第1市場の3財の価格と平均効用である。
 
 ```{r}
-# 第一市場の観測価格と、推定で反転した効用を使う。
 p_pre <- price[1, ]
-a_d <- fit_d$par[1]; sigma_d <- fit_d$par[2]
+a_d <- fit_d$par[1]
+sigma_d <- fit_d$par[2]
+```
+
+価格を変えるときに、$\hat\delta_j$ そのものを固定してはいけない。$\hat\delta_j$ には合併前の価格が含まれているからである。平均的な価格の負担を足し戻せば、価格以外の魅力が取り出せる：
+
+$$
+\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}
+=\hat\beta_0+\hat\beta_x x_j+\hat\xi_j.
+$$
+
+この値を保存するコードの変数が `quality_d` である。属性だけでなく、推定した需要ショックも含む。
+
+```{r}
 quality_d <- fit_d$delta[1, ] + exp(a_d + sigma_d^2 / 2) * p_pre
+```
+
+以後は `quality_d` を固定し、候補となる価格 $p$ ごとに
+
+$$
+u_{ij}=\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}
+-\alpha_i p_j+\varepsilon_{ij},
+\qquad \alpha_i=\exp(\hat a+\hat\sigma\nu_i)
+$$
+
+から選択確率を計算する。これで、商品の魅力と消費者の好みを固定したまま、価格だけを変えられる。
+
+#### (2) 合併前の価格から限界費用を逆算する
+
+第6.1節の式に、合併前の価格と所有関係を入れる：
+
+$$
+mc=p^{\mathrm{base}}
+-\Delta(p^{\mathrm{base}};\Omega^{\mathrm{base}})^{-1}s(p^{\mathrm{base}}).
+$$
+
+`groups_pre` は `c(1, 2, 3)` なので、3社が1財ずつ持つ。`markup_at()` は、推定した需要のシェアと微分から $\Delta^{-1}s$ を計算する。それを観測価格から引いた値が、逆算した限界費用 `mc_d` である。
+
+```{r}
 mc_d <- p_pre - markup_at(p_pre, groups_pre, quality_d, a_d, sigma_d, nu)
+```
+
+逆算できたら、シミュレーションで使った真の費用と比べてみよう。
+
+```{r}
+cost_check <- data.frame(product = paste0("財", seq_len(J)),
+  truth = mc_true[1, ], recovered = mc_d)
+knitr::kable(cost_check, digits = 3,
+  col.names = c("商品", "限界費用の真値", "需要推定から逆算"))
+stopifnot(all(mc_d > 0))
+```
+
+これは需要推定の誤差が費用の逆算にどれくらい伝わったかの確認である。以下の合併計算には `mc_d` を使い、真の費用に置き換えない。
+
+#### (3) 所有関係を変え、合併後の価格を解く
+
+財1・2の企業番号を同じにした `c(1, 1, 3)` は、第6.1節の $\Omega^{\mathrm{new}}$ に対応する。限界費用を固定して、次の式を満たす価格を探す：
+
+$$
+p^{\mathrm{new}}=mc+
+\Delta(p^{\mathrm{new}};\Omega^{\mathrm{new}})^{-1}s(p^{\mathrm{new}}).
+$$
+
+右辺のシェアと需要の微分も価格とともに変わるため、一度の代入では解けない。`solve_prices()` は、合併前価格 `p_pre` を出発点に、候補価格でのマークアップを計算し直す。具体的には、
+
+$$
+p^{(r+1)}=\tfrac12 p^{(r)}
++\tfrac12\left[mc+\Delta(p^{(r)};\Omega^{\mathrm{new}})^{-1}s(p^{(r)})\right]
+$$
+
+と半分ずつ更新して、一階条件を満たす価格に近づける。
+
+```{r}
 groups_post <- c(1, 1, 3)
 eq_merger <- solve_prices(mc_d, groups_post, quality_d, a_d, sigma_d, nu, p_pre)
 p_merger <- eq_merger$p
-s_pre <- rc_market(p_pre, quality_d, a_d, sigma_d, nu)$s
-s_merger <- rc_market(p_merger, quality_d, a_d, sigma_d, nu)$s
-merger_tbl <- data.frame(product = paste0("財", seq_len(J)),
-  cost = mc_d, price_pre = p_pre, price_post = p_merger,
-  price_change_pct = 100 * (p_merger / p_pre - 1),
-  quantity_pre = 10000 * s_pre, quantity_post = 10000 * s_merger,
-  profit_pre = 10000 * (p_pre - mc_d) * s_pre,
-  profit_post = 10000 * (p_merger - mc_d) * s_merger)
-outcomes_merger <- data.frame(
-  outcome = c("販売数量の合計", "企業利潤の合計", "消費者余剰"),
-  before = market_outcomes(p_pre, mc_d, quality_d, a_d, sigma_d, nu),
-  after = market_outcomes(p_merger, mc_d, quality_d, a_d, sigma_d, nu))
-outcomes_merger$change <- outcomes_merger$after - outcomes_merger$before
-jac_pre <- rc_market(p_pre, quality_d, a_d, sigma_d, nu)$jac
-diversion12 <- -jac_pre[2, 1] / jac_pre[1, 1]
-upp1 <- diversion12 * (p_pre[2] - mc_d[2])
+stopifnot(eq_merger$error < 1e-6)
 ```
+
+#### (4) 合併前後のシェアと価格を比較する
+
+`rc_market()` は、各人のlogit選択確率を平均して市場シェアを求める。使っている式は、
+
+$$
+s_j(p)=E_i\left[
+\frac{\exp\{\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}-\alpha_i p_j\}}
+{1+\sum_{k=1}^{3}\exp\{\hat\delta_k+m(\hat a,\hat\sigma)p_k^{\mathrm{base}}-\alpha_i p_k\}}
+\right]
+$$
+
+である。推定時と同じ120個の `nu` を使い、$p^{\mathrm{base}}$ と $p^{\mathrm{new}}$ でそれぞれ計算する。
 
 ```{r}
-cost_check <- data.frame(product = merger_tbl$product,
-  truth = mc_true[1, ], recovered = mc_d)
-knitr::kable(cost_check, digits = 3,
-             col.names = c("商品", "限界費用の真値", "需要推定から逆算"))
-knitr::kable(merger_tbl[, c("product", "price_pre", "price_post", "price_change_pct")],
-  digits = 3, col.names = c("商品", "合併前価格", "合併後価格", "変化率（%）"))
-stopifnot(all(mc_d > 0), eq_merger$error < 1e-6)
+s_pre <- rc_market(p_pre, quality_d, a_d, sigma_d, nu)$s
+s_merger <- rc_market(p_merger, quality_d, a_d, sigma_d, nu)$s
 ```
 
-真の費用も横に置いて、需要推定の誤差が限界費用の逆算にどれくらい伝わったかを確認しよう。ここで使う費用は推定した需要から逆算した値であり、データ生成に使った真の費用に置き換えてはいない。
+価格の変化率 $100(p_j^{\mathrm{new}}/p_j^{\mathrm{base}}-1)$ を表にする。
+
+```{r}
+merger_tbl <- data.frame(product = paste0("財", seq_len(J)),
+  cost = mc_d, price_pre = p_pre, price_post = p_merger,
+  price_change_pct = 100 * (p_merger / p_pre - 1))
+knitr::kable(merger_tbl[, c("product", "price_pre", "price_post", "price_change_pct")],
+  digits = 3, col.names = c("商品", "合併前価格", "合併後価格", "変化率（%）"))
+```
+
+同じ変化率を図でも見てみよう。
 
 ```{r}
 #| fig-cap: "赤が合併当事者。限界費用は固定している。"
@@ -1198,67 +1288,115 @@ ggplot(merger_tbl, aes(product, price_change_pct,
 
 市場の人数を $M=10{,}000$ 人とすると、販売数量は $q_j=Ms_j$、利潤は $(p_j-mc_j)q_j$ となる。固定費は含めない。合併で利益が増えても、消費者にとって望ましいとは限らないので、消費者余剰も見ておこう。
 
-消費者余剰を考えるため、まず消費者 $i$ 一人に注目しよう。この人の価格係数 $\alpha_i$ を固定し、選択肢を「買わない」$j=0$ と財 $j=1,2,3$ とする。推定した平均効用から価格の影響を取り除いた部分を
+まず、前節で求めたシェアを数量に直し、1個あたりの利益を掛ける。
+
+```{r}
+market_size <- 10000
+merger_tbl$quantity_pre <- market_size * s_pre
+merger_tbl$quantity_post <- market_size * s_merger
+merger_tbl$profit_pre <- (p_pre - mc_d) * merger_tbl$quantity_pre
+merger_tbl$profit_post <- (p_merger - mc_d) * merger_tbl$quantity_post
+knitr::kable(merger_tbl[, c("product", "quantity_pre", "quantity_post", "profit_pre", "profit_post")],
+  digits = 1, col.names = c("商品", "合併前数量", "合併後数量", "合併前利潤", "合併後利潤"))
+```
+
+数量は個数、利潤は価格と同じ金額単位である。このシミュレーションでは、価格1単位が何円に当たるかはまだ設定していない。最後に、計算結果そのものと、100円を1単位と読んだ場合の換算例を示す。
+
+#### 期待効用を金額に直す
+
+消費者余剰を考えるため、まず消費者 $i$ 一人に注目しよう。この人の価格係数 $\alpha_i$ を固定し、選択肢を「買わない」$j=0$ と財 $j=1,2,3$ とする。第6.2節の効用の式を、そのまま使う：
 
 $$
-b_j=\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}
+u_{ij}=\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}
+-\alpha_i p_j+\varepsilon_{ij}.
 $$
 
-と置けば、各財の効用は $u_{ij}=b_j-\alpha_i p_j+\varepsilon_{ij}$ と書ける。買わない場合の効用は $u_{i0}=\varepsilon_{i0}$ である。各選択肢の $\varepsilon_{ij}$ が互いに独立な標準Type I極値分布に従い、価格係数 $\alpha_i$ とも独立なとき、最もよい選択肢から得られる効用の期待値は、
+買わない場合の効用は $u_{i0}=\varepsilon_{i0}$ である。各選択肢の $\varepsilon_{ij}$ が互いに独立な標準Type I極値分布に従い、価格係数 $\alpha_i$ とも独立なとき、最もよい選択肢から得られる効用の期待値は、
 
 $$
-E_{\varepsilon}\!\left[\max_{j=0,1,2,3}u_{ij}\mid\alpha_i\right]
-=\gamma_E+\log\left\{1+\sum_{j=1}^{3}\exp(b_j-\alpha_i p_j)\right\}
+\begin{aligned}
+&E_{\varepsilon}\!\left[\max_{j=0,1,2,3}u_{ij}\mid\alpha_i\right]\\
+&\quad=0.577\ldots+\log\left\{1+\sum_{j=1}^{3}\exp\!\left(
+\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}-\alpha_i p_j
+\right)\right\}.
+\end{aligned}
 $$
 
-となる。$\gamma_E\simeq0.577$ はオイラー定数で、対数の中に指数を足し合わせた部分を **logsum** と呼ぶ。この期待値は、$i$ の価格係数を固定して、個別の $\varepsilon$ について平均したものである。期待値を取る前の各消費者は、それぞれの $\varepsilon$ を含めて、効用が最大になる選択肢を選ぶ。式が成り立つ理由は下のコラムで確認できる。
+右辺の $0.577\ldots$ は標準Type I極値分布の平均（オイラー定数）である。その後ろの、指数を足し合わせてから対数を取った部分を **logsum** と呼ぶ。この期待値は、$i$ の価格係数を固定して、個別の $\varepsilon$ について平均したものである。期待値を取る前の各消費者は、それぞれの $\varepsilon$ を含めて、効用が最大になる選択肢を選ぶ。式が成り立つ理由は下のコラムで確認できる。
 
 ::: {.callout-note collapse="true"}
 ## 導出：Type I極値分布とlogsum
 
-各選択肢の価格などを含む、ショック以外の効用を $v_{ij}$ と置く。$j=0$ を含む各 $\varepsilon_{ij}$ は互いに独立で、累積分布関数は $F(e)=\exp(-e^{-e})$ とする。$Z_i=\max_j\{v_{ij}+\varepsilon_{ij}\}$ が $z$ 以下になるのは、**全ての選択肢**の効用が $z$ 以下のときなので、
+$j=0$ を含む各 $\varepsilon_{ij}$ は互いに独立で、$\Pr(\varepsilon_{ij}\le e)=\exp(-e^{-e})$ である。最大の効用が $z$ 以下になるのは、**全ての選択肢**の効用が $z$ 以下のときなので、$\alpha_i$ を固定すると、
 
 $$
 \begin{aligned}
-\Pr(Z_i\le z)
-&=\prod_{j=0}^{3}F(z-v_{ij})\\
-&=\exp\left[-\sum_{j=0}^{3}e^{-(z-v_{ij})}\right]\\
-&=\exp\left[-e^{-\left(z-\log\sum_{j=0}^{3}e^{v_{ij}}\right)}\right].
+&\Pr\!\left(\max_{j=0,1,2,3}u_{ij}\le z\mid\alpha_i\right)\\
+&\quad=\prod_{j=0}^{3}\Pr(u_{ij}\le z\mid\alpha_i)\\
+&\quad=\exp\!\left[-e^{-z}\left\{1+\sum_{j=1}^{3}\exp\!\left(
+\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}-\alpha_i p_j
+\right)\right\}\right].
 \end{aligned}
 $$
 
-最後の式は、$Z_i$ が標準Type I極値分布を $\log\sum_j e^{v_{ij}}$ だけ右へずらした分布に従うことを意味する。標準分布の平均は $\gamma_E$ だから、
+最後の式は、標準Type I極値分布を
 
 $$
-E[Z_i]=\gamma_E+\log\sum_{j=0}^{3}e^{v_{ij}}。
+\log\left\{1+\sum_{j=1}^{3}\exp\!\left(
+\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}-\alpha_i p_j
+\right)\right\}
 $$
 
-買わない場合の $v_{i0}=0$ と $v_{ij}=b_j-\alpha_i p_j$ を代入すれば、本文の式になる。この性質と余剰への利用については [Train (2009), Chapter 3](https://eml.berkeley.edu/books/choice2nd/Ch03_p34-75.pdf) も参照。
+だけ右へずらした分布の累積分布関数である。したがって、その平均も $0.577\ldots$ にこのlogsumを足した値になる。式の中の1は、買わない選択肢に対応している。この性質と余剰への利用については [Train (2009), Chapter 3](https://eml.berkeley.edu/books/choice2nd/Ch03_p34-75.pdf) も参照。
 :::
 
-次に、価格が合併前の $p^{\mathrm{base}}$ から合併後の $p^{\mathrm{new}}$ へ変わったときの期待効用の差を考える。$\gamma_E$ は前後で共通なので差を取ると消える。この差を各人の価格係数 $\alpha_i>0$ で割ると、その人の**金額単位の消費者余剰の変化**になる。価格に対して効用が線形で、前後で各人の $\alpha_i$ が変わらないという仮定を使っている。
+次に、価格が合併前の $p^{\mathrm{base}}$ から合併後の $p^{\mathrm{new}}$ へ変わったときの期待効用の差を考える。定数 $0.577\ldots$ は前後で共通なので差を取ると消える。この差を各人の価格係数 $\alpha_i>0$ で割ると、その人の**金額単位の消費者余剰の変化**になる。価格が1単位上がると効用が $\alpha_i$ 下がるので、効用を金額に直すには $\alpha_i$ で割ればよい。所得の限界効用も $\alpha_i$ で、所得や合併によって変わらないという仮定を使っている。
 
 random coefficient logitでは、$\alpha_i$ が人によって違う。そこで、この金額単位の変化を人々について平均する。$\alpha_i=\exp(\hat a+\hat\sigma\nu_i)$ とすると、1人あたりの消費者余剰の変化は
 
 $$
 \Delta CS=E_i\left[
-\frac{\log\{1+\sum_j\exp(b_j-\alpha_i p_j^{\mathrm{new}})\}
--\log\{1+\sum_j\exp(b_j-\alpha_i p_j^{\mathrm{base}})\}}
-{\alpha_i}\right].
+\frac{1}{\alpha_i}\log\!
+\frac{1+\sum_{j=1}^{3}\exp\{\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}-\alpha_i p_j^{\mathrm{new}}\}}
+{1+\sum_{j=1}^{3}\exp\{\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}-\alpha_i p_j^{\mathrm{base}}\}}
+\right].
 $$
 
-つまり、まず各人の $\alpha_i$ で割ってから平均する。平均の価格係数で一括して割るわけではない。計算では $\nu_i$ の120個の分位点を使ってこの平均を近似する。
+対数の中の比率は、分子が合併後、分母が合併前である。比率の対数は対数の差に等しいので、これは二つのlogsumの差を表している。両方で $\hat\delta_j+m(\hat a,\hat\sigma)p_j^{\mathrm{base}}$ は同じ値に保っている。
 
-次の表では、1人あたりの値に $M$ を掛けた市場全体の値を示す。合併前後それぞれの消費者余剰の水準は、買わない場合の期待効用を基準として正規化している。したがって水準の計算では、期待最大効用から買わない場合の期待効用 $\gamma_E$ を差し引き、logsumを $\alpha_i$ で割る。前後の差は上の式と一致する。
+まず各人の $\alpha_i$ で割ってから平均する。平均の価格係数で一括して割るわけではない。計算では $\nu_i$ の120個の分位点を使ってこの平均を近似する。この平均には、**買わない人も含めた市場全体の消費者**が入る。
+
+#### 市場全体で、いくら変わるのか
+
+第4.1節で定義した `cs_value()` が、各人のlogsumを価格係数で割って平均する関数である。`market_outcomes()` は、その値に $M$ を掛けた市場全体の消費者余剰に加えて、販売数量 $M\sum_j s_j$ と企業利潤 $M\sum_j(p_j-mc_j)s_j$ も返す。
+
+合併前後それぞれの消費者余剰の水準は、買わない場合の期待効用を基準として正規化している。つまり、期待最大効用から買わない場合の期待効用 $0.577\ldots$ を差し引き、logsumを $\alpha_i$ で割る。前後の差は上の式と一致する。
 
 ```{r}
-knitr::kable(merger_tbl[, c("product", "quantity_pre", "quantity_post", "profit_pre", "profit_post")],
-  digits = 1, col.names = c("商品", "合併前数量", "合併後数量", "合併前利潤", "合併後利潤"))
+outcomes_merger <- data.frame(
+  outcome = c("販売数量の合計（個）", "企業利潤の合計（価格単位）", "消費者余剰（価格単位）"),
+  before = market_outcomes(p_pre, mc_d, quality_d, a_d, sigma_d, nu, market_size),
+  after = market_outcomes(p_merger, mc_d, quality_d, a_d, sigma_d, nu, market_size))
+outcomes_merger$change <- outcomes_merger$after - outcomes_merger$before
 knitr::kable(outcomes_merger, row.names = FALSE, digits = 1,
   col.names = c("指標", "合併前", "合併後", "変化"))
 ```
 
-この例では企業利潤の合計が増える一方、販売数量と消費者余剰は減る。価格・費用・余剰の金額単位は、シミュレーションで設定した価格の単位である。
+```{r}
+#| include: false
+cs_before <- cs_value(p_pre, quality_d, a_d, sigma_d, nu)
+cs_after <- cs_value(p_merger, quality_d, a_d, sigma_d, nu)
+cs_loss <- cs_before - cs_after
+fmt_amount <- function(value, digits = 2) {
+  formatC(value, format = "f", digits = digits, big.mark = ",")
+}
+```
+
+この例では企業利潤の合計が増える一方、販売数量と消費者余剰は減る。消費者余剰は市場全体で `r fmt_amount(market_size * cs_before)` から `r fmt_amount(market_size * cs_after)` へ下がる。したがって、**1人平均で `r fmt_amount(cs_loss, 5)` 価格単位、1万人全体で `r fmt_amount(market_size * cs_loss)` 価格単位の減少（`r fmt_amount(100 * cs_loss / cs_before)`%減）**である。これは効用の単位ではなく、価格と同じ金額の単位で測った損失である。
+
+では、何円の損失なのか。元のシミュレーションは $p=2$ が2円なのか200円なのかを指定していないため、円での金額はそのままでは決まらない。**例えば価格1単位を100円と読むなら**、$p=2$ は200円を意味し、上の損失は **1人平均で約 `r fmt_amount(100 * cs_loss)` 円、1万人全体で約 `r fmt_amount(100 * market_size * cs_loss, 0)` 円（約 `r fmt_amount(100 * market_size * cs_loss / 10000, 1)` 万円）**になる。これは単位の読み方を明示した換算例であり、実際の市場で観測された円の損失ではない。
+
+この金額は、全員が1回ずつ購入するかどうかを選ぶ、この市場での損失である。1年や1か月といった期間は設定していないので、年額や月額を意味しない。
 
 ### 6.4 補足：diversion ratio と UPP
 
@@ -1277,6 +1415,9 @@ $$
 で表される。UPPは値上げの誘因を測る指標であり、合併後の価格変化そのものではない。価格変化を知るには、他社の反応も含めて均衡を計算する必要がある。
 
 ```{r}
+jac_pre <- rc_market(p_pre, quality_d, a_d, sigma_d, nu)$jac
+diversion12 <- -jac_pre[2, 1] / jac_pre[1, 1]
+upp1 <- diversion12 * (p_pre[2] - mc_d[2])
 knitr::kable(data.frame(
   indicator = c("財1から財2へのdiversion ratio", "財1のUPP（費用削減なし）"),
   value = c(diversion12, upp1)), digits = 3,
