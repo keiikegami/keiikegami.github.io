@@ -3015,7 +3015,7 @@ e_{ik}=\exp(z_{ik}-m_i),\qquad S_i=\sum_{k=1}^3 e_{ik}
 \widehat k_i^{\mathrm{NP}}\in\arg\max_{k\in\{1,2,3\}}L(\vartheta_k;H_i),
 \qquad \widehat\theta_i^{\mathrm{NP}}=\vartheta_{\widehat k_i^{\mathrm{NP}}}
 \]</span></p>
-<p>とするのが、この例での<strong>個人別推定（no pooling）</strong>である。他人のデータも母集団割合も使わない。有限個の候補なので最大値は存在するが、短い履歴から一つのタイプを選ぶ結果は偶然に左右される。同点ならコードでは番号の小さい候補を選ぶ。</p>
+<p>とするのが、この例での<strong>個人別推定（no pooling）</strong>である。他人のデータも母集団割合も使わない。有限個の候補なので最大値は存在するが、短い履歴から一つのタイプを選ぶ結果は偶然に左右されるというのが難点である。同点なら、以下のコードでは番号の小さい候補を選ぶ。</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 33%">
@@ -3047,12 +3047,31 @@ e_{ik}=\exp(z_{ik}-m_i),\qquad S_i=\sum_{k=1}^3 e_{ik}
 </tr>
 </tbody>
 </table>
-<p>母集団の分布のみでも、モデルには3タイプの異質性が残っている。全員の係数を同一とするcomplete poolingとは違う。経験ベイズは、集団の情報を使いながら個人差も残す、partial poolingの方法である。</p>
-<p>分布を一つの値で要約したい場合は、事後平均 <span class="math inline">\(\widehat\theta_i^{\mathrm{EB}}=\sum_k\widehat w_{ik}\vartheta_k\)</span> を使える。これは新しいタイプを追加したのではなく、3タイプの分布を平均した値だ。真の係数との二乗誤差を比較するなら、</p>
+<p>では、この3つを評価しよう。ここでは、各方法で本人の好みを一つの数に要約し、真の係数との二乗誤差を比べる。経験ベイズでは、3タイプの事後確率で平均した<strong>事後平均</strong></p>
+<p><span class="math display">\[
+\widehat\theta_i^{\mathrm{EB}}=\sum_{k=1}^3\widehat w_{ik}\vartheta_k
+\]</span></p>
+<p>を使う。</p>
+<p>個人別最尤は一つのタイプを選ぶ方法なので、平均という形で書くなら、<strong>選んだタイプに重み1、残りに重み0</strong>を置く。</p>
+<p><span class="math display">\[
+\widehat w_{ik}^{\mathrm{NP}}
+=\mathbf 1\{k=\widehat k_i^{\mathrm{NP}}\},\qquad
+\widehat\theta_i^{\mathrm{NP}}
+=\sum_{k=1}^3\widehat w_{ik}^{\mathrm{NP}}\vartheta_k
+=\vartheta_{\widehat k_i^{\mathrm{NP}}}.
+\]</span></p>
+<p>この「平均」は、選ばれた候補値そのものになる。例えば <span class="math inline">\(-1.5\)</span> を選んだなら、<span class="math inline">\(1\times(-1.5)+0\times0+0\times1.5=-1.5\)</span> である。重み1は、推定結果を点分布として表すための記法であり、「そのタイプである事後確率が100%」という意味ではない。</p>
+<p>母集団の分布だけを使う方法では、全員に共通の平均</p>
+<p><span class="math display">\[
+\widehat\theta_i^{\mathrm{POP}}
+=\sum_{k=1}^3\widehat\pi_k\vartheta_k
+\]</span></p>
+<p>を使う。以上の3つは、同じ候補値をどの重みで平均するかが異なる。経験ベイズと母集団平均は候補値の間の値を取ることもあるが、それは分布の要約であり、新たなタイプを追加したわけではない。</p>
+<p>方法 <span class="math inline">\(m\in\{\mathrm{POP},\mathrm{NP},\mathrm{EB}\}\)</span> の評価指標を</p>
 <p><span class="math display">\[
 \operatorname{RMSE}(m)=\sqrt{\frac1N\sum_i(\widehat\theta_i^m-\theta_i)^2}
 \]</span></p>
-<p>を使える。固定した事後分布のもとで二乗誤差の期待値を最小にする要約は事後平均である。ただし、経験ベイズの分布には推定誤差やモデルのずれがあり、実際の標本で必ず他の方法より良いという意味ではない。</p>
+<p>と定義する。これは<strong>平均二乗誤差の平方根（RMSE）</strong>で、小さいほど真の係数に近い。以下の表は、同じ400人の最初の4機会から得た推定値を比較する。</p>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>individual_mle <span class="ot">&lt;-</span> <span class="cf">function</span>(ell, grid) {</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  grid[<span class="fu">max.col</span>(ell, <span class="at">ties.method =</span> <span class="st">&quot;first&quot;</span>)]</span>
@@ -3088,8 +3107,73 @@ e_{ik}=\exp(z_{ik}-m_i),\qquad S_i=\sum_{k=1}^3 e_{ik}
 </table>
 </div>
 </div>
-<p>この表は、集団の情報を使うことと、一つのタイプに決めず平均することの両方が異なる方法を比較している。タイプを一つ答えることが目的なら、経験ベイズでも事後確率が最大のタイプを選び、最尤で選んだタイプと比較するべきだ。何を一つの値に要約したいかによって、適切な要約は違う。ここでは、元となる事後分布を保つことを重視する。</p>
-<p>個人別推定には、対象と違う集団の情報に引っ張られない利点がある。経験ベイズは、本人の情報が少なくても他の人の情報を使える一方、全員に同じ母集団分布を使ってよいかが重要になる。履歴が豊富でタイプ間の尤度に大きな差があれば、本人の情報が強くなる。</p>
+<p>このデータでは、経験ベイズの事後平均のRMSEが最も小さい。母集団の情報を使いながら一つのタイプに決めず平均することで、短い履歴の偶然に左右される影響を抑えている。ただし、これは一回のデータでの比較であり、どの標本でも必ず同じ順位になるという意味ではない。</p>
+<p>一方で、個人別推定には、対象と違う集団の情報に引っ張られない利点がある。経験ベイズは、本人の情報が少なくても他の人の情報を使える一方、全員に同じ母集団分布を使ってよいかが重要になる。履歴が豊富でタイプ間の尤度に大きな差があれば、本人の情報が強くなる。</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">ノート</span>数学コラム：集団の情報を使う利点と代償
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-3" class="callout-3-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><strong>正しい母集団分布が分かっている場合、事後平均には二乗誤差を最小にする性質がある。</strong> その性質と、実際に母集団分布を推定して使う経験ベイズの成績は分けて考えよう。</p>
+<p>まず、価格列を所与とし、モデルが正しく、真の母集団割合 <span class="math inline">\(\pi^0\)</span> が既知だとする。全員の履歴 <span class="math inline">\(\mathcal H\)</span> のもとでの事後平均を</p>
+<p><span class="math display">\[
+m_i^*=E[\theta_i\mid\mathcal H]
+=E[\theta_i\mid H_i]
+=\sum_{k=1}^3w_{ik}(\pi^0;H_i)\vartheta_k
+\]</span></p>
+<p>と書く。2つ目の等号は、母集団割合が既知なら、他人の履歴は本人のタイプについて追加の情報を持たないという、このモデルの個人間独立性による。</p>
+<p>全履歴から作る任意の推定値 <span class="math inline">\(a_i=a_i(\mathcal H)\)</span> に対して、</p>
+<p><span class="math display">\[
+E[(a_i-\theta_i)^2\mid\mathcal H]
+=\operatorname{Var}(\theta_i\mid\mathcal H)+(a_i-m_i^*)^2
+\]</span></p>
+<p>が成り立つ。<span class="math inline">\(a_i-\theta_i=(a_i-m_i^*)+(m_i^*-\theta_i)\)</span> を二乗して期待値を取ると、交差項が0になるからである。第1項は <span class="math inline">\(a_i\)</span> に依存せず、第2項は <span class="math inline">\(a_i=m_i^*\)</span> で0になる。したがって、正しい事後平均は、データを見た後の期待二乗誤差を最小にする。<a href="https://stat210a.berkeley.edu/fall-2025/reader/bayes-estimation.html#bayes-estimator">UC Berkeley Stat 210A「Bayes Estimation」§2</a></p>
+<p>タイプと履歴の両方について平均したリスクを <span class="math inline">\(R(a_i)=E[(a_i-\theta_i)^2]\)</span> とすると、さらに</p>
+<p><span class="math display">\[
+R(a_i)-R(m_i^*)=E[(a_i-m_i^*)^2]\geq0
+\]</span></p>
+<p>となる。この式は、正しい事後平均からどれだけ離れるかが、平均的な二乗誤差の増加になることを示す。経験ベイズでは <span class="math inline">\(\pi^0\)</span> を <span class="math inline">\(\widehat\pi\)</span> に置き換えるため、その推定誤差によって <span class="math inline">\(\widehat\theta_i^{\mathrm{EB}}\)</span> と <span class="math inline">\(m_i^*\)</span> はずれ得る。よって、<strong>この最適性だけから、経験ベイズが有限標本で必ず個人別最尤より良いとは言えない。</strong> また、ここで平均しているのは母集団から抽選されるタイプと履歴であり、各人の真のタイプを固定した場合の優位性や、一回の標本でのRMSEの順位を保証するものでもない。</p>
+<p><strong>分散を抑える代わりに、集団の平均へ寄せる偏りが生じる。</strong> この代償を式で見るため、このコラムだけは、コーヒーの離散選択とは別の簡単な正規モデルを使う。本人のデータから得た測定値を <span class="math inline">\(X_i\)</span> として、</p>
+<p><span class="math display">\[
+X_i\mid\theta_i\sim N(\theta_i,s^2),\qquad
+\theta_i\sim N(\mu,\tau^2),\qquad s^2&gt;0,\ \tau^2&gt;0
+\]</span></p>
+<p>とする。<span class="math inline">\(s^2\)</span> は本人の測定の不確かさ、<span class="math inline">\(\tau^2\)</span> は母集団内の個人差で、ここでは <span class="math inline">\(\mu,s^2,\tau^2\)</span> は既知とする。このモデルでは個人別最尤は <span class="math inline">\(X_i\)</span>、母集団平均だけを使う推定値は <span class="math inline">\(\mu\)</span> である。</p>
+<p>両者の間を取る推定値 <span class="math inline">\(\delta_i(\omega)=\omega X_i+(1-\omega)\mu\)</span> を考え、重み <span class="math inline">\(0\leq\omega\leq1\)</span> を固定する。<span class="math inline">\(\theta_i\)</span> を固定して <span class="math inline">\(X_i\)</span> のばらつきについて平均すると、</p>
+<p><span class="math display">\[
+\begin{aligned}
+E[\delta_i(\omega)-\theta_i\mid\theta_i]
+&amp;=(1-\omega)(\mu-\theta_i),\\
+\operatorname{Var}(\delta_i(\omega)\mid\theta_i)
+&amp;=\omega^2s^2,\\
+E[(\delta_i(\omega)-\theta_i)^2\mid\theta_i]
+&amp;=\underbrace{(1-\omega)^2(\mu-\theta_i)^2}_{\text{バイアスの二乗}}
++\underbrace{\omega^2s^2}_{\text{分散}}.
+\end{aligned}
+\]</span></p>
+<p><span class="math inline">\(\omega=1\)</span> の個人別最尤はバイアス0・分散 <span class="math inline">\(s^2\)</span>、<span class="math inline">\(\omega=0\)</span> の母集団平均は分散0・二乗誤差 <span class="math inline">\((\mu-\theta_i)^2\)</span> である。集団の平均へ強く寄せるほど分散は小さくなるが、平均から離れた個人には大きな偏りが生じる。</p>
+<p>母集団についても平均すると <span class="math inline">\(E[(\mu-\theta_i)^2]=\tau^2\)</span> なので、平均リスクは</p>
+<p><span class="math display">\[
+\overline R(\omega)=(1-\omega)^2\tau^2+\omega^2s^2.
+\]</span></p>
+<p>これを <span class="math inline">\(\omega\)</span> で微分して0と置くと、最適な重みとリスクは</p>
+<p><span class="math display">\[
+\omega^*=\frac{\tau^2}{\tau^2+s^2},\qquad
+\overline R(\omega^*)=\frac{\tau^2s^2}{\tau^2+s^2}
+\leq\min\{\tau^2,s^2\}
+\]</span></p>
+<p>となる。<span class="math inline">\(\delta_i(\omega^*)\)</span> は、この正規モデルの事後平均でもある。本人の情報が不確かで <span class="math inline">\(s^2\)</span> が大きいほど集団の平均を重く使い、個人差 <span class="math inline">\(\tau^2\)</span> が大きいほど本人の値を重く使う。正しい母集団で平均すれば両端の方法より良いが、平均から遠い特定の個人については、偏りの増加が分散の減少を上回ることがある。</p>
+<p>この最後の重みの公式は正規モデルでの結果で、今回の有限タイプlogitにそのまま使える式ではない。また、<span class="math inline">\(\mu\)</span> や重みをデータから推定する場合は、その推定誤差も考慮する必要がある。対象に合わない集団の平均を使う問題も含め、<strong>集団の情報を使う効果は、本人の情報の量と、集団の情報が本人にどれほど適切かの両方に依存する。</strong></p>
+</div>
+</div>
+</div>
 </section>
 <section id="履歴を長くすると何が変わるか" class="level3">
 <h3 class="anchored" data-anchor-id="履歴を長くすると何が変わるか">3.5 履歴を長くすると何が変わるか</h3>
@@ -3173,7 +3257,7 @@ Q(\pi,\vartheta\mid\pi^{(r)},\vartheta^{(r)})
 \]</span></p>
 <p>となる。一人がタイプ <span class="math inline">\(k\)</span> である確率が0.7なら、その人の履歴はタイプ <span class="math inline">\(k\)</span> の推定に重み0.7で参加する。EMの反復が進んでも新しいデータが増えるわけではなく、<strong>同じデータについてパラメータを求める計算</strong>が進んでいる。</p>
 <div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -3182,7 +3266,7 @@ Q(\pi,\vartheta\mid\pi^{(r)},\vartheta^{(r)})
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <p>一人の周辺尤度を <span class="math inline">\(M_i(\eta)=\sum_k\pi_kL(\vartheta_k;H_i)\)</span> とする。現在の事後重みを使うと、対数の凹性から</p>
 <p><span class="math display">\[
