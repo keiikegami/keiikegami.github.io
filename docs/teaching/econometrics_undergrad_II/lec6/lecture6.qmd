@@ -1128,9 +1128,9 @@ ident_alt_w <- (1 / 3 - ident_share[1]) / (2 * (1 / 3 - ident_alt_prob[1, 1]))
 ident_alt_pi <- c(ident_alt_w, 1 - 2 * ident_alt_w, ident_alt_w)
 ident_alt_share <- drop(ident_alt_pi %*% ident_alt_prob)
 knitr::kable(data.frame(
-  quantity = c("1回で買わない確率", "1回でAを買う確率", "1回でBを買う確率", "同じ人が3回ともAを買う確率"),
-  original = c(ident_share, sum(pi_true * ident_equal[, 2]^3)),
-  alternative = c(ident_alt_share, sum(ident_alt_pi * ident_alt_prob[, 2]^3))),
+  quantity = c("1回で買わない確率", "1回でAを買う確率", "1回でBを買う確率", "同じ人が2回ともAを買う確率"),
+  original = c(ident_share, sum(pi_true * ident_equal[, 2]^2)),
+  alternative = c(ident_alt_share, sum(ident_alt_pi * ident_alt_prob[, 2]^2))),
   digits = 6, col.names = c("観測する量", "元の母集団", "別の母集団"))
 stopifnot(max(abs(ident_share - ident_alt_share)) < 1e-12,
           all(ident_alt_pi > 0), abs(sum(ident_alt_pi) - 1) < 1e-12)
@@ -1138,22 +1138,146 @@ stopifnot(max(abs(ident_share - ident_alt_share)) < 1e-12,
 
 **1回ごとのシェアは同じだが、同じ人がAを買い続ける確率は違う。** 平均的な購入確率だけでは、好みの強さと、その好みを持つ人数の違いが隠れてしまう。同じ人の繰り返し選択には、その人の固定した好みが現れるため、追加の情報がある。
 
-この点は、条件付き独立という仮定から分かる。タイプを固定すれば3回のショックは独立なので、価格を所与として
+この点は、条件付き独立という仮定から分かる。タイプを固定すれば2回のショックは独立なので、価格を所与として
 
 $$
-\Pr(y_{i1}=a,y_{i2}=b,y_{i3}=c)
+\Pr(y_{i1}=a,y_{i2}=b)
 =\sum_{k=1}^3\pi_k
-P_{a1}(\vartheta_k)P_{b2}(\vartheta_k)P_{c3}(\vartheta_k),
-\qquad a,b,c\in\{0,A,B\}.
+P_{a1}(\vartheta_k)P_{b2}(\vartheta_k),
+\qquad a,b\in\{0,A,B\}.
 $$
 
-**タイプを条件にすると独立だが、タイプを混ぜると、同じ人の選択どうしは一般に関連する。** 甘さ好きが1回目にも3回目にもBを買いやすいからである。別々の人の1回ずつの選択を並べても、この情報にはならない。
+**タイプを条件にすると独立だが、タイプを混ぜると、同じ人の選択どうしは一般に関連する。** 甘さ好きが1回目にも2回目にもBを買いやすいからである。別々の人の1回ずつの選択を並べても、この情報にはならない。
 
-さらに、3回目にBを買った人に注目すると、甘さ好きのタイプが相対的に多くなる。その人たちの1・2回目の選択と、全員の1・2回目の選択を比べれば、同じタイプが異なる重みで混ざった二つの表が得られる。この重みの変化を使って、混ざる前のタイプ別の確率を取り出すのが、以下の証明の考え方だ。
+上の表は、2回の履歴を使えば、この二つの母集団を区別できることを示している。だが、これだけであらゆる3タイプの組を識別したわけではない。別の組合せなら、2回分の履歴まで同じにできるだろうか。
 
-上の表は二つの母集団を区別できる例である。これだけであらゆる3タイプの組を識別したわけではない。次に、モデル全体について一意性を示す。
+### 4.11 2回で残る曖昧さと、3回目が加える情報
 
-### 4.11 この3タイプモデルが識別できる条件
+この講義のように、全員が同じ価格列に直面し、3タイプの候補値も割合も未知の場合、**2回の選択だけでは、母集団のタイプ構成を一意に決められない。** 2回ともAを買った人の中には、苦味好き、中間タイプ、たまたまAを選んだ甘さ好きが混ざっている。「AAの人が何割いるか」が分かっても、その内訳には複数の説明が残る。
+
+これを具体的に確かめるため、A・Bをともに150円に固定し、元の母集団と、次の別の母集団を比べる。この「別の母集団」は4.10のものとは異なり、**2回分の全9通りの履歴確率が一致するように構成した**ものである。
+
+```{r}
+#| code-fold: true
+#| code-summary: "同じ2回分の履歴確率を持つ別の母集団を構成する"
+# 構成の根拠は、この小節末尾の補足で説明する。
+# z = exp(theta)、150円では d(z) = 1 + z + z^2。
+ident_two_z <- exp(theta_grid)
+ident_two_d <- 1 + ident_two_z + ident_two_z^2
+ident_two_weight <- pi_true / ident_two_d^2
+ident_two_m <- vapply(0:4, function(q) sum(ident_two_weight * ident_two_z^q), numeric(1))
+# 3根を持つ多項式の2次の係数を変え、他の係数で同じモーメントを保つ。
+ident_two_c2 <- -sum(ident_two_z) - .5
+ident_two_hankel <- matrix(c(ident_two_m[1], ident_two_m[2],
+                            ident_two_m[2], ident_two_m[3]), 2, 2)
+ident_two_c01 <- solve(ident_two_hankel,
+                       -ident_two_m[4:5] - ident_two_c2 * ident_two_m[3:4])
+ident_two_roots <- polyroot(c(ident_two_c01, ident_two_c2, 1))
+stopifnot(max(abs(Im(ident_two_roots))) < 1e-10)
+ident_two_z_alt <- sort(Re(ident_two_roots))
+ident_two_V <- rbind(1, ident_two_z_alt, ident_two_z_alt^2)
+ident_two_weight_alt <- drop(solve(ident_two_V, ident_two_m[1:3]))
+ident_two_theta_alt <- log(ident_two_z_alt)
+ident_two_pi_alt <- ident_two_weight_alt * (1 + ident_two_z_alt + ident_two_z_alt^2)^2
+ident_two_prob_alt <- choice_prob(ident_two_theta_alt, 1.5, 1.5)
+ident_two_M <- t(ident_equal) %*% diag(pi_true) %*% ident_equal
+ident_two_M_alt <- t(ident_two_prob_alt) %*% diag(ident_two_pi_alt) %*% ident_two_prob_alt
+stopifnot(all(ident_two_z_alt > 0), all(ident_two_pi_alt > 0),
+          abs(sum(ident_two_pi_alt) - 1) < 1e-10,
+          max(abs(ident_two_M - ident_two_M_alt)) < 1e-10)
+knitr::kable(data.frame(type = 1:3, theta = theta_grid, theta_alt = ident_two_theta_alt,
+                        pi = pi_true, pi_alt = ident_two_pi_alt), digits = 6,
+             col.names = c("タイプ", "元の候補値", "別の候補値", "元の割合", "別の割合"))
+```
+
+候補値も割合も違うが、観測できる2回分の履歴確率を計算すると、次のようになる。$0$ は「買わない」を表す。
+
+```{r}
+ident_two_histories <- expand.grid(first = c("0", "A", "B"), second = c("0", "A", "B"))
+knitr::kable(data.frame(
+  history = paste0(ident_two_histories$first, ident_two_histories$second),
+  original = as.vector(ident_two_M), alternative = as.vector(ident_two_M_alt)),
+  digits = 6, col.names = c("1・2回目の履歴", "元の母集団", "別の母集団"))
+```
+
+**全9通りが同じなので、2回分だけを何人から集めても、この二つの母集団は区別できない。** 表の値は丸めているが、これは表示の丸めで同じに見えているだけではない。コードでも丸める前の9確率の一致を確認している。モデルの仮定のもとで、このような別の母集団を構成できることが非識別の理由である。
+
+では、AAだった人の3回目を観測するとどうなるか。同じ価格のもとで、各人の好みはそのまま固定している。履歴ごとのタイプ構成を使うと、
+
+$$
+\begin{aligned}
+&\Pr(y_{i3}=B\mid y_{i1}=a,y_{i2}=b)\\
+&\quad=\sum_{k=1}^3
+\underbrace{\Pr(\theta_i=\vartheta_k\mid y_{i1}=a,y_{i2}=b)}_{\text{同じ履歴の人たちのタイプ構成}}
+\underbrace{P_{B3}(\vartheta_k)}_{\text{タイプごとの次の選択確率}}.
+\end{aligned}
+$$
+
+となる。2回分の履歴確率が同じでも、その履歴の人たちのタイプ構成まで同じとは限らない。そこに、3回目で見分けられる違いが残っている。
+
+```{r}
+ident_two_B_given_AA <- sum(pi_true * ident_equal[, 2]^2 * ident_equal[, 3]) /
+  ident_two_M[2, 2]
+ident_two_B_given_AA_alt <- sum(ident_two_pi_alt * ident_two_prob_alt[, 2]^2 *
+                                ident_two_prob_alt[, 3]) / ident_two_M_alt[2, 2]
+knitr::kable(data.frame(
+  quantity = c("3回目にBを買う確率：全員", "3回目にBを買う確率：AAだった人"),
+  original = c(sum(pi_true * ident_equal[, 3]), ident_two_B_given_AA),
+  alternative = c(sum(ident_two_pi_alt * ident_two_prob_alt[, 3]), ident_two_B_given_AA_alt)),
+  digits = 6, col.names = c("観測する量", "元の母集団", "別の母集団"))
+stopifnot(abs(ident_two_B_given_AA - ident_two_B_given_AA_alt) > 1e-4)
+```
+
+AAだった人が次にBを買う確率は、元の母集団では約 `r round(100 * ident_two_B_given_AA, 3)`%、別の母集団では約 `r round(100 * ident_two_B_given_AA_alt, 3)`%となる。この差は、AAという見かけの中に混ざっている好みの違いを反映している。
+
+ここでは、価格が毎回同じなので、**3回目の全体シェアさえ二つの母集団で同じである。違うのは、「最初の2回と3回目が、同じ人の中でどう結び付いているか」だ。** AAだけでなくABやA0などについても、その後の選択との関係を観測することで、タイプ構成を絞る情報が得られる。
+
+別の見方をすると、3回目にBを買った人に注目すれば、甘さ好きのタイプほど、元の割合に掛かる重みが大きくなる。その人たちの1・2回目の選択と、全員の1・2回目の選択を比べると、同じ3タイプが、タイプごとに異なる倍率で重くなっている。この重みの変化から元のタイプを取り出すのが、次の識別の証明である。なお、この一例で差が出ることだけでは、あらゆる3タイプの組の識別を証明したことにはならない。その一意性は4.12以降で示す。
+
+::: {.callout-note collapse="true"}
+## 補足：共通価格が2回の間で変わっても、なぜ2回では足りないのか
+
+以下も、タイプの値と割合がともに未知で、異なる有限の3タイプが正の割合を持つ場合を考える。価格列は全員に共通とし、その列に条件づける。人によって異なる価格列を与え、複数の価格条件の分布を組み合わせる設計は、ここでの議論の対象ではない。
+
+$z_k=e^{\vartheta_k}$、$a_t=e^{1.5-p_{At}}$、$b_t=e^{1.5-p_{Bt}}$、$d_t(z)=a_t+z+b_tz^2$ と置くと、タイプ $k$ の選択確率は
+
+$$
+P_{0t}(\vartheta_k)=\frac{z_k}{d_t(z_k)},\qquad
+P_{At}(\vartheta_k)=\frac{a_t}{d_t(z_k)},\qquad
+P_{Bt}(\vartheta_k)=\frac{b_tz_k^2}{d_t(z_k)}.
+$$
+
+2回分の確率を掛けると、分子に現れる $z_k$ の次数は0から4までである。したがって、$\lambda_k=\pi_k/\{d_1(z_k)d_2(z_k)\}>0$ と置けば、9通りの履歴確率は、次の五つの量に既知の定数を掛けたものに尽きる。
+
+$$
+m_q=\sum_{k=1}^3\lambda_k z_k^q,\qquad q=0,1,2,3,4.
+$$
+
+ここで $\lambda_k$ は計算のために変換した正の重みで、合計が1とは限らない。例えば、AAの確率は $a_1a_2m_0$、00の確率は $m_2$、BBの確率は $b_1b_2m_4$ である。この五つを同じに保つ別の3点と正の重みが作れれば、全9通りを同じにできる。
+
+そのため、3つの点 $z_1,z_2,z_3$ を根に持つ多項式
+
+$$
+h(z)=z^3+c_2z^2+c_1z+c_0
+$$
+
+を考える。各根で $h(z_k)=0$ なので、$\sum_k\lambda_k h(z_k)=0$ と $\sum_k\lambda_kz_kh(z_k)=0$ から、
+
+$$
+\begin{aligned}
+c_0m_0+c_1m_1+c_2m_2&=-m_3,\\
+c_0m_1+c_1m_2+c_2m_3&=-m_4
+\end{aligned}
+$$
+
+を得る。係数は3個あるが、制約は2本である。$m_0m_2-m_1^2>0$ なので、$c_2$ を少し変え、そのたびに $c_0,c_1$ をこの2本から解くことができる。この不等式は、正の重みを持つ異なる点の分散が正であることに対応する。
+
+十分小さな変化なら、多項式の3つの根は異なる正の値のままである。新しい根に対して $m_0,m_1,m_2$ が一致するように3つの重みを解くと、その重みも元の正の値の近くに保てる。上の2本の式により、$m_3,m_4$ も一致する。最後に $\pi_k=\lambda_kd_1(z_k)d_2(z_k)$ と戻すと、$d_1d_2$ は4次式なので、$m_0,\ldots,m_4$ が同じなら割合の合計も元と同じ1になる。
+
+こうして、**異なる候補値と正の割合を持ちながら、2回分の観測分布がまったく同じ母集団を、元の分布の近くに作れる。** 上の数値例は、この構成を価格150円で実行したものである。
+:::
+
+### 4.12 この3タイプモデルが識別できる条件
 
 ::: {.callout-important}
 ## 命題：3回の選択の同時分布から、3タイプの値と割合を識別できる
@@ -1168,11 +1292,11 @@ $$
 このとき、同じ人の3回の選択の母集団同時分布から、$(\pi,\vartheta)$ は一意に決まる。タイプを順序づけなければ、番号の入れ替えを除いて一意である。
 :::
 
-これは、この講義のモデルについての**十分条件**である。3回があらゆる設定で必要最小の回数だと主張しているわけではない。また、タイプ数そのものをデータから決める定理でもない。
+4.11では、全員に共通する一つの価格列のもとで、2回だけでは識別できないことを示した。したがって、**この講義の仮定のもとでは、3回が識別に必要かつ十分な観測回数となる。** 候補値を既知にする、人によって異なる価格条件を使うなど、設定を変えた場合の必要回数まで主張するものではない。また、タイプ数そのものをデータから決める定理でもない。
 
 価格は3回とも同じでも、機会ごとに異なっていてもよい。この命題では、価格の変動ではなく、同じ人の繰り返し選択と、指定したlogitの形を使う。3.1のシミュレーションはこの条件を満たし、16機会のうち最初の3機会だけでも、以下の識別の議論を適用できる。
 
-### 4.12 観測される二つの表から、タイプを取り出す
+### 4.13 観測される二つの表から、タイプを取り出す
 
 行列は、選択確率を表としてまとめるために使う。機会 $t$ のタイプ別選択確率を
 
@@ -1289,7 +1413,7 @@ $$
 
 したがって、**観測される3回の同時分布 → タイプ別の選択確率 → タイプの値と割合**という逆算ができる。同じ観測分布を生む別のパラメータも、この同じ逆算結果に一致しなければならない。これで命題が示された。
 
-### 4.13 母集団の確率を使い、逆算を数値で確かめる
+### 4.14 母集団の確率を使い、逆算を数値で確かめる
 
 今の証明を、3.1と同じ価格列の最初の3機会で確認する。ここでは識別の計算を確かめるため、既知の生成値から27通りの履歴の**母集団確率**を作る。その後の逆算関数には、この27個の確率と既知の価格だけを渡す。候補値と割合は渡さない。
 
@@ -1334,7 +1458,7 @@ stopifnot(abs(sum(ident_joint) - 1) < 1e-12,
 
 元の候補値と割合を回収できた。これは、**母集団確率からの逆算を確認した結果**であり、400人のデータから誤差なく推定できたという結果ではない。実際の有限標本では27セルの頻度に誤差があり、この逆算をそのまま当てはめると、負の確率や複素数の固有値が出ることもある。識別を示す計算と、安定した推定方法は区別する。前に行ったEMは、logitと確率の制約を保って標本の尤度を最大化するための計算法である。
 
-### 4.14 識別できる範囲と、データが少ないときの難しさ
+### 4.15 識別できる範囲と、データが少ないときの難しさ
 
 証明のどこで各仮定が必要だったかを振り返ろう。
 
@@ -1733,7 +1857,7 @@ stopifnot(max(abs(sweep(quad_compare_c, 2, quad_compare_c[2, ], "-"))) < .005)
 3. パネルの尤度では、なぜ選択機会について掛けてからタイプについて平均するのか。
 4. EMのE-stepとM-stepでは、それぞれ何を固定して、何を更新するのか。EMが収束すれば識別できたと言えるか。
 5. 正規分布モデルのMステップで、事後平均どうしのばらつきだけを使うと何が抜けるか。母集団が正規分布なら、個人の事後分布も正規分布になるか。
-6. この3タイプモデルでは、同じ人の3回の選択を使うことで、何をどう識別したか。タイプの値が一致する場合や、割合が0の場合には、証明のどこが成り立たなくなるか。
+6. 2回分の全9通りの履歴確率が同じ二つの母集団を、3回目のどんな情報が区別するか。タイプの値が一致する場合や、割合が0の場合には、識別の証明のどこが成り立たなくなるか。
 
 [実験室で重みの変化を試す](playground6.html) ／ [課題6](assignment6.html) ／ [講義一覧に戻る](../index.html)
 
