@@ -41,7 +41,7 @@ options(scipen = 8)
 - ベイズの公式は、事前分布と本人の履歴の尤度から事後分布を作る計算である。まず3タイプの重みで、その意味を確かめる。
 - 母集団の分布をデータから推定して個人の更新に使うのが経験ベイズである。一人ずつ推定する方法と、使う情報が違う。
 - タイプの割合だけでなく、タイプの値も推定する。好みを連続分布にしても、個人の履歴を取り込む考え方は共通する。
-- 発展として、母集団パラメータの不確実性も取り込む階層ベイズを扱う。人数が増えることと、本人の履歴が長くなることは区別する。
+- 同じ人を繰り返し観測すると、母集団のタイプの値と割合を区別する情報が得られる。識別、有限標本での推定、本人のタイプについての不確実性を区別する。
 :::
 
 ## 前回とのつながり・今回の問い
@@ -52,7 +52,7 @@ options(scipen = 8)
 
 **母集団の分布 $F$ が分かっても、本人の好みが分かったわけではない。本人の履歴 $H_i$ を見たら、好みについての分布を $F(\theta\mid H_i)$ に更新できる。** この更新をどう行うかが、講義全体の問いである。到達点は、個人の好みを一つの数に断定することではなく、どの値がどれくらいありそうかを表す分布を得ることだ。
 
-最初は好みの候補値を3つに固定し、ベイズ更新を3つの重みの変化として見る。その後、母集団の割合、タイプの値、連続分布のパラメータを順に未知にする。最後に、母集団パラメータも分布として扱う。例と選択モデルを保ったまま、一つずつ仮定を緩めていこう。
+最初は好みの候補値を3つに固定し、ベイズ更新を3つの重みの変化として見る。その後、母集団の割合、タイプの値、連続分布のパラメータを順に未知にする。その際、計算が動くことだけでなく、どの情報から母集団の分布を一意に決められるのかも確かめる。例と選択モデルを保ったまま、一つずつ仮定を緩めていこう。
 
 ## 1. random coefficient logitから個人の好みへ
 
@@ -1094,25 +1094,265 @@ knitr::kable(data.frame(type = 1:3, known_support = theta_grid,
                            "推定した候補値", "推定後の重み"))
 ```
 
-### 4.9 推定が動いたことと、識別できることは違う
+### 4.9 識別とは、観測分布から一意に逆算できること
 
-候補値まで未知にすると、割合だけを推定する場合より難しくなる。短い履歴から似た候補値どうしを区別するのは難しく、あるタイプの割合がほぼゼロなら、そのタイプの位置を学ぶ情報も少ない。二つの候補値が同じなら、データから分かるのはその割合の合計だけだ。
+ここまでは最尤推定を計算してきた。しかし、計算が収束することと、データから母集団のタイプを区別できることは別の問題である。計量Iでいう**識別**に戻ろう。
 
-複数の選択が同じ人に属することは重要な情報になる。例えば、同じ価格に繰り返し直面するときのAの購入ダミーを $D_{it}$ とすると、$t\ne s$ について
+価格列を所与として、母集団における履歴の確率を完全に知っていると考える。その確率から、タイプの候補値と割合 $\eta=(\pi,\vartheta)$ を一意に決められるだろうか。形式的には、同じ価格列のもとで次の含意が成り立つことをいう。確率の等式は、すべての選択列 $(a_1,\ldots,a_T)$ について要求する。
 
 $$
-E[D_{it}]=\sum_k\pi_kP_A(\vartheta_k),\qquad
-E[D_{it}D_{is}]=\sum_k\pi_kP_A(\vartheta_k)^2.
+\begin{aligned}
+&\Pr_\eta(y_{i1}=a_1,\ldots,y_{iT}=a_T)\\
+&\qquad=\Pr_{\widetilde\eta}(y_{i1}=a_1,\ldots,y_{iT}=a_T)\\
+&\qquad\Longrightarrow\quad \eta=\widetilde\eta.
+\end{aligned}
 $$
 
-同じ人の選択の組合せは、一回のシェアとは違う分布の情報を持つ。価格が変われば、タイプごとの反応の違いも観測できる。ただし、この二つのモーメントだけで3タイプを識別した、という意味ではない。識別には、履歴の長さやタイプごとの選択確率など、モデルとデータの条件が重要になる。価格の変動は、タイプを区別する情報を増やすこともある。
+ただし、タイプの番号だけを入れ替えても観測分布は変わらないので、$\vartheta_1<\vartheta_2<\vartheta_3$ と順序を決めておく。これはタイプの名前をそろえる約束である。
 
-今回の真値回収は、置いたlogitと3タイプの仮定のもとでの計算例であり、一般的な識別定理の証明ではない。タイプ数 $K$ もここでは固定した。$K$ 自体をデータから選ぶ問題は、さらに別の問題である。
+ここで知りたいのは、**母集団にどの好みが何割いるか**である。一人のタイプが3回の観測で確定するか、400人の標本で誤差なく推定できるか、という問いではない。人数を十分に増やして履歴の確率を正確に知れたとしても、異なる母集団が同じ観測分布を生むなら、データだけでは区別できない。
+
+### 4.10 1回のシェアが同じでも、同じ人の履歴は違う
+
+まず、1回の選択シェアだけでは足りない例を見よう。A・Bをともに150円に固定する。元の分布は候補値 $(-1.5,0,1.5)$、割合 $(0.25,0.50,0.25)$ だった。これとは別に、候補値 $(-2,0,2)$、割合を約 $(0.1829,0.6342,0.1829)$ とする分布を考える。後者は、より極端な好みの人を少なくし、中間の人を増やした分布である。
+
+```{r}
+#| code-fold: true
+#| code-summary: "1回のシェアは同じだが、履歴の確率は違う二つの母集団"
+ident_equal <- choice_prob(theta_grid, 1.5, 1.5)
+ident_share <- drop(pi_true %*% ident_equal)
+ident_alt_theta <- c(-2, 0, 2)
+ident_alt_prob <- choice_prob(ident_alt_theta, 1.5, 1.5)
+# 対称な分布なので、非購入のシェアを合わせればA・Bのシェアも合う。
+ident_alt_w <- (1 / 3 - ident_share[1]) / (2 * (1 / 3 - ident_alt_prob[1, 1]))
+ident_alt_pi <- c(ident_alt_w, 1 - 2 * ident_alt_w, ident_alt_w)
+ident_alt_share <- drop(ident_alt_pi %*% ident_alt_prob)
+knitr::kable(data.frame(
+  quantity = c("1回で買わない確率", "1回でAを買う確率", "1回でBを買う確率", "同じ人が3回ともAを買う確率"),
+  original = c(ident_share, sum(pi_true * ident_equal[, 2]^3)),
+  alternative = c(ident_alt_share, sum(ident_alt_pi * ident_alt_prob[, 2]^3))),
+  digits = 6, col.names = c("観測する量", "元の母集団", "別の母集団"))
+stopifnot(max(abs(ident_share - ident_alt_share)) < 1e-12,
+          all(ident_alt_pi > 0), abs(sum(ident_alt_pi) - 1) < 1e-12)
+```
+
+**1回ごとのシェアは同じだが、同じ人がAを買い続ける確率は違う。** 平均的な購入確率だけでは、好みの強さと、その好みを持つ人数の違いが隠れてしまう。同じ人の繰り返し選択には、その人の固定した好みが現れるため、追加の情報がある。
+
+この点は、条件付き独立という仮定から分かる。タイプを固定すれば3回のショックは独立なので、価格を所与として
+
+$$
+\Pr(y_{i1}=a,y_{i2}=b,y_{i3}=c)
+=\sum_{k=1}^3\pi_k
+P_{a1}(\vartheta_k)P_{b2}(\vartheta_k)P_{c3}(\vartheta_k),
+\qquad a,b,c\in\{0,A,B\}.
+$$
+
+**タイプを条件にすると独立だが、タイプを混ぜると、同じ人の選択どうしは一般に関連する。** 甘さ好きが1回目にも3回目にもBを買いやすいからである。別々の人の1回ずつの選択を並べても、この情報にはならない。
+
+さらに、3回目にBを買った人に注目すると、甘さ好きのタイプが相対的に多くなる。その人たちの1・2回目の選択と、全員の1・2回目の選択を比べれば、同じタイプが異なる重みで混ざった二つの表が得られる。この重みの変化を使って、混ざる前のタイプ別の確率を取り出すのが、以下の証明の考え方だ。
+
+上の表は二つの母集団を区別できる例である。これだけであらゆる3タイプの組を識別したわけではない。次に、モデル全体について一意性を示す。
+
+### 4.11 この3タイプモデルが識別できる条件
+
+::: {.callout-important}
+## 命題：3回の選択の同時分布から、3タイプの値と割合を識別できる
+
+以下を仮定する。
+
+1. タイプ数は $K=3$ と分かっており、候補値は有限で $\vartheta_1<\vartheta_2<\vartheta_3$、割合はすべて $\pi_k>0$ で合計1である。
+2. 個人の $\theta_i$ は期間を通じて固定され、タイプと価格列を条件にすると、各機会の選択は独立である。
+3. 「買わない・A・B」の3選択肢を観測する。選択確率は1.2のlogitで、$b_0=1.5$、$\alpha=1$、$x_A=-1$、$x_B=1$ は既知であり、ショックの尺度も固定されている。
+4. 価格は各機会に全員に共通で、タイプや個人のショックと独立に設定される。以下では、その有限の価格列に条件づける。
+
+このとき、同じ人の3回の選択の母集団同時分布から、$(\pi,\vartheta)$ は一意に決まる。タイプを順序づけなければ、番号の入れ替えを除いて一意である。
+:::
+
+これは、この講義のモデルについての**十分条件**である。3回があらゆる設定で必要最小の回数だと主張しているわけではない。また、タイプ数そのものをデータから決める定理でもない。
+
+価格は3回とも同じでも、機会ごとに異なっていてもよい。この命題では、価格の変動ではなく、同じ人の繰り返し選択と、指定したlogitの形を使う。3.1のシミュレーションはこの条件を満たし、16機会のうち最初の3機会だけでも、以下の識別の議論を適用できる。
+
+### 4.12 観測される二つの表から、タイプを取り出す
+
+行列は、選択確率を表としてまとめるために使う。機会 $t$ のタイプ別選択確率を
+
+$$
+R_t=
+\begin{pmatrix}
+P_{0t}(\vartheta_1)&P_{0t}(\vartheta_2)&P_{0t}(\vartheta_3)\\
+P_{At}(\vartheta_1)&P_{At}(\vartheta_2)&P_{At}(\vartheta_3)\\
+P_{Bt}(\vartheta_1)&P_{Bt}(\vartheta_2)&P_{Bt}(\vartheta_3)
+\end{pmatrix}
+$$
+
+と書く。**行は選択肢、列はタイプ**であり、各列の合計は1である。この $R_t$ 自体は、タイプが見えないため直接は観測できない。
+
+まず必要なのは、$R_1,R_2$ の列が線形独立であることだ。これは、3タイプの確率の列が、二つ以下の列の組合せに潰れていないという条件である。正方行列の場合、この条件が満たされると逆行列が存在し、行列を掛ける操作を元に戻せる。
+
+このlogitでは、候補値が異なるだけで、この条件が満たされる。さらに、$\vartheta$ が大きいほどBの購入確率は厳密に高くなる。この二点を確認してから、観測分布からの逆算に進もう。
+
+::: {.callout-note collapse="true"}
+## なぜこのlogitでは、列が線形独立で、Bの確率も異なるのか
+
+$z_k=e^{\vartheta_k}>0$、$a_t=e^{1.5-p_{At}}>0$、$b_t=e^{1.5-p_{Bt}}>0$ と置くと、$R_t$ の第 $k$ 列は
+
+$$
+\frac{1}{1+a_t/z_k+b_tz_k}
+\begin{pmatrix}1\\a_t/z_k\\b_tz_k\end{pmatrix}
+$$
+
+である。各列を正の数 $z_k(1+a_t/z_k+b_tz_k)$ 倍すると、列は $(z_k,a_t,b_tz_k^2)'$ になる。行の順番を入れ替え、正の定数で割れば、次の行列になる。
+
+$$
+V=\begin{pmatrix}
+1&1&1\\ z_1&z_2&z_3\\ z_1^2&z_2^2&z_3^2
+\end{pmatrix},\qquad
+\det V=(z_2-z_1)(z_3-z_1)(z_3-z_2)\ne0.
+$$
+
+$\det$ は行列式で、0でなければ逆行列が存在する。ここでは $z_k$ がすべて異なるので0にならない。直感的には、放物線上の異なる3点 $(z_k,z_k^2)$ は一本の直線上に並ばない。この独立な違いが、3タイプの選択確率にも残る。列や行を正の数で伸縮しても、線形独立かどうかは変わらないので、元の $R_t$ も可逆である。
+
+また、logit公式を微分すると、
+
+$$
+\frac{\partial P_{Bt}(\theta)}{\partial\theta}
+=P_{Bt}(\theta)\{P_{0t}(\theta)+2P_{At}(\theta)\}>0.
+$$
+
+したがって、$\vartheta_1<\vartheta_2<\vartheta_3$ なら、$P_{B3}(\vartheta_1)<P_{B3}(\vartheta_2)<P_{B3}(\vartheta_3)$ である。
+:::
+
+**ステップ1：観測される二つの表を書く。**
+
+1・2回目の選択の同時確率を並べた $3\times3$ の表を $M$ とし、そこに「3回目はB」という条件も加えた同時確率の表を $M_B$ とする。
+
+$$
+M_{ab}=\Pr(y_{i1}=a,y_{i2}=b),\qquad
+(M_B)_{ab}=\Pr(y_{i1}=a,y_{i2}=b,y_{i3}=B).
+$$
+
+行と列はともに $0,A,B$ の順である。$M_B$ は、Bを買った人の中だけで正規化した条件付き確率ではない。全セルの合計は $\Pr(y_{i3}=B)$ となる。
+
+$D_\pi=\operatorname{diag}(\pi_1,\pi_2,\pi_3)$、$D_B=\operatorname{diag}(P_{B3}(\vartheta_1),P_{B3}(\vartheta_2),P_{B3}(\vartheta_3))$ とする。$\operatorname{diag}$ は、指定した数を対角線上に置き、他の成分を0にした行列である。条件付き独立から、
+
+$$
+M=R_1D_\pi R_2',\qquad
+M_B=R_1D_\pi D_B R_2'
+$$
+
+と書ける。$'$ は行と列を入れ替える転置を表す。例えば、右辺の $(a,b)$ 成分は、それぞれ $\sum_k\pi_kP_{a1}(\vartheta_k)P_{b2}(\vartheta_k)$ と、それにタイプごとの $P_{B3}(\vartheta_k)$ を掛けた和である。二つの表の違いは、3回目にBを買いやすいタイプがどれだけ重く入るかだ。
+
+**ステップ2：共通の混ざり方を消し、タイプごとの違いを残す。**
+
+$R_1,R_2$ は可逆で、$\pi_k>0$ なので $D_\pi$ も可逆である。したがって $M$ も可逆となり、観測される表だけから
+
+$$
+\begin{aligned}
+C&=M_BM^{-1}\\
+&=R_1D_\pi D_B R_2'(R_2')^{-1}D_\pi^{-1}R_1^{-1}\\
+&=R_1D_B R_1^{-1}.
+\end{aligned}
+$$
+
+を計算できる。ここで $M^{-1}$ は行列としての逆であり、各セルを逆数にする操作ではない。二つの表を組み合わせると、タイプ割合と2回目の選択確率が消え、1回目のタイプ別確率と、3回目にBを買うタイプ別確率が残った。
+
+**ステップ3：タイプ別の選択確率を復元する。**
+
+$R_1$ の第 $k$ 列を $r_{1k}$ とすると、上の式は
+
+$$
+C r_{1k}=P_{B3}(\vartheta_k)\,r_{1k}
+$$
+
+を意味する。つまり、$C$ を掛けても向きが変わらず、倍率だけが変わる列が、タイプ別の選択確率である。このような列を**固有ベクトル**、その倍率を**固有値**と呼ぶ。
+
+3つの倍率 $P_{B3}(\vartheta_k)$ は異なるので、$C$ の3つの固有ベクトルの方向がそれぞれ一意に決まる。固有ベクトルは何倍してもよいが、ここでは確率の列だから合計が1になるように正規化する。これで $R_1$ を復元できる。固有値の小さい順に並べれば、好みの小さい順にタイプの番号もそろう。
+
+**ステップ4：選択確率から好みと割合を戻す。**
+
+1回目の選択確率の比を取ると、logitの共通の分母が消える。
+
+$$
+\frac{P_{B1}(\vartheta_k)}{P_{01}(\vartheta_k)}
+=e^{1.5+\vartheta_k-p_{B1}}
+\quad\Longrightarrow\quad
+\vartheta_k=\log\frac{(R_1)_{B,k}}{(R_1)_{0,k}}-1.5+p_{B1}.
+$$
+
+価格と定数は既知なので、候補値を一意に戻せる。最後に、観測される1回目のシェアを $s_1=(\Pr(y_{i1}=0),\Pr(y_{i1}=A),\Pr(y_{i1}=B))'$ とすると、
+
+$$
+s_1=R_1\pi
+\quad\Longrightarrow\quad
+\pi=R_1^{-1}s_1.
+$$
+
+したがって、**観測される3回の同時分布 → タイプ別の選択確率 → タイプの値と割合**という逆算ができる。同じ観測分布を生む別のパラメータも、この同じ逆算結果に一致しなければならない。これで命題が示された。
+
+### 4.13 母集団の確率を使い、逆算を数値で確かめる
+
+今の証明を、3.1と同じ価格列の最初の3機会で確認する。ここでは識別の計算を確かめるため、既知の生成値から27通りの履歴の**母集団確率**を作る。その後の逆算関数には、この27個の確率と既知の価格だけを渡す。候補値と割合は渡さない。
+
+```{r}
+#| code-fold: true
+#| code-summary: "3回の同時分布を作り、タイプの値と割合を逆算する"
+# ここだけは識別の検算用。標本頻度ではなく、生成モデルの母集団確率を作る。
+ident_R <- lapply(1:3, function(tt) {
+  t(choice_prob(theta_grid, prices$pA[tt], prices$pB[tt]))
+})
+ident_joint <- array(0, dim = c(3, 3, 3))
+for (k in 1:3) {
+  for (j in 1:3) {
+    ident_joint[, , j] <- ident_joint[, , j] +
+      pi_true[k] * ident_R[[3]][j, k] * outer(ident_R[[1]][, k], ident_R[[2]][, k])
+  }
+}
+# 入力は母集団の27セルと、1回目のB価格。真の候補値・割合は引数にしない。
+recover_three_types <- function(joint, pB1) {
+  M <- apply(joint, c(1, 2), sum)
+  MB <- joint[, , 3]
+  C <- MB %*% solve(M)
+  eig <- eigen(C)
+  stopifnot(max(abs(Im(eig$values))) < 1e-10,
+            max(abs(Im(eig$vectors))) < 1e-10)
+  order_type <- order(Re(eig$values))
+  R1 <- Re(eig$vectors[, order_type])
+  R1 <- sweep(R1, 2, colSums(R1), "/")
+  theta <- log(R1[3, ] / R1[1, ]) - 1.5 + pB1
+  pi <- drop(solve(R1, rowSums(M)))
+  list(theta = theta, pi = pi, R1 = R1)
+}
+ident_recovered <- recover_three_types(ident_joint, prices$pB[1])
+knitr::kable(data.frame(type = 1:3, theta = theta_grid,
+                        recovered_theta = ident_recovered$theta,
+                        pi = pi_true, recovered_pi = ident_recovered$pi), digits = 6,
+             col.names = c("タイプ", "生成時の候補値", "逆算した候補値", "生成時の割合", "逆算した割合"))
+stopifnot(abs(sum(ident_joint) - 1) < 1e-12,
+          max(abs(ident_recovered$theta - theta_grid)) < 1e-10,
+          max(abs(ident_recovered$pi - pi_true)) < 1e-10)
+```
+
+元の候補値と割合を回収できた。これは、**母集団確率からの逆算を確認した結果**であり、400人のデータから誤差なく推定できたという結果ではない。実際の有限標本では27セルの頻度に誤差があり、この逆算をそのまま当てはめると、負の確率や複素数の固有値が出ることもある。識別を示す計算と、安定した推定方法は区別する。前に行ったEMは、logitと確率の制約を保って標本の尤度を最大化するための計算法である。
+
+### 4.14 識別できる範囲と、データが少ないときの難しさ
+
+証明のどこで各仮定が必要だったかを振り返ろう。
+
+- **候補値が二つ一致する場合**：タイプ別確率の列も一致して $R_t$ が可逆でなくなり、区別できるのはその二つの割合の合計になる。
+- **あるタイプの割合が0の場合**：そのタイプは観測分布に現れず、その候補値を決められない。$D_\pi$ も可逆ではなくなる。
+- **タイプを条件にしても選択が依存する場合**：例えば前回の購入が今回の効用を変える状態依存があると、今使った3つの確率の積では同時分布を表せない。そのモデルについて別の識別の議論が必要になる。
+- **選択肢や未知パラメータを変える場合**：非購入を記録しない、価格係数も未知にする、タイプ数も選ぶ、といった変更には、この命題をそのまま使えない。
+
+候補値が一致していなくても非常に近いときや、割合が正でも非常に小さいときは、母集団では識別できても、有限標本では区別が難しくなる。行列が可逆でも、観測確率の小さな誤差が逆算で大きくなるからだ。したがって、3回で識別できることは、3回で精度も十分だという意味ではない。16機会を使うことや、人数を増やすことには、推定を安定させる役割がある。
+
+最後に、**母集団の候補値と割合が分かっても、一人のタイプは確定しない。** このlogitでは有限の候補値でどの選択も正の確率を持つ。有限回の履歴と正のタイプ割合のもとでは、各タイプの事後確率も正のままである。識別できた母集団分布を使って、その人がどのタイプらしいかを確率として更新する、という講義の問いは残る。
 
 ::: {.callout-tip}
-## 研究コラム：Kasahara–Shimotsu — より一般的な有限混合モデルの識別
+## 研究コラム：条件付き独立な繰り返し観測を識別に使う
 
-この講義ではタイプ別の選択確率をlogitで指定した。Kasahara and Shimotsu (2009) は、より一般的な有限混合の離散選択モデルで、タイプ割合とタイプ別の選択確率などを、パネルの観測分布から識別する条件を考えている。彼らの議論には、状態依存を除いたベースラインもあり、繰り返し観測やタイプごとの反応の違いが重要になる。ラベルを入れ替えても同じ分布になる点も共通する。2014年の研究では、タイプ数に関する識別も扱う。今回のEMは、仮定したlogitモデルの尤度を計算上大きくする方法であり、一般的な識別を保証する方法ではない。この二つを区別しながら読むと、より一般的なモデルにも今回と似た問いがあると分かる。[著者による日本語解説（2015）、§2・3](https://www.jstage.jst.go.jp/article/jjssj/44/2/44_451/_pdf/-char/en)
+Allman, Matias and Rhodes (2009) は、潜在クラスを条件に独立となる複数の観測から、混合割合とクラス別分布を識別する条件を整理している。本節ではその一般定理をそのまま仮定する代わりに、今回の3タイプ・3選択肢のlogitについて、必要な行列の独立性を確かめ、観測分布からの逆算を示した。より一般的な有限混合モデルでは、タイプの数と観測の種類に応じて条件を検討する必要がある。[Allman, Matias and Rhodes (2009), §4, Corollary 2](https://www.cs.uaf.edu/~jrhodes/papers/Latent.pdf)
+
+Kasahara and Shimotsuの研究は、有限混合の離散選択モデルで、パネルの長さ、説明変数の変動、状態依存などが識別にどう関わるかを扱う。今回の「固定した好みを条件に選択が独立」という仮定を緩めるときのつながりになる。[笠原・下津による日本語解説（2015）、§2・3](https://www.jstage.jst.go.jp/article/jjssj/44/2/44_451/_pdf/-char/en)
 :::
 
 
@@ -1196,7 +1436,7 @@ $$
 
 と書く。添字 $r$ は、期待値や分散を計算する際に使うパラメータを現在値に固定することを表す。$m_i^{(r)}$ はその人の好みの中心、$v_i^{(r)}$ はその人についてまだ残る不確かさである。
 
-母集団が正規分布でも、logitの履歴を取り込んだ事後分布は一般に正規分布ではない。そのため、これらの積分は数値的に計算する。以下では $[-6,6]$ を241点に分け、台形則で近似する。正規分布のsupportは実数全体であり、この有限範囲は計算上の近似である。また、連続分布の特定の一点の確率は0で、更新するのは点の確率ではなく密度だ。端の外側の寄与と格子の細かさは6.1で確認する。
+母集団が正規分布でも、logitの履歴を取り込んだ事後分布は一般に正規分布ではない。そのため、これらの積分は数値的に計算する。以下では $[-6,6]$ を241点に分け、台形則で近似する。正規分布のsupportは実数全体であり、この有限範囲は計算上の近似である。また、連続分布の特定の一点の確率は0で、更新するのは点の確率ではなく密度だ。端の外側の寄与と格子の細かさは5.7で確認する。
 
 ```{r}
 #| code-fold: true
@@ -1437,136 +1677,18 @@ ggplot(continuous_plot_c, aes(theta, density, color = information, linetype = in
 Trainの教科書第11章は、random coefficient logitで母集団の係数分布を推定した後、その人の選択履歴を使って個人の係数分布を求める問題を扱う。釣り場選択の例では、キャンプ場を好む人も避ける人もいるという母集団の異質性と、特定の釣り人がどちらに近いかという問いを区別している。本講義の3つの重みは、その連続分布の更新を有限タイプで見える形にしたものだ。[Train (2009), Chapter 11](https://eml.berkeley.edu/books/choice2nd/Ch11_p259-281.pdf)
 :::
 
-## 6. 発展：母集団の分布も不確実だと考える
+### 5.7 数値積分の確認
 
-有限タイプでも連続タイプでも、個人の $\theta_i$ が母集団の分布から生じ、その $\theta_i$ が本人の履歴を生むという**階層構造**を使ってきた。上の経験ベイズは、推定した $\widehat\mu,\widehat\tau$ を固定する。だが、それらも有限人数のデータから推定した値なので、別の標本なら変わり得る。
-
-**フルベイズ**では、母集団パラメータにも事前分布を置き、その不確実性を考慮する。$\lambda=\log\tau$ として、ここでは例として独立に
-
-$$
-\mu\sim N(0,2^2),\qquad \lambda\sim N(0,0.7^2)
-$$
-
-とする。この事前分布は仮定であり、単位や対象に照らして考える必要がある。全員の履歴を $\mathcal H$ とすると、母集団パラメータの事後密度は
-
-$$
-p(\mu,\lambda\mid\mathcal H)\propto
-p(\mu)p(\lambda)\prod_{i=1}^N\int L(\theta;H_i)
-\frac{1}{e^\lambda}\phi\!\left(\frac{\theta-\mu}{e^\lambda}\right)d\theta.
-$$
-
-母集団パラメータの事前分布を**ハイパー事前分布**、そのパラメータを**ハイパーパラメータ**とも呼ぶ。階層全体は、次の同時事後分布として表せる。
-
-$$
-p(\theta_1,\ldots,\theta_N,\mu,\lambda\mid\mathcal H)
-\propto p(\mu)p(\lambda)\prod_{i=1}^N
-\left\{L(\theta_i;H_i)f_N(\theta_i;\mu,e^{2\lambda})\right\}.
-$$
-
-フルベイズで初めて階層構造が現れるわけではない。**母集団パラメータも固定せず、その事後分布を通じて不確実性を伝える**点が異なる。本人の分布は、上のような $f_i(\theta\mid H_i,\mu,\tau)$ を一組の母集団パラメータだけで計算する代わりに、その事後分布で平均する。
-
-$$
-p(\theta_i\mid\mathcal H)=
-\iint f_i(\theta_i\mid H_i,\mu,e^\lambda)\,
-p(\mu,\lambda\mid\mathcal H)\,d\mu\,d\lambda.
-$$
-
-ここでは同じデータ `dat_c` に対し、$\mu$ と $\lambda$ の2次元グリッドを使って積分する。多次元の場合はMCMCなどが使われるが、この小さな例は積分する中身を直接確認できる。事前分布は $\lambda$ に置いているので、$\lambda$ のグリッド上でそのまま積分する。
+グリッドが狭すぎると端の外側を無視し、粗すぎると積分が不正確になる。まず、各人の事後重みについて、格子の外側2点にある合計が小さいか確認する。さらに係数の格子を121・241・481点に変え、範囲を $[-8,8]$ に広げた641点でもEMで推定し直す。端の重みが小さくても、それだけで精度が保証されるわけではないため、格子の範囲や細かさを変えた比較も必要である。
 
 ```{r}
 #| code-fold: true
-#| code-summary: "母集団パラメータの事後分布と個人の分布を計算する"
-# フルベイズ：ハイパーパラメータと個人の係数をグリッド上で積分する。
-# mu ~ N(0, 2^2), log(tau) ~ N(0, .7^2), 互いに独立。
-mu_grid_c <- seq(-1, 1.4, length.out = 49)
-logtau_grid_c <- seq(-1.2, .6, length.out = 49)
-mu_w_c <- trap_weights_c(mu_grid_c); logtau_w_c <- trap_weights_c(logtau_grid_c)
-hyper_c <- expand.grid(mu = mu_grid_c, logtau = logtau_grid_c)
-hyper_c$log_joint <- vapply(seq_len(nrow(hyper_c)), function(g) {
-  mu <- hyper_c$mu[g]; z <- hyper_c$logtau[g]
-  marginal_loglik_c(mu, z) + dnorm(mu, 0, 2, log = TRUE) + dnorm(z, 0, .7, log = TRUE)
-}, numeric(1))
-hyper_c$quad_w <- rep(mu_w_c, times = length(logtau_grid_c)) *
-  rep(logtau_w_c, each = length(mu_grid_c))
-hyper_c$post <- exp(hyper_c$log_joint - max(hyper_c$log_joint)) * hyper_c$quad_w
-hyper_c$post <- hyper_c$post / sum(hyper_c$post)
-# 一人分の条件付き分布を混合し、母集団パラメータの不確実性を伝える。
-customer_c <- 1
-post_full_c <- numeric(length(theta_nodes_c))
-for (g in seq_len(nrow(hyper_c))) {
-  if (hyper_c$post[g] > 1e-12) {
-    w <- lik_c[customer_c, ] * dnorm(theta_nodes_c, hyper_c$mu[g], exp(hyper_c$logtau[g])) * theta_w_c
-    post_full_c <- post_full_c + hyper_c$post[g] * w / sum(w)
-  }
-}
-post_full_c <- post_full_c / sum(post_full_c)
-```
-
-```{r}
-weighted_quantile_c <- function(x, w, p) {
-  order_x <- order(x)
-  x <- x[order_x]; w <- w[order_x] / sum(w)
-  x[which(cumsum(w) >= p)[1]]
-}
-tau_values_c <- exp(hyper_c$logtau)
-knitr::kable(data.frame(
-  parameter = c("母集団平均 μ", "個人差の標準偏差 τ"),
-  empirical_bayes = c(mu_hat_c, tau_hat_c),
-  full_bayes_mean = c(sum(hyper_c$post * hyper_c$mu),
-                      sum(hyper_c$post * tau_values_c)),
-  lower = c(weighted_quantile_c(hyper_c$mu, hyper_c$post, .025),
-            weighted_quantile_c(tau_values_c, hyper_c$post, .025)),
-  upper = c(weighted_quantile_c(hyper_c$mu, hyper_c$post, .975),
-            weighted_quantile_c(tau_values_c, hyper_c$post, .975))), digits = 3,
-  col.names = c("パラメータ", "経験ベイズの推定値", "フルベイズの事後平均",
-                "事後2.5%点", "事後97.5%点"))
-```
-
-```{r}
-#| fig-cap: "顧客1の甘さの好みについての経験ベイズとフルベイズの分布"
-full_plot_c <- data.frame(theta = rep(theta_nodes_c, 2),
-  density = c(post_eb_c[customer_c, ] / theta_w_c, post_full_c / theta_w_c),
-  method = rep(c("経験ベイズ", "フルベイズ"), each = length(theta_nodes_c)))
-ggplot(full_plot_c, aes(theta, density, color = method, linetype = method)) +
-  geom_line(linewidth = .9) + coord_cartesian(xlim = c(-3, 3)) +
-  labs(x = "甘さの好み θ", y = "事後密度", color = NULL, linetype = NULL)
-```
-
-表の区間は、モデルと事前分布のもとで母集団パラメータの事後確率が約95%となる区間である。これは、標本を繰り返し取り直したときの被覆率を意味する信頼区間とは定義が違う。
-
-2つの曲線はどちらも同じ本人の履歴を使うが、母集団パラメータの扱いが違う。この例では200人の情報があるため両者が近い場合もある。一般にフルベイズの分布が必ず広い、あるいは常に正しいという意味ではない。事前分布や母集団が同じという仮定を変えたときに結論がどう変わるかも大切である。
-
-::: {.callout-tip}
-## 研究コラム：Lenkほか — 少ない個人データを集団と結びつける
-
-Lenk, DeSarbo, Green and Young (1996) は、コンジョイント分析で個人の回答が少ないとき、階層ベイズで個人差を推定する問題を扱う。一人分の情報だけでは個人別の回帰を推定できない場合でも、他の人の情報と母集団の構造を使えることが重要である。この研究のモデルは本講義のコーヒーのlogitとは異なるが、「母集団から個人へ情報を共有する」という考え方は共通している。第7回のコンジョイント分析でも、このつながりを使う。[Lenk et al. (1996), Marketing Science](https://pubsonline.informs.org/doi/10.1287/mksc.15.2.173)
-:::
-
-### 6.1 数値積分の確認
-
-グリッドが狭すぎると端の外側を無視し、粗すぎると積分が不正確になる。以下では、母集団パラメータの事後重みと、個人の係数の重みについて、外側2点にある合計が小さいか確認する。さらに係数の格子を121・241・481点に変え、範囲を $[-8,8]$ に広げた641点でもEMで推定し直す。母集団パラメータの格子も2種類に変えて比べる。端の重みが小さくても、それだけで精度が保証されるわけではないため、格子の範囲や細かさを変えた比較も必要である。
-
-```{r}
-#| code-fold: true
-#| code-summary: "積分範囲の端を確認する"
-# グリッドの端に十分な余白があるかを見る（外側2セルの質量）。
-edge_mu_c <- sum(hyper_c$post[hyper_c$mu %in% mu_grid_c[c(1, 2, 48, 49)]])
-edge_tau_c <- sum(hyper_c$post[hyper_c$logtau %in% logtau_grid_c[c(1, 2, 48, 49)]])
+#| code-summary: "事後分布の端と、積分の格子・範囲を確認する"
 edge_theta_eb_c <- max(rowSums(post_eb_c[, c(1:2, 240:241), drop = FALSE]))
-edge_theta_full_c <- sum(post_full_c[c(1:2, 240:241)])
-knitr::kable(data.frame(
-  quantity = c("μの外側2点", "log τの外側2点", "θの外側2点：全員の最大値（EB）", "θの外側2点：顧客1（フルベイズ）"),
-  mass = c(edge_mu_c, edge_tau_c, edge_theta_eb_c, edge_theta_full_c)),
-  col.names = c("確認する場所", "事後重みの合計"), digits = 12)
-stopifnot(all(is.finite(post_eb_c)), max(abs(rowSums(post_eb_c)-1)) < 1e-10,
-          abs(sum(hyper_c$post)-1) < 1e-10, edge_mu_c < .005, edge_tau_c < .005,
-          edge_theta_eb_c < .0001, edge_theta_full_c < .0001)
-```
-
-```{r}
-#| code-fold: true
-#| code-summary: "積分の格子を細かくし、範囲を広げて比較する"
-# 積分間隔と範囲を変更して、主要な結果が安定しているかを確かめる。
+knitr::kable(data.frame(quantity = "θの外側2点：全員の最大値", mass = edge_theta_eb_c),
+             col.names = c("確認する場所", "事後重みの合計"), digits = 12)
+stopifnot(all(is.finite(post_eb_c)), max(abs(rowSums(post_eb_c) - 1)) < 1e-10,
+          edge_theta_eb_c < .0001)
 fit_with_nodes_c <- function(n_nodes, limit = 6) {
   nodes <- seq(-limit, limit, length.out = n_nodes)
   weights <- trap_weights_c(nodes)
@@ -1579,33 +1701,15 @@ fit_with_nodes_c <- function(n_nodes, limit = 6) {
 quad_compare_c <- rbind(coarse = fit_with_nodes_c(121),
                         main = c(mu_hat_c, tau_hat_c), fine = fit_with_nodes_c(481),
                         wider = fit_with_nodes_c(641, limit = 8))
-# ハイパーパラメータ空間も一つおきの点で再計算する。
-sel_mu_c <- seq(1, length(mu_grid_c), by = 2)
-sel_logtau_c <- seq(1, length(logtau_grid_c), by = 2)
-hyper_coarse_c <- hyper_c[hyper_c$mu %in% mu_grid_c[sel_mu_c] &
-                            hyper_c$logtau %in% logtau_grid_c[sel_logtau_c], ]
-hw_c <- rep(trap_weights_c(mu_grid_c[sel_mu_c]), times = length(sel_logtau_c)) *
-  rep(trap_weights_c(logtau_grid_c[sel_logtau_c]), each = length(sel_mu_c))
-hyper_coarse_c$post <- exp(hyper_coarse_c$log_joint - max(hyper_coarse_c$log_joint)) * hw_c
-hyper_coarse_c$post <- hyper_coarse_c$post / sum(hyper_coarse_c$post)
-hyper_compare_c <- rbind(
-  coarse = c(mu = sum(hyper_coarse_c$post * hyper_coarse_c$mu),
-             tau = sum(hyper_coarse_c$post * exp(hyper_coarse_c$logtau))),
-  main = c(mu = sum(hyper_c$post * hyper_c$mu),
-           tau = sum(hyper_c$post * exp(hyper_c$logtau))))
 knitr::kable(data.frame(range = c("[-6, 6]", "[-6, 6]", "[-6, 6]", "[-8, 8]"),
                         nodes = c(121, 241, 481, 641), quad_compare_c), digits = 5,
              row.names = FALSE, col.names = c("θの積分範囲", "θの格子点数", "μのEM推定", "τのEM推定"))
-knitr::kable(data.frame(nodes = c("25×25", "49×49"), hyper_compare_c), digits = 5,
-             row.names = FALSE, col.names = c("母集団パラメータの格子点数", "μの事後平均", "τの事後平均"))
-stopifnot(max(abs(sweep(quad_compare_c, 2, quad_compare_c[2, ], "-"))) < .005,
-          max(abs(hyper_compare_c[1, ] - hyper_compare_c[2, ])) < .005)
+stopifnot(max(abs(sweep(quad_compare_c, 2, quad_compare_c[2, ], "-"))) < .005)
 ```
 
-この例の設定では、格子を細かくし、係数の積分範囲を広げても、結果は近い。これはここで試した範囲についての確認であり、別のモデルやデータでも同じ格子で十分だという保証ではない。母集団分布の形、価格と好みの関係、数値積分の精度は、それぞれ別に確認する必要がある。
+この例の設定では、格子を細かくし、係数の積分範囲を広げても、結果は近い。これはここで試した範囲についての確認であり、別のモデルやデータでも同じ格子で十分だという保証ではない。
 
-
-## 7. 今回の整理：母集団を知ることと、本人を知ること
+## 6. 今回の整理：母集団を知ることと、本人を知ること
 
 この講義では、一人の好みは固定したまま、分析者が持つ情報を更新してきた。母集団の分布が分かっても、その人の好みが分かったわけではない。本人の履歴は、どの好みならその選択列が起こりやすいかという尤度を通じて、本人についての分布に取り込まれる。
 
@@ -1615,9 +1719,10 @@ stopifnot(max(abs(sweep(quad_compare_c, 2, quad_compare_c[2, ], "-"))) < .005,
 | 既知の3候補値 | 割合 $\pi$ | 推定した割合で経験ベイズ |
 | 未知の3候補値 | 候補値と割合 | EMで推定し、その重みを個人の分布にする |
 | 連続正規分布 | 平均 $\mu$ と標準偏差 $\tau$ | EMで推定した密度×本人の尤度を積分で正規化 |
-| 階層ベイズ | 母集団パラメータも分布として扱う | 母集団パラメータの事後分布についても平均 |
 
-**有限か連続か**は好みの母集団分布をどう表すかの選択である。**経験ベイズかフルベイズか**は母集団パラメータの推定の不確実性をどう扱うかの選択である。この二つは別の軸であり、有限タイプにもフルベイズを適用できる。
+**有限か連続か**は好みの母集団分布をどう表すかの選択である。どちらでも、まず母集団の分布を推定し、その推定分布と本人の履歴を組み合わせる経験ベイズの考え方が使える。
+
+**識別**は、母集団の観測分布からタイプの値と割合を一意に決められるかという問いである。**推定**は、有限の標本からその未知の値を求める作業であり、**EM**はその最尤推定を計算する方法の一つである。母集団の分布が識別できても、短い履歴しかない本人のタイプが確定するわけではない。
 
 また、人数 $N$ が増えることは主に母集団の分布を学ぶ助けになり、本人の履歴 $T_i$ が増えることは本人の好みを区別する助けになる。大人数のデータから $F$ が精密に分かっても、本人の履歴が短ければ、その人の事後分布には不確実性が残る。
 
@@ -1628,7 +1733,7 @@ stopifnot(max(abs(sweep(quad_compare_c, 2, quad_compare_c[2, ], "-"))) < .005,
 3. パネルの尤度では、なぜ選択機会について掛けてからタイプについて平均するのか。
 4. EMのE-stepとM-stepでは、それぞれ何を固定して、何を更新するのか。EMが収束すれば識別できたと言えるか。
 5. 正規分布モデルのMステップで、事後平均どうしのばらつきだけを使うと何が抜けるか。母集団が正規分布なら、個人の事後分布も正規分布になるか。
-6. 経験ベイズとフルベイズは、母集団のパラメータをどう違って扱うか。
+6. この3タイプモデルでは、同じ人の3回の選択を使うことで、何をどう識別したか。タイプの値が一致する場合や、割合が0の場合には、証明のどこが成り立たなくなるか。
 
 [実験室で重みの変化を試す](playground6.html) ／ [課題6](assignment6.html) ／ [講義一覧に戻る](../index.html)
 
