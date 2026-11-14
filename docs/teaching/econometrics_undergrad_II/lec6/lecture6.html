@@ -2552,7 +2552,7 @@ P_{0t}(\theta)=\frac{1}{1+e^{v_{At}(\theta)}+e^{v_{Bt}(\theta)}}.
 <h3 class="anchored" data-anchor-id="何を考えたいか個人の履歴が持つ情報を取り込みたい">1.3 何を考えたいか：個人の履歴が持つ情報を取り込みたい</h3>
 <p>第4回の講義の最後でmicro BLPを見た。あれは個人についてのアンケート調査や「この財はこういう属性の人が買っている」という情報をモーメントに追加することでパラメータの識別、推定に役立てようという発想であった。</p>
 <p>今回やりたいことも「個人の情報（データ）をモデルの推定に取り込む」という点では同じである。しかし目的と、取り込むデータの性質が違う。</p>
-<p>まず目的は、<strong>目の前の顧客がどのタイプの消費者なのかを、その人の履歴から推測すること</strong>である。コーヒーの例なら、その人は苦味好きなのか、中間なのか、甘さ好きなのかを知りたい。ただし、短い履歴だけでタイプを断定できるとは限らない。そこで、各タイプである確率を求め、どこまで分かり、どれくらい曖昧さが残るかを表す。</p>
+<p>まず目的は、<strong>目の前の顧客がどのタイプの消費者なのかを推測すること</strong>である。コーヒーの例なら、その人は苦味好きなのか、中間なのか、甘さ好きなのかを知りたい。ただし、短い履歴だけでタイプを断定できるとは限らない。そこで、各タイプである確率を求め、どこまで分かり、どれくらい曖昧さが残るかを表す。</p>
 <p>次に取り込むデータは<strong>個人の購買履歴</strong>である。 多くのショッピングサイトには、顧客がいつ何を買ったかという記録が蓄積されている。この履歴を、そのとき提示された商品の価格と組み合わせれば、どのタイプなら本人の選択を説明しやすいかを比べられる。以下では「買わない」も選択肢に含めるため、購入しなかった機会も含めて、各機会の選択と価格が記録されているとする。</p>
 <p>今、<span class="math inline">\(H_i=\{(y_{it},p_{At},p_{Bt}):t=1,\ldots,T_i\}\)</span> を本人の履歴とする。<span class="math inline">\(y_{it}\in\{0,A,B\}\)</span> は実際の選択だ。価格を所与とすると、好みが <span class="math inline">\(\theta\)</span> のもとでこの<span class="math inline">\(H_i\)</span>という選択列が出る確率は</p>
 <p><span class="math display">\[
@@ -2589,7 +2589,7 @@ L(\theta;H_i)=\prod_{t=1}^{T_i}P_{y_{it},t}(\theta).
 <p>が成り立つ。これが<strong>ベイズの公式</strong>だ。<span class="math inline">\(A\)</span> を「本人がタイプ <span class="math inline">\(k\)</span>」、<span class="math inline">\(B\)</span> を「本人の選択列を観測した」とすると、</p>
 <p><span class="math display">\[
 w_{ik}(\pi;H_i)
-=\Pr(\theta_i=\vartheta_k\mid H_i,\pi)
+\equiv \Pr(\theta_i=\vartheta_k\mid H_i,\pi)
 =\frac{\pi_k L(\vartheta_k;H_i)}
 {\sum_{\ell=1}^3\pi_\ell L(\vartheta_\ell;H_i)}.
 \]</span></p>
@@ -2658,8 +2658,7 @@ w_{ik}(\pi;H_i)
 </div>
 </div>
 </div>
-<p>本人の履歴が一件もなければ、空の積を <span class="math inline">\(L(\vartheta_k;\varnothing)=1\)</span> と定義するので、事後確率は <span class="math inline">\(\pi_k\)</span> のままである。また、履歴が増えても、観測のたびに真のタイプの重みが必ず増えるわけではない。偶然の選択もあるためだ。</p>
-<p>ここで更新しているのは<strong>分析者が本人について持つ情報</strong>である。本人が購入によって新しい好みに変化したというモデルではない。固定的な好みと状態依存は、後の講義で区別して扱う。</p>
+<p>本人の履歴が一件もなければ、空の積を <span class="math inline">\(L(\vartheta_k;\varnothing)=1\)</span> と定義するので、事後確率は <span class="math inline">\(\pi_k\)</span> のままである。また、履歴が増えても、観測のたびに真のタイプの重みが必ず増えるわけではないということにも注意したい。偶然の選択もあるためだ。真のタイプでも、たまたまそのタイプらしくない選択をすることがある。</p>
 </section>
 </section>
 <section id="母集団の割合も未知なら経験ベイズと個人別推定" class="level2">
@@ -2745,51 +2744,149 @@ M(\pi;H_i)=\sum_{k=1}^3\pi_k L(\vartheta_k;H_i),
 \]</span></p>
 <p>価格列に条件づけると顧客間でタイプとショックが独立なので、対数尤度を足し合わせられる。タイプを平均して取り除いたものを<strong>周辺尤度</strong>と呼ぶ。最尤推定は、<span class="math inline">\(\pi_k\geq0,\sum_k\pi_k=1\)</span> の制約のもとでこれを最大にする。</p>
 <p>順序が重要である。<strong>本人のタイプを固定して各回の確率を掛け、その後にタイプについて平均する。</strong> 各回で先にタイプを平均してから掛ける <span class="math inline">\(\prod_t\sum_k\pi_kP_{y_{it},t}(\vartheta_k)\)</span> は、毎回タイプを引き直す別のモデルになる。</p>
-<p>まず、各人・各候補値の対数尤度を表にする。行が個人、列が候補値だ。対数を使うのは、小さな確率の積による数値的な問題を避けるためである。</p>
+<p>ここからは、上の数式を3段階に分けて計算する。まず <span class="math inline">\(L(\vartheta_k;H_i)\)</span> を個人・候補値ごとに求め、次に割合 <span class="math inline">\(\pi\)</span> を与えて <span class="math inline">\(M(\pi;H_i)\)</span> と全員分の対数尤度 <span class="math inline">\(\ell(\pi;\mathcal H)\)</span> を計算し、最後にその値が最大になる <span class="math inline">\(\pi\)</span> を探す。</p>
+<p><strong>ステップ1：各人の履歴を、3つの候補値それぞれで評価する。</strong></p>
+<p>個人 <span class="math inline">\(i\)</span> がタイプ <span class="math inline">\(k\)</span> だったと仮定すると、その人の履歴の対数尤度は</p>
+<p><span class="math display">\[
+\ell_{ik}\equiv\log L(\vartheta_k;H_i)
+=\sum_{t=1}^{T_i}\log P_{y_{it},t}(\vartheta_k)
+\]</span></p>
+<p>である。ここで <span class="math inline">\(\ell_{ik}\)</span> は「一人・一候補値」の対数尤度で、全員分をまとめた <span class="math inline">\(\ell(\pi;\mathcal H)\)</span> とは区別する。対数を使うと、履歴の確率の積を足し算で計算でき、小さな確率を何度も掛けることによる数値的な問題を避けられる。</p>
+<p>次の <code>panel_loglik()</code> は、この <span class="math inline">\(\ell_{ik}\)</span> を計算する関数である。<code>grid</code> に入っている候補値を一つ取り出して <code>th</code> とし、次の順で計算する。</p>
+<ol type="1">
+<li><code>pr &lt;- choice_prob(...)</code> で、データの各行について「買わない・A・B」の3つの確率を求める。この段階では、一行は一人の一機会であり、まだ履歴全体の確率ではない。</li>
+<li><code>chosen_prob</code> に、その行で<strong>実際に選んだ選択肢の確率</strong> <span class="math inline">\(P_{y_{it},t}(\vartheta_k)\)</span> だけを取り出す。<code>dat$y</code> は0・1・2、<code>pr</code> の列番号は1・2・3なので、列を選ぶときに <code>dat$y + 1</code> とする。<code>cbind()</code> は「データの行番号と、選択した商品の列番号」の組を作る。</li>
+<li><code>log_chosen_prob</code> で対数を取り、<code>rowsum(..., dat$id)</code> で同じ個人の機会を足し合わせる。これが <span class="math inline">\(\ell_{ik}\)</span> である。</li>
+<li><code>sapply()</code> で候補値を <span class="math inline">\(-1.5,0,1.5\)</span> と変えて同じ計算を繰り返し、結果を3列に並べる。</li>
+</ol>
 <div class="cell" data-layout-align="center">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>panel_loglik <span class="ot">&lt;-</span> <span class="cf">function</span>(dat, grid) {</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sapply</span>(grid, <span class="cf">function</span>(th) {</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    pr <span class="ot">&lt;-</span> <span class="fu">choice_prob</span>(th, dat<span class="sc">$</span>pA, dat<span class="sc">$</span>pB)</span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">drop</span>(<span class="fu">rowsum</span>(<span class="fu">log</span>(pr[<span class="fu">cbind</span>(<span class="fu">seq_len</span>(<span class="fu">nrow</span>(dat)), dat<span class="sc">$</span>y <span class="sc">+</span> <span class="dv">1</span>)]), dat<span class="sc">$</span>id))</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  })</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>train4 <span class="ot">&lt;-</span> <span class="fu">subset</span>(panel, occasion <span class="sc">&lt;=</span> <span class="dv">4</span>)</span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>ell4 <span class="ot">&lt;-</span> <span class="fu">panel_loglik</span>(train4, theta_grid)</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(ell4)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>        [,1]      [,2]        [,3]
-1 -12.580123 -4.184010  -0.9142685
-2  -9.607683 -4.211570  -3.9418283
-3  -3.342242 -3.946129  -9.6763880
-4  -3.021718 -5.125605 -12.3558639
-5 -12.580123 -4.184010  -0.9142685
-6  -8.473899 -4.577786  -5.8080446</code></pre>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    chosen_prob <span class="ot">&lt;-</span> pr[<span class="fu">cbind</span>(<span class="fu">seq_len</span>(<span class="fu">nrow</span>(dat)), dat<span class="sc">$</span>y <span class="sc">+</span> <span class="dv">1</span>)]</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    log_chosen_prob <span class="ot">&lt;-</span> <span class="fu">log</span>(chosen_prob)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">drop</span>(<span class="fu">rowsum</span>(log_chosen_prob, dat<span class="sc">$</span>id))</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>train4 <span class="ot">&lt;-</span> <span class="fu">subset</span>(panel, occasion <span class="sc">&lt;=</span> <span class="dv">4</span>)</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>ell4 <span class="ot">&lt;-</span> <span class="fu">panel_loglik</span>(train4, theta_grid)</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="fu">data.frame</span>(<span class="at">customer =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>, ell4[<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>, ]), <span class="at">digits =</span> <span class="dv">3</span>,</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;顧客 i&quot;</span>, <span class="st">&quot;候補値 −1.5&quot;</span>, <span class="st">&quot;候補値 0&quot;</span>, <span class="st">&quot;候補値 1.5&quot;</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: right;">顧客 i</th>
+<th style="text-align: right;">候補値 −1.5</th>
+<th style="text-align: right;">候補値 0</th>
+<th style="text-align: right;">候補値 1.5</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">-12.580</td>
+<td style="text-align: right;">-4.184</td>
+<td style="text-align: right;">-0.914</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">-9.608</td>
+<td style="text-align: right;">-4.212</td>
+<td style="text-align: right;">-3.942</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">-3.342</td>
+<td style="text-align: right;">-3.946</td>
+<td style="text-align: right;">-9.676</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">-3.022</td>
+<td style="text-align: right;">-5.126</td>
+<td style="text-align: right;">-12.356</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">-12.580</td>
+<td style="text-align: right;">-4.184</td>
+<td style="text-align: right;">-0.914</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">-8.474</td>
+<td style="text-align: right;">-4.578</td>
+<td style="text-align: right;">-5.808</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
-<p>次の関数は、対数尤度と割合から重みと周辺対数尤度を返す。最大値を引いて指数を取り、最後に最大値を足し戻すことで同じ量を安定して計算する。</p>
+<p><code>train4</code> は各人の最初の4機会だけを取り出したデータである。<code>ell4</code> は400行×3列の表になり、上には最初の6人を表示した。<strong>第 <span class="math inline">\(i\)</span> 行・第 <span class="math inline">\(k\)</span> 列の数値 <code>ell4[i, k]</code> が <span class="math inline">\(\ell_{ik}\)</span></strong> に対応する。3つの列は、同じ人の同じ履歴を、3通りのタイプの仮定で評価した結果である。本人の真のタイプが分かっていなくても、どの列も計算できる。</p>
+<p>例えば、<code>ell4[1, 2]</code> は「顧客1の好みが第2候補 <span class="math inline">\(\vartheta_2=0\)</span> だとしたら、その人の最初の4回の履歴はどれくらい起こりやすいか」を対数で表した値で、</p>
+<p><span class="math display">\[
+\ell_{12}=\log L(0;H_1)
+=\log P_{y_{11},1}(0)+\log P_{y_{12},2}(0)
++\log P_{y_{13},3}(0)+\log P_{y_{14},4}(0)
+\]</span></p>
+<p>を計算している。このデータでは -4.184 となる。これは「顧客1が中間タイプである確率」ではなく、<strong>中間タイプを仮定したときの履歴の対数尤度</strong>である。</p>
+<p><strong>ステップ2：割合を仮に与え、一人ずつの周辺尤度と全員分の対数尤度を計算する。</strong></p>
+<p>ステップ1の表を使うと、割合 <span class="math inline">\(\pi\)</span> のもとでの一人の周辺尤度は</p>
+<p><span class="math display">\[
+M(\pi;H_i)=\sum_{k=1}^3\pi_k\exp(\ell_{ik})
+\]</span></p>
+<p>となる。さらに、その対数を400人分足せば <span class="math inline">\(\ell(\pi;\mathcal H)\)</span> が得られる。ここではまだ最適な割合を探さず、与えられた割合を評価するだけだ。</p>
+<p>次の <code>mixture_eval(ell, pi)</code> では、<code>ell</code> がステップ1の表、<code>pi</code> が仮に与えた3つの割合である。小さすぎる数を直接計算しないよう、まず</p>
+<p><span class="math display">\[
+z_{ik}=\log\pi_k+\ell_{ik},\qquad
+m_i=\max_k z_{ik},\qquad
+e_{ik}=\exp(z_{ik}-m_i),\qquad S_i=\sum_{k=1}^3 e_{ik}
+\]</span></p>
+<p>を計算する。コードの <code>z</code>、<code>rowmax</code>、<code>e</code>、<code>totals</code> がそれぞれ <span class="math inline">\(z_{ik}\)</span>、<span class="math inline">\(m_i\)</span>、<span class="math inline">\(e_{ik}\)</span>、<span class="math inline">\(S_i\)</span> に対応する。<code>sweep(..., 2, ...)</code> は列ごとに <span class="math inline">\(\log\pi_k\)</span> を加え、<code>apply(..., 1, max)</code> は個人ごとの行の最大値を取る操作である。</p>
+<p>この変形で <span class="math inline">\(M(\pi;H_i)=\exp(m_i)S_i\)</span> だから、返す2つの値は</p>
+<p><span class="math display">\[
+\begin{aligned}
+\texttt{loglik}
+&amp;=\sum_{i=1}^N\{m_i+\log S_i\}
+=\ell(\pi;\mathcal H),\\
+\texttt{weights}[i,k]
+&amp;=\frac{e_{ik}}{S_i}
+=\frac{\pi_k L(\vartheta_k;H_i)}{M(\pi;H_i)}
+=w_{ik}(\pi;H_i)
+\end{aligned}
+\]</span></p>
+<p>となる。<code>loglik</code> は割合を比較するための一つの数、<code>weights</code> は前節のベイズの公式による個人ごとの事後確率の表である。最大値を引いても、最後に足し戻した対数尤度や、正規化した事後確率は変わらない。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>mixture_eval <span class="ot">&lt;-</span> <span class="cf">function</span>(ell, pi) {</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  z <span class="ot">&lt;-</span> <span class="fu">sweep</span>(ell, <span class="dv">2</span>, <span class="fu">log</span>(pi), <span class="st">&quot;+&quot;</span>)</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  rowmax <span class="ot">&lt;-</span> <span class="fu">apply</span>(z, <span class="dv">1</span>, max)</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  e <span class="ot">&lt;-</span> <span class="fu">exp</span>(z <span class="sc">-</span> rowmax)</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  totals <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(e)</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">weights =</span> e <span class="sc">/</span> totals, <span class="at">loglik =</span> <span class="fu">sum</span>(rowmax <span class="sc">+</span> <span class="fu">log</span>(totals)))</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>mixture_eval <span class="ot">&lt;-</span> <span class="cf">function</span>(ell, pi) {</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  z <span class="ot">&lt;-</span> <span class="fu">sweep</span>(ell, <span class="dv">2</span>, <span class="fu">log</span>(pi), <span class="st">&quot;+&quot;</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  rowmax <span class="ot">&lt;-</span> <span class="fu">apply</span>(z, <span class="dv">1</span>, max)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  e <span class="ot">&lt;-</span> <span class="fu">exp</span>(z <span class="sc">-</span> rowmax)</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  totals <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(e)</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">weights =</span> e <span class="sc">/</span> totals, <span class="at">loglik =</span> <span class="fu">sum</span>(rowmax <span class="sc">+</span> <span class="fu">log</span>(totals)))</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>割合の制約は <span class="math inline">\(\pi_k=e^{a_k}/\sum_\ell e^{a_\ell}\)</span>、<span class="math inline">\(a_3=0\)</span> とする変換で満たす。これは正の割合を表現する計算上の方法で、<span class="math inline">\(a\)</span> は新しい選好パラメータではない。</p>
+<p><strong>ステップ3：全員分の対数尤度が最大になる割合を探す。</strong></p>
+<p>求めたいのは、<span class="math inline">\(\ell(\pi;\mathcal H)\)</span> を最大にする <span class="math inline">\(\widehat\pi\)</span> である。候補値と履歴が同じなら <code>ell4</code> の中身は変わらないので、<strong><code>ell4</code> を固定したまま、<code>pi</code> だけを変えて <code>loglik</code> を比べる</strong>。</p>
+<p>割合が正で合計1になるよう、自由に動かす数を <span class="math inline">\(a_1,a_2\)</span> の2つにし、<span class="math inline">\(a_3=0\)</span> として</p>
+<p><span class="math display">\[
+\pi_k(a)=\frac{e^{a_k}}{e^{a_1}+e^{a_2}+1},\qquad k=1,2,3
+\]</span></p>
+<p>と変換する。コードの <code>softmax()</code> がこの変換に対応する。<span class="math inline">\(a_1=a_2=0\)</span> から始めると、最初の割合は <span class="math inline">\((1/3,1/3,1/3)\)</span> になる。<span class="math inline">\(a\)</span> は計算のための変数で、新しい好みの係数ではない。この変換は正の割合を表し、0の割合には極限として近づける。</p>
+<p><code>optim()</code> は関数を最小にするので、<code>-mixture_eval(...)$loglik</code>、すなわち<strong>全員分の対数尤度にマイナスを付けた値</strong>を渡す。<span class="math inline">\(a\)</span> の候補を割合に変換して対数尤度を計算することを繰り返し、最終的な割合を <code>pi</code> として返す。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>fit_known_pi <span class="ot">&lt;-</span> <span class="cf">function</span>(ell) {</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  softmax <span class="ot">&lt;-</span> <span class="cf">function</span>(a) { z <span class="ot">&lt;-</span> <span class="fu">c</span>(a, <span class="dv">0</span>); z <span class="ot">&lt;-</span> <span class="fu">exp</span>(z <span class="sc">-</span> <span class="fu">max</span>(z)); z <span class="sc">/</span> <span class="fu">sum</span>(z) }</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  opt <span class="ot">&lt;-</span> <span class="fu">optim</span>(<span class="fu">rep</span>(<span class="dv">0</span>, <span class="fu">ncol</span>(ell) <span class="sc">-</span> <span class="dv">1</span>),</span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>               <span class="cf">function</span>(a) <span class="sc">-</span><span class="fu">mixture_eval</span>(ell, <span class="fu">softmax</span>(a))<span class="sc">$</span>loglik,</span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>               <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>, <span class="at">control =</span> <span class="fu">list</span>(<span class="at">reltol =</span> <span class="fl">1e-11</span>, <span class="at">maxit =</span> <span class="dv">1000</span>))</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (opt<span class="sc">$</span>convergence <span class="sc">!=</span> <span class="dv">0</span>) <span class="fu">stop</span>(<span class="st">&quot;Known-support MLE did not converge&quot;</span>)</span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  pi <span class="ot">&lt;-</span> <span class="fu">softmax</span>(opt<span class="sc">$</span>par)</span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">pi =</span> pi), <span class="fu">mixture_eval</span>(ell, pi))</span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>fit4 <span class="ot">&lt;-</span> <span class="fu">fit_known_pi</span>(ell4)</span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="fu">data.frame</span>(<span class="at">theta =</span> theta_grid, <span class="at">truth =</span> pi_true, <span class="at">estimate =</span> fit4<span class="sc">$</span>pi),</span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>             <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;候補値&quot;</span>, <span class="st">&quot;真の割合&quot;</span>, <span class="st">&quot;4機会から推定した割合&quot;</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>fit_known_pi <span class="ot">&lt;-</span> <span class="cf">function</span>(ell) {</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  softmax <span class="ot">&lt;-</span> <span class="cf">function</span>(a) { z <span class="ot">&lt;-</span> <span class="fu">c</span>(a, <span class="dv">0</span>); z <span class="ot">&lt;-</span> <span class="fu">exp</span>(z <span class="sc">-</span> <span class="fu">max</span>(z)); z <span class="sc">/</span> <span class="fu">sum</span>(z) }</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  opt <span class="ot">&lt;-</span> <span class="fu">optim</span>(<span class="fu">rep</span>(<span class="dv">0</span>, <span class="fu">ncol</span>(ell) <span class="sc">-</span> <span class="dv">1</span>),</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>               <span class="cf">function</span>(a) <span class="sc">-</span><span class="fu">mixture_eval</span>(ell, <span class="fu">softmax</span>(a))<span class="sc">$</span>loglik,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>               <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>, <span class="at">control =</span> <span class="fu">list</span>(<span class="at">reltol =</span> <span class="fl">1e-11</span>, <span class="at">maxit =</span> <span class="dv">1000</span>))</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (opt<span class="sc">$</span>convergence <span class="sc">!=</span> <span class="dv">0</span>) <span class="fu">stop</span>(<span class="st">&quot;Known-support MLE did not converge&quot;</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  pi <span class="ot">&lt;-</span> <span class="fu">softmax</span>(opt<span class="sc">$</span>par)</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">pi =</span> pi), <span class="fu">mixture_eval</span>(ell, pi))</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>fit4 <span class="ot">&lt;-</span> <span class="fu">fit_known_pi</span>(ell4)</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="fu">data.frame</span>(<span class="at">theta =</span> theta_grid, <span class="at">truth =</span> pi_true, <span class="at">estimate =</span> fit4<span class="sc">$</span>pi),</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>             <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;候補値&quot;</span>, <span class="st">&quot;真の割合&quot;</span>, <span class="st">&quot;4機会から推定した割合&quot;</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <thead>
@@ -2819,26 +2916,27 @@ M(\pi;H_i)=\sum_{k=1}^3\pi_k L(\vartheta_k;H_i),
 </table>
 </div>
 </div>
-<p>ここで未知の母集団パラメータは割合だけだ。真の候補値と共通係数が分かっているという簡略化のもとで推定している。真値との差には、400人を抽選した偶然と、各人の4回の選択の偶然が含まれる。</p>
+<p>結果の <code>fit4$pi</code> が <span class="math inline">\(\widehat\pi\)</span>、<code>fit4$loglik</code> が <span class="math inline">\(\ell(\widehat\pi;\mathcal H)\)</span>、<code>fit4$weights[i, k]</code> が推定した割合を使った事後確率 <span class="math inline">\(w_{ik}(\widehat\pi;H_i)\)</span> である。最後の値を本人の好みの推測に使うのが、次節の経験ベイズである。</p>
+<p>ここで未知の母集団パラメータは割合だけだ。真の候補値と共通係数が分かっているという簡略化のもとで推定している。表の <code>pi_true</code> は結果との比較に使うだけで、<code>fit_known_pi()</code> には渡していない。真値との差には、400人を抽選した偶然と、各人の4回の選択の偶然が含まれる。</p>
 </section>
 <section id="推定した分布で本人を更新する経験ベイズ" class="level3">
 <h3 class="anchored" data-anchor-id="推定した分布で本人を更新する経験ベイズ">3.3 推定した分布で本人を更新する：経験ベイズ</h3>
-<p>今度は、推定した <span class="math inline">\(\widehat\pi\)</span> を事前確率として使う。</p>
+<p>推定した <span class="math inline">\(\widehat\pi\)</span> を事前確率として使い、ベイズ更新の式に代入することを考える。</p>
 <p><span class="math display">\[
-\widehat w_{ik}=
+\widehat w_{ik}\equiv
 \frac{\widehat\pi_k L(\vartheta_k;H_i)}
 {\sum_\ell\widehat\pi_\ell L(\vartheta_\ell;H_i)}.
 \]</span></p>
 <p>母集団分布をデータから推定し、それを本人の履歴と組み合わせる手続きが<strong>経験ベイズ（empirical Bayes）</strong>である。<code>fit4$weights</code> にこの計算結果が入っている。前節のベイズ更新と式の形は同じだが、今回は母集団割合が推定値になっている。その推定誤差は、この重みだけでは全面的には反映していない。</p>
 <div class="cell" data-layout-align="center">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>show_ids <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>)</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>w_show <span class="ot">&lt;-</span> <span class="fu">rbind</span>(fit4<span class="sc">$</span>pi, fit4<span class="sc">$</span>weights[show_ids, ])</span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>weights_plot <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">information =</span> <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;母集団&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;顧客&quot;</span>, show_ids)), <span class="at">each =</span> <span class="dv">3</span>),</span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>                       <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;母集団&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;顧客&quot;</span>, show_ids))),</span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">type =</span> <span class="fu">factor</span>(<span class="fu">rep</span>(theta_grid, <span class="dv">4</span>)), <span class="at">weight =</span> <span class="fu">as.vector</span>(<span class="fu">t</span>(w_show)))</span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(weights_plot, <span class="fu">aes</span>(information, weight, <span class="at">fill =</span> type)) <span class="sc">+</span></span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;タイプの確率&quot;</span>, <span class="at">fill =</span> <span class="st">&quot;甘さの好み&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>show_ids <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>w_show <span class="ot">&lt;-</span> <span class="fu">rbind</span>(fit4<span class="sc">$</span>pi, fit4<span class="sc">$</span>weights[show_ids, ])</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>weights_plot <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">information =</span> <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;母集団&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;顧客&quot;</span>, show_ids)), <span class="at">each =</span> <span class="dv">3</span>),</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>                       <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;母集団&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;顧客&quot;</span>, show_ids))),</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">type =</span> <span class="fu">factor</span>(<span class="fu">rep</span>(theta_grid, <span class="dv">4</span>)), <span class="at">weight =</span> <span class="fu">as.vector</span>(<span class="fu">t</span>(w_show)))</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(weights_plot, <span class="fu">aes</span>(information, weight, <span class="at">fill =</span> type)) <span class="sc">+</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;タイプの確率&quot;</span>, <span class="at">fill =</span> <span class="st">&quot;甘さの好み&quot;</span>)</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -2848,6 +2946,67 @@ M(\pi;H_i)=\sum_{k=1}^3\pi_k L(\vartheta_k;H_i),
 </div>
 </div>
 </div>
+<p>この図に出てくる顧客1〜3について、データ生成時に割り当てた<strong>本当のタイプ（正解）</strong>も確認しよう。次の表は、その値と、図の3色に対応する事後確率を並べたものである。</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>type_labels <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;苦味好き&quot;</span>, <span class="st">&quot;中間&quot;</span>, <span class="st">&quot;甘さ好き&quot;</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>truth_check <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">customer =</span> show_ids,</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_theta =</span> theta_truth[show_ids],</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_type =</span> type_labels[type_true[show_ids]],</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  fit4<span class="sc">$</span>weights[show_ids, ])</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(truth_check, <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;顧客&quot;</span>, <span class="st">&quot;真の θ&quot;</span>, <span class="st">&quot;本当のタイプ&quot;</span>,</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>                           <span class="st">&quot;苦味好きの確率&quot;</span>, <span class="st">&quot;中間の確率&quot;</span>, <span class="st">&quot;甘さ好きの確率&quot;</span>))</span></code></pre></div><button title="コピー" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 10%">
+<col style="width: 19%">
+<col style="width: 22%">
+<col style="width: 16%">
+<col style="width: 22%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: right;">顧客</th>
+<th style="text-align: right;">真の θ</th>
+<th style="text-align: left;">本当のタイプ</th>
+<th style="text-align: right;">苦味好きの確率</th>
+<th style="text-align: right;">中間の確率</th>
+<th style="text-align: right;">甘さ好きの確率</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1.5</td>
+<td style="text-align: left;">甘さ好き</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.062</td>
+<td style="text-align: right;">0.938</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">中間</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.570</td>
+<td style="text-align: right;">0.428</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">中間</td>
+<td style="text-align: right;">0.503</td>
+<td style="text-align: right;">0.496</td>
+<td style="text-align: right;">0.001</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>「正解」が分かるのは、今回は自分でタイプを抽選してデータを作ったからである。この答え合わせでは生成時に保存した <code>theta_truth</code> と <code>type_true</code> を参照しているが、母集団割合や事後確率の推定には渡していない。4回の履歴を使っても、本当のタイプの確率が1になるとは限らない。表の正解と事後確率を比べ、どの顧客についてタイプを絞り込めているかを確認しよう。</p>
 </section>
 <section id="一人ずつ推定すればよいのではないか" class="level3">
 <h3 class="anchored" data-anchor-id="一人ずつ推定すればよいのではないか">3.4 一人ずつ推定すればよいのではないか</h3>
