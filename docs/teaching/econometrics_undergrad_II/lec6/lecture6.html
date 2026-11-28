@@ -4796,13 +4796,35 @@ v_i^{(r)}&amp;=\operatorname{Var}_r(\theta_i\mid H_i)
 </section>
 <section id="mステップ母集団の平均と分散を集計式で更新する" class="level3">
 <h3 class="anchored" data-anchor-id="mステップ母集団の平均と分散を集計式で更新する">5.4 Mステップ：母集団の平均と分散を集計式で更新する</h3>
-<p>次に、Eステップで得た各人の分布を固定して、完全データ対数尤度の期待値を最大化する。<span class="math inline">\(\mu,\tau^2\)</span> が入るのは正規密度の部分だけなので、</p>
+<p>次に、Eステップで得た各人の事後分布 <span class="math inline">\(f_i^{(r)}\)</span> を固定し、母集団パラメータ <span class="math inline">\(\mu,\tau^2\)</span> を動かす。最大化する関数 <span class="math inline">\(Q\)</span> は、第4節と同じく、<strong>完全データ対数尤度を、見えていない好みについて事後分布で平均したもの</strong>である。その式を順に作ろう。</p>
+<p><strong>まず、好み <span class="math inline">\(\theta_i\)</span> まで観測できた場合を考える。</strong> 一人分の完全データは、履歴 <span class="math inline">\(H_i\)</span> と好み <span class="math inline">\(\theta_i\)</span> の組である。その尤度への寄与は、好みの母集団密度 <span class="math inline">\(f_N(\theta_i;\mu,\tau^2)\)</span> と、その好みのもとで履歴が起こる確率 <span class="math inline">\(L(\theta_i;H_i)\)</span> の積になる。対数を取り、正規密度の式を代入すると、</p>
+<p><span class="math display">\[
+\begin{aligned}
+\log\{L(\theta_i;H_i)f_N(\theta_i;\mu,\tau^2)\}
+&amp;=\log L(\theta_i;H_i)+\log f_N(\theta_i;\mu,\tau^2)\\
+&amp;=\log L(\theta_i;H_i)-\frac12\log(2\pi)
+-\frac12\log\tau^2-\frac{(\theta_i-\mu)^2}{2\tau^2}.
+\end{aligned}
+\]</span></p>
+<p>これを全員分足すと、完全データ対数尤度になる。<span class="math inline">\(\theta_i\)</span> を固定すれば、最初の <span class="math inline">\(\log L(\theta_i;H_i)\)</span> に <span class="math inline">\(\mu,\tau^2\)</span> は入らない。この二つが入るのは、正規密度から出てきた最後の二項である。</p>
+<p><strong>次に、観測できない <span class="math inline">\(\theta_i\)</span> について平均する。</strong> 一つの好みの値で埋めるのではなく、5.3で求めた <span class="math inline">\(f_i^{(r)}\)</span> を使って、上の対数を平均する。これが <span class="math inline">\(Q\)</span> の定義である。</p>
+<p><span class="math display">\[
+\begin{aligned}
+Q(\mu,\tau^2\mid\mu^{(r)},(\tau^2)^{(r)})
+&amp;=\sum_i E_r[\log L(\theta_i;H_i)+\log f_N(\theta_i;\mu,\tau^2)\mid H_i]\\
+&amp;=\sum_i\int\{\log L(\theta;H_i)+\log f_N(\theta;\mu,\tau^2)\}
+f_i^{(r)}(\theta)\,d\theta.
+\end{aligned}
+\]</span></p>
+<p>ここで、平均するための分布 <span class="math inline">\(f_i^{(r)}\)</span> は更新前のパラメータで作ったまま固定する。一方、対数の中の正規密度には、これから比較する候補 <span class="math inline">\(\mu,\tau^2\)</span> を入れる。<span class="math inline">\(Q\)</span> の縦棒の右側は分布を固定するための現在値、左側はMステップで動かす候補値である。</p>
+<p>先ほど展開した式の各項を平均しよう。<span class="math inline">\(\log\tau^2\)</span> は <span class="math inline">\(\theta_i\)</span> によらないので平均しても変わらず、全員分足すと <span class="math inline">\(-\frac N2\log\tau^2\)</span> になる。二乗偏差 <span class="math inline">\((\theta_i-\mu)^2\)</span> は好みによって変わるので、その期待値を取る。残りをまとめると、</p>
 <p><span class="math display">\[
 Q(\mu,\tau^2\mid\mu^{(r)},(\tau^2)^{(r)})
 =-\frac{N}{2}\log\tau^2
 -\frac{1}{2\tau^2}\sum_i E_r[(\theta_i-\mu)^2\mid H_i]+C_r
 \]</span></p>
-<p>となる。<span class="math inline">\(C_r\)</span> は <span class="math inline">\(\mu,\tau^2\)</span> に依存しない項で、各人のlogit対数尤度の期待値も含む。二乗偏差の期待値を</p>
+<p>となる。ここで <span class="math inline">\(C_r=\sum_i E_r[\log L(\theta_i;H_i)\mid H_i]-\frac N2\log(2\pi)\)</span> は、候補の <span class="math inline">\(\mu,\tau^2\)</span> に依存しない項である。履歴の尤度がこの定数に入るのは、平均する事後分布を固定しているためだ。履歴の情報はその事後分布にすでに反映されており、Mステップでも二乗偏差の期待値を通じて更新に使われる。</p>
+<p>あとは、Eステップで計算した平均と分散を使えばよい。二乗偏差の期待値を</p>
 <p><span class="math display">\[
 E_r[(\theta_i-\mu)^2\mid H_i]
 =v_i^{(r)}+(m_i^{(r)}-\mu)^2
